@@ -1,0 +1,11 @@
+# Local settings (contains permissions, personal preferences)
+.claude/settings.local.json
+.claude/*.local.md
+
+# Project directories (each has own repo)
+article-intake/
+Lead-Data-Enrichment-Engine/
+ralph-lab/
+
+# OS files
+.DS_Store

@@ -1,0 +1,23 @@
+{
+  "brand-guidelines": {
+    "triggers": {
+      "keywords": ["button", "component", "style", "color", "ui", "ux", "design", "brand", "dashboard", "form", "modal", "card", "input", "layout", "theme"],
+      "pathPatterns": ["**/components/**", "**/ui/**", "**/*.css", "**/*.scss"],
+      "intentPatterns": ["create.*component", "add.*button", "style.*", "design.*"]
+    }
+  },
+  "supabase-patterns": {
+    "triggers": {
+      "keywords": ["database", "table", "column", "migration", "supabase", "sql", "schema", "rls", "policy", "index", "query"],
+      "pathPatterns": ["**/supabase/**", "**/migrations/**", "**/db/**"],
+      "intentPatterns": ["add.*column", "create.*table", "write.*migration", "database.*"]
+    }
+  },
+  "nextjs-patterns": {
+    "triggers": {
+      "keywords": ["api", "route", "page", "server", "client", "nextjs", "app router", "fetch", "handler", "endpoint"],
+      "pathPatterns": ["**/app/api/**", "**/app/**/page.tsx", "**/route.ts"],
+      "intentPatterns": ["create.*api", "add.*endpoint", "new.*route", "create.*page"]
+    }
+  }
+}

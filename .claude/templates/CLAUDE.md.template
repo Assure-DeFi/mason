@@ -1,0 +1,147 @@
+# Claude Project Instructions - [PROJECT_NAME]
+
+[One-line description of what this project does]
+
+## Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Run linter
+npm run lint
+
+# Run TypeScript check
+npx tsc --noEmit
+
+# Run tests
+npm test
+```
+
+## Project Stack
+
+- **Framework**: Next.js 14+ (App Router)
+- **Language**: TypeScript (strict mode)
+- **Database**: Supabase (PostgreSQL)
+- **Auth**: NextAuth.js
+- **UI**: shadcn/ui + Tailwind CSS
+- **State**: [React Query / SWR / Zustand]
+- **Testing**: [Vitest / Jest] + Testing Library
+
+## Directory Structure
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── api/               # API routes
+│   └── (routes)/          # Page routes
+├── components/            # React components
+│   ├── ui/               # shadcn primitives
+│   └── [feature]/        # Feature components
+├── lib/
+│   ├── db/               # Database queries
+│   ├── auth.ts           # Auth config
+│   └── utils.ts          # Utilities
+├── types/                 # TypeScript types
+└── __tests__/            # Test files (or co-located)
+```
+
+## Key Directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `src/app/api/` | API endpoints |
+| `src/components/ui/` | Reusable UI primitives |
+| `src/lib/db/` | Database queries |
+| `supabase/migrations/` | Database migrations |
+
+## Brand Guidelines
+
+Before any UI work:
+1. Read `/brand/BRAND.md` if available
+2. Use `/brand/tokens/design-tokens.json` if available
+3. Respect `/brand/rules/DO-NOT.md` if available
+
+**Default Brand Colors** (override with project-specific if available):
+- Navy: #0A0724 (background)
+- Gold: #E2D243 (accent)
+- Light Grey: #F2F2F2 (secondary text)
+- White: #FFFFFF (primary text)
+- Black: #000000 (surfaces)
+
+## Code Quality Standards
+
+- No `any` types - use `unknown` if type is truly unknown
+- Handle loading, error, and empty states in components
+- Use early returns over nested conditionals
+- Maximum 2 levels of nesting
+- Descriptive variable names with proper prefixes for booleans
+
+## Security Requirements
+
+1. Authentication first - check session before data access
+2. Validate input - never trust client data
+3. Parameterize queries - no SQL injection
+4. Escape output - no XSS vulnerabilities
+5. No secrets in code - use environment variables
+
+## Environment Variables
+
+Required in `.env.local`:
+```
+NEXTAUTH_SECRET=
+NEXTAUTH_URL=http://localhost:3000
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_ANON_KEY=
+```
+
+## Git Workflow
+
+- Branch from main: `work/<feature-name>` or `fix/<bug-name>`
+- Commit frequently with clear messages
+- Never force push
+- Create PRs for review
+- Always include Co-Authored-By for AI collaboration
+
+## Definition of Done
+
+- [ ] TypeScript compiles (`npx tsc --noEmit`)
+- [ ] Lint passes (`npm run lint`)
+- [ ] Build succeeds (`npm run build`)
+- [ ] Tests pass (`npm test`)
+- [ ] Brand guidelines followed
+- [ ] PR created and reviewed
+
+## Skills Available
+
+Load these for domain knowledge (or they'll be auto-suggested):
+- `brand-guidelines` - UI/UX rules, colors, typography
+- `supabase-patterns` - Database migrations, RLS, queries
+- `nextjs-patterns` - API routes, pages, components
+- `testing-patterns` - Unit tests, mocks, E2E tests
+
+## Commands Available
+
+- `/commit` - Create a well-structured git commit
+- `/pr-review` - Review pull request for quality/security
+- `/ralph` - Start/continue Ralph Loop execution
+
+## Automated Hooks
+
+The following run automatically:
+- **Branch protection** - Blocks edits on main/master
+- **Auto-format** - Prettier on file save
+- **Type-check** - TypeScript verification
+- **Lint-check** - ESLint verification
+- **Skill suggestions** - Recommends skills based on prompt
+
+## Project-Specific Notes
+
+[Add any project-specific conventions, gotchas, or important notes here]
