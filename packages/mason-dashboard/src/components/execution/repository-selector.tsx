@@ -1,22 +1,91 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ChevronDown, GitBranch, Settings } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ChevronDown, GitBranch, Settings, Check } from 'lucide-react';
 import Link from 'next/link';
 import type { GitHubRepository } from '@/types/auth';
+
+const STORAGE_KEY = 'mason-last-repository';
 
 interface RepositorySelectorProps {
   value: string | null;
   onChange: (repositoryId: string | null) => void;
+  /** Show compact "Using [repo]" format when single repo */
+  compact?: boolean;
+}
+
+/**
+ * Get last used repository from localStorage
+ */
+function getLastUsedRepository(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save last used repository to localStorage
+ */
+function saveLastUsedRepository(repoId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, repoId);
+  } catch {
+    // Ignore storage errors
+  }
 }
 
 export function RepositorySelector({
   value,
   onChange,
+  compact = false,
 }: RepositorySelectorProps) {
   const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () =>
+        document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
+  const handleChange = useCallback(
+    (repoId: string) => {
+      onChange(repoId);
+      saveLastUsedRepository(repoId);
+      setIsOpen(false);
+    },
+    [onChange],
+  );
 
   useEffect(() => {
     fetchRepositories();
@@ -29,9 +98,22 @@ export function RepositorySelector({
         const data = await response.json();
         setRepositories(data.repositories);
 
-        // Auto-select first repo if none selected
+        // Smart auto-selection priority:
+        // 1. If value already set, keep it
+        // 2. Try last used repository from localStorage
+        // 3. Fall back to first repository
         if (!value && data.repositories.length > 0) {
-          onChange(data.repositories[0].id);
+          const lastUsed = getLastUsedRepository();
+          const lastUsedRepo = lastUsed
+            ? data.repositories.find((r: GitHubRepository) => r.id === lastUsed)
+            : null;
+
+          if (lastUsedRepo) {
+            onChange(lastUsedRepo.id);
+          } else {
+            onChange(data.repositories[0].id);
+            saveLastUsedRepository(data.repositories[0].id);
+          }
         }
       }
     } catch (error) {
@@ -59,35 +141,55 @@ export function RepositorySelector({
     );
   }
 
+  // Compact mode for single repository - just show "Using [repo]" with optional change
+  if (compact && repositories.length === 1 && selectedRepo) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-gray-400">
+        <GitBranch className="h-4 w-4" />
+        <span>Using</span>
+        <span className="text-white font-medium">
+          {selectedRepo.github_full_name}
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 rounded-md border border-gray-700 px-3 py-2 text-sm text-white hover:border-gray-600"
+        className="flex items-center gap-2 rounded-md border border-gray-700 px-3 py-2 text-sm text-white hover:border-gray-600 focus:outline-none focus:ring-2 focus:ring-gold/50"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
       >
         <GitBranch className="h-4 w-4 text-gray-400" />
         <span className="max-w-[150px] truncate">
           {selectedRepo?.github_full_name ?? 'Select repository'}
         </span>
-        <ChevronDown className="h-4 w-4 text-gray-400" />
+        <ChevronDown
+          className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-50 mt-1 w-64 rounded-md bg-black shadow-lg ring-1 ring-gray-800">
+        <div
+          className="absolute right-0 z-50 mt-1 w-64 rounded-md bg-black shadow-lg ring-1 ring-gray-800"
+          role="listbox"
+        >
           <div className="py-1">
             {repositories.map((repo) => (
               <button
                 key={repo.id}
-                onClick={() => {
-                  onChange(repo.id);
-                  setIsOpen(false);
-                }}
+                onClick={() => handleChange(repo.id)}
                 className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-900 ${
-                  repo.id === value ? 'text-gold' : 'text-white'
+                  repo.id === value ? 'text-gold bg-gold/5' : 'text-white'
                 }`}
+                role="option"
+                aria-selected={repo.id === value}
               >
                 <GitBranch className="h-4 w-4 text-gray-400" />
-                <span className="truncate">{repo.github_full_name}</span>
+                <span className="flex-1 truncate">{repo.github_full_name}</span>
+                {repo.id === value && <Check className="h-4 w-4 text-gold" />}
               </button>
             ))}
 

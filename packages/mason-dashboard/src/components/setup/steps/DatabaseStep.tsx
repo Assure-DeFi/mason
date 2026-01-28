@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   ExternalLink,
   Check,
@@ -18,6 +18,7 @@ import {
   checkTablesExist,
   saveMasonConfig,
 } from '@/lib/supabase/user-client';
+import { HelpTooltip } from '@/components/ui/HelpTooltip';
 
 interface ConnectionState {
   status: 'idle' | 'testing' | 'success' | 'error';
@@ -30,8 +31,61 @@ interface MigrationState {
   missingTables?: string[];
 }
 
+interface ValidationState {
+  isValid: boolean;
+  message?: string;
+}
+
+// Validation functions
+function validateSupabaseUrl(url: string): ValidationState {
+  if (!url) return { isValid: false };
+
+  // Check for basic URL format
+  const urlPattern = /^https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/?$/;
+  if (!urlPattern.test(url)) {
+    return {
+      isValid: false,
+      message: 'Should be https://your-project.supabase.co',
+    };
+  }
+
+  return { isValid: true };
+}
+
+function validateJwtKey(key: string): ValidationState {
+  if (!key) return { isValid: false };
+
+  // JWT keys start with eyJ
+  if (!key.startsWith('eyJ')) {
+    return {
+      isValid: false,
+      message: 'Should start with "eyJ" (JWT format)',
+    };
+  }
+
+  // Basic JWT structure check (header.payload.signature)
+  const parts = key.split('.');
+  if (parts.length !== 3) {
+    return {
+      isValid: false,
+      message: 'Invalid JWT format (should have 3 parts)',
+    };
+  }
+
+  // Try to decode base64 to verify it's valid
+  try {
+    atob(parts[0].replace(/-/g, '+').replace(/_/g, '/'));
+    return { isValid: true };
+  } catch {
+    return {
+      isValid: false,
+      message: 'Invalid base64 encoding',
+    };
+  }
+}
+
 export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
-  const { config, saveConfig, refresh } = useUserDatabase();
+  const { config, refresh } = useUserDatabase();
 
   const [projectUrl, setProjectUrl] = useState(config?.supabaseUrl || '');
   const [anonKey, setAnonKey] = useState(config?.supabaseAnonKey || '');
@@ -46,6 +100,48 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
   const [migration, setMigration] = useState<MigrationState>({
     status: 'idle',
   });
+
+  // Real-time validation with debounce
+  const [urlValidation, setUrlValidation] = useState<ValidationState>({
+    isValid: false,
+  });
+  const [anonKeyValidation, setAnonKeyValidation] = useState<ValidationState>({
+    isValid: false,
+  });
+  const [serviceKeyValidation, setServiceKeyValidation] =
+    useState<ValidationState>({ isValid: false });
+
+  // Debounced URL validation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setUrlValidation(validateSupabaseUrl(projectUrl));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [projectUrl]);
+
+  // Debounced anon key validation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAnonKeyValidation(validateJwtKey(anonKey));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [anonKey]);
+
+  // Debounced service key validation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (serviceKey) {
+        setServiceKeyValidation(validateJwtKey(serviceKey));
+      } else {
+        setServiceKeyValidation({ isValid: false });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [serviceKey]);
+
+  const canTestConnection = useMemo(() => {
+    return urlValidation.isValid && anonKeyValidation.isValid;
+  }, [urlValidation.isValid, anonKeyValidation.isValid]);
 
   const handleTestConnection = async () => {
     if (!projectUrl || !anonKey) {
@@ -131,6 +227,27 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
     connection.status === 'success' &&
     (migration.status === 'success' || migration.status === 'idle');
 
+  // Render validation indicator
+  const ValidationIndicator = ({
+    validation,
+    value,
+  }: {
+    validation: ValidationState;
+    value: string;
+  }) => {
+    if (!value) return null;
+
+    return (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        {validation.isValid ? (
+          <Check className="h-4 w-4 text-green-500" />
+        ) : (
+          <X className="h-4 w-4 text-red-500" />
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -198,54 +315,128 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
 
       <div className="space-y-4">
         <div>
-          <label
-            htmlFor="projectUrl"
-            className="mb-2 block text-sm font-medium text-white"
-          >
-            Project URL
-          </label>
-          <input
-            id="projectUrl"
-            type="url"
-            value={projectUrl}
-            onChange={(e) => setProjectUrl(e.target.value)}
-            placeholder="https://xxx.supabase.co"
-            className="w-full rounded-md border border-gray-700 bg-black px-4 py-2 text-white placeholder-gray-500 focus:border-gold focus:outline-none"
-          />
+          <div className="mb-2 flex items-center gap-2">
+            <label
+              htmlFor="projectUrl"
+              className="block text-sm font-medium text-white"
+            >
+              Project URL
+            </label>
+            <HelpTooltip
+              title="Project URL"
+              content="Found in Supabase Dashboard > Project Settings > API > Project URL. Looks like https://xxx.supabase.co"
+              position="right"
+            />
+          </div>
+          <div className="relative">
+            <input
+              id="projectUrl"
+              type="url"
+              value={projectUrl}
+              onChange={(e) => setProjectUrl(e.target.value)}
+              placeholder="https://xxx.supabase.co"
+              className={`w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
+                projectUrl
+                  ? urlValidation.isValid
+                    ? 'border-green-600 focus:border-green-500'
+                    : 'border-red-600 focus:border-red-500'
+                  : 'border-gray-700 focus:border-gold'
+              }`}
+            />
+            <ValidationIndicator
+              validation={urlValidation}
+              value={projectUrl}
+            />
+          </div>
+          {projectUrl && !urlValidation.isValid && urlValidation.message && (
+            <p className="mt-1 text-xs text-red-400">{urlValidation.message}</p>
+          )}
         </div>
 
         <div>
-          <label
-            htmlFor="anonKey"
-            className="mb-2 block text-sm font-medium text-white"
-          >
-            Anon Key (public)
-          </label>
-          <input
-            id="anonKey"
-            type="password"
-            value={anonKey}
-            onChange={(e) => setAnonKey(e.target.value)}
-            placeholder="eyJ..."
-            className="w-full rounded-md border border-gray-700 bg-black px-4 py-2 text-white placeholder-gray-500 focus:border-gold focus:outline-none"
-          />
+          <div className="mb-2 flex items-center gap-2">
+            <label
+              htmlFor="anonKey"
+              className="block text-sm font-medium text-white"
+            >
+              Anon Key (public)
+            </label>
+            <HelpTooltip
+              title="Anon Key"
+              content="The public anonymous key from Supabase. Found in Project Settings > API > anon public. Safe to expose in client-side code."
+              position="right"
+            />
+          </div>
+          <div className="relative">
+            <input
+              id="anonKey"
+              type="password"
+              value={anonKey}
+              onChange={(e) => setAnonKey(e.target.value)}
+              placeholder="eyJ..."
+              className={`w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
+                anonKey
+                  ? anonKeyValidation.isValid
+                    ? 'border-green-600 focus:border-green-500'
+                    : 'border-red-600 focus:border-red-500'
+                  : 'border-gray-700 focus:border-gold'
+              }`}
+            />
+            <ValidationIndicator
+              validation={anonKeyValidation}
+              value={anonKey}
+            />
+          </div>
+          {anonKey &&
+            !anonKeyValidation.isValid &&
+            anonKeyValidation.message && (
+              <p className="mt-1 text-xs text-red-400">
+                {anonKeyValidation.message}
+              </p>
+            )}
         </div>
 
         <div>
-          <label
-            htmlFor="serviceKey"
-            className="mb-2 block text-sm font-medium text-white"
-          >
-            Service Role Key (secret, for migrations)
-          </label>
-          <input
-            id="serviceKey"
-            type="password"
-            value={serviceKey}
-            onChange={(e) => setServiceKey(e.target.value)}
-            placeholder="eyJ..."
-            className="w-full rounded-md border border-gray-700 bg-black px-4 py-2 text-white placeholder-gray-500 focus:border-gold focus:outline-none"
-          />
+          <div className="mb-2 flex items-center gap-2">
+            <label
+              htmlFor="serviceKey"
+              className="block text-sm font-medium text-white"
+            >
+              Service Role Key (secret, for migrations)
+            </label>
+            <HelpTooltip
+              title="Service Role Key"
+              content="The secret service key from Supabase. Found in Project Settings > API > service_role secret. Required only for initial table setup. Keep this secret!"
+              position="right"
+            />
+          </div>
+          <div className="relative">
+            <input
+              id="serviceKey"
+              type="password"
+              value={serviceKey}
+              onChange={(e) => setServiceKey(e.target.value)}
+              placeholder="eyJ..."
+              className={`w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
+                serviceKey
+                  ? serviceKeyValidation.isValid
+                    ? 'border-green-600 focus:border-green-500'
+                    : 'border-red-600 focus:border-red-500'
+                  : 'border-gray-700 focus:border-gold'
+              }`}
+            />
+            <ValidationIndicator
+              validation={serviceKeyValidation}
+              value={serviceKey}
+            />
+          </div>
+          {serviceKey &&
+            !serviceKeyValidation.isValid &&
+            serviceKeyValidation.message && (
+              <p className="mt-1 text-xs text-red-400">
+                {serviceKeyValidation.message}
+              </p>
+            )}
           <p className="mt-1 text-xs text-gray-500">
             Used only for initial table setup. Can be cleared after setup.
           </p>
@@ -255,7 +446,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
       <div className="flex gap-3">
         <button
           onClick={handleTestConnection}
-          disabled={connection.status === 'testing' || !projectUrl || !anonKey}
+          disabled={connection.status === 'testing' || !canTestConnection}
           className="flex flex-1 items-center justify-center gap-2 rounded-md border border-gray-700 bg-gray-900 px-4 py-2 font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {connection.status === 'testing' ? (

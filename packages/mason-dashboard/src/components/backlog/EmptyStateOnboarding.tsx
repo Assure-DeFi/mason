@@ -1,0 +1,138 @@
+'use client';
+
+import { useState } from 'react';
+import { Sparkles, Terminal, ArrowRight, Check, Copy } from 'lucide-react';
+import { CopyButton } from '@/components/ui/CopyButton';
+
+interface EmptyStateOnboardingProps {
+  onRefresh?: () => void;
+}
+
+const STEPS = [
+  {
+    number: 1,
+    title: 'Open Claude Code in your project',
+    description: 'Navigate to your project directory and start Claude Code',
+    command: null,
+  },
+  {
+    number: 2,
+    title: 'Run the PM review command',
+    description: 'This analyzes your codebase and generates improvement ideas',
+    command: '/pm-review',
+  },
+  {
+    number: 3,
+    title: 'Come back here to see results',
+    description: 'Improvements will appear in this dashboard automatically',
+    command: null,
+  },
+];
+
+export function EmptyStateOnboarding({ onRefresh }: EmptyStateOnboardingProps) {
+  const [copiedStep, setCopiedStep] = useState<number | null>(null);
+
+  const handleCopy = async (command: string, stepNumber: number) => {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopiedStep(stepNumber);
+      setTimeout(() => setCopiedStep(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-4">
+      {/* Icon */}
+      <div className="mb-6 rounded-2xl bg-gold/10 p-4">
+        <Sparkles className="h-12 w-12 text-gold" />
+      </div>
+
+      {/* Heading */}
+      <h2 className="mb-2 text-xl font-semibold text-white text-center">
+        Ready to find improvements in your codebase?
+      </h2>
+      <p className="mb-8 text-gray-400 text-center max-w-md">
+        Run your first PM review to automatically discover and prioritize
+        improvement opportunities.
+      </p>
+
+      {/* Steps */}
+      <div className="w-full max-w-lg space-y-4 mb-8">
+        {STEPS.map((step, index) => (
+          <div
+            key={step.number}
+            className="flex gap-4 p-4 rounded-lg border border-gray-800 bg-black/30 hover:border-gray-700 transition-colors"
+          >
+            {/* Step Number */}
+            <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-gold/20 text-gold font-medium text-sm">
+              {step.number}
+            </div>
+
+            {/* Step Content */}
+            <div className="flex-1 min-w-0">
+              <h3 className="font-medium text-white mb-1">{step.title}</h3>
+              <p className="text-sm text-gray-500 mb-2">{step.description}</p>
+
+              {/* Command if available */}
+              {step.command && (
+                <div className="flex items-center gap-2 mt-2">
+                  <code className="flex-1 px-3 py-2 rounded bg-black font-mono text-sm text-gold border border-gray-800">
+                    {step.command}
+                  </code>
+                  <button
+                    onClick={() => handleCopy(step.command!, step.number)}
+                    className="flex-shrink-0 p-2 rounded border border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
+                  >
+                    {copiedStep === step.number ? (
+                      <Check className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Arrow for flow indication */}
+            {index < STEPS.length - 1 && (
+              <div className="hidden sm:flex items-center">
+                <ArrowRight className="w-4 h-4 text-gray-600" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Quick Start Hint */}
+      <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-gold/5 border border-gold/20">
+        <Terminal className="w-4 h-4 text-gold" />
+        <span className="text-sm text-gray-300">
+          Quick start: Copy{' '}
+          <code className="px-1 rounded bg-black text-gold">/pm-review</code>{' '}
+          and paste in Claude Code
+        </span>
+        <CopyButton
+          text="/pm-review"
+          size="sm"
+          variant="ghost"
+          showToast
+          toastMessage="Command copied! Paste in Claude Code"
+        />
+      </div>
+
+      {/* Refresh Button */}
+      {onRefresh && (
+        <button
+          onClick={onRefresh}
+          className="mt-6 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+        >
+          Already ran a review? Click to refresh
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default EmptyStateOnboarding;

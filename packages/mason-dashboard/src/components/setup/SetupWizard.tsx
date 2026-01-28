@@ -7,6 +7,7 @@ import { DatabaseStep } from './steps/DatabaseStep';
 import { GitHubStep } from './steps/GitHubStep';
 import { RepoStep } from './steps/RepoStep';
 import { CompleteStep } from './steps/CompleteStep';
+import { PreSetupChecklist } from './PreSetupChecklist';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 
 const WIZARD_STEPS = [
@@ -24,6 +25,7 @@ export interface WizardStepProps {
 
 export function SetupWizard() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [showChecklist, setShowChecklist] = useState(true);
   const { saveConfig, config } = useUserDatabase();
 
   const handleNext = useCallback(() => {
@@ -52,36 +54,43 @@ export function SetupWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-navy px-4 py-8">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Mason Setup</h1>
-          <p className="mt-1 text-gray-400">
-            Configure Mason for your private codebase analysis
-          </p>
-        </div>
+    <>
+      {/* Pre-Setup Checklist Modal */}
+      {showChecklist && (
+        <PreSetupChecklist onReady={() => setShowChecklist(false)} />
+      )}
 
-        <div className="mb-12">
-          <WizardProgress steps={WIZARD_STEPS} currentStep={currentStep} />
-        </div>
+      <div className="min-h-screen bg-navy px-4 py-8">
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-white">Mason Setup</h1>
+            <p className="mt-1 text-gray-400">
+              Configure Mason for your private codebase analysis
+            </p>
+          </div>
 
-        <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
-          {renderStep()}
-        </div>
+          <div className="mb-12">
+            <WizardProgress steps={WIZARD_STEPS} currentStep={currentStep} />
+          </div>
 
-        <div className="mt-8 text-center text-sm text-gray-500">
-          Powered by{' '}
-          <a
-            href="https://assuredefi.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gold hover:underline"
-          >
-            Assure DeFi
-          </a>
+          <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
+            {renderStep()}
+          </div>
+
+          <div className="mt-8 text-center text-sm text-gray-500">
+            Powered by{' '}
+            <a
+              href="https://assuredefi.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gold hover:underline"
+            >
+              Assure DeFi
+            </a>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

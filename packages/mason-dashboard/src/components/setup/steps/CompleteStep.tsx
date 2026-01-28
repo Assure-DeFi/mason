@@ -1,20 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
   Key,
-  Copy,
-  Check,
   Terminal,
   AlertCircle,
   Loader2,
   ExternalLink,
+  Download,
+  Check,
 } from 'lucide-react';
 import type { WizardStepProps } from '../SetupWizard';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { saveMasonConfig, getMasonConfig } from '@/lib/supabase/user-client';
+import { CopyButton } from '@/components/ui/CopyButton';
 
 export function CompleteStep({ onBack }: WizardStepProps) {
   const router = useRouter();
@@ -23,8 +24,28 @@ export function CompleteStep({ onBack }: WizardStepProps) {
 
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoCopied, setAutoCopied] = useState(false);
+
+  const installCommand = `curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash`;
+
+  // Auto-copy install command when step mounts
+  useEffect(() => {
+    const autoCopyInstallCommand = async () => {
+      try {
+        await navigator.clipboard.writeText(installCommand);
+        setAutoCopied(true);
+        setTimeout(() => setAutoCopied(false), 3000);
+      } catch (err) {
+        // Clipboard might not be available, that's okay
+        console.debug('Auto-copy failed:', err);
+      }
+    };
+
+    // Small delay to ensure the step is visible
+    const timer = setTimeout(autoCopyInstallCommand, 500);
+    return () => clearTimeout(timer);
+  }, [installCommand]);
 
   const generateApiKey = async () => {
     if (!client || !session?.user) {
@@ -49,10 +70,9 @@ export function CompleteStep({ onBack }: WizardStepProps) {
       const keyBytes = new Uint8Array(24);
       crypto.getRandomValues(keyBytes);
       const keyBytesArray = Array.from(keyBytes);
-      const fullKey = `mason_${btoa(String.fromCharCode(...keyBytesArray)).replace(
-        /[+/=]/g,
-        (c) => (c === '+' ? '-' : c === '/' ? '_' : ''),
-      )}`;
+      const fullKey = `mason_${btoa(
+        String.fromCharCode(...keyBytesArray),
+      ).replace(/[+/=]/g, (c) => (c === '+' ? '-' : c === '/' ? '_' : ''))}`;
 
       const keyPrefix = fullKey.substring(0, 12);
       const encoder = new TextEncoder();
@@ -94,17 +114,41 @@ export function CompleteStep({ onBack }: WizardStepProps) {
     }
   };
 
-  const handleCopy = async (text: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // Generate config file content
+  const generateConfigContent = useCallback(() => {
+    const currentConfig = getMasonConfig();
+    if (!currentConfig || !apiKey) return null;
+
+    return JSON.stringify(
+      {
+        supabaseUrl: currentConfig.supabaseUrl,
+        supabaseAnonKey: currentConfig.supabaseAnonKey,
+        apiKey: apiKey,
+      },
+      null,
+      2,
+    );
+  }, [apiKey]);
+
+  // Download config file
+  const handleDownloadConfig = useCallback(() => {
+    const configContent = generateConfigContent();
+    if (!configContent) return;
+
+    const blob = new Blob([configContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mason.config.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [generateConfigContent]);
 
   const handleGoToDashboard = () => {
     router.push('/admin/backlog');
   };
-
-  const installCommand = `curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash`;
 
   return (
     <div className="space-y-6">
@@ -162,17 +206,27 @@ export function CompleteStep({ onBack }: WizardStepProps) {
               <code className="flex-1 break-all rounded-md bg-black p-3 font-mono text-sm text-white">
                 {apiKey}
               </code>
-              <button
-                onClick={() => handleCopy(apiKey)}
-                className="rounded-md bg-gray-800 p-3 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
-              >
-                {copied ? (
-                  <Check className="h-5 w-5 text-green-500" />
-                ) : (
-                  <Copy className="h-5 w-5" />
-                )}
-              </button>
+              <CopyButton
+                text={apiKey}
+                variant="default"
+                size="lg"
+                showToast
+                toastMessage="API key copied to clipboard"
+              />
             </div>
+
+            {/* Download Config Button */}
+            <button
+              onClick={handleDownloadConfig}
+              className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-600 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"
+            >
+              <Download className="h-4 w-4" />
+              Download Config File (mason.config.json)
+            </button>
+            <p className="text-xs text-gray-500 text-center">
+              Place this file in your project root to skip manual credential
+              entry
+            </p>
           </div>
         )}
 
@@ -188,10 +242,16 @@ export function CompleteStep({ onBack }: WizardStepProps) {
           <div className="rounded-lg bg-gold/20 p-2">
             <Terminal className="h-6 w-6 text-gold" />
           </div>
-          <div>
+          <div className="flex-1">
             <h3 className="font-semibold text-white">Install Mason CLI</h3>
             <p className="text-sm text-gray-400">Run this in your repository</p>
           </div>
+          {autoCopied && (
+            <div className="flex items-center gap-1 text-sm text-green-400">
+              <Check className="h-4 w-4" />
+              Auto-copied!
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -199,12 +259,13 @@ export function CompleteStep({ onBack }: WizardStepProps) {
             <code className="flex-1 overflow-x-auto rounded-md bg-black p-3 font-mono text-sm text-gray-300">
               {installCommand}
             </code>
-            <button
-              onClick={() => handleCopy(installCommand)}
-              className="flex-shrink-0 rounded-md bg-gray-800 p-3 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
-            >
-              <Copy className="h-5 w-5" />
-            </button>
+            <CopyButton
+              text={installCommand}
+              variant="default"
+              size="lg"
+              showToast
+              toastMessage="Install command copied"
+            />
           </div>
 
           <p className="text-sm text-gray-400">

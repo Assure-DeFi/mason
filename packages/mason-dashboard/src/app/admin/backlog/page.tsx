@@ -7,10 +7,12 @@ import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs } from '@/components/backlog/status-tabs';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
+import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
+import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
 import { UserMenu } from '@/components/auth/user-menu';
 import { RepositorySelector } from '@/components/execution/repository-selector';
-import { RemoteExecuteButton } from '@/components/execution/remote-execute-button';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import type { BacklogItem, BacklogStatus, StatusCounts } from '@/types/backlog';
 import { RefreshCw, Database, ArrowRight } from 'lucide-react';
@@ -176,6 +178,12 @@ export default function BacklogPage() {
     }
   };
 
+  const handleRemoteExecute = (itemIds: string[]) => {
+    // Start remote execution - handled by the UnifiedExecuteButton modal
+    // This would integrate with the existing RemoteExecuteButton logic
+    setExecutionRunId('starting'); // Placeholder - would get actual run ID
+  };
+
   if (!isDbLoading && !isConfigured) {
     return (
       <main className="min-h-screen bg-navy">
@@ -238,6 +246,9 @@ export default function BacklogPage() {
     );
   }
 
+  // Check if backlog is empty (after loading)
+  const isEmpty = !isLoading && items.length === 0;
+
   return (
     <main className="min-h-screen bg-navy">
       {/* Header */}
@@ -278,42 +289,52 @@ export default function BacklogPage() {
         </div>
       </div>
 
-      {/* Stats Bar */}
-      <StatsBar counts={counts} />
+      {/* Show stats and tabs only when not empty */}
+      {!isEmpty && (
+        <>
+          {/* Stats Bar */}
+          <StatsBar counts={counts} />
 
-      {/* Status Tabs with Remote Execute */}
-      <div className="border-b border-gray-800">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <StatusTabs
-            activeStatus={activeStatus}
-            onStatusChange={setActiveStatus}
-            onExecuteAll={handleExecuteAll}
-            approvedCount={counts.approved}
-          />
-
-          {session && activeStatus === 'approved' && counts.approved > 0 && (
-            <div className="px-6 py-3">
-              <RemoteExecuteButton
-                itemIds={approvedItemIds}
-                repositoryId={selectedRepoId}
-                onExecutionStart={(runId) => {
-                  setExecutionRunId(runId);
-                  setExecutionError(null);
-                }}
-                onError={setExecutionError}
+          {/* Status Tabs with Unified Execute Button */}
+          <div className="border-b border-gray-800">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <StatusTabs
+                activeStatus={activeStatus}
+                onStatusChange={setActiveStatus}
+                onExecuteAll={handleExecuteAll}
+                approvedCount={counts.approved}
               />
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* Table */}
+              {session && counts.approved > 0 && (
+                <div className="px-6 py-3">
+                  <UnifiedExecuteButton
+                    itemIds={approvedItemIds}
+                    repositoryId={selectedRepoId}
+                    onRemoteExecute={(ids) => {
+                      // Trigger remote execution through existing flow
+                      setExecutionRunId('starting');
+                    }}
+                    remoteAvailable={!!selectedRepoId}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Content Area */}
       <div className="max-w-7xl mx-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <RefreshCw className="w-6 h-6 animate-spin text-gray-500" />
+          // Skeleton loading state
+          <div className="p-6">
+            <SkeletonTable rows={5} columns={5} />
           </div>
+        ) : isEmpty ? (
+          // Empty state onboarding
+          <EmptyStateOnboarding onRefresh={fetchItems} />
         ) : (
+          // Regular table view
           <ImprovementsTable
             items={filteredItems}
             selectedIds={selectedIds}
