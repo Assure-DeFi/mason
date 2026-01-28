@@ -1,202 +1,218 @@
 # Mason
 
-Mason is an agentic continuous-improvement system for web app repositories. It analyzes your codebase, generates a prioritized backlog of improvements, and can execute approved items via safe, wave-based automation.
+**AI-powered continuous improvement for your codebase.**
 
-This repo also contains shared Claude Code configuration for consistent development across the team.
-
-## Mason CLI
-
-### Installation
-
-```bash
-# Install from source (development)
-pnpm install && pnpm build
-node packages/mason-cli/dist/bin/mason.js init
-
-# Or link globally
-pnpm link packages/mason-cli
-mason init
-```
-
-### Quick Start
-
-```bash
-# 1. Initialize Mason in your repository
-mason init
-
-# 2. Check your environment
-mason doctor
-
-# 3. Analyze your codebase for improvements
-mason review
-
-# 4. View and approve items
-mason list
-mason show 1
-mason approve 1 2 3
-
-# 5. Execute approved improvements
-mason execute --top 3
-```
-
-### Commands
-
-| Command                | Description                                |
-| ---------------------- | ------------------------------------------ |
-| `mason init`           | Initialize Mason in your repository        |
-| `mason doctor`         | Check environment and configuration        |
-| `mason review`         | Analyze codebase and generate improvements |
-| `mason list`           | List backlog items                         |
-| `mason show <n>`       | Show item details                          |
-| `mason approve <n...>` | Approve items for execution                |
-| `mason execute`        | Execute approved items                     |
-| `mason status`         | Show execution status                      |
-
-### Domains
-
-Mason analyzes code across five domains:
-
-- **frontend-ux** - UI, accessibility, loading states, error handling
-- **api-backend** - API design, data fetching, performance
-- **reliability** - Error handling, logging, retry logic
-- **security** - Auth, validation, secrets management
-- **code-quality** - Type safety, organization, testing
+Mason analyzes your repo, suggests prioritized improvements, and executes them automatically using Claude Code.
 
 ---
 
-## Shared Claude Code Configuration
+## Quick Start (5 minutes)
 
-## Quick Start
-
-### New Team Member Setup
+### Step 1: Install Mason in Your Repo
 
 ```bash
-# Clone this repo
-git clone https://github.com/Assure-DeFi/mason.git ~/mason
+cd ~/projects/article-intake   # or your repo
 
-# Run onboarding script
-~/mason/.claude/scripts/team-onboard.sh
+# Run the setup wizard
+npx @anthropic-ai/claude-code --command "$(curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh)"
 ```
 
-Or one-liner:
+**Or if you have Mason cloned locally:**
 
 ```bash
-git clone https://github.com/Assure-DeFi/mason.git ~/mason && ~/mason/.claude/scripts/team-onboard.sh
+cd ~/projects/article-intake
+node ~/projects/mason/packages/mason-cli/dist/bin/mason.js init
 ```
 
-### Create New Project
+### Step 2: Follow the Wizard
+
+The wizard will:
+
+1. Ask for your Supabase credentials (or help you create a project)
+2. Install Claude Code commands (`/pm-review`, `/execute-approved`)
+3. Create database migration files
+4. Set up the dashboard
+
+### Step 3: Run the Database Migrations
+
+1. Open your Supabase project dashboard
+2. Go to **SQL Editor**
+3. Run each file from `supabase/migrations/` in order:
+   - `001_pm_backlog_tables.sql`
+   - `002_pm_execution_runs.sql`
+   - `003_pm_execution_tasks.sql`
+
+### Step 4: Start Using Mason
+
+Open Claude Code in your repo and run:
+
+```
+/pm-review
+```
+
+That's it! Mason will analyze your codebase and store improvements in Supabase.
+
+---
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. ANALYZE                                                  │
+│     Run /pm-review in Claude Code                           │
+│     → Scans codebase for improvements                       │
+│     → Scores by impact & effort                             │
+│     → Stores in Supabase                                    │
+├─────────────────────────────────────────────────────────────┤
+│  2. REVIEW                                                   │
+│     Open Dashboard at localhost:3000/admin/backlog          │
+│     → See all improvements sorted by priority               │
+│     → Approve items you want implemented                    │
+│     → Generate PRDs for approved items                      │
+├─────────────────────────────────────────────────────────────┤
+│  3. EXECUTE                                                  │
+│     Run /execute-approved in Claude Code                    │
+│     → Creates feature branches                              │
+│     → Implements changes in parallel waves                  │
+│     → Commits with proper messages                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Commands
+
+| Command                       | What It Does                           |
+| ----------------------------- | -------------------------------------- |
+| `/pm-review`                  | Analyze codebase and find improvements |
+| `/pm-review quick`            | Find 5-7 quick wins only               |
+| `/pm-review area:security`    | Focus on security improvements         |
+| `/execute-approved`           | Implement all approved items           |
+| `/execute-approved --limit 3` | Implement top 3 approved items         |
+
+---
+
+## Dashboard
+
+Start the dashboard to view and manage improvements:
 
 ```bash
-~/mason/.claude/scripts/setup-new-project.sh my-project-name
+cd mason-dashboard
+pnpm install
+pnpm dev
 ```
 
-## What's Included
+Open http://localhost:3000/admin/backlog
 
-### Skills (Domain Knowledge)
+**Features:**
 
-| Skill               | Trigger Keywords                              | Purpose                 |
-| ------------------- | --------------------------------------------- | ----------------------- |
-| `brand-guidelines`  | button, component, style, color, UI, tailwind | Assure DeFi brand rules |
-| `supabase-patterns` | database, table, migration, SQL, postgres     | Database conventions    |
-| `nextjs-patterns`   | api, route, page, endpoint, middleware        | App Router patterns     |
-| `testing-patterns`  | test, jest, vitest, mock, e2e, playwright     | Testing conventions     |
+- View all improvements sorted by priority
+- Filter by status, area, or type
+- Approve/reject items
+- Generate PRDs with one click
 
-### Hooks (Automation)
+---
 
-| Hook                  | Trigger           | Purpose                     |
-| --------------------- | ----------------- | --------------------------- |
-| `protect-main-branch` | Before Edit/Write | Blocks edits on main branch |
-| `auto-format`         | After Edit/Write  | Runs Prettier               |
-| `type-check`          | After Edit/Write  | Runs TypeScript check       |
-| `lint-check`          | After Edit/Write  | Runs ESLint                 |
-| `suggest-skills`      | On prompt         | Suggests relevant skills    |
+## Requirements
 
-### Commands
+- **Node.js 18+**
+- **Claude Code** with Pro Max subscription
+- **Supabase** account (free tier works)
+- **Anthropic API key** (optional, for PRD generation in dashboard)
 
-| Command      | Usage               | Purpose                           |
-| ------------ | ------------------- | --------------------------------- |
-| `/ralph`     | `/ralph [task]`     | Ralph Loop execution              |
-| `/commit`    | `/commit [message]` | Create well-structured git commit |
-| `/pr-review` | `/pr-review [PR#]`  | Review pull request for quality   |
+---
 
-### Agents
-
-| Agent           | Usage               | Purpose                       |
-| --------------- | ------------------- | ----------------------------- |
-| `code-reviewer` | "use code-reviewer" | Code review against standards |
-
-### Rules
-
-- `brand-compliance.md` - UI/UX requirements
-- `code-quality.md` - TypeScript & patterns
-- `git-workflow.md` - Git conventions
-
-## Directory Structure
+## Project Structure After Setup
 
 ```
-.claude/
-├── settings.json           # Hooks configuration
-├── hooks/                  # Automation scripts
-│   ├── protect-main-branch.sh
-│   ├── auto-format.sh
-│   ├── type-check.sh
-│   ├── lint-check.sh
-│   └── suggest-skills.sh
-├── skills/                 # Domain knowledge
-│   ├── brand-guidelines/
-│   ├── supabase-patterns/
-│   ├── nextjs-patterns/
-│   └── testing-patterns/
-├── commands/               # Slash commands
-│   ├── ralph.md
-│   ├── commit.md
-│   └── pr-review.md
-├── agents/                 # Specialized assistants
-│   └── code-reviewer.md
-├── rules/                  # Team guidelines
-│   ├── brand-compliance.md
-│   ├── code-quality.md
-│   └── git-workflow.md
-├── templates/              # Project templates
-│   └── CLAUDE.md.template
-├── scripts/                # Setup scripts
-│   ├── setup-new-project.sh
-│   └── team-onboard.sh
-└── testing-framework/      # Before/after tests
+your-repo/
+├── mason.config.json              # Mason configuration
+├── .claude/
+│   ├── commands/
+│   │   ├── pm-review.md           # Analysis command
+│   │   └── execute-approved.md    # Execution command
+│   └── skills/
+│       └── pm-domain-knowledge/
+│           └── SKILL.md           # Customize for your project
+├── supabase/
+│   └── migrations/                # Database schema
+│       ├── 001_pm_backlog_tables.sql
+│       ├── 002_pm_execution_runs.sql
+│       └── 003_pm_execution_tasks.sql
+└── mason-dashboard/               # Next.js dashboard (optional)
 ```
 
-## Hook Details
+---
 
-All hooks properly read input from stdin as JSON (Claude Code API):
+## Customization
 
-- **protect-main-branch**: Blocks file modifications on main/master, prompts to create feature branch
-- **auto-format**: Runs Prettier on JS/TS/JSON/CSS/MD files after edits
-- **type-check**: Runs TypeScript compiler, reports error count
-- **lint-check**: Runs ESLint on JS/TS files, reports issues
-- **suggest-skills**: Analyzes prompts and suggests relevant skills
+### Edit Domain Knowledge
 
-## Updating Config
-
-When you improve the shared config:
+Customize what Mason knows about your project:
 
 ```bash
-cd ~/mason
-git checkout -b improve/description
-# Make changes
-git add .
-git commit -m "feat: description"
-git push origin improve/description
-# Create PR for team review
+# Edit this file to add your business context
+nano .claude/skills/pm-domain-knowledge/SKILL.md
 ```
 
-Team members pull updates:
+Add:
+
+- Your business goals
+- Technical constraints
+- Areas to focus on or avoid
+- User personas
+
+### Configure Domains
+
+Edit `mason.config.json` to enable/disable analysis domains:
+
+```json
+{
+  "domains": [
+    { "name": "frontend-ux", "enabled": true, "weight": 1 },
+    { "name": "api-backend", "enabled": true, "weight": 1 },
+    { "name": "reliability", "enabled": true, "weight": 1 },
+    { "name": "security", "enabled": true, "weight": 1.2 },
+    { "name": "code-quality", "enabled": false, "weight": 0.8 }
+  ]
+}
+```
+
+---
+
+## Troubleshooting
+
+### Check Your Setup
 
 ```bash
-cd ~/mason
-git pull origin main
+mason doctor
 ```
 
-## Documentation
+This verifies:
 
-- [TEAM-SETUP.md](.claude/TEAM-SETUP.md) - Detailed setup guide
-- [FINAL-REPORT.md](.claude/testing-framework/reports/FINAL-REPORT.md) - Implementation details
+- Configuration file exists
+- Supabase credentials are set
+- Claude Code commands are installed
+- Migration files are present
+
+### Common Issues
+
+| Problem                        | Solution                                                         |
+| ------------------------------ | ---------------------------------------------------------------- |
+| "Missing Supabase credentials" | Add `supabase.url` and `supabase.anonKey` to `mason.config.json` |
+| Dashboard won't start          | Check `mason-dashboard/.env.local` has correct values            |
+| `/pm-review` not found         | Run `mason init` to install commands                             |
+| No items in dashboard          | Run `/pm-review` first, then check Supabase tables               |
+
+---
+
+## Support
+
+- Issues: https://github.com/Assure-DeFi/mason/issues
+- Run `mason doctor` to diagnose problems
+
+---
+
+## License
+
+MIT
