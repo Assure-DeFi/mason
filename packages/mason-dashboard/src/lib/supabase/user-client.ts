@@ -13,6 +13,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const STORAGE_KEY = 'mason_config';
+const GITHUB_TOKEN_KEY = 'mason_github_token';
 
 export interface MasonConfig {
   supabaseUrl: string;
@@ -198,7 +199,10 @@ export async function testUserConnection(
 
     // Network errors or invalid URL
     if (message.includes('fetch') || message.includes('network')) {
-      return { success: false, error: 'Could not connect to Supabase. Check your URL.' };
+      return {
+        success: false,
+        error: 'Could not connect to Supabase. Check your URL.',
+      };
     }
 
     return { success: false, error: message };
@@ -266,4 +270,54 @@ export function clearUserClients(): void {
   _userClient = null;
   _userServiceClient = null;
   _cachedConfig = null;
+}
+
+// =============================================================================
+// GitHub Token Management (Browser-Only Storage)
+// =============================================================================
+
+/**
+ * Get the GitHub access token from localStorage
+ * Privacy: This token is NEVER sent to or stored on the central server
+ */
+export function getGitHubToken(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return localStorage.getItem(GITHUB_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save the GitHub access token to localStorage
+ * Privacy: This token stays in the browser only
+ */
+export function saveGitHubToken(token: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  localStorage.setItem(GITHUB_TOKEN_KEY, token);
+}
+
+/**
+ * Clear the GitHub access token from localStorage
+ */
+export function clearGitHubToken(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  localStorage.removeItem(GITHUB_TOKEN_KEY);
+}
+
+/**
+ * Check if a GitHub token is stored
+ */
+export function hasGitHubToken(): boolean {
+  return Boolean(getGitHubToken());
 }

@@ -215,40 +215,14 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
         throw new Error(data.error || 'Migration failed');
       }
 
-      // Save credentials to user's profile (for BYOD architecture)
-      // This allows the CLI to write data to user's database
-      await saveCredentialsToProfile();
-
+      // Privacy: Credentials stay in localStorage only, never sent to central server
+      // CLI reads from mason.config.json (which user exports from browser)
       setMigration({ status: 'success', message: 'Migrations completed' });
     } catch (err) {
       setMigration({
         status: 'error',
         message: err instanceof Error ? err.message : 'Migration failed',
       });
-    }
-  };
-
-  // Save Supabase credentials to user's profile for BYOD architecture
-  const saveCredentialsToProfile = async () => {
-    try {
-      const response = await fetch('/api/user/supabase-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supabaseUrl: projectUrl,
-          supabaseAnonKey: anonKey,
-          supabaseServiceRoleKey: serviceKey,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        console.error('Failed to save credentials to profile:', data.error);
-        // Don't throw - this is a secondary operation
-      }
-    } catch (err) {
-      console.error('Failed to save credentials to profile:', err);
-      // Don't throw - this is a secondary operation
     }
   };
 

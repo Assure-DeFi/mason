@@ -14,7 +14,6 @@ declare module 'next-auth' {
     github_username: string;
     github_email: string | null;
     github_avatar_url: string | null;
-    github_access_token: string;
   }
 }
 
@@ -25,7 +24,9 @@ declare module 'next-auth/jwt' {
     github_username: string;
     github_email: string | null;
     github_avatar_url: string | null;
-    github_access_token: string;
+    // github_access_token is intentionally NOT stored in JWT for privacy
+    // It's passed only during initial sign-in for client-side storage
+    tempAccessToken?: string;
   }
 }
 
@@ -70,17 +71,16 @@ export const authOptions: NextAuthOptions = {
         const githubAvatarUrl = user.image ?? null;
         const accessToken = account.access_token ?? '';
 
-        // Upsert user in database
+        // Upsert user in database (identity only - NO access token stored)
+        // Privacy: GitHub access token is stored client-side only
         const { error } = await supabase.from('mason_users').upsert(
           {
             github_id: githubId,
             github_username: githubUsername,
             github_email: githubEmail,
             github_avatar_url: githubAvatarUrl,
-            github_access_token: accessToken,
-            github_token_expires_at: account.expires_at
-              ? new Date(account.expires_at * 1000).toISOString()
-              : null,
+            // Note: github_access_token intentionally NOT saved to central DB
+            // User's token stays in their browser localStorage for privacy
           },
           {
             onConflict: 'github_id',
@@ -119,7 +119,9 @@ export const authOptions: NextAuthOptions = {
           token.github_username = dbUser.github_username;
           token.github_email = dbUser.github_email;
           token.github_avatar_url = dbUser.github_avatar_url;
-          token.github_access_token = account.access_token ?? '';
+          // Pass token temporarily for client-side storage during initial sign-in
+          // This will be cleared from JWT after first session callback
+          token.tempAccessToken = account.access_token ?? '';
         }
       }
 
@@ -133,7 +135,11 @@ export const authOptions: NextAuthOptions = {
         github_username: token.github_username,
         github_email: token.github_email,
         github_avatar_url: token.github_avatar_url,
-        github_access_token: token.github_access_token,
+        // Pass temp access token only on initial sign-in for client-side storage
+        // After client stores it in localStorage, this will be undefined
+        ...(token.tempAccessToken && {
+          tempAccessToken: token.tempAccessToken,
+        }),
       };
 
       return session;

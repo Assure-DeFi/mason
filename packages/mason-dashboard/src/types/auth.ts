@@ -8,8 +8,7 @@ export interface User {
   github_username: string;
   github_email: string | null;
   github_avatar_url: string | null;
-  github_access_token: string;
-  github_token_expires_at: string | null;
+  // github_access_token removed - stored in localStorage only for privacy
   default_repository_id: string | null;
   is_active: boolean;
 }
@@ -76,5 +75,8 @@ export interface SessionUser {
   github_username: string;
   github_email: string | null;
   github_avatar_url: string | null;
-  github_access_token: string;
+  // github_access_token is NOT stored in session for privacy
+  // It's stored in localStorage only, access via useGitHubToken hook
+  // tempAccessToken is only present during initial sign-in for client storage
+  tempAccessToken?: string;
 }

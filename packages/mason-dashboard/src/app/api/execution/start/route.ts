@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/auth-options';
 import { executeRemotely } from '@/lib/execution/engine';
 
 // POST /api/execution/start - Start remote execution
+// Privacy: GitHub token is passed from client (stored in localStorage, not server)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { repositoryId, itemIds } = body;
+    const { repositoryId, itemIds, githubToken } = body;
 
     if (
       !repositoryId ||
@@ -27,12 +28,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!githubToken) {
+      return NextResponse.json(
+        { error: 'Missing GitHub token' },
+        { status: 400 },
+      );
+    }
+
     // Start execution (this runs async but returns immediately with run ID)
+    // Token from client's localStorage, not from server-side session
     const result = await executeRemotely({
       userId: session.user.id,
       repositoryId,
       itemIds,
-      accessToken: session.user.github_access_token,
+      accessToken: githubToken,
     });
 
     return NextResponse.json({

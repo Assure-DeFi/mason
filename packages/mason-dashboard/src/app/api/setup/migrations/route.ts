@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runMigrations } from '@/lib/supabase/pg-migrate';
 
 const MIGRATION_SQL = `
--- Mason Users table
+-- Mason Users table (for user's own Supabase, NOT central DB)
+-- Privacy: github_access_token is NOT stored here - it stays in browser localStorage
 CREATE TABLE IF NOT EXISTS mason_users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -11,12 +12,7 @@ CREATE TABLE IF NOT EXISTS mason_users (
   github_username TEXT NOT NULL,
   github_email TEXT,
   github_avatar_url TEXT,
-  github_access_token TEXT NOT NULL,
-  github_token_expires_at TIMESTAMPTZ,
-  -- User's own Supabase credentials (for BYOD architecture)
-  supabase_url TEXT,
-  supabase_anon_key TEXT,
-  supabase_service_role_key TEXT,
+  -- github_access_token intentionally omitted - stored in browser localStorage only
   default_repository_id UUID,
   is_active BOOLEAN DEFAULT true
 );

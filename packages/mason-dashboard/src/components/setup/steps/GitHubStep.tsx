@@ -3,66 +3,28 @@
 import { useSession, signIn } from 'next-auth/react';
 import { Github, Check, Loader2, User } from 'lucide-react';
 import type { WizardStepProps } from '../SetupWizard';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { useGitHubToken } from '@/hooks/useGitHubToken';
 import { useEffect, useState } from 'react';
 
 export function GitHubStep({ onNext, onBack }: WizardStepProps) {
   const { data: session, status } = useSession();
-  const { client, isConfigured } = useUserDatabase();
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { hasToken, isLoading: isTokenLoading } = useGitHubToken();
+  const [isTokenStored, setIsTokenStored] = useState(false);
 
   const handleSignIn = async () => {
     await signIn('github', { callbackUrl: '/setup?step=3' });
   };
 
+  // Check if token was stored after sign-in
   useEffect(() => {
-    async function saveUserToSupabase() {
-      if (!session?.user || !client || !isConfigured || isSaved || isSaving) {
-        return;
-      }
-
-      setIsSaving(true);
-      setError(null);
-
-      try {
-        const user = session.user;
-
-        const { error: upsertError } = await client.from('users').upsert(
-          {
-            github_id: user.github_id,
-            github_username: user.github_username,
-            github_email: user.github_email,
-            github_avatar_url: user.github_avatar_url,
-            github_access_token: user.github_access_token,
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: 'github_id',
-          },
-        );
-
-        if (upsertError) {
-          throw upsertError;
-        }
-
-        setIsSaved(true);
-      } catch (err) {
-        console.error('Error saving user to Supabase:', err);
-        setError(
-          err instanceof Error ? err.message : 'Failed to save user data',
-        );
-      } finally {
-        setIsSaving(false);
-      }
+    if (hasToken && status === 'authenticated') {
+      setIsTokenStored(true);
     }
-
-    saveUserToSupabase();
-  }, [session, client, isConfigured, isSaved, isSaving]);
+  }, [hasToken, status]);
 
   const isAuthenticated = status === 'authenticated' && session?.user;
-  const isComplete = isAuthenticated && isSaved;
+  // Complete when authenticated AND token is stored in localStorage
+  const isComplete = isAuthenticated && (isTokenStored || hasToken);
 
   return (
     <div className="space-y-6">
@@ -108,23 +70,17 @@ export function GitHubStep({ onNext, onBack }: WizardStepProps) {
               </div>
             </div>
 
-            {isSaving && (
+            {isTokenLoading && (
               <div className="flex items-center gap-2 rounded-lg bg-gray-900 p-3 text-gray-400">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Saving to your database...</span>
+                <span>Securing your credentials...</span>
               </div>
             )}
 
-            {isSaved && (
+            {hasToken && (
               <div className="flex items-center gap-2 rounded-lg bg-green-900/20 p-3 text-green-400">
                 <Check className="h-4 w-4" />
-                <span>User saved to your Supabase database</span>
-              </div>
-            )}
-
-            {error && (
-              <div className="rounded-lg bg-red-900/20 p-3 text-red-400">
-                {error}
+                <span>GitHub token stored securely in your browser</span>
               </div>
             )}
           </div>
@@ -149,9 +105,10 @@ export function GitHubStep({ onNext, onBack }: WizardStepProps) {
       <div className="rounded-lg border border-gray-700 bg-gray-900/30 p-4">
         <h3 className="mb-2 font-medium text-white">Privacy Note</h3>
         <p className="text-sm text-gray-400">
-          Your GitHub access token is stored only in YOUR Supabase database.
-          Assure DeFi® never sees or stores your token. We only use GitHub OAuth
-          for the initial authentication redirect.
+          Your GitHub access token is stored only in your browser&apos;s
+          localStorage. Assure DeFi never sees or stores your token. We only use
+          GitHub OAuth for the initial authentication redirect, and your token
+          goes directly to your browser.
         </p>
       </div>
 

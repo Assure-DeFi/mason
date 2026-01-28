@@ -128,7 +128,9 @@ For EVERY improvement, populate ALL 5 benefit categories. Each benefit should be
 }
 ```
 
-### Step 6: Submit Results via Dashboard API
+### Step 6: Submit Results Directly to User's Supabase
+
+**Privacy Architecture:** Data is written DIRECTLY to the user's own Supabase database, never to the central server. The central server only validates the API key for identity.
 
 Read the configuration from `mason.config.json`:
 
@@ -136,63 +138,102 @@ Read the configuration from `mason.config.json`:
 {
   "version": "2.0",
   "apiKey": "mason_xxxxx",
-  "dashboardUrl": "https://mason.assuredefi.com"
+  "dashboardUrl": "https://mason.assuredefi.com",
+  "supabaseUrl": "https://xxx.supabase.co",
+  "supabaseAnonKey": "eyJ..."
 }
 ```
 
-**Note:** The `dashboardUrl` field is optional and defaults to `https://mason.assuredefi.com`.
+**Required fields:**
 
-Submit all improvements in a single API call to the Dashboard endpoint:
+- `apiKey`: Your Mason API key (for identity validation)
+- `supabaseUrl`: Your Supabase project URL
+- `supabaseAnonKey`: Your Supabase anon (public) key
+
+**Optional fields:**
+
+- `dashboardUrl`: Dashboard URL (defaults to `https://mason.assuredefi.com`)
+
+**Submission Process (2 Steps):**
+
+#### Step 6a: Validate API Key (Central Server)
+
+First, validate the API key to confirm identity:
 
 ```bash
-# Get dashboard URL from config or use default
 DASHBOARD_URL="${dashboardUrl:-https://mason.assuredefi.com}"
 
-curl -X POST "${DASHBOARD_URL}/api/v1/analysis" \
+VALIDATION=$(curl -s -X POST "${DASHBOARD_URL}/api/v1/analysis" \
   -H "Authorization: Bearer ${apiKey}" \
+  -H "Content-Type: application/json")
+
+# Check if valid
+if [ "$(echo "$VALIDATION" | jq -r '.valid')" != "true" ]; then
+  echo "Error: Invalid API key"
+  exit 1
+fi
+
+USER_ID=$(echo "$VALIDATION" | jq -r '.user_id')
+DASHBOARD_BACKLOG_URL=$(echo "$VALIDATION" | jq -r '.dashboard_url')
+```
+
+#### Step 6b: Write Data Directly to User's Supabase
+
+Then, write the improvements directly to the user's own Supabase using the REST API:
+
+```bash
+# Generate a UUID for the analysis run
+ANALYSIS_RUN_ID=$(uuidgen)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Step 1: Create analysis run record
+curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
+  -H "apikey: ${supabaseAnonKey}" \
+  -H "Authorization: Bearer ${supabaseAnonKey}" \
   -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
   -d '{
+    "id": "'${ANALYSIS_RUN_ID}'",
+    "user_id": "'${USER_ID}'",
     "mode": "full",
-    "repository": "/path/to/analyzed/repo",
-    "items": [
-      {
-        "title": "Add data freshness timestamps to Executive Snapshot",
-        "problem": "Executives cannot tell when snapshot data was last updated...",
-        "solution": "Add visible timestamps showing when each section was last refreshed...",
-        "type": "dashboard",
-        "area": "frontend",
-        "impact_score": 9,
-        "effort_score": 2,
-        "complexity": 2,
-        "benefits": [...]
-      }
-    ]
+    "items_found": 15,
+    "started_at": "'${TIMESTAMP}'",
+    "completed_at": "'${TIMESTAMP}'",
+    "status": "completed"
   }'
+
+# Step 2: Insert backlog items
+curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
+  -H "apikey: ${supabaseAnonKey}" \
+  -H "Authorization: Bearer ${supabaseAnonKey}" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  -d '[
+    {
+      "user_id": "'${USER_ID}'",
+      "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+      "title": "Add data freshness timestamps",
+      "problem": "Executives cannot tell when data was updated...",
+      "solution": "Add visible timestamps...",
+      "type": "dashboard",
+      "area": "frontend",
+      "impact_score": 9,
+      "effort_score": 2,
+      "complexity": 2,
+      "benefits": [...],
+      "status": "new"
+    }
+  ]'
 ```
 
-The API endpoint handles:
-
-- API key validation and user lookup
-- Analysis run creation
-- Batch item insertion with proper user association
-- API key last_used_at timestamp update
-
-**Success Response:**
-
-```json
-{
-  "success": true,
-  "analysis_run_id": "uuid-here",
-  "items_created": 15,
-  "dashboard_url": "https://mason.assuredefi.com/admin/backlog"
-}
-```
+**Privacy Guarantee:** The central server (Assure DeFi) NEVER sees your backlog items. Data goes directly from your CLI to YOUR Supabase.
 
 After successful submission, show:
 
 ```
 Analysis submitted successfully!
 Items created: 15
+Data stored in: YOUR Supabase (not central server)
 View in Dashboard: https://mason.assuredefi.com/admin/backlog
 ```
 
@@ -281,13 +322,17 @@ Read credentials from `mason.config.json`:
 {
   "version": "2.0",
   "apiKey": "mason_xxxxx",
-  "dashboardUrl": "https://mason.assuredefi.com"
+  "dashboardUrl": "https://mason.assuredefi.com",
+  "supabaseUrl": "https://xxx.supabase.co",
+  "supabaseAnonKey": "eyJ..."
 }
 ```
 
 **Required fields:**
 
 - `apiKey`: Your Mason API key (generate at https://mason.assuredefi.com/setup)
+- `supabaseUrl`: Your Supabase project URL (found in Supabase Dashboard > Settings > API)
+- `supabaseAnonKey`: Your Supabase anon key (found in same location)
 
 **Optional fields:**
 
@@ -297,20 +342,21 @@ Read credentials from `mason.config.json`:
 
 If you encounter API errors:
 
-1. **401 Unauthorized**: Invalid or expired API key - regenerate at https://mason.assuredefi.com/setup
-2. **400 Bad Request**: Check that all required fields are present in the request
+1. **401 Unauthorized (API Key validation)**: Invalid or expired API key - regenerate at https://mason.assuredefi.com/setup
+2. **Supabase 401**: Invalid Supabase credentials - verify supabaseUrl and supabaseAnonKey in mason.config.json
 3. **Network error**: Retry up to 3 times with exponential backoff
 4. **500 Server Error**: Report the error and suggest trying again later
 
 Example error response:
 
 ```
-Error: Unable to submit analysis to Dashboard.
+Error: Unable to submit analysis.
 
 Please verify:
-1. mason.config.json exists and contains a valid apiKey
+1. mason.config.json exists and contains all required fields
 2. Your API key starts with "mason_" (not "mason__")
-3. Your API key is active (regenerate at https://mason.assuredefi.com/setup)
+3. Your Supabase URL is correct (https://xxx.supabase.co)
+4. Your Supabase anon key is valid
 
 If the problem persists, try again later or contact support.
 ```

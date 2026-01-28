@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { WizardStepProps } from '../SetupWizard';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { useGitHubToken } from '@/hooks/useGitHubToken';
 
 interface GitHubRepo {
   id: number;
@@ -36,6 +37,7 @@ interface ConnectedRepo {
 export function RepoStep({ onNext, onBack }: WizardStepProps) {
   const { data: session } = useSession();
   const { client, isConfigured } = useUserDatabase();
+  const { token: githubToken, hasToken } = useGitHubToken();
 
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [filteredRepos, setFilteredRepos] = useState<GitHubRepo[]>([]);
@@ -45,9 +47,11 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
   const [isConnecting, setIsConnecting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch repos using token from localStorage (not session)
   useEffect(() => {
     async function fetchRepos() {
-      if (!session?.user?.github_access_token) {
+      if (!hasToken || !githubToken) {
+        setIsLoading(false);
         return;
       }
 
@@ -59,7 +63,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
           'https://api.github.com/user/repos?per_page=100&sort=updated',
           {
             headers: {
-              Authorization: `Bearer ${session.user.github_access_token}`,
+              Authorization: `Bearer ${githubToken}`,
               Accept: 'application/vnd.github.v3+json',
             },
           },
@@ -83,7 +87,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
     }
 
     fetchRepos();
-  }, [session]);
+  }, [hasToken, githubToken]);
 
   useEffect(() => {
     async function fetchConnectedRepos() {

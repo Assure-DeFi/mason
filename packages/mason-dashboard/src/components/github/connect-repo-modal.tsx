@@ -2,16 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { X, Search, Lock, Unlock, GitBranch, Loader2 } from 'lucide-react';
-
-interface AvailableRepo {
-  id: number;
-  owner: string;
-  name: string;
-  full_name: string;
-  private: boolean;
-  default_branch: string;
-  html_url: string;
-}
+import {
+  listUserRepositories,
+  type GitHubRepo,
+} from '@/lib/github/client-side';
 
 interface ConnectRepoModalProps {
   isOpen: boolean;
@@ -26,8 +20,8 @@ export function ConnectRepoModal({
   onConnect,
   connectedRepoIds,
 }: ConnectRepoModalProps) {
-  const [repos, setRepos] = useState<AvailableRepo[]>([]);
-  const [filteredRepos, setFilteredRepos] = useState<AvailableRepo[]>([]);
+  const [repos, setRepos] = useState<GitHubRepo[]>([]);
+  const [filteredRepos, setFilteredRepos] = useState<GitHubRepo[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
@@ -50,29 +44,31 @@ export function ConnectRepoModal({
     );
   }, [searchQuery, repos]);
 
+  // Use client-side GitHub API (token from localStorage)
   const fetchRepos = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/github/repositories/available');
+      const result = await listUserRepositories();
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch repositories');
+      if (result.error) {
+        throw new Error(result.error.message);
       }
 
-      const data = await response.json();
-      setRepos(data.repositories);
-      setFilteredRepos(data.repositories);
+      setRepos(result.repositories);
+      setFilteredRepos(result.repositories);
     } catch (err) {
       console.error('Error fetching repos:', err);
-      setError('Failed to load repositories');
+      setError(
+        err instanceof Error ? err.message : 'Failed to load repositories',
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleConnect = async (repo: AvailableRepo) => {
+  const handleConnect = async (repo: GitHubRepo) => {
     setIsConnecting(repo.full_name);
 
     try {

@@ -46,6 +46,7 @@ export async function GET() {
 }
 
 // POST /api/github/repositories - Connect a repository
+// Privacy: GitHub token is passed from client (stored in localStorage, not server)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { owner, name } = body;
+    const { owner, name, githubToken } = body;
 
     if (!owner || !name) {
       return NextResponse.json(
@@ -64,7 +65,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const octokit = createGitHubClient(session.user.github_access_token);
+    if (!githubToken) {
+      return NextResponse.json(
+        { error: 'Missing GitHub token' },
+        { status: 400 },
+      );
+    }
+
+    // Use token from client request (stored in their localStorage)
+    const octokit = createGitHubClient(githubToken);
 
     // Fetch repository details from GitHub
     const repo = await getRepository(octokit, owner, name);
