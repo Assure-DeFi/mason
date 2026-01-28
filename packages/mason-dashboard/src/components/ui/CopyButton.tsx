@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, AlertCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface CopyButtonProps {
@@ -40,6 +40,7 @@ export function CopyButton({
   disabled = false,
 }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const [showToastState, setShowToastState] = useState(false);
 
   const handleCopy = useCallback(async () => {
@@ -48,6 +49,7 @@ export function CopyButton({
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
+      setCopyError(false);
       onCopy?.();
 
       if (showToast) {
@@ -58,6 +60,8 @@ export function CopyButton({
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 3000);
     }
   }, [text, disabled, onCopy, showToast]);
 
@@ -91,11 +95,22 @@ export function CopyButton({
           variantClasses[variant],
           sizeClasses[size],
           disabled && 'opacity-50 cursor-not-allowed',
+          copyError && 'border-red-600 text-red-400',
           className,
         )}
         aria-label={label || 'Copy to clipboard'}
+        title={
+          copyError
+            ? 'Copy failed - try selecting and copying manually'
+            : undefined
+        }
       >
-        {copied ? (
+        {copyError ? (
+          <>
+            <AlertCircle className={clsx(iconSizes[size], 'text-red-400')} />
+            {label && <span className="text-red-400">Failed</span>}
+          </>
+        ) : copied ? (
           <>
             <Check className={clsx(iconSizes[size], 'text-green-500')} />
             {label && <span>{copiedLabel}</span>}

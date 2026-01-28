@@ -37,6 +37,7 @@ export function ErrorBanner({
 }: ErrorBannerProps) {
   const [isDismissed, setIsDismissed] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   if (isDismissed) return null;
 
@@ -51,9 +52,12 @@ export function ErrorBanner({
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
+      setCopyError(false);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 3000);
     }
   };
 
@@ -133,14 +137,21 @@ export function ErrorBanner({
                     <button
                       key={index}
                       onClick={() => handleCopy(action.value)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-white/10 hover:bg-white/20 rounded transition-colors"
+                      className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded transition-colors ${
+                        copyError
+                          ? 'bg-red-500/30 text-red-200'
+                          : 'bg-white/10 hover:bg-white/20'
+                      }`}
+                      title={copyError ? 'Copy failed' : undefined}
                     >
-                      {copied ? (
+                      {copyError ? (
+                        <AlertCircle className="w-3 h-3 text-red-400" />
+                      ) : copied ? (
                         <Check className="w-3 h-3 text-green-400" />
                       ) : (
                         <Copy className="w-3 h-3" />
                       )}
-                      {action.label}
+                      {copyError ? 'Failed' : action.label}
                     </button>
                   );
                 }

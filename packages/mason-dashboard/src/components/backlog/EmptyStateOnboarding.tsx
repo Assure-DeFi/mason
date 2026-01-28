@@ -1,7 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, Terminal, ArrowRight, Check, Copy } from 'lucide-react';
+import {
+  Sparkles,
+  Terminal,
+  ArrowRight,
+  Check,
+  Copy,
+  AlertCircle,
+} from 'lucide-react';
 import { CopyButton } from '@/components/ui/CopyButton';
 
 interface EmptyStateOnboardingProps {
@@ -31,14 +38,18 @@ const STEPS = [
 
 export function EmptyStateOnboarding({ onRefresh }: EmptyStateOnboardingProps) {
   const [copiedStep, setCopiedStep] = useState<number | null>(null);
+  const [errorStep, setErrorStep] = useState<number | null>(null);
 
   const handleCopy = async (command: string, stepNumber: number) => {
     try {
       await navigator.clipboard.writeText(command);
       setCopiedStep(stepNumber);
+      setErrorStep(null);
       setTimeout(() => setCopiedStep(null), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      setErrorStep(stepNumber);
+      setTimeout(() => setErrorStep(null), 3000);
     }
   };
 
@@ -83,9 +94,20 @@ export function EmptyStateOnboarding({ onRefresh }: EmptyStateOnboardingProps) {
                   </code>
                   <button
                     onClick={() => handleCopy(step.command!, step.number)}
-                    className="flex-shrink-0 p-2 rounded border border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
+                    className={`flex-shrink-0 p-2 rounded border transition-colors ${
+                      errorStep === step.number
+                        ? 'border-red-600 bg-red-900/30 text-red-400'
+                        : 'border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                    }`}
+                    title={
+                      errorStep === step.number
+                        ? 'Copy failed - try selecting and copying manually'
+                        : 'Copy to clipboard'
+                    }
                   >
-                    {copiedStep === step.number ? (
+                    {errorStep === step.number ? (
+                      <AlertCircle className="w-4 h-4 text-red-400" />
+                    ) : copiedStep === step.number ? (
                       <Check className="w-4 h-4 text-green-500" />
                     ) : (
                       <Copy className="w-4 h-4" />

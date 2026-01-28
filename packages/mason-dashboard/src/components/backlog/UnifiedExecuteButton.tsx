@@ -1,7 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Play, Terminal, Cloud, X, Check, Copy } from 'lucide-react';
+import {
+  Play,
+  Terminal,
+  Cloud,
+  X,
+  Check,
+  Copy,
+  AlertCircle,
+} from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface UnifiedExecuteButtonProps {
@@ -30,6 +38,7 @@ export function UnifiedExecuteButton({
 }: UnifiedExecuteButtonProps) {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const [preferredMethod, setPreferredMethod] = useState<ExecuteMethod | null>(
     null,
   );
@@ -70,10 +79,13 @@ export function UnifiedExecuteButton({
     try {
       await navigator.clipboard.writeText(command);
       setCopied(true);
+      setCopyError(false);
       setTimeout(() => setCopied(false), 2000);
       setShowModal(false);
     } catch (err) {
       console.error('Failed to copy:', err);
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 3000);
     }
   };
 
@@ -105,11 +117,19 @@ export function UnifiedExecuteButton({
       <button
         onClick={handleClick}
         className={clsx(
-          'flex items-center gap-2 px-4 py-2 bg-gold text-navy font-medium text-sm hover:opacity-90 transition-opacity',
+          'flex items-center gap-2 px-4 py-2 font-medium text-sm transition-opacity',
+          copyError
+            ? 'bg-red-600 text-white'
+            : 'bg-gold text-navy hover:opacity-90',
           className,
         )}
       >
-        {copied ? (
+        {copyError ? (
+          <>
+            <AlertCircle className="w-4 h-4" />
+            Copy failed
+          </>
+        ) : copied ? (
           <>
             <Check className="w-4 h-4" />
             Copied!
