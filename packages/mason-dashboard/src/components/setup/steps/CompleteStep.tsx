@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -9,8 +9,8 @@ import {
   AlertCircle,
   Loader2,
   ExternalLink,
-  Download,
   Check,
+  Copy,
 } from 'lucide-react';
 import type { WizardStepProps } from '../SetupWizard';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
@@ -27,23 +27,32 @@ export function CompleteStep({ onBack }: WizardStepProps) {
   const [error, setError] = useState<string | null>(null);
   const [autoCopied, setAutoCopied] = useState(false);
 
-  const installCommand = `curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash`;
+  // Generate the full install command with credentials embedded
+  const installCommand = useMemo(() => {
+    const currentConfig = getMasonConfig();
+    if (!currentConfig || !apiKey) {
+      return null;
+    }
 
-  // Auto-copy install command when step mounts
+    // Single command with all credentials - no prompts needed
+    return `MASON_SUPABASE_URL="${currentConfig.supabaseUrl}" MASON_SUPABASE_ANON_KEY="${currentConfig.supabaseAnonKey}" MASON_API_KEY="${apiKey}" bash <(curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh)`;
+  }, [apiKey]);
+
+  // Auto-copy install command when API key is generated
   useEffect(() => {
+    if (!installCommand) return;
+
     const autoCopyInstallCommand = async () => {
       try {
         await navigator.clipboard.writeText(installCommand);
         setAutoCopied(true);
         setTimeout(() => setAutoCopied(false), 3000);
       } catch (err) {
-        // Clipboard might not be available, that's okay
         console.debug('Auto-copy failed:', err);
       }
     };
 
-    // Small delay to ensure the step is visible
-    const timer = setTimeout(autoCopyInstallCommand, 500);
+    const timer = setTimeout(autoCopyInstallCommand, 300);
     return () => clearTimeout(timer);
   }, [installCommand]);
 
@@ -114,38 +123,6 @@ export function CompleteStep({ onBack }: WizardStepProps) {
     }
   };
 
-  // Generate config file content
-  const generateConfigContent = useCallback(() => {
-    const currentConfig = getMasonConfig();
-    if (!currentConfig || !apiKey) return null;
-
-    return JSON.stringify(
-      {
-        supabaseUrl: currentConfig.supabaseUrl,
-        supabaseAnonKey: currentConfig.supabaseAnonKey,
-        apiKey: apiKey,
-      },
-      null,
-      2,
-    );
-  }, [apiKey]);
-
-  // Download config file
-  const handleDownloadConfig = useCallback(() => {
-    const configContent = generateConfigContent();
-    if (!configContent) return;
-
-    const blob = new Blob([configContent], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mason.config.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [generateConfigContent]);
-
   const handleGoToDashboard = () => {
     router.push('/admin/backlog');
   };
@@ -153,22 +130,24 @@ export function CompleteStep({ onBack }: WizardStepProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-white">Setup Complete</h2>
+        <h2 className="text-xl font-bold text-white">Install Mason CLI</h2>
         <p className="mt-1 text-gray-400">
-          Generate an API key and install the CLI to start analyzing your
-          codebase
+          Generate your install command - one copy-paste to set everything up
         </p>
       </div>
 
+      {/* Step 1: Generate API Key */}
       <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-6">
         <div className="mb-4 flex items-center gap-3">
-          <div className="rounded-lg bg-gold/20 p-2">
-            <Key className="h-6 w-6 text-gold" />
+          <div
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${apiKey ? 'bg-green-600 text-white' : 'bg-gold text-navy'}`}
+          >
+            {apiKey ? <Check className="h-5 w-5" /> : '1'}
           </div>
           <div>
-            <h3 className="font-semibold text-white">API Key</h3>
+            <h3 className="font-semibold text-white">Generate API Key</h3>
             <p className="text-sm text-gray-400">
-              Required for CLI authentication
+              Creates a secure key for CLI authentication
             </p>
           </div>
         </div>
@@ -192,41 +171,9 @@ export function CompleteStep({ onBack }: WizardStepProps) {
             )}
           </button>
         ) : (
-          <div className="space-y-3">
-            <div className="rounded-lg border border-yellow-800/50 bg-yellow-900/20 p-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-500" />
-                <p className="text-sm text-yellow-200">
-                  Copy this key now. You will not be able to see it again.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <code className="flex-1 break-all rounded-md bg-black p-3 font-mono text-sm text-white">
-                {apiKey}
-              </code>
-              <CopyButton
-                text={apiKey}
-                variant="default"
-                size="lg"
-                showToast
-                toastMessage="API key copied to clipboard"
-              />
-            </div>
-
-            {/* Download Config Button */}
-            <button
-              onClick={handleDownloadConfig}
-              className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-600 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"
-            >
-              <Download className="h-4 w-4" />
-              Download Config File (mason.config.json)
-            </button>
-            <p className="text-xs text-gray-500 text-center">
-              Place this file in your project root to skip manual credential
-              entry
-            </p>
+          <div className="flex items-center gap-2 rounded-lg bg-green-900/20 p-3 text-green-400">
+            <Check className="h-5 w-5" />
+            <span>API key generated and included in install command below</span>
           </div>
         )}
 
@@ -237,47 +184,79 @@ export function CompleteStep({ onBack }: WizardStepProps) {
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-6">
+      {/* Step 2: Copy Install Command */}
+      <div
+        className={`rounded-lg border p-6 transition-opacity ${apiKey ? 'border-gold bg-gray-900/50' : 'border-gray-700 bg-gray-900/30 opacity-50'}`}
+      >
         <div className="mb-4 flex items-center gap-3">
-          <div className="rounded-lg bg-gold/20 p-2">
-            <Terminal className="h-6 w-6 text-gold" />
+          <div
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${apiKey ? 'bg-gold text-navy' : 'bg-gray-700 text-gray-400'}`}
+          >
+            2
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-white">Install Mason CLI</h3>
-            <p className="text-sm text-gray-400">Run this in your repository</p>
+            <h3 className="font-semibold text-white">Copy Install Command</h3>
+            <p className="text-sm text-gray-400">
+              Run this in your project directory
+            </p>
           </div>
           {autoCopied && (
             <div className="flex items-center gap-1 text-sm text-green-400">
               <Check className="h-4 w-4" />
-              Auto-copied!
+              Copied!
             </div>
           )}
         </div>
 
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded-md bg-black p-3 font-mono text-sm text-gray-300">
-              {installCommand}
-            </code>
-            <CopyButton
-              text={installCommand}
-              variant="default"
-              size="lg"
-              showToast
-              toastMessage="Install command copied"
-            />
-          </div>
+        {apiKey && installCommand ? (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2">
+              <code className="flex-1 overflow-x-auto rounded-md bg-black p-3 font-mono text-xs text-gray-300">
+                {installCommand}
+              </code>
+              <CopyButton
+                text={installCommand}
+                variant="default"
+                size="lg"
+                showToast
+                toastMessage="Install command copied - paste in your terminal!"
+              />
+            </div>
 
-          <p className="text-sm text-gray-400">
-            The installer will prompt you for your API key and Supabase
-            credentials. All data is stored in YOUR database - the CLI connects
-            directly to your Supabase.
-          </p>
-        </div>
+            <div className="rounded-lg border border-green-800/50 bg-green-900/20 p-3">
+              <p className="text-sm text-green-300">
+                This command includes all your credentials. Just paste it in
+                your project&apos;s terminal - no additional setup needed.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg bg-gray-800/50 p-4 text-center text-gray-500">
+            Generate an API key first to get your install command
+          </div>
+        )}
       </div>
 
+      {/* Security Note */}
+      {apiKey && (
+        <div className="rounded-lg border border-yellow-800/30 bg-yellow-900/10 p-4">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-500" />
+            <div className="text-sm text-yellow-200">
+              <p className="font-medium">Security Note</p>
+              <p className="mt-1 text-yellow-200/80">
+                The install command contains your API key. Don&apos;t share it
+                or commit it to version control. The key is stored securely in
+                your local mason.config.json file.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* How it Works */}
       <div className="rounded-lg border border-gray-700 bg-gray-900/30 p-4">
-        <h3 className="mb-2 font-medium text-white">How it Works</h3>
+        <h3 className="mb-2 font-medium text-white">After Installation</h3>
         <ol className="space-y-2 text-sm text-gray-400">
           <li className="flex items-start gap-2">
             <span className="font-medium text-gold">1.</span>
@@ -300,14 +279,6 @@ export function CompleteStep({ onBack }: WizardStepProps) {
               >
                 Dashboard
               </button>
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="font-medium text-gold">4.</span>
-            <span>
-              Run{' '}
-              <code className="rounded bg-black px-1">/execute-approved</code>{' '}
-              to implement changes
             </span>
           </li>
         </ol>

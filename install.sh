@@ -2,12 +2,23 @@
 # Mason Installation Script
 # This script sets up Mason in your current directory for the hosted service
 # with direct Supabase connection for privacy
+#
+# Usage:
+#   1. One-liner from dashboard (recommended):
+#      Copy the install command from https://mason.assuredefi.com/setup
+#
+#   2. With existing config file:
+#      Place mason.config.json in project root, then run:
+#      curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash
+#
+#   3. Interactive mode:
+#      curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash
 
 set -e
 
 echo ""
 echo "=================================="
-echo "  Mason Setup Wizard"
+echo "  Mason CLI Installer"
 echo "=================================="
 echo ""
 echo "Mason is a privacy-first tool - all your data stays in YOUR database."
@@ -109,9 +120,29 @@ download_file \
     ".claude/skills/pm-domain-knowledge/SKILL.md" \
     "SKILL.md"
 
-# Check for existing config file (downloaded from dashboard wizard)
-CONFIG_EXISTS=false
-if [ -f "mason.config.json" ]; then
+# Determine configuration source (priority order):
+# 1. Environment variables (from dashboard one-liner)
+# 2. Existing mason.config.json file
+# 3. Interactive prompts
+
+CONFIG_SOURCE=""
+SUPABASE_URL=""
+SUPABASE_ANON_KEY=""
+API_KEY=""
+
+# Check for environment variables (highest priority - from dashboard)
+if [ -n "$MASON_SUPABASE_URL" ] && [ -n "$MASON_SUPABASE_ANON_KEY" ] && [ -n "$MASON_API_KEY" ]; then
+    CONFIG_SOURCE="env"
+    SUPABASE_URL="$MASON_SUPABASE_URL"
+    SUPABASE_ANON_KEY="$MASON_SUPABASE_ANON_KEY"
+    API_KEY="$MASON_API_KEY"
+    echo ""
+    echo "Using credentials from dashboard..."
+    echo "  Supabase URL: ${SUPABASE_URL:0:30}..."
+    echo "  API Key: ${API_KEY:0:12}..."
+
+# Check for existing config file
+elif [ -f "mason.config.json" ]; then
     echo ""
     echo "Found existing mason.config.json..."
 
@@ -124,24 +155,21 @@ if [ -f "mason.config.json" ]; then
         console.log('  Supabase URL: ' + config.supabaseUrl.substring(0, 30) + '...');
         console.log('  API Key: ' + config.apiKey.substring(0, 12) + '...');
     " 2>/dev/null; then
-        CONFIG_EXISTS=true
+        CONFIG_SOURCE="file"
         echo "  [OK] Config file is valid"
-    else
-        echo "  Config file is incomplete, will prompt for credentials"
     fi
 fi
 
-if [ "$CONFIG_EXISTS" = false ]; then
-    # Configuration prompts
+# Fall back to interactive prompts if no config found
+if [ -z "$CONFIG_SOURCE" ]; then
+    CONFIG_SOURCE="interactive"
     echo ""
     echo "=================================="
-    echo "  Configuration"
+    echo "  Configuration Required"
     echo "=================================="
     echo ""
-    echo "You can skip these prompts by downloading mason.config.json"
-    echo "from the setup wizard: https://mason.assuredefi.com/setup"
-    echo ""
-    echo "Place the file in your project root before running this installer."
+    echo "TIP: For faster setup, copy the install command from:"
+    echo "     https://mason.assuredefi.com/setup"
     echo ""
     echo "----------------------------------"
     echo ""
@@ -154,7 +182,6 @@ if [ "$CONFIG_EXISTS" = false ]; then
     if [[ ! "$SUPABASE_URL" =~ ^https://.*\.supabase\.co$ ]]; then
         echo ""
         echo "WARNING: URL should be in format https://xxx.supabase.co"
-        echo "Continuing anyway, but please verify the URL is correct."
         echo ""
     fi
 
@@ -167,7 +194,6 @@ if [ "$CONFIG_EXISTS" = false ]; then
     if [[ ! "$SUPABASE_ANON_KEY" =~ ^eyJ ]]; then
         echo ""
         echo "WARNING: Anon key should start with 'eyJ'"
-        echo "Continuing anyway, but please verify the key is correct."
         echo ""
     fi
 
@@ -180,11 +206,12 @@ if [ "$CONFIG_EXISTS" = false ]; then
     if [[ ! "$API_KEY" =~ ^mason_ ]]; then
         echo ""
         echo "WARNING: API key should start with 'mason_'"
-        echo "Continuing anyway, but please verify your key is correct."
         echo ""
     fi
+fi
 
-    # Create config with all credentials
+# Create/update config file (skip if using existing valid file)
+if [ "$CONFIG_SOURCE" != "file" ]; then
     echo ""
     echo "Creating configuration file..."
     cat > mason.config.json << EOF
@@ -243,15 +270,10 @@ echo "  Assure DeFi has zero access to your data."
 echo ""
 echo "NEXT STEPS:"
 echo ""
-echo "1. Customize your domain knowledge (optional):"
-echo "   - Edit .claude/skills/pm-domain-knowledge/SKILL.md"
-echo "   - Add your business context and goals"
-echo ""
-echo "2. Start using Mason in Claude Code:"
+echo "1. Start using Mason in Claude Code:"
 echo "   - Open Claude Code in this directory"
 echo "   - Run: /pm-review"
 echo ""
-echo "3. Review improvements in Dashboard:"
+echo "2. Review improvements in Dashboard:"
 echo "   - Open: https://mason.assuredefi.com/admin/backlog"
-echo "   - Data loads from YOUR Supabase database"
 echo ""
