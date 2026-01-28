@@ -8,6 +8,7 @@ import {
   Check,
   AlertCircle,
   RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { GitHubRepository } from '@/types/auth';
@@ -53,6 +54,7 @@ export function RepositorySelector({
   const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -143,6 +145,12 @@ export function RepositorySelector({
 
   const selectedRepo = repositories.find((r) => r.id === value);
 
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    await fetchRepositories();
+    setIsRetrying(false);
+  };
+
   if (isLoading) {
     return <div className="h-9 w-48 animate-pulse rounded-md bg-gray-800" />;
   }
@@ -153,11 +161,16 @@ export function RepositorySelector({
         <AlertCircle className="h-4 w-4 text-red-400" />
         <span className="text-red-400">{error}</span>
         <button
-          onClick={fetchRepositories}
-          className="ml-1 p-1 text-gray-400 hover:text-white"
+          onClick={handleRetry}
+          disabled={isRetrying}
+          className="ml-1 p-1 text-gray-400 hover:text-white disabled:opacity-50"
           title="Retry"
         >
-          <RotateCcw className="h-3 w-3" />
+          {isRetrying ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <RotateCcw className="h-3 w-3" />
+          )}
         </button>
       </div>
     );

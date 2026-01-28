@@ -4,11 +4,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { StatsBar } from '@/components/backlog/stats-bar';
-import { StatusTabs } from '@/components/backlog/status-tabs';
+import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
+import { FilteredItemsTab } from './components/filtered-items-tab';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
+import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { UserMenu } from '@/components/auth/user-menu';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
@@ -23,7 +25,7 @@ import type {
   BacklogType,
 } from '@/types/backlog';
 import { getComplexityValue } from '@/types/backlog';
-import { RefreshCw, Database, ArrowRight, Search } from 'lucide-react';
+import { RefreshCw, Database, ArrowRight, Search, Loader2 } from 'lucide-react';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 
 export default function BacklogPage() {
@@ -32,13 +34,19 @@ export default function BacklogPage() {
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [activeStatus, setActiveStatus] = useState<BacklogStatus | null>('new');
+  const [activeStatus, setActiveStatus] = useState<TabStatus>('new');
+  const [filteredCount, setFilteredCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedToast, setCopiedToast] = useState(false);
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [executionRunId, setExecutionRunId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
+
+  // Bulk action loading states
+  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+  const [isBulkApproving, setIsBulkApproving] = useState(false);
+  const [isBulkRejecting, setIsBulkRejecting] = useState(false);
 
   // New filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,6 +56,23 @@ export default function BacklogPage() {
     1, 5,
   ]);
   const [showFilters, setShowFilters] = useState(false);
+
+  const fetchFilteredCount = useCallback(async () => {
+    if (!client) return;
+
+    try {
+      const { count, error: countError } = await client
+        .from('mason_pm_filtered_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('override_status', 'filtered');
+
+      if (!countError && count !== null) {
+        setFilteredCount(count);
+      }
+    } catch (err) {
+      console.error('Error fetching filtered count:', err);
+    }
+  }, [client]);
 
   const fetchItems = useCallback(async () => {
     if (!client) {
@@ -78,6 +103,9 @@ export default function BacklogPage() {
       }
 
       setItems(data || []);
+
+      // Also fetch filtered count
+      fetchFilteredCount();
     } catch (err) {
       console.error('Error fetching backlog:', err);
       setError(
@@ -88,7 +116,7 @@ export default function BacklogPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [client, session, isDbLoading]);
+  }, [client, session, isDbLoading, fetchFilteredCount]);
 
   useEffect(() => {
     if (isConfigured && !isDbLoading) {
@@ -167,12 +195,15 @@ export default function BacklogPage() {
     return result;
   }, [items]);
 
+  // Check if viewing filtered items tab
+  const isViewingFiltered = activeStatus === 'filtered';
+
   // Advanced filtering
   const filteredItems = useMemo(() => {
     let filtered = items;
 
-    // Status filter
-    if (activeStatus) {
+    // Status filter (skip for 'filtered' tab since it's a separate table)
+    if (activeStatus && activeStatus !== 'filtered') {
       filtered = filtered.filter((item) => item.status === activeStatus);
     }
 
@@ -221,6 +252,15 @@ export default function BacklogPage() {
       .filter((item) => item.status === 'approved')
       .map((item) => item.id);
   }, [items]);
+
+  const selectedItems = useMemo(() => {
+    return items.filter((item) => selectedIds.includes(item.id));
+  }, [items, selectedIds]);
+
+  const handleRestoreComplete = useCallback(() => {
+    fetchItems();
+    fetchFilteredCount();
+  }, [fetchItems, fetchFilteredCount]);
 
   const handleUpdateStatus = async (id: string, status: BacklogStatus) => {
     if (!client) {
@@ -275,6 +315,100 @@ export default function BacklogPage() {
     } else {
       setSelectedIds(filteredItems.map((item) => item.id));
     }
+  };
+
+  const handleBulkGeneratePrds = async (ids: string[]) => {
+    if (ids.length === 0) return;
+
+    setIsBulkGenerating(true);
+    try {
+      // Generate PRDs sequentially to avoid overwhelming the API
+      for (const id of ids) {
+        const response = await fetch(`/api/prd/${id}`, {
+          method: 'POST',
+        });
+
+        if (!response.ok) {
+          console.error(`Failed to generate PRD for ${id}`);
+          continue;
+        }
+
+        const updated = await response.json();
+        setItems((prev) =>
+          prev.map((item) => (item.id === id ? updated : item)),
+        );
+      }
+    } catch (err) {
+      console.error('Bulk PRD generation error:', err);
+    } finally {
+      setIsBulkGenerating(false);
+    }
+  };
+
+  const handleBulkApprove = async (ids: string[]) => {
+    if (!client || ids.length === 0) return;
+
+    setIsBulkApproving(true);
+    try {
+      const { data: updated, error: updateError } = await client
+        .from('mason_pm_backlog_items')
+        .update({ status: 'approved', updated_at: new Date().toISOString() })
+        .in('id', ids)
+        .select();
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      if (updated) {
+        setItems((prev) =>
+          prev.map((item) => {
+            const match = updated.find((u) => u.id === item.id);
+            return match ? match : item;
+          }),
+        );
+      }
+      setSelectedIds([]);
+    } catch (err) {
+      console.error('Bulk approve error:', err);
+    } finally {
+      setIsBulkApproving(false);
+    }
+  };
+
+  const handleBulkReject = async (ids: string[]) => {
+    if (!client || ids.length === 0) return;
+
+    setIsBulkRejecting(true);
+    try {
+      const { data: updated, error: updateError } = await client
+        .from('mason_pm_backlog_items')
+        .update({ status: 'rejected', updated_at: new Date().toISOString() })
+        .in('id', ids)
+        .select();
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      if (updated) {
+        setItems((prev) =>
+          prev.map((item) => {
+            const match = updated.find((u) => u.id === item.id);
+            return match ? match : item;
+          }),
+        );
+      }
+      setSelectedIds([]);
+    } catch (err) {
+      console.error('Bulk reject error:', err);
+    } finally {
+      setIsBulkRejecting(false);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds([]);
   };
 
   const handleExecuteAll = async () => {
@@ -359,9 +493,17 @@ export default function BacklogPage() {
             <p className="mb-4 text-gray-300">{error}</p>
             <button
               onClick={fetchItems}
-              className="bg-red-600 px-4 py-2 hover:bg-red-700"
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 bg-red-600 px-4 py-2 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Try Again
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Retrying...
+                </>
+              ) : (
+                'Try Again'
+              )}
             </button>
           </div>
         </div>
@@ -483,6 +625,7 @@ export default function BacklogPage() {
                 onStatusChange={setActiveStatus}
                 onExecuteAll={handleExecuteAll}
                 approvedCount={counts.approved}
+                filteredCount={filteredCount}
               />
 
               {session && counts.approved > 0 && (
@@ -510,6 +653,8 @@ export default function BacklogPage() {
           </div>
         ) : isEmpty ? (
           <EmptyStateOnboarding onRefresh={fetchItems} />
+        ) : isViewingFiltered ? (
+          <FilteredItemsTab onRestoreComplete={handleRestoreComplete} />
         ) : filteredItems.length === 0 ? (
           <div className="p-16 text-center">
             <p className="text-gray-500 text-lg mb-4">
@@ -553,6 +698,18 @@ export default function BacklogPage() {
           }}
         />
       )}
+
+      {/* Bulk Actions Bar */}
+      <BulkActionsBar
+        selectedItems={selectedItems}
+        onGeneratePrds={handleBulkGeneratePrds}
+        onApprove={handleBulkApprove}
+        onReject={handleBulkReject}
+        onClearSelection={handleClearSelection}
+        isGenerating={isBulkGenerating}
+        isApproving={isBulkApproving}
+        isRejecting={isBulkRejecting}
+      />
 
       {/* Toast Notifications */}
       {copiedToast && (
