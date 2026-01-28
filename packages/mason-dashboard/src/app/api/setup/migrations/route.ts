@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { runMigrations } from '@/lib/supabase/pg-migrate';
 
 const MIGRATION_SQL = `
 -- Mason Users table
@@ -144,45 +144,23 @@ ALTER TABLE mason_execution_logs ENABLE ROW LEVEL SECURITY;
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabaseUrl, supabaseServiceKey } = await request.json();
+    const { supabaseUrl, databasePassword } = await request.json();
 
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseUrl || !databasePassword) {
       return NextResponse.json(
-        { error: 'Missing Supabase URL or Service Key' },
+        { error: 'Missing Supabase URL or Database Password' },
         { status: 400 },
       );
     }
 
-    const client = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    const result = await runMigrations(
+      supabaseUrl,
+      databasePassword,
+      MIGRATION_SQL,
+    );
 
-    const statements = MIGRATION_SQL.split(';')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-
-    for (const statement of statements) {
-      const { error } = await client.rpc('exec_sql', {
-        sql: statement + ';',
-      });
-
-      if (error && !error.message.includes('already exists')) {
-        const { error: directError } = await client
-          .from('_migrations')
-          .select('*')
-          .limit(1);
-
-        if (
-          directError &&
-          directError.code !== '42P01' &&
-          !directError.message.includes('does not exist')
-        ) {
-          throw new Error(`Migration failed: ${error.message}`);
-        }
-      }
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

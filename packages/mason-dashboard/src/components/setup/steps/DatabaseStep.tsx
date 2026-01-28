@@ -92,6 +92,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
   const [serviceKey, setServiceKey] = useState(
     config?.supabaseServiceKey || '',
   );
+  const [databasePassword, setDatabasePassword] = useState('');
   const [showInstructions, setShowInstructions] = useState(true);
 
   const [connection, setConnection] = useState<ConnectionState>({
@@ -189,10 +190,10 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
   };
 
   const handleRunMigrations = async () => {
-    if (!serviceKey) {
+    if (!databasePassword) {
       setMigration({
         status: 'error',
-        message: 'Service Role Key is required for migrations',
+        message: 'Database Password is required for migrations',
       });
       return;
     }
@@ -205,7 +206,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           supabaseUrl: projectUrl,
-          supabaseServiceKey: serviceKey,
+          databasePassword: databasePassword,
         }),
       });
 
@@ -335,6 +336,13 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
               <span>
                 For migrations, also copy the{' '}
                 <strong>service_role secret</strong> key
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-medium text-gold">5.</span>
+              <span>
+                Go to <strong>Settings</strong> {'>'} <strong>Database</strong>{' '}
+                and copy your <strong>database password</strong>
               </span>
             </li>
           </ol>
@@ -469,6 +477,45 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
             Used only for initial table setup. Can be cleared after setup.
           </p>
         </div>
+
+        <div>
+          <div className="mb-2 flex items-center gap-2">
+            <label
+              htmlFor="databasePassword"
+              className="block text-sm font-medium text-white"
+            >
+              Database Password (for migrations)
+            </label>
+            <HelpTooltip
+              title="Database Password"
+              content="Found in Supabase Dashboard > Settings > Database > Database password. Required to run migrations directly against PostgreSQL."
+              position="right"
+            />
+          </div>
+          <div className="relative">
+            <input
+              id="databasePassword"
+              type="password"
+              value={databasePassword}
+              onChange={(e) => setDatabasePassword(e.target.value)}
+              placeholder="Your database password"
+              className={`w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
+                databasePassword
+                  ? 'border-green-600 focus:border-green-500'
+                  : 'border-gray-700 focus:border-gold'
+              }`}
+            />
+            {databasePassword && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <Check className="h-4 w-4 text-green-500" />
+              </div>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Required for automatic table setup. Found in Settings {'>'}{' '}
+            Database.
+          </p>
+        </div>
       </div>
 
       <div className="flex gap-3">
@@ -551,9 +598,16 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
                 </div>
               </div>
 
+              {!databasePassword && (
+                <p className="text-sm text-yellow-400">
+                  Enter your Database Password above to run migrations.
+                </p>
+              )}
+
               <button
                 onClick={handleRunMigrations}
-                className="w-full rounded-md bg-gold px-4 py-2 font-medium text-navy transition-opacity hover:opacity-90"
+                disabled={!databasePassword}
+                className="w-full rounded-md bg-gold px-4 py-2 font-medium text-navy transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Set Up Tables
               </button>
