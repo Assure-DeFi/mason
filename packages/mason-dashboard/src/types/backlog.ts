@@ -79,6 +79,7 @@ export interface BacklogFilters {
   status?: BacklogStatus[];
   area?: BacklogArea[];
   type?: BacklogType[];
+  complexity?: number[];
   search?: string;
 }
 

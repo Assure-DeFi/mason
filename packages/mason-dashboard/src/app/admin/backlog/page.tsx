@@ -1,14 +1,20 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs } from '@/components/backlog/status-tabs';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
+import { UserMenu } from '@/components/auth/user-menu';
+import { RepositorySelector } from '@/components/execution/repository-selector';
+import { RemoteExecuteButton } from '@/components/execution/remote-execute-button';
+import { ExecutionProgress } from '@/components/execution/execution-progress';
 import type { BacklogItem, BacklogStatus, StatusCounts } from '@/types/backlog';
 import { RefreshCw } from 'lucide-react';
 
 export default function BacklogPage() {
+  const { data: session } = useSession();
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -16,6 +22,9 @@ export default function BacklogPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedToast, setCopiedToast] = useState(false);
+  const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
+  const [executionRunId, setExecutionRunId] = useState<string | null>(null);
+  const [executionError, setExecutionError] = useState<string | null>(null);
 
   // Fetch all items (no filter - we filter client-side for counts)
   const fetchItems = useCallback(async () => {
@@ -177,16 +186,27 @@ export default function BacklogPage() {
               </p>
             </div>
 
-            <button
-              onClick={fetchItems}
-              disabled={isLoading}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-700 text-gray-300 hover:bg-white/5 disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
-              />
-              Refresh
-            </button>
+            <div className="flex items-center gap-4">
+              {session && (
+                <RepositorySelector
+                  value={selectedRepoId}
+                  onChange={setSelectedRepoId}
+                />
+              )}
+
+              <button
+                onClick={fetchItems}
+                disabled={isLoading}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-700 text-gray-300 hover:bg-white/5 disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
+                />
+                Refresh
+              </button>
+
+              <UserMenu />
+            </div>
           </div>
         </div>
       </div>
@@ -194,13 +214,31 @@ export default function BacklogPage() {
       {/* Stats Bar */}
       <StatsBar counts={counts} />
 
-      {/* Status Tabs */}
-      <StatusTabs
-        activeStatus={activeStatus}
-        onStatusChange={setActiveStatus}
-        onExecuteAll={handleExecuteAll}
-        approvedCount={counts.approved}
-      />
+      {/* Status Tabs with Remote Execute */}
+      <div className="border-b border-gray-800">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <StatusTabs
+            activeStatus={activeStatus}
+            onStatusChange={setActiveStatus}
+            onExecuteAll={handleExecuteAll}
+            approvedCount={counts.approved}
+          />
+
+          {session && activeStatus === 'approved' && counts.approved > 0 && (
+            <div className="px-6 py-3">
+              <RemoteExecuteButton
+                itemIds={approvedItemIds}
+                repositoryId={selectedRepoId}
+                onExecutionStart={(runId) => {
+                  setExecutionRunId(runId);
+                  setExecutionError(null);
+                }}
+                onError={setExecutionError}
+              />
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Table */}
       <div className="max-w-7xl mx-auto">
@@ -229,10 +267,34 @@ export default function BacklogPage() {
         />
       )}
 
+      {/* Execution Progress Modal */}
+      {executionRunId && (
+        <ExecutionProgress
+          runId={executionRunId}
+          onClose={() => {
+            setExecutionRunId(null);
+            fetchItems(); // Refresh to show updated statuses
+          }}
+        />
+      )}
+
       {/* Toast */}
       {copiedToast && (
         <div className="fixed bottom-6 right-6 px-4 py-3 bg-green-600 text-white shadow-lg">
           Command copied! Paste into Claude Code to execute.
+        </div>
+      )}
+
+      {/* Execution Error Toast */}
+      {executionError && (
+        <div className="fixed bottom-6 right-6 px-4 py-3 bg-red-600 text-white shadow-lg">
+          {executionError}
+          <button
+            onClick={() => setExecutionError(null)}
+            className="ml-4 text-white/80 hover:text-white"
+          >
+            Dismiss
+          </button>
         </div>
       )}
     </main>
