@@ -11,9 +11,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
-const STORAGE_KEY = 'mason_config';
-const GITHUB_TOKEN_KEY = 'mason_github_token';
+import { STORAGE_KEYS, TABLES } from '@/lib/constants';
 
 export interface MasonConfig {
   supabaseUrl: string;
@@ -39,7 +37,7 @@ export function getMasonConfig(): MasonConfig | null {
   }
 
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEYS.CONFIG);
     if (!stored) {
       return null;
     }
@@ -58,7 +56,7 @@ export function saveMasonConfig(config: MasonConfig): void {
     return;
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(config));
   _cachedConfig = config;
   _userClient = null;
   _userServiceClient = null;
@@ -72,7 +70,7 @@ export function clearMasonConfig(): void {
     return;
   }
 
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_KEYS.CONFIG);
   _cachedConfig = null;
   _userClient = null;
   _userServiceClient = null;
@@ -162,7 +160,7 @@ export async function testUserConnection(
 
     // Try to query any table - we don't care if it exists or not
     // We just want to verify the credentials are valid
-    const { error } = await client.from('mason_users').select('count').limit(1);
+    const { error } = await client.from(TABLES.USERS).select('count').limit(1);
 
     if (error) {
       // Table doesn't exist - that's fine, connection still works
@@ -217,13 +215,13 @@ export async function checkTablesExist(
   serviceKey: string,
 ): Promise<{ exists: boolean; missing: string[] }> {
   const requiredTables = [
-    'mason_users',
-    'mason_api_keys',
-    'mason_github_repositories',
-    'mason_pm_backlog_items',
-    'mason_pm_analysis_runs',
-    'mason_remote_execution_runs',
-    'mason_execution_logs',
+    TABLES.USERS,
+    TABLES.API_KEYS,
+    TABLES.GITHUB_REPOSITORIES,
+    TABLES.PM_BACKLOG_ITEMS,
+    TABLES.PM_ANALYSIS_RUNS,
+    TABLES.REMOTE_EXECUTION_RUNS,
+    TABLES.EXECUTION_LOGS,
   ];
 
   const missing: string[] = [];
@@ -286,7 +284,7 @@ export function getGitHubToken(): string | null {
   }
 
   try {
-    return localStorage.getItem(GITHUB_TOKEN_KEY);
+    return localStorage.getItem(STORAGE_KEYS.GITHUB_TOKEN);
   } catch {
     return null;
   }
@@ -301,7 +299,7 @@ export function saveGitHubToken(token: string): void {
     return;
   }
 
-  localStorage.setItem(GITHUB_TOKEN_KEY, token);
+  localStorage.setItem(STORAGE_KEYS.GITHUB_TOKEN, token);
 }
 
 /**
@@ -312,7 +310,7 @@ export function clearGitHubToken(): void {
     return;
   }
 
-  localStorage.removeItem(GITHUB_TOKEN_KEY);
+  localStorage.removeItem(STORAGE_KEYS.GITHUB_TOKEN);
 }
 
 /**

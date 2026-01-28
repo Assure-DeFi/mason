@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { STORAGE_KEYS } from '@/lib/constants';
 
 interface UnifiedExecuteButtonProps {
   /** IDs of approved items to execute */
@@ -26,8 +27,6 @@ interface UnifiedExecuteButtonProps {
 }
 
 type ExecuteMethod = 'cli' | 'remote';
-
-const STORAGE_KEY = 'mason_execute_preference';
 
 export function UnifiedExecuteButton({
   itemIds,
@@ -45,7 +44,7 @@ export function UnifiedExecuteButton({
 
   // Load preferred method from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(STORAGE_KEYS.EXECUTE_PREFERENCE);
     if (saved === 'cli' || saved === 'remote') {
       setPreferredMethod(saved);
     }
@@ -53,7 +52,7 @@ export function UnifiedExecuteButton({
 
   // Save preference
   const savePreference = (method: ExecuteMethod) => {
-    localStorage.setItem(STORAGE_KEY, method);
+    localStorage.setItem(STORAGE_KEYS.EXECUTE_PREFERENCE, method);
     setPreferredMethod(method);
   };
 

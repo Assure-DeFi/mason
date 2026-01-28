@@ -12,8 +12,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type { GitHubRepository } from '@/types/auth';
-
-const STORAGE_KEY = 'mason-last-repository';
+import { STORAGE_KEYS, API_ROUTES } from '@/lib/constants';
 
 interface RepositorySelectorProps {
   value: string | null;
@@ -28,7 +27,7 @@ interface RepositorySelectorProps {
 function getLastUsedRepository(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    return localStorage.getItem(STORAGE_KEY);
+    return localStorage.getItem(STORAGE_KEYS.LAST_REPOSITORY);
   } catch {
     return null;
   }
@@ -40,7 +39,7 @@ function getLastUsedRepository(): string | null {
 function saveLastUsedRepository(repoId: string): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, repoId);
+    localStorage.setItem(STORAGE_KEYS.LAST_REPOSITORY, repoId);
   } catch {
     // Ignore storage errors
   }
@@ -105,7 +104,7 @@ export function RepositorySelector({
     setError(null);
     setIsLoading(true);
     try {
-      const response = await fetch('/api/github/repositories');
+      const response = await fetch(API_ROUTES.GITHUB_REPOSITORIES);
       if (!response.ok) {
         const errorText =
           response.status === 401
