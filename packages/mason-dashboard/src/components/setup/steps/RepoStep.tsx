@@ -97,7 +97,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
 
       try {
         const { data: userData } = await client
-          .from('users')
+          .from('mason_users')
           .select('id')
           .eq('github_id', session.user.github_id)
           .single();
@@ -105,7 +105,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
         if (!userData) return;
 
         const { data: connected } = await client
-          .from('github_repositories')
+          .from('mason_github_repositories')
           .select('id, github_repo_id, github_full_name')
           .eq('user_id', userData.id)
           .eq('is_active', true);
@@ -142,7 +142,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
 
     try {
       const { data: userData } = await client
-        .from('users')
+        .from('mason_users')
         .select('id')
         .eq('github_id', session.user.github_id)
         .single();
@@ -152,7 +152,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
       }
 
       const { data: existingRepo } = await client
-        .from('github_repositories')
+        .from('mason_github_repositories')
         .select('id')
         .eq('github_repo_id', repo.id)
         .eq('user_id', userData.id)
@@ -160,11 +160,11 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
 
       if (existingRepo) {
         await client
-          .from('github_repositories')
+          .from('mason_github_repositories')
           .update({ is_active: true, updated_at: new Date().toISOString() })
           .eq('id', existingRepo.id);
       } else {
-        await client.from('github_repositories').insert({
+        await client.from('mason_github_repositories').insert({
           user_id: userData.id,
           github_repo_id: repo.id,
           github_owner: repo.owner.login,

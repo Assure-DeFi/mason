@@ -31,7 +31,7 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
       try {
         // Simple ping to check if database is accessible
         const { error } = await client
-          .from('users')
+          .from('mason_users')
           .select('id', { count: 'exact', head: true })
           .limit(1);
 

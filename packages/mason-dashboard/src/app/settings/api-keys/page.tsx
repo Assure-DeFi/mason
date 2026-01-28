@@ -46,7 +46,7 @@ export default function ApiKeysPage() {
 
     try {
       const { data: userData } = await client
-        .from('users')
+        .from('mason_users')
         .select('id')
         .eq('github_id', session.user.github_id)
         .single();
@@ -57,7 +57,7 @@ export default function ApiKeysPage() {
       }
 
       const { data, error: fetchError } = await client
-        .from('api_keys')
+        .from('mason_api_keys')
         .select('id, name, key_prefix, created_at, last_used_at')
         .eq('user_id', userData.id)
         .order('created_at', { ascending: false });
@@ -99,7 +99,7 @@ export default function ApiKeysPage() {
 
     try {
       const { data: userData } = await client
-        .from('users')
+        .from('mason_users')
         .select('id')
         .eq('github_id', session.user.github_id)
         .single();
@@ -125,7 +125,7 @@ export default function ApiKeysPage() {
         .join('');
 
       const { data: insertedKey, error: insertError } = await client
-        .from('api_keys')
+        .from('mason_api_keys')
         .insert({
           user_id: userData.id,
           name: 'Default',
@@ -171,7 +171,7 @@ export default function ApiKeysPage() {
 
     try {
       const { error: deleteError } = await client
-        .from('api_keys')
+        .from('mason_api_keys')
         .delete()
         .eq('id', id);
 
