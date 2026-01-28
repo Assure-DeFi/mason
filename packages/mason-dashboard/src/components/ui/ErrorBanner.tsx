@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   AlertCircle,
   X,
@@ -196,13 +196,13 @@ export function ErrorToast({
   const [isVisible, setIsVisible] = useState(true);
 
   // Auto-dismiss after duration
-  useState(() => {
+  useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(false);
       onDismiss();
     }, duration);
     return () => clearTimeout(timer);
-  });
+  }, [duration, onDismiss]);
 
   if (!isVisible) return null;
 
