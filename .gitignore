@@ -7,5 +7,38 @@ article-intake/
 Lead-Data-Enrichment-Engine/
 ralph-lab/
 
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
 # OS files
 .DS_Store
+Thumbs.db
+
+# Mason local data
+.mason/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Lock files (kept in repo but sometimes ignored locally)
+# pnpm-lock.yaml
