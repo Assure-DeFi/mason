@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   Check,
   X,
@@ -12,6 +13,7 @@ import {
 import type { WizardStepProps } from '../SetupWizard';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { HelpTooltip } from '@/components/ui/HelpTooltip';
+import { TABLES } from '@/lib/constants';
 
 type AIProvider = 'anthropic' | 'openai';
 
@@ -61,6 +63,7 @@ function validateOpenAIKey(key: string): ValidationState {
 }
 
 export function AIProviderStep({ onNext, onBack }: WizardStepProps) {
+  const { data: session } = useSession();
   const { client } = useUserDatabase();
 
   const [provider, setProvider] = useState<AIProvider>('anthropic');
@@ -106,27 +109,29 @@ export function AIProviderStep({ onNext, onBack }: WizardStepProps) {
   }, [keyValidation.isValid, isSaving, isTesting]);
 
   const handleSaveKey = async () => {
-    if (!client || !canSave) return;
+    if (!client || !canSave || !session?.user) return;
 
     setIsSaving(true);
     setErrorMessage(null);
 
     try {
-      // Get the current user ID from the session
-      const {
-        data: { user },
-      } = await client.auth.getUser();
+      // Get the user ID from mason_users table using GitHub ID
+      const { data: userData, error: userError } = await client
+        .from(TABLES.USERS)
+        .select('id')
+        .eq('github_id', session.user.github_id)
+        .single();
 
-      if (!user) {
-        throw new Error('Not authenticated');
+      if (userError || !userData) {
+        throw new Error('User not found. Please complete GitHub setup first.');
       }
 
       // Save to mason_ai_provider_keys table
       const { error: upsertError } = await client
-        .from('mason_ai_provider_keys')
+        .from(TABLES.AI_PROVIDER_KEYS)
         .upsert(
           {
-            user_id: user.id,
+            user_id: userData.id,
             provider,
             api_key: apiKey,
             updated_at: new Date().toISOString(),

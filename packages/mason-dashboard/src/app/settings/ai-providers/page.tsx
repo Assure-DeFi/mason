@@ -162,7 +162,7 @@ export default function AIProvidersPage() {
   }, [session, fetchKeys, isConfigured, isDbLoading]);
 
   const handleTestAndSave = async () => {
-    if (!client || !keyValidation.isValid) return;
+    if (!client || !keyValidation.isValid || !session?.user) return;
 
     setIsTesting(true);
     setError(null);
@@ -182,13 +182,15 @@ export default function AIProvidersPage() {
         throw new Error(testData.error || 'Connection test failed');
       }
 
-      // Get user ID
-      const {
-        data: { user },
-      } = await client.auth.getUser();
+      // Get user ID from mason_users table using GitHub ID
+      const { data: userData, error: userError } = await client
+        .from(TABLES.USERS)
+        .select('id')
+        .eq('github_id', session.user.github_id)
+        .single();
 
-      if (!user) {
-        throw new Error('Not authenticated');
+      if (userError || !userData) {
+        throw new Error('User not found. Please complete setup first.');
       }
 
       // Save the key
@@ -197,7 +199,7 @@ export default function AIProvidersPage() {
         .from(TABLES.AI_PROVIDER_KEYS)
         .upsert(
           {
-            user_id: user.id,
+            user_id: userData.id,
             provider: selectedProvider,
             api_key: apiKey,
             updated_at: new Date().toISOString(),
