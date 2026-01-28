@@ -1,6 +1,6 @@
 #!/bin/bash
 # Mason Installation Script
-# This script sets up Mason in your current directory
+# This script sets up Mason in your current directory for the hosted service
 
 set -e
 
@@ -46,7 +46,6 @@ echo ""
 echo "Creating directories..."
 mkdir -p .claude/commands
 mkdir -p .claude/skills/pm-domain-knowledge
-mkdir -p supabase/migrations
 
 # Function to download file with verification
 download_file() {
@@ -106,26 +105,32 @@ download_file \
     ".claude/skills/pm-domain-knowledge/SKILL.md" \
     "SKILL.md"
 
-# Download migration (single combined file)
+# Prompt for API key
 echo ""
-echo "Installing database migration..."
+echo "=================================="
+echo "  API Key Configuration"
+echo "=================================="
+echo ""
+echo "Get your API key from: https://mason.assuredefi.com/settings/api-keys"
+echo ""
+read -p "Enter your Mason API key: " API_KEY
 
-download_file \
-    "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-migrations/migrations/001_mason_schema.sql" \
-    "supabase/migrations/001_mason_schema.sql" \
-    "001_mason_schema.sql"
-
-# Create default config if it doesn't exist
-if [ ! -f "mason.config.json" ]; then
+# Validate API key format
+if [[ ! "$API_KEY" =~ ^mason_ ]]; then
     echo ""
-    echo "Creating configuration file..."
-    cat > mason.config.json << 'EOF'
+    echo "WARNING: API key should start with 'mason_'"
+    echo "Continuing anyway, but please verify your key is correct."
+    echo ""
+fi
+
+# Create config with API key
+echo ""
+echo "Creating configuration file..."
+cat > mason.config.json << EOF
 {
-  "version": "1.0",
-  "supabase": {
-    "url": "",
-    "anonKey": ""
-  },
+  "version": "2.0",
+  "apiKey": "$API_KEY",
+  "apiUrl": "https://mason.assuredefi.com/api/v1",
   "domains": [
     { "name": "frontend-ux", "enabled": true, "weight": 1 },
     { "name": "api-backend", "enabled": true, "weight": 1 },
@@ -135,8 +140,7 @@ if [ ! -f "mason.config.json" ]; then
   ]
 }
 EOF
-    echo "  [OK] mason.config.json"
-fi
+echo "  [OK] mason.config.json"
 
 # Verify all files exist
 echo ""
@@ -156,7 +160,6 @@ verify_file() {
 verify_file ".claude/commands/pm-review.md"
 verify_file ".claude/commands/execute-approved.md"
 verify_file ".claude/skills/pm-domain-knowledge/SKILL.md"
-verify_file "supabase/migrations/001_mason_schema.sql"
 verify_file "mason.config.json"
 
 if [ $ERRORS -gt 0 ]; then
@@ -173,25 +176,14 @@ echo "=================================="
 echo ""
 echo "NEXT STEPS:"
 echo ""
-echo "1. Add your Supabase credentials to mason.config.json:"
-echo "   - Get them from: https://supabase.com/dashboard"
-echo "   - Project Settings > API > Project URL and anon key"
-echo ""
-echo "2. Run the database migration:"
-echo "   - Open Supabase SQL Editor"
-echo "   - Copy contents of supabase/migrations/001_mason_schema.sql"
-echo "   - Paste and run in SQL Editor"
-echo ""
-echo "3. Customize your domain knowledge (optional):"
+echo "1. Customize your domain knowledge (optional):"
 echo "   - Edit .claude/skills/pm-domain-knowledge/SKILL.md"
 echo "   - Add your business context and goals"
 echo ""
-echo "4. Start using Mason in Claude Code:"
+echo "2. Start using Mason in Claude Code:"
 echo "   - Open Claude Code in this directory"
 echo "   - Run: /pm-review"
 echo ""
-echo "5. Review improvements in Dashboard:"
-echo "   - Clone mason-dashboard from GitHub"
-echo "   - Run: pnpm install && pnpm dev"
-echo "   - Open: http://localhost:3000/admin/backlog"
+echo "3. Review improvements in Dashboard:"
+echo "   - Open: https://mason.assuredefi.com/admin/backlog"
 echo ""

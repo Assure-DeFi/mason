@@ -128,54 +128,51 @@ For EVERY improvement, populate ALL 5 benefit categories. Each benefit should be
 }
 ```
 
-### Step 6: Store Results in Supabase
+### Step 6: Submit Results to Mason API
 
-For each improvement, insert into `pm_backlog_items` table with the NEW schema:
+Read the API configuration from `mason.config.json`:
 
-```sql
-INSERT INTO pm_backlog_items (
-  title,
-  problem,
-  solution,
-  area,
-  type,
-  complexity,
-  impact_score,
-  effort_score,
-  benefits,
-  status
-) VALUES (
-  'Add data freshness timestamps to Executive Snapshot',
-  'Executives cannot tell when snapshot data was last updated. No visible "as of" timestamps or data freshness indicators. This creates uncertainty about whether viewing current or stale information.',
-  'Add visible timestamps showing when each section was last refreshed. Include "Last updated: X minutes ago" badges on KPI cards, funnel summary, and revenue chart. Add global "Data as of [timestamp]" indicator in page header.',
-  'frontend',
-  'dashboard',
-  2,
-  9,
-  2,
-  '[
-    {"category": "user_experience", "icon": "user", "title": "USER EXPERIENCE", "description": "Clear visibility into data freshness increases trust"},
-    {"category": "sales_team", "icon": "users", "title": "SALES TEAM", "description": "Executives gain confidence in data currency for decision-making"},
-    {"category": "operations", "icon": "settings", "title": "OPERATIONS", "description": "Reduces support questions about data staleness"},
-    {"category": "performance", "icon": "chart", "title": "PERFORMANCE", "description": "No performance impact - timestamps already in data"},
-    {"category": "reliability", "icon": "wrench", "title": "RELIABILITY", "description": "Helps users identify when refresh needed"}
-  ]'::jsonb,
-  'new'
-);
+```json
+{
+  "version": "2.0",
+  "apiKey": "mason_xxxxx",
+  "apiUrl": "https://mason.assuredefi.com/api/v1"
+}
 ```
 
-Also create an analysis run record:
+Submit all improvements to the Mason API:
 
-```sql
-INSERT INTO pm_analysis_runs (
-  mode,
-  items_found,
-  completed_at
-) VALUES (
-  'full',
-  15,
-  now()
-);
+```bash
+curl -X POST "${apiUrl}/analysis" \
+  -H "Authorization: Bearer ${apiKey}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mode": "full",
+    "items": [
+      {
+        "title": "Add data freshness timestamps to Executive Snapshot",
+        "problem": "Executives cannot tell when snapshot data was last updated...",
+        "solution": "Add visible timestamps showing when each section was last refreshed...",
+        "type": "dashboard",
+        "area": "frontend",
+        "impact_score": 9,
+        "effort_score": 2,
+        "complexity": 2,
+        "benefits": [...]
+      }
+    ]
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "analysis_run_id": "uuid",
+  "items_created": 15,
+  "dashboard_url": "https://mason.assuredefi.com/admin/backlog"
+}
 ```
 
 ### Step 7: Generate PRDs (Full Mode Only)
@@ -249,45 +246,44 @@ After analysis, provide a summary:
 
 ### Next Steps
 
-1. View all items in Dashboard: http://localhost:3000/admin/backlog
+1. View all items in Dashboard: [dashboard_url from API response]
 2. Review and approve items for execution
 3. Click "Execute All" on Approved tab to copy command
 4. Paste command into Claude Code to implement
 ```
 
-## Supabase Connection
+## API Connection
 
-Read Supabase credentials from `mason.config.json`:
+Read API credentials from `mason.config.json`:
 
 ```json
 {
-  "supabase": {
-    "url": "https://xxx.supabase.co",
-    "anonKey": "eyJ..."
-  }
+  "version": "2.0",
+  "apiKey": "mason_xxxxx",
+  "apiUrl": "https://mason.assuredefi.com/api/v1"
 }
 ```
 
 ### Connection Error Handling
 
-If you encounter Supabase connection errors:
+If you encounter API connection errors:
 
-1. **Missing credentials**: Prompt user to add credentials to `mason.config.json`
-2. **Invalid URL/key**: Suggest checking the credentials in Supabase Dashboard > Project Settings > API
+1. **Missing API key**: Prompt user to add API key to `mason.config.json`
+2. **Invalid API key**: Suggest generating a new key at the dashboard
 3. **Network error**: Retry up to 3 times with exponential backoff
-4. **RLS error**: Ensure the anon key has proper permissions or temporarily disable RLS for testing
+4. **Server error**: Report the error and suggest trying again later
 
 Example error response:
 
 ```
-Error: Unable to connect to Supabase.
+Error: Unable to submit analysis to Mason API.
 
 Please verify:
-1. mason.config.json exists and contains valid credentials
-2. Your Supabase project is accessible
-3. The anon key has permissions to insert into pm_backlog_items
+1. mason.config.json exists and contains a valid apiKey
+2. Your API key is active (generate at https://mason.assuredefi.com/settings/api-keys)
+3. The Mason service is accessible
 
-Get credentials from: https://supabase.com/dashboard > Project Settings > API
+If the problem persists, check your network connection or try again later.
 ```
 
 ## Complete Improvement JSON Schema
