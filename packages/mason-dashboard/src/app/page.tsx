@@ -66,7 +66,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-8">
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <div className="rounded-lg border border-gray-800 bg-black/30 p-6">
                 <Database className="mb-4 h-10 w-10 text-gold" />
                 <h3 className="mb-2 text-lg font-semibold text-white">
@@ -109,9 +109,8 @@ export default function Home() {
                 Get Started
                 <ArrowRight className="h-5 w-5" />
               </Link>
-              <p className="text-sm text-gray-500">
-                Already have an account?{' '}
-                <SignInButton className="inline-flex bg-transparent px-2 py-1 text-gold hover:underline" />
+              <p className="text-center text-sm text-gray-400">
+                Already have an account? <SignInButton variant="link" />
               </p>
             </div>
           </div>
@@ -147,7 +146,7 @@ export default function Home() {
           </ol>
         </div>
 
-        <div className="mt-12 text-center text-sm text-gray-500">
+        <div className="mt-12 text-center text-sm text-gray-400">
           Powered by{' '}
           <a
             href="https://assuredefi.com"
