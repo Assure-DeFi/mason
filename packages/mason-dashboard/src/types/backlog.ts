@@ -90,6 +90,50 @@ export interface AnalysisRun {
   completed_at: string | null;
   status: 'in_progress' | 'completed' | 'failed';
   error_message: string | null;
+  // Validation tracking
+  items_validated: number;
+  items_filtered: number;
+}
+
+/**
+ * Filter tier indicating which validation check caught the false positive
+ */
+export type FilterTier = 'tier1' | 'tier2' | 'tier3';
+
+/**
+ * Override status for filtered items
+ */
+export type FilterOverrideStatus = 'filtered' | 'restored';
+
+/**
+ * Represents a suggestion that was filtered out during validation
+ */
+export interface FilteredItem {
+  id: string;
+  created_at: string;
+
+  // Original suggestion fields
+  title: string;
+  problem: string;
+  solution: string;
+  type: BacklogType;
+  area: BacklogArea;
+  impact_score: number;
+  effort_score: number;
+  complexity: number;
+  benefits: Benefit[];
+
+  // Validation result
+  filter_reason: string;
+  filter_tier: FilterTier;
+  filter_confidence: number;
+  evidence: string | null;
+
+  // Context
+  analysis_run_id: string | null;
+
+  // User override capability
+  override_status: FilterOverrideStatus;
 }
 
 export interface BacklogFilters {

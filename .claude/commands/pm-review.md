@@ -128,6 +128,66 @@ For EVERY improvement, populate ALL 5 benefit categories. Each benefit should be
 }
 ```
 
+### Step 5.5: Validate Suggestions (Parallel)
+
+Before submission, validate each suggestion to filter false positives. This step runs in parallel for efficiency.
+
+#### Validation Process
+
+Invoke the pm-validator agent to check all suggestions:
+
+1. **Tier 1 (Pattern-Based)**: Auto-reject obvious false positives
+   - `.env.example` placeholder values
+   - Test fixtures (`test_api_key`, `mock_secret`)
+   - `NEXT_PUBLIC_*` environment variables
+   - Example/sample data in documentation
+
+2. **Tier 2 (Contextual)**: Investigate the codebase
+   - Check for `// why`, `// NOTE`, `// intentional` comments
+   - Look for existing error handling/mitigations
+   - Check `.claude/skills/pm-domain-knowledge/` Off-Limits
+
+3. **Tier 3 (Impact)**: Verify actionable solutions
+   - Solution references specific files/patterns
+   - Fix improves system without side effects
+
+#### Log Filtered Items
+
+Insert filtered items to `mason_pm_filtered_items`:
+
+```bash
+curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_filtered_items" \
+  -H "apikey: ${supabaseAnonKey}" \
+  -H "Authorization: Bearer ${supabaseAnonKey}" \
+  -H "Content-Type: application/json" \
+  -d '[{
+    "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+    "title": "...",
+    "problem": "...",
+    "solution": "...",
+    "type": "...",
+    "area": "...",
+    "impact_score": 8,
+    "effort_score": 2,
+    "filter_reason": "Pattern matches .env.example placeholder values",
+    "filter_tier": "tier1",
+    "filter_confidence": 0.95
+  }]'
+```
+
+#### Display Validation Summary
+
+```
+## Validation Complete
+- Suggestions Generated: 15
+- Validated (will submit): 12
+- Filtered (false positives): 3
+
+Filtered items logged to dashboard → Filtered tab for review.
+```
+
+Continue to Step 6 with validated items only.
+
 ### Step 6: Submit Results Directly to User's Supabase
 
 **Privacy Architecture:** Data is written DIRECTLY to the user's own Supabase database, never to the central server. The central server only validates the API key for identity.
