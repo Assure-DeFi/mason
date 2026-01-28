@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import chalk from 'chalk';
@@ -163,9 +163,8 @@ function checkConfig(repoPath: string): CheckResult {
   }
 
   try {
-    const { readFileSync } = require('node:fs');
     const content = readFileSync(configPath, 'utf-8');
-    const config = JSON.parse(content);
+    const config = JSON.parse(content) as { version?: number };
 
     return {
       name: 'Config',
