@@ -1,0 +1,18 @@
+{
+  "name": "@mason/commands",
+  "version": "0.1.0",
+  "description": "Claude Code command templates for Mason PM system",
+  "type": "module",
+  "files": [
+    "commands",
+    "skills"
+  ],
+  "keywords": [
+    "mason",
+    "claude-code",
+    "commands",
+    "pm"
+  ],
+  "author": "Jeff L",
+  "license": "MIT"
+}

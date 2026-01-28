@@ -4,317 +4,287 @@ import { join, resolve } from 'node:path';
 import chalk from 'chalk';
 import { Command } from 'commander';
 
-import {
-  detectStack,
-  getStackDescription,
-  resolveApiKey,
-  maskApiKey,
-  getApiKeySourceDescription,
-} from '@mason/core';
-import { createDatabase, getMigrationStatus } from '@mason/storage';
+interface MasonConfig {
+  version: number;
+  supabase: {
+    url: string;
+    anonKey: string;
+  };
+  dashboardUrl: string;
+  domains: Array<{
+    name: string;
+    enabled: boolean;
+    weight: number;
+  }>;
+}
 
 interface CheckResult {
   name: string;
-  status: 'pass' | 'warn' | 'fail';
+  status: 'pass' | 'fail' | 'warn';
   message: string;
-  details?: string;
+  fix?: string;
 }
 
 /**
- * Run a single check
- */
-function formatCheck(result: CheckResult): string {
-  const icon =
-    result.status === 'pass'
-      ? chalk.green('✓')
-      : result.status === 'warn'
-        ? chalk.yellow('⚠')
-        : chalk.red('✗');
-
-  const color =
-    result.status === 'pass'
-      ? chalk.green
-      : result.status === 'warn'
-        ? chalk.yellow
-        : chalk.red;
-
-  let output = `${icon} ${result.name}: ${color(result.message)}`;
-  if (result.details) {
-    output += chalk.dim(`\n    ${result.details}`);
-  }
-  return output;
-}
-
-/**
- * Check Git repository
- */
-async function checkGit(repoPath: string): Promise<CheckResult> {
-  const gitDir = join(repoPath, '.git');
-
-  if (!existsSync(gitDir)) {
-    return {
-      name: 'Git',
-      status: 'fail',
-      message: 'Not a git repository',
-      details: 'Run `git init` to initialize a git repository',
-    };
-  }
-
-  // Check for uncommitted changes
-  const { exec } = await import('node:child_process');
-  const { promisify } = await import('node:util');
-  const execAsync = promisify(exec);
-
-  try {
-    const { stdout } = await execAsync('git status --porcelain', {
-      cwd: repoPath,
-    });
-
-    if (stdout.trim()) {
-      return {
-        name: 'Git',
-        status: 'warn',
-        message: 'Uncommitted changes detected',
-        details: 'Consider committing changes before running mason execute',
-      };
-    }
-
-    return {
-      name: 'Git',
-      status: 'pass',
-      message: 'Clean working directory',
-    };
-  } catch {
-    return {
-      name: 'Git',
-      status: 'fail',
-      message: 'Could not check git status',
-    };
-  }
-}
-
-/**
- * Check Node.js version
- */
-function checkNode(): CheckResult {
-  const version = process.version;
-  const major = parseInt(version.slice(1).split('.')[0] ?? '0', 10);
-
-  if (major < 18) {
-    return {
-      name: 'Node.js',
-      status: 'fail',
-      message: `${version} (requires >= 18.0.0)`,
-    };
-  }
-
-  return {
-    name: 'Node.js',
-    status: 'pass',
-    message: version,
-  };
-}
-
-/**
- * Check API key
- */
-function checkApiKey(repoPath: string): CheckResult {
-  const result = resolveApiKey(repoPath);
-
-  if (!result.apiKey) {
-    return {
-      name: 'API Key',
-      status: 'fail',
-      message: 'Not found',
-      details:
-        'Set ANTHROPIC_API_KEY environment variable or run `mason init` to configure',
-    };
-  }
-
-  if (result.warning) {
-    return {
-      name: 'API Key',
-      status: 'warn',
-      message: `${maskApiKey(result.apiKey)} (${getApiKeySourceDescription(result.source)})`,
-      details: result.warning,
-    };
-  }
-
-  return {
-    name: 'API Key',
-    status: 'pass',
-    message: `${maskApiKey(result.apiKey)} (${getApiKeySourceDescription(result.source)})`,
-  };
-}
-
-/**
- * Check Mason configuration
- */
-function checkConfig(repoPath: string): CheckResult {
-  const configPath = join(repoPath, 'mason.config.json');
-
-  if (!existsSync(configPath)) {
-    return {
-      name: 'Config',
-      status: 'fail',
-      message: 'Not found',
-      details: 'Run `mason init` to create configuration',
-    };
-  }
-
-  try {
-    const content = readFileSync(configPath, 'utf-8');
-    const config = JSON.parse(content) as { version?: number };
-
-    return {
-      name: 'Config',
-      status: 'pass',
-      message: `mason.config.json (v${config.version ?? 1})`,
-    };
-  } catch {
-    return {
-      name: 'Config',
-      status: 'fail',
-      message: 'Invalid configuration',
-      details: 'mason.config.json contains invalid JSON',
-    };
-  }
-}
-
-/**
- * Check database
- */
-function checkDatabase(repoPath: string): CheckResult {
-  const dataDir = join(repoPath, '.mason');
-  const dbPath = join(dataDir, 'mason.db');
-
-  if (!existsSync(dataDir)) {
-    return {
-      name: 'Database',
-      status: 'fail',
-      message: '.mason directory not found',
-      details: 'Run `mason init` to create database',
-    };
-  }
-
-  if (!existsSync(dbPath)) {
-    return {
-      name: 'Database',
-      status: 'fail',
-      message: 'Database not found',
-      details: 'Run `mason init` to create database',
-    };
-  }
-
-  try {
-    const db = createDatabase(repoPath, '.mason');
-    const status = getMigrationStatus(db);
-    db.close();
-
-    if (status.pendingCount > 0) {
-      return {
-        name: 'Database',
-        status: 'warn',
-        message: `${status.pendingCount} pending migrations`,
-        details: 'Run mason to apply migrations',
-      };
-    }
-
-    return {
-      name: 'Database',
-      status: 'pass',
-      message: `Schema v${status.currentVersion}`,
-    };
-  } catch (err) {
-    return {
-      name: 'Database',
-      status: 'fail',
-      message: 'Could not connect to database',
-      details: err instanceof Error ? err.message : 'Unknown error',
-    };
-  }
-}
-
-/**
- * Check stack detection
- */
-function checkStack(repoPath: string): CheckResult {
-  const result = detectStack(repoPath);
-
-  if (result.type === 'unknown') {
-    return {
-      name: 'Stack',
-      status: 'warn',
-      message: 'Unknown',
-      details: 'Could not detect project type. Analysis may be limited.',
-    };
-  }
-
-  return {
-    name: 'Stack',
-    status: 'pass',
-    message: getStackDescription(result),
-  };
-}
-
-/**
- * Mason doctor command
+ * Mason doctor command - Verify setup
  */
 export const doctorCommand = new Command('doctor')
-  .description('Check your Mason setup and environment')
+  .description('Check Mason setup and environment')
   .option(
     '-r, --repo <path>',
     'Path to repository (default: current directory)',
   )
   .action(async (options: { repo?: string }) => {
     const repoPath = resolve(options.repo ?? process.cwd());
+    const results: CheckResult[] = [];
 
-    // eslint-disable-next-line no-console
     console.log(chalk.bold('\n🔍 Mason Doctor\n'));
-    // eslint-disable-next-line no-console
-    console.log(chalk.dim(`Checking ${repoPath}\n`));
+    console.log(chalk.dim('Checking your Mason setup...\n'));
 
-    // Run all checks
-    const checks: CheckResult[] = [
-      checkNode(),
-      await checkGit(repoPath),
-      checkConfig(repoPath),
-      checkApiKey(repoPath),
-      checkDatabase(repoPath),
-      checkStack(repoPath),
-    ];
+    // Check 1: Configuration file
+    const configPath = join(repoPath, 'mason.config.json');
+    if (existsSync(configPath)) {
+      try {
+        const configContent = readFileSync(configPath, 'utf-8');
+        const config: MasonConfig = JSON.parse(configContent);
 
-    // Display results
-    for (const check of checks) {
-      // eslint-disable-next-line no-console
-      console.log(formatCheck(check));
+        if (config.version !== 1) {
+          results.push({
+            name: 'Configuration file',
+            status: 'warn',
+            message: `Unexpected version: ${config.version}`,
+            fix: 'Run `mason init` to update',
+          });
+        } else {
+          results.push({
+            name: 'Configuration file',
+            status: 'pass',
+            message: 'mason.config.json found and valid',
+          });
+        }
+
+        // Check Supabase config
+        if (config.supabase?.url && config.supabase?.anonKey) {
+          results.push({
+            name: 'Supabase configuration',
+            status: 'pass',
+            message: `URL: ${config.supabase.url.slice(0, 30)}...`,
+          });
+        } else {
+          results.push({
+            name: 'Supabase configuration',
+            status: 'fail',
+            message: 'Missing Supabase credentials',
+            fix: 'Add supabase.url and supabase.anonKey to mason.config.json',
+          });
+        }
+
+        // Check dashboard URL
+        if (config.dashboardUrl) {
+          results.push({
+            name: 'Dashboard URL',
+            status: 'pass',
+            message: config.dashboardUrl,
+          });
+        } else {
+          results.push({
+            name: 'Dashboard URL',
+            status: 'warn',
+            message: 'Not configured',
+            fix: 'Add dashboardUrl to mason.config.json',
+          });
+        }
+      } catch {
+        results.push({
+          name: 'Configuration file',
+          status: 'fail',
+          message: 'Invalid JSON in mason.config.json',
+          fix: 'Fix JSON syntax or run `mason init`',
+        });
+      }
+    } else {
+      results.push({
+        name: 'Configuration file',
+        status: 'fail',
+        message: 'mason.config.json not found',
+        fix: 'Run `mason init` to create it',
+      });
+    }
+
+    // Check 2: Claude Code commands
+    const commandsDir = join(repoPath, '.claude', 'commands');
+    const pmReviewPath = join(commandsDir, 'pm-review.md');
+    const executeApprovedPath = join(commandsDir, 'execute-approved.md');
+
+    if (existsSync(pmReviewPath) && existsSync(executeApprovedPath)) {
+      results.push({
+        name: 'Claude Code commands',
+        status: 'pass',
+        message: 'pm-review.md and execute-approved.md found',
+      });
+    } else {
+      const missing = [];
+      if (!existsSync(pmReviewPath)) missing.push('pm-review.md');
+      if (!existsSync(executeApprovedPath)) missing.push('execute-approved.md');
+
+      results.push({
+        name: 'Claude Code commands',
+        status: 'fail',
+        message: `Missing: ${missing.join(', ')}`,
+        fix: 'Run `mason init` to create commands',
+      });
+    }
+
+    // Check 3: PM domain knowledge skill
+    const skillPath = join(
+      repoPath,
+      '.claude',
+      'skills',
+      'pm-domain-knowledge',
+      'SKILL.md',
+    );
+    if (existsSync(skillPath)) {
+      results.push({
+        name: 'PM domain knowledge',
+        status: 'pass',
+        message: 'SKILL.md found',
+      });
+    } else {
+      results.push({
+        name: 'PM domain knowledge',
+        status: 'warn',
+        message: 'SKILL.md not found',
+        fix: 'Run `mason init` or create .claude/skills/pm-domain-knowledge/SKILL.md',
+      });
+    }
+
+    // Check 4: Supabase migrations
+    const migrationsDir = join(repoPath, 'supabase', 'migrations');
+    const migration1 = join(migrationsDir, '001_pm_backlog_tables.sql');
+    const migration2 = join(migrationsDir, '002_pm_execution_runs.sql');
+    const migration3 = join(migrationsDir, '003_pm_execution_tasks.sql');
+
+    if (
+      existsSync(migration1) &&
+      existsSync(migration2) &&
+      existsSync(migration3)
+    ) {
+      results.push({
+        name: 'Supabase migrations',
+        status: 'pass',
+        message: 'All migration files present',
+      });
+    } else {
+      const missing = [];
+      if (!existsSync(migration1)) missing.push('001');
+      if (!existsSync(migration2)) missing.push('002');
+      if (!existsSync(migration3)) missing.push('003');
+
+      results.push({
+        name: 'Supabase migrations',
+        status: 'fail',
+        message: `Missing migrations: ${missing.join(', ')}`,
+        fix: 'Run `mason init` to create migration files',
+      });
+    }
+
+    // Check 5: Anthropic API key (optional, for dashboard PRD generation)
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey) {
+      results.push({
+        name: 'Anthropic API key',
+        status: 'pass',
+        message: `Set in environment (${anthropicKey.slice(0, 10)}...)`,
+      });
+    } else {
+      results.push({
+        name: 'Anthropic API key',
+        status: 'warn',
+        message: 'Not set (optional, for dashboard PRD generation)',
+        fix: 'Set ANTHROPIC_API_KEY environment variable',
+      });
+    }
+
+    // Check 6: Dashboard directory
+    const dashboardDir = join(repoPath, 'mason-dashboard');
+    const dashboardEnv = join(dashboardDir, '.env.local');
+    if (existsSync(dashboardDir)) {
+      if (existsSync(dashboardEnv)) {
+        results.push({
+          name: 'Dashboard setup',
+          status: 'pass',
+          message: 'mason-dashboard directory with .env.local found',
+        });
+      } else {
+        results.push({
+          name: 'Dashboard setup',
+          status: 'warn',
+          message: 'mason-dashboard exists but missing .env.local',
+          fix: 'Create mason-dashboard/.env.local with Supabase credentials',
+        });
+      }
+    } else {
+      results.push({
+        name: 'Dashboard setup',
+        status: 'warn',
+        message: 'mason-dashboard directory not found',
+        fix: 'Copy dashboard template or run `mason init`',
+      });
+    }
+
+    // Print results
+    console.log(chalk.bold('Results:\n'));
+
+    for (const result of results) {
+      const icon =
+        result.status === 'pass'
+          ? chalk.green('✓')
+          : result.status === 'fail'
+            ? chalk.red('✗')
+            : chalk.yellow('⚠');
+
+      const statusColor =
+        result.status === 'pass'
+          ? chalk.green
+          : result.status === 'fail'
+            ? chalk.red
+            : chalk.yellow;
+
+      console.log(`  ${icon} ${chalk.bold(result.name)}`);
+      console.log(`    ${statusColor(result.message)}`);
+      if (result.fix) {
+        console.log(`    ${chalk.dim(`Fix: ${result.fix}`)}`);
+      }
+      console.log();
     }
 
     // Summary
-    const passed = checks.filter((c) => c.status === 'pass').length;
-    const warnings = checks.filter((c) => c.status === 'warn').length;
-    const failed = checks.filter((c) => c.status === 'fail').length;
+    const passed = results.filter((r) => r.status === 'pass').length;
+    const failed = results.filter((r) => r.status === 'fail').length;
+    const warned = results.filter((r) => r.status === 'warn').length;
 
-    // eslint-disable-next-line no-console
-    console.log();
+    console.log(chalk.bold('\nSummary:'));
+    console.log(
+      `  ${chalk.green(passed + ' passed')}, ${chalk.red(failed + ' failed')}, ${chalk.yellow(warned + ' warnings')}`,
+    );
 
     if (failed > 0) {
-      // eslint-disable-next-line no-console
       console.log(
-        chalk.red(`${failed} check(s) failed. Please fix the issues above.`),
+        chalk.red('\nSome checks failed. Fix the issues above to proceed.\n'),
       );
       process.exit(1);
-    } else if (warnings > 0) {
-      // eslint-disable-next-line no-console
+    } else if (warned > 0) {
       console.log(
         chalk.yellow(
-          `All checks passed with ${warnings} warning(s). Mason is ready.`,
+          '\nSetup complete with warnings. Some features may be limited.\n',
         ),
       );
     } else {
-      // eslint-disable-next-line no-console
-      console.log(chalk.green(`All ${passed} checks passed. Mason is ready!`));
+      console.log(chalk.green('\nAll checks passed! Mason is ready to use.\n'));
     }
-    // eslint-disable-next-line no-console
-    console.log();
+
+    console.log(chalk.bold('Next steps:'));
+    console.log('  1. Run the SQL migrations in Supabase');
+    console.log('  2. Open Claude Code and run /pm-review');
+    console.log('  3. View results in the dashboard\n');
   });

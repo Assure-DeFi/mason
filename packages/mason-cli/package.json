@@ -1,7 +1,7 @@
 {
   "name": "@mason/cli",
   "version": "0.1.0",
-  "description": "Mason CLI - Agentic continuous-improvement for web apps",
+  "description": "Mason CLI - Setup wizard for continuous-improvement PM system",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -26,12 +26,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@mason/core": "workspace:*",
-    "@mason/storage": "workspace:*",
-    "@mason/executor": "workspace:*",
-    "@mason/templates": "workspace:*",
     "chalk": "^5.3.0",
-    "cli-table3": "^0.6.3",
     "commander": "^12.0.0",
     "inquirer": "^9.2.0",
     "ora": "^8.0.0"
@@ -45,6 +40,8 @@
   "keywords": [
     "cli",
     "mason",
-    "developer-tools"
+    "developer-tools",
+    "pm",
+    "continuous-improvement"
   ]
 }

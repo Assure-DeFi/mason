@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground: #ffffff;
+  --background: #0a0724;
+  --gold: #e2d243;
+  --light-grey: #f2f2f2;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+/* Dark mode is default */
+.dark {
+  --foreground: #ffffff;
+  --background: #0a0724;
+}

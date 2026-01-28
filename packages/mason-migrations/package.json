@@ -1,0 +1,17 @@
+{
+  "name": "@mason/migrations",
+  "version": "0.1.0",
+  "description": "Supabase migration files for Mason PM system",
+  "type": "module",
+  "files": [
+    "migrations"
+  ],
+  "keywords": [
+    "mason",
+    "supabase",
+    "migrations",
+    "postgresql"
+  ],
+  "author": "Jeff L",
+  "license": "MIT"
+}

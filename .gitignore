@@ -42,3 +42,6 @@ logs/
 
 # Lock files (kept in repo but sometimes ignored locally)
 # pnpm-lock.yaml
+packages/mason-dashboard/node_modules/
+packages/mason-dashboard/.next/
+*.env.local
