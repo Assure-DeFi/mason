@@ -1,9 +1,9 @@
 ---
 name: nextjs-patterns
-description: Next.js App Router patterns, API routes, server components, and project conventions for article-intake. Use when creating pages, API endpoints, components, or working with Next.js. Keywords: api, route, page, component, server, client, nextjs, app router, fetch, handler.
+description: Next.js App Router patterns, API routes, server components, and project conventions. Use when creating pages, API endpoints, components, or working with Next.js. Keywords: api, route, page, component, server, client, nextjs, app router, fetch, handler.
 ---
 
-# Next.js Patterns for Article-Intake
+# Next.js Patterns
 
 ## Project Structure
 
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     console.error('Error in GET /api/{resource}:', error);
     return NextResponse.json(
       { error: 'Failed to fetch resource' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -80,10 +80,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!body.field) {
-      return NextResponse.json(
-        { error: 'Field is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Field is required' }, { status: 400 });
     }
 
     const result = await createResource(body);
@@ -92,7 +89,7 @@ export async function POST(request: NextRequest) {
     console.error('Error in POST /api/{resource}:', error);
     return NextResponse.json(
       { error: 'Failed to create resource' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -106,27 +103,18 @@ import { NextRequest, NextResponse } from 'next/server';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   // ... use id
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   const body = await request.json();
   // ... update by id
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   // ... delete by id
 }
@@ -140,7 +128,7 @@ export async function DELETE(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   // Perform action on resource
@@ -160,7 +148,7 @@ return NextResponse.json({
   items: results,
   total: count,
   offset,
-  limit
+  limit,
 });
 
 // Created
@@ -174,27 +162,18 @@ return new NextResponse(null, { status: 204 });
 
 ```typescript
 // 400 Bad Request - validation error
-return NextResponse.json(
-  { error: 'Field is required' },
-  { status: 400 }
-);
+return NextResponse.json({ error: 'Field is required' }, { status: 400 });
 
 // 401 Unauthorized
-return NextResponse.json(
-  { error: 'Unauthorized' },
-  { status: 401 }
-);
+return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
 // 404 Not Found
-return NextResponse.json(
-  { error: 'Resource not found' },
-  { status: 404 }
-);
+return NextResponse.json({ error: 'Resource not found' }, { status: 404 });
 
 // 500 Internal Server Error
 return NextResponse.json(
   { error: 'Failed to process request' },
-  { status: 500 }
+  { status: 500 },
 );
 ```
 

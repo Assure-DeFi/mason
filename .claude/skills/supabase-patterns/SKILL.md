@@ -1,84 +1,88 @@
 ---
 name: supabase-patterns
-description: Supabase database patterns, migrations, RLS policies, and schema conventions for article-intake project. Use when creating migrations, modifying tables, adding columns, working with database, SQL, or Supabase. Keywords: database, table, column, migration, supabase, sql, schema, RLS, policy, index.
+description: Supabase database patterns, migrations, RLS policies, and schema conventions. Use when creating migrations, modifying tables, adding columns, working with database, SQL, or Supabase. Keywords: database, table, column, migration, supabase, sql, schema, RLS, policy, index.
 ---
 
-# Supabase Patterns for Article-Intake
+# Supabase Patterns
 
 ## Migration File Conventions
 
 ### Naming Pattern
+
 ```
 supabase/migrations/{NNN}_{description}.sql
 ```
+
 - NNN = zero-padded sequence number (001, 002, etc.)
-- Current highest: 035 (check before creating new)
+- Check existing migrations before creating new
 - Description in snake_case
 
 ### Migration Header Template
+
 ```sql
 -- {Description}
 -- Migration: {NNN}_{description}.sql
 ```
 
-## Core Tables Overview
+## Example Table Structure
 
-### Main Tables
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| topics | Content topics | id, title, article_type, status |
-| articles | Generated articles | id, topic_id, title, slug, status |
-| job_runs | Background jobs | id, topic_id, job_type, status |
-| intel_items | Intelligence items | id, source_type, embedding |
-| intel_clusters | Grouped intel | id, score_final, status |
-| content_items | Content pipeline | id, topic_id, content_type |
+### Common Table Pattern
 
-### Status Enums (Use These Exact Values)
+| Table    | Purpose         | Key Fields                    |
+| -------- | --------------- | ----------------------------- |
+| users    | User accounts   | id, email, name, status       |
+| items    | Main entities   | id, user_id, title, status    |
+| job_runs | Background jobs | id, item_id, job_type, status |
 
-**topics.status**: `'SUGGESTED'`, `'APPROVED'`, `'REJECTED'`
+### Common Status Enums
 
-**articles.status**: `'DRAFTING'`, `'DRAFT_READY'`, `'APPROVED_TO_PUBLISH'`, `'PUBLISHED'`, `'FAILED'`
+**items.status**: `'NEW'`, `'ACTIVE'`, `'COMPLETED'`, `'ARCHIVED'`
 
 **job_runs.status**: `'QUEUED'`, `'PROCESSING'`, `'COMPLETED'`, `'FAILED'`
-
-**intel_clusters.status**: `'NEW'`, `'SUGGESTED'`, `'CONVERTED'`, `'REJECTED'`
 
 ## Column Patterns
 
 ### Primary Key
+
 ```sql
 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 ```
 
 ### Timestamps
+
 ```sql
 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 ```
 
 ### Foreign Key with Cascade
+
 ```sql
 topic_id UUID NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
 ```
 
 ### Foreign Key with Set Null
+
 ```sql
 cluster_id UUID REFERENCES intel_clusters(id) ON DELETE SET NULL,
 ```
 
 ### Array Fields
+
 ```sql
 tags TEXT[] DEFAULT '{}',
 source_urls TEXT[] DEFAULT '{}',
 ```
 
 ### JSONB Fields
+
 ```sql
 stats JSONB DEFAULT '{}',
 entities JSONB DEFAULT '{"protocols": [], "tokens": [], "people": [], "chains": []}',
 ```
 
 ### Vector Embeddings (pgvector)
+
 ```sql
 embedding VECTOR(1536),
 ```
@@ -86,6 +90,7 @@ embedding VECTOR(1536),
 ## Adding a New Column
 
 ### Template
+
 ```sql
 -- Add {column_name} to {table_name}
 -- Migration: {NNN}_{description}.sql
@@ -98,6 +103,7 @@ CREATE INDEX idx_{table_name}_{column_name} ON {table_name}({column_name});
 ```
 
 ### Example: Adding view_count
+
 ```sql
 -- Add view_count to articles
 -- Migration: 036_add_article_view_count.sql
@@ -112,16 +118,19 @@ CREATE INDEX idx_articles_view_count ON articles(view_count DESC);
 ## Index Patterns
 
 ### Standard Index
+
 ```sql
 CREATE INDEX idx_{table}_{column} ON {table}({column});
 ```
 
 ### Descending Index (for sorts)
+
 ```sql
 CREATE INDEX idx_{table}_{column} ON {table}({column} DESC);
 ```
 
 ### Vector Index (for similarity search)
+
 ```sql
 CREATE INDEX idx_{table}_embedding ON {table}
   USING ivfflat (embedding vector_cosine_ops)
@@ -131,6 +140,7 @@ CREATE INDEX idx_{table}_embedding ON {table}
 ## Constraint Patterns
 
 ### CHECK Constraint for Enum
+
 ```sql
 CONSTRAINT {table}_{column}_check CHECK (
   {column} IN ('VALUE1', 'VALUE2', 'VALUE3')
@@ -138,6 +148,7 @@ CONSTRAINT {table}_{column}_check CHECK (
 ```
 
 ### Unique Constraint
+
 ```sql
 CONSTRAINT {table}_{column}_unique UNIQUE ({column})
 ```
@@ -145,11 +156,13 @@ CONSTRAINT {table}_{column}_unique UNIQUE ({column})
 ## Row Level Security (RLS) Patterns
 
 ### Enable RLS
+
 ```sql
 ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY;
 ```
 
 ### Standard Policies (used in this project)
+
 ```sql
 -- Allow authenticated users full access
 CREATE POLICY "Allow authenticated access to {table_name}"
@@ -169,6 +182,7 @@ CREATE POLICY "Allow service role access to {table_name}"
 ## Trigger for updated_at
 
 ### Function (already exists)
+
 ```sql
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -180,6 +194,7 @@ $$ LANGUAGE plpgsql;
 ```
 
 ### Attaching to New Table
+
 ```sql
 CREATE TRIGGER update_{table_name}_updated_at
   BEFORE UPDATE ON {table_name}
@@ -190,6 +205,7 @@ CREATE TRIGGER update_{table_name}_updated_at
 ## Creating a New Table
 
 ### Complete Template
+
 ```sql
 -- {Description}
 -- Migration: {NNN}_{description}.sql
@@ -244,6 +260,7 @@ CREATE POLICY "Allow service role access to {table_name}"
 ## MCP Integration
 
 The project has Supabase MCP configured in `.mcp.json`. Available tools:
+
 - `mcp__supabase__execute_sql` - Run SQL queries
 - `mcp__supabase__apply_migration` - Apply migrations
 - `mcp__supabase__list_tables` - List existing tables
@@ -251,7 +268,8 @@ The project has Supabase MCP configured in `.mcp.json`. Available tools:
 ## Quick Reference Checklist
 
 When creating a migration:
-- [ ] Check highest migration number (currently 035)
+
+- [ ] Check highest existing migration number
 - [ ] Use NNN_description.sql naming
 - [ ] Add migration header comment
 - [ ] Use UUID for primary keys

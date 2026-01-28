@@ -8,7 +8,7 @@
 set -e
 
 # Configuration - UPDATE THESE FOR YOUR TEAM
-GITHUB_ORG="Assure-DeFi"  # Your GitHub org/user
+GITHUB_ORG="your-org"  # Your GitHub org/user
 CONFIG_REPO="claude-team-config"  # Shared config repo name
 INSTALL_PATH="$HOME/claude-team-config"  # Where to clone
 

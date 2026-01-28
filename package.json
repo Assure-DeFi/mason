@@ -41,10 +41,10 @@
     "code-improvement",
     "ai"
   ],
-  "author": "Jeff L",
+  "author": "Assure DeFi",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jeffl/mason.git"
+    "url": "https://github.com/Assure-DeFi/mason.git"
   }
 }

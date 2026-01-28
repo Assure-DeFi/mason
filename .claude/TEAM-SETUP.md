@@ -42,7 +42,7 @@ This approach keeps one source of truth that all projects reference.
 # Then push your local config:
 
 cd /path/to/projects
-git remote add origin https://github.com/Assure-DeFi/claude-team-config.git
+git remote add origin https://github.com/your-org/claude-team-config.git
 git push -u origin main
 ```
 
@@ -51,11 +51,11 @@ git push -u origin main
 ```bash
 # Clone to a standard location
 cd ~
-git clone https://github.com/Assure-DeFi/claude-team-config.git .claude-team-config
+git clone https://github.com/your-org/claude-team-config.git .claude-team-config
 
 # Or to a projects folder
 cd ~/projects
-git clone https://github.com/Assure-DeFi/claude-team-config.git claude-team-config
+git clone https://github.com/your-org/claude-team-config.git claude-team-config
 ```
 
 **3. Create Global Symlink (Optional but Recommended)**
@@ -130,12 +130,14 @@ git push -u origin main
 ```
 
 **3. Mark as Template on GitHub**
+
 - Go to repo Settings → General
 - Check "Template repository"
 
 ### Using the Template
 
 For new projects:
+
 1. Go to your template repo on GitHub
 2. Click "Use this template" → "Create a new repository"
 3. Name your project and create
@@ -149,11 +151,12 @@ Include shared config as a submodule in each project.
 
 ```bash
 cd ~/projects/my-project
-git submodule add https://github.com/Assure-DeFi/claude-team-config.git .claude-config
+git submodule add https://github.com/your-org/claude-team-config.git .claude-config
 ln -s .claude-config/.claude .claude
 ```
 
 Update submodule:
+
 ```bash
 git submodule update --remote
 ```
@@ -308,7 +311,7 @@ playwright-report/
 
 ```bash
 # 1. Clone shared config
-git clone https://github.com/Assure-DeFi/claude-team-config.git ~/claude-team-config
+git clone https://github.com/your-org/claude-team-config.git ~/claude-team-config
 
 # 2. Create global symlink
 ln -s ~/claude-team-config/.claude ~/.claude

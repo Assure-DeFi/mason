@@ -1,11 +1,7 @@
 # Local settings (contains permissions, personal preferences)
 .claude/settings.local.json
 .claude/*.local.md
-
-# Project directories (each has own repo)
-article-intake/
-Lead-Data-Enrichment-Engine/
-ralph-lab/
+.claude/*.local.json
 
 # Dependencies
 node_modules/
