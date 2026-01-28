@@ -11,11 +11,16 @@ import { QuickWinBadge } from './QuickWinBadge';
 interface ItemRowProps {
   item: BacklogItem;
   selected: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, event?: React.MouseEvent) => void;
   onClick: (item: BacklogItem) => void;
 }
 
 export function ItemRow({ item, selected, onSelect, onClick }: ItemRowProps) {
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect(item.id, e);
+  };
+
   return (
     <tr
       className="border-b border-gray-800/30 hover:bg-white/5 cursor-pointer transition-all group"
@@ -26,7 +31,8 @@ export function ItemRow({ item, selected, onSelect, onClick }: ItemRowProps) {
         <input
           type="checkbox"
           checked={selected}
-          onChange={() => onSelect(item.id)}
+          onChange={() => {}}
+          onClick={handleCheckboxClick}
           className="w-4 h-4 rounded border-gray-600 bg-black/50 text-gold focus:ring-gold focus:ring-offset-0 cursor-pointer"
         />
       </td>
