@@ -120,8 +120,9 @@ echo "Complete the setup wizard at: https://mason.assuredefi.com/setup"
 echo "to get your credentials."
 echo ""
 
-# Prompt for Supabase URL
-read -p "Enter your Supabase Project URL (e.g., https://xxx.supabase.co): " SUPABASE_URL
+# Prompt for Supabase URL (read from /dev/tty for piped execution)
+printf "Enter your Supabase Project URL (e.g., https://xxx.supabase.co): "
+read SUPABASE_URL < /dev/tty
 
 # Validate Supabase URL format
 if [[ ! "$SUPABASE_URL" =~ ^https://.*\.supabase\.co$ ]]; then
@@ -133,7 +134,8 @@ fi
 
 # Prompt for Supabase Anon Key
 echo ""
-read -p "Enter your Supabase Anon Key (starts with 'eyJ'): " SUPABASE_ANON_KEY
+printf "Enter your Supabase Anon Key (starts with 'eyJ'): "
+read SUPABASE_ANON_KEY < /dev/tty
 
 # Validate Anon Key format
 if [[ ! "$SUPABASE_ANON_KEY" =~ ^eyJ ]]; then
@@ -151,7 +153,8 @@ echo "=================================="
 echo ""
 echo "Generate an API key in the setup wizard: https://mason.assuredefi.com/setup"
 echo ""
-read -p "Enter your Mason API key: " API_KEY
+printf "Enter your Mason API key: "
+read API_KEY < /dev/tty
 
 # Validate API key format
 if [[ ! "$API_KEY" =~ ^mason_ ]]; then
