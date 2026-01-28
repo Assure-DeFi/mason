@@ -3,6 +3,7 @@
 import type { BacklogItem } from '@/types/backlog';
 import { getComplexityValue } from '@/types/backlog';
 import { formatDistanceToNow } from 'date-fns';
+import { FileText } from 'lucide-react';
 import { TypeBadge } from './type-badge';
 import { PriorityDots } from './priority-dots';
 import { QuickWinBadge } from './QuickWinBadge';
@@ -82,6 +83,24 @@ export function ItemRow({ item, selected, onSelect, onClick }: ItemRowProps) {
         <span className="px-2 py-1 text-xs font-medium bg-black/30 text-gray-400 border border-gray-700">
           {item.area === 'frontend' ? 'Frontend' : 'Backend'}
         </span>
+      </td>
+
+      {/* PRD Status */}
+      <td className="py-4 px-6 text-center">
+        <div
+          className="inline-flex items-center justify-center"
+          title={
+            item.prd_content
+              ? 'PRD available - click to view'
+              : 'No PRD generated'
+          }
+        >
+          <FileText
+            className={`w-5 h-5 ${
+              item.prd_content ? 'text-gold fill-gold/20' : 'text-gray-600'
+            }`}
+          />
+        </div>
       </td>
 
       {/* Last edited */}

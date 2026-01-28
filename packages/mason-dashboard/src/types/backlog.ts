@@ -144,14 +144,22 @@ export interface BacklogFilters {
   search?: string;
 }
 
+export type SortField =
+  | 'title'
+  | 'type'
+  | 'priority_score'
+  | 'complexity'
+  | 'area'
+  | 'updated_at'
+  | 'impact_score'
+  | 'effort_score'
+  | 'created_at';
+
+export type SortDirection = 'asc' | 'desc';
+
 export interface BacklogSort {
-  field:
-    | 'priority_score'
-    | 'created_at'
-    | 'updated_at'
-    | 'impact_score'
-    | 'effort_score';
-  direction: 'asc' | 'desc';
+  field: SortField;
+  direction: SortDirection;
 }
 
 // API response types

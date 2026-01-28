@@ -11,6 +11,7 @@ import {
   ChevronRight,
   TrendingUp,
   Zap,
+  AlertCircle,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { TypeBadge } from './type-badge';
@@ -76,6 +77,7 @@ export function ItemDetailModal({
   const [viewMode, setViewMode] = useState<ViewMode>('details');
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   // Keyboard navigation
   useEffect(() => {
@@ -115,11 +117,19 @@ export function ItemDetailModal({
 
   const handleGeneratePrd = async () => {
     setIsGenerating(true);
+    setError(null);
     try {
       await onGeneratePrd(item.id);
       setViewMode('prd');
       setSuccessMessage('PRD Generated!');
       setShowSuccess(true);
+    } catch (err) {
+      console.error('PRD generation error:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to generate PRD. Please try again.',
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -141,12 +151,20 @@ export function ItemDetailModal({
   const handleApproveAndGeneratePrd = async () => {
     setIsUpdating(true);
     setIsGenerating(true);
+    setError(null);
     try {
       await onUpdateStatus(item.id, 'approved');
       await onGeneratePrd(item.id);
       setViewMode('prd');
       setSuccessMessage('Approved & PRD Generated!');
       setShowSuccess(true);
+    } catch (err) {
+      console.error('Approve & PRD generation error:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to approve or generate PRD. Please try again.',
+      );
     } finally {
       setIsUpdating(false);
       setIsGenerating(false);
@@ -531,6 +549,23 @@ export function ItemDetailModal({
                     Learn More
                     <ChevronRight className="w-4 h-4" />
                   </a>
+                </div>
+              </div>
+            )}
+
+            {/* Error Banner */}
+            {error && (
+              <div className="px-6 py-4 border-t border-red-800/50 bg-red-900/20">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                  <p className="text-sm text-red-300 flex-1">{error}</p>
+                  <button
+                    onClick={() => setError(null)}
+                    className="text-red-400 hover:text-red-300 transition-colors"
+                    aria-label="Dismiss error"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             )}

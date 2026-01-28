@@ -1,14 +1,62 @@
 'use client';
 
-import type { BacklogItem } from '@/types/backlog';
+import type { BacklogItem, SortField, SortDirection } from '@/types/backlog';
 import { ItemRow } from './item-row';
+import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+
+interface SortableHeaderProps {
+  label: string;
+  field: SortField;
+  currentSort: { field: SortField; direction: SortDirection } | null;
+  onSort: (field: SortField) => void;
+  align?: 'left' | 'center';
+}
+
+function SortableHeader({
+  label,
+  field,
+  currentSort,
+  onSort,
+  align = 'left',
+}: SortableHeaderProps) {
+  const isActive = currentSort?.field === field;
+  const direction = isActive ? currentSort.direction : null;
+
+  return (
+    <th
+      className={`py-4 px-6 font-semibold text-gray-400 uppercase tracking-wider text-xs cursor-pointer hover:text-white transition-colors select-none ${
+        align === 'center' ? 'text-center' : 'text-left'
+      }`}
+      onClick={() => onSort(field)}
+    >
+      <div
+        className={`flex items-center gap-1 ${align === 'center' ? 'justify-center' : ''}`}
+      >
+        <span>{label}</span>
+        <span className="inline-flex">
+          {isActive ? (
+            direction === 'asc' ? (
+              <ChevronUp className="w-4 h-4 text-gold" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-gold" />
+            )
+          ) : (
+            <ChevronsUpDown className="w-4 h-4 text-gray-600" />
+          )}
+        </span>
+      </div>
+    </th>
+  );
+}
 
 interface ImprovementsTableProps {
   items: BacklogItem[];
   selectedIds: string[];
-  onSelectItem: (id: string) => void;
+  onSelectItem: (id: string, event?: React.MouseEvent) => void;
   onSelectAll: () => void;
   onItemClick: (item: BacklogItem) => void;
+  sort: { field: SortField; direction: SortDirection } | null;
+  onSortChange: (field: SortField) => void;
 }
 
 export function ImprovementsTable({
@@ -17,6 +65,8 @@ export function ImprovementsTable({
   onSelectItem,
   onSelectAll,
   onItemClick,
+  sort,
+  onSortChange,
 }: ImprovementsTableProps) {
   const allSelected = items.length > 0 && selectedIds.length === items.length;
   const someSelected =
@@ -38,24 +88,45 @@ export function ImprovementsTable({
                 className="w-4 h-4 rounded border-gray-600 bg-black/50 text-gold focus:ring-gold focus:ring-offset-0 cursor-pointer"
               />
             </th>
-            <th className="text-left py-4 px-6 font-semibold text-gray-400 uppercase tracking-wider text-xs">
-              Title
+            <SortableHeader
+              label="Title"
+              field="title"
+              currentSort={sort}
+              onSort={onSortChange}
+            />
+            <SortableHeader
+              label="Type"
+              field="type"
+              currentSort={sort}
+              onSort={onSortChange}
+            />
+            <SortableHeader
+              label="Priority"
+              field="priority_score"
+              currentSort={sort}
+              onSort={onSortChange}
+            />
+            <SortableHeader
+              label="Complexity"
+              field="complexity"
+              currentSort={sort}
+              onSort={onSortChange}
+            />
+            <SortableHeader
+              label="Area"
+              field="area"
+              currentSort={sort}
+              onSort={onSortChange}
+            />
+            <th className="text-center py-4 px-6 font-semibold text-gray-400 uppercase tracking-wider text-xs">
+              PRD
             </th>
-            <th className="text-left py-4 px-6 font-semibold text-gray-400 uppercase tracking-wider text-xs">
-              Type
-            </th>
-            <th className="text-left py-4 px-6 font-semibold text-gray-400 uppercase tracking-wider text-xs">
-              Priority
-            </th>
-            <th className="text-left py-4 px-6 font-semibold text-gray-400 uppercase tracking-wider text-xs">
-              Complexity
-            </th>
-            <th className="text-left py-4 px-6 font-semibold text-gray-400 uppercase tracking-wider text-xs">
-              Area
-            </th>
-            <th className="text-left py-4 px-6 font-semibold text-gray-400 uppercase tracking-wider text-xs">
-              Updated
-            </th>
+            <SortableHeader
+              label="Updated"
+              field="updated_at"
+              currentSort={sort}
+              onSort={onSortChange}
+            />
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-800/30">
