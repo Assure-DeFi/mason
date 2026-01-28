@@ -117,6 +117,17 @@ CREATE TABLE IF NOT EXISTS mason_execution_logs (
   metadata JSONB DEFAULT '{}'::jsonb
 );
 
+-- Mason AI Provider Keys table
+CREATE TABLE IF NOT EXISTS mason_ai_provider_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES mason_users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL CHECK (provider IN ('anthropic', 'openai')),
+  api_key TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, provider)
+);
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_user_id ON mason_api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_key_hash ON mason_api_keys(key_hash);
@@ -127,6 +138,7 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_repository_id ON mason_pm_
 CREATE INDEX IF NOT EXISTS idx_mason_pm_analysis_runs_user_id ON mason_pm_analysis_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_remote_execution_runs_user_id ON mason_remote_execution_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_execution_run_id ON mason_execution_logs(execution_run_id);
+CREATE INDEX IF NOT EXISTS idx_mason_ai_provider_keys_user_id ON mason_ai_provider_keys(user_id);
 
 -- Enable Row Level Security
 ALTER TABLE mason_users ENABLE ROW LEVEL SECURITY;
@@ -136,6 +148,18 @@ ALTER TABLE mason_pm_analysis_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_backlog_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_remote_execution_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_execution_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_ai_provider_keys ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for AI Provider Keys (BYOD model - users own their database)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'mason_ai_provider_keys' AND policyname = 'Allow all operations on ai_provider_keys'
+  ) THEN
+    CREATE POLICY "Allow all operations on ai_provider_keys" ON mason_ai_provider_keys
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 `;
 
 export async function POST(request: NextRequest) {
