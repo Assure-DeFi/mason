@@ -6,6 +6,43 @@ Mason analyzes your repo, suggests prioritized improvements, and lets you review
 
 ---
 
+## Architecture
+
+Mason uses a **central instance** architecture - one Mason database manages improvements across all your projects:
+
+```
+┌─────────────────────────────────────────────────────┐
+│              Mason Dashboard + Database              │
+│                  (One per user/team)                 │
+├─────────────────────────────────────────────────────┤
+│  Connected Repositories:                             │
+│    ├── github.com/you/project-a                      │
+│    ├── github.com/you/project-b                      │
+│    └── github.com/org/project-c                      │
+│                                                      │
+│  Backlog Items:                                      │
+│    ├── "Add caching" → project-a                     │
+│    ├── "Fix auth bug" → project-a                    │
+│    └── "Improve UI" → project-b                      │
+└─────────────────────────────────────────────────────┘
+                        │
+                        │ GitHub API
+                        ▼
+         ┌──────────┐ ┌──────────┐ ┌──────────┐
+         │project-a │ │project-b │ │project-c │
+         │ (GitHub) │ │ (GitHub) │ │ (GitHub) │
+         └──────────┘ └──────────┘ └──────────┘
+```
+
+**Why this design?**
+
+- **Cross-project visibility** - See all improvements in one dashboard
+- **No coupling** - Target projects don't need Mason tables; they just receive PRs
+- **Single deployment** - One Mason instance per user/team
+- **GitHub-native** - Execution creates branches and PRs in your repos
+
+---
+
 ## Requirements
 
 Before you start, make sure you have:
@@ -13,55 +50,75 @@ Before you start, make sure you have:
 - **Node.js 18+** - [Download here](https://nodejs.org)
 - **Claude Code** with Pro Max subscription - [Get Claude Code](https://claude.com/claude-code)
 - **Supabase account** (free tier works) - [Create account](https://supabase.com)
+- **GitHub account** - For OAuth and repository access
 - **A git repository** - Mason works on any existing project
 
 ---
 
 ## Installation
 
-### Step 1: Navigate to Your Project
+### Step 1: Set Up Supabase Database
+
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
+2. Create a new project (or use existing)
+3. Go to **SQL Editor** and run these migrations in order:
+   - `packages/mason-migrations/migrations/001_mason_schema.sql`
+   - `packages/mason-migrations/migrations/002_auth_and_github.sql`
+
+### Step 2: Create GitHub OAuth App
+
+1. Go to GitHub **Settings** > **Developer Settings** > **OAuth Apps**
+2. Click **New OAuth App**
+3. Fill in:
+   - **Application name:** Mason
+   - **Homepage URL:** `http://localhost:3000`
+   - **Authorization callback URL:** `http://localhost:3000/api/auth/callback/github`
+4. Click **Register application**
+5. Copy the **Client ID**
+6. Generate and copy a **Client Secret**
+
+### Step 3: Configure Environment
+
+Create `packages/mason-dashboard/.env.local`:
+
+```bash
+# Supabase (from Project Settings > API)
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...  # From Project Settings > API > service_role
+
+# NextAuth
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=<generate with: openssl rand -base64 32>
+
+# GitHub OAuth (from Step 2)
+GITHUB_CLIENT_ID=your-client-id
+GITHUB_CLIENT_SECRET=your-client-secret
+
+# Anthropic (for AI code generation)
+ANTHROPIC_API_KEY=your-api-key
+```
+
+### Step 4: Install and Run Dashboard
+
+```bash
+cd packages/mason-dashboard
+pnpm install
+pnpm dev
+```
+
+Open http://localhost:3000 and sign in with GitHub.
+
+### Step 5: Install CLI Commands (Optional)
+
+To use Mason's analysis commands in your projects:
 
 ```bash
 cd /path/to/your/project
-```
-
-### Step 2: Run the Installer
-
-```bash
 curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash
 ```
 
-This will:
-
-- Create `.claude/commands/` with Mason commands
-- Create `.claude/skills/` with domain knowledge template
-- Create `supabase/migrations/` with database schema
-- Create `mason.config.json` configuration file
-
-### Step 3: Add Your Supabase Credentials
-
-1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
-2. Select your project (or create a new one)
-3. Go to **Project Settings** > **API**
-4. Copy your **Project URL** and **anon/public key**
-5. Open `mason.config.json` and add them:
-
-```json
-{
-  "version": "1.0",
-  "supabase": {
-    "url": "https://xxxxx.supabase.co",
-    "anonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-  }
-}
-```
-
-### Step 4: Run Database Migration
-
-1. In Supabase Dashboard, go to **SQL Editor**
-2. Click **New Query**
-3. Copy the contents of `supabase/migrations/001_mason_schema.sql`
-4. Paste and run in SQL Editor
+This creates `.claude/commands/` with Mason commands in your project.
 
 ---
 
@@ -69,24 +126,36 @@ This will:
 
 ```
 +------------------------------------------------------------------+
-|  1. ANALYZE                                                       |
-|     Run /pm-review in Claude Code                                 |
+|  1. CONNECT                                                       |
+|     Sign in with GitHub at localhost:3000                         |
+|     - Authenticate via GitHub OAuth                               |
+|     - Connect your repositories                                   |
+|     - Manage repos in Settings                                    |
++------------------------------------------------------------------+
+|  2. ANALYZE                                                       |
+|     Run /pm-review in Claude Code (in your project)               |
 |     - Scans codebase for improvements                             |
 |     - Scores by impact & effort                                   |
 |     - Stores in Supabase                                          |
 +------------------------------------------------------------------+
-|  2. REVIEW (Dashboard)                                            |
+|  3. REVIEW                                                        |
 |     Open Dashboard at localhost:3000/admin/backlog                |
 |     - See all improvements with stats                             |
 |     - Filter by status: New, Approved, In Progress, etc.          |
 |     - Click item to view details and benefits                     |
 |     - Approve or Reject improvements                              |
 +------------------------------------------------------------------+
-|  3. EXECUTE                                                       |
-|     Click "Execute All" on Approved tab                           |
-|     - Copies command to clipboard                                 |
-|     - Paste into Claude Code                                      |
-|     - Claude implements all approved items                        |
+|  4. EXECUTE                                                       |
+|     Option A: Dashboard (Recommended)                             |
+|       - Select repository from dropdown                           |
+|       - Click "Execute" on Approved tab                           |
+|       - Watch real-time progress                                  |
+|       - PR created automatically on GitHub                        |
+|                                                                   |
+|     Option B: CLI                                                 |
+|       - Click "Copy CLI Command"                                  |
+|       - Paste into Claude Code                                    |
+|       - Claude implements locally                                 |
 +------------------------------------------------------------------+
 ```
 
@@ -94,7 +163,14 @@ This will:
 
 ## Usage
 
-### 1. Analyze Your Codebase
+### 1. Sign In and Connect Repositories
+
+1. Open http://localhost:3000
+2. Click **Sign in with GitHub**
+3. Go to **Settings** (user menu) > **Repository Settings**
+4. Click **Connect Repository** and select your repos
+
+### 2. Analyze Your Codebase
 
 Open Claude Code in your project directory:
 
@@ -111,15 +187,7 @@ Run the analysis:
 
 This scans your codebase and stores improvement suggestions in Supabase.
 
-### 2. Review in Dashboard
-
-Start the dashboard:
-
-```bash
-cd mason-dashboard
-pnpm install
-pnpm dev
-```
+### 3. Review in Dashboard
 
 Open http://localhost:3000/admin/backlog
 
@@ -127,18 +195,26 @@ Open http://localhost:3000/admin/backlog
 
 - **Stats Bar** - See counts for each status
 - **Status Tabs** - Filter by New, Approved, In Progress, etc.
+- **Repository Selector** - Choose target repo for execution
 - **Table View** - See all improvements with type, priority, complexity
 - **Detail Modal** - View full problem, solution, and benefits
 - **Approve/Reject** - Change item status with one click
-- **Execute All** - Copy command to implement approved items
 
-### 3. Execute Approved Items
+### 4. Execute Approved Items
+
+**Option A: Remote Execution (Recommended)**
+
+1. Select your repository from the dropdown
+2. Click the **Approved** tab
+3. Click **Execute** button
+4. Watch real-time progress in the modal
+5. PR is created automatically on GitHub
+
+**Option B: Local CLI Execution**
 
 1. Click the **Approved** tab
-2. Click **Execute All** button
-3. Paste the copied command into Claude Code
-
-Claude will implement all approved improvements automatically.
+2. Click **Copy CLI Command**
+3. Paste into Claude Code in your project directory
 
 ---
 
@@ -215,13 +291,35 @@ Higher weights = higher priority for that domain.
 
 ### Common Issues
 
-| Problem                        | Solution                                                         |
-| ------------------------------ | ---------------------------------------------------------------- |
-| "Not a git repository"         | Run the installer from your project root (where `.git` is)       |
-| "Missing Supabase credentials" | Add `supabase.url` and `supabase.anonKey` to `mason.config.json` |
-| `/pm-review` not found         | Make sure `.claude/commands/pm-review.md` exists                 |
-| No items in dashboard          | Run `/pm-review` first to generate improvement items             |
-| Dashboard won't start          | Run `pnpm install` in the dashboard directory                    |
+| Problem                  | Solution                                                            |
+| ------------------------ | ------------------------------------------------------------------- |
+| GitHub sign-in fails     | Check `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in `.env.local` |
+| "Unauthorized" errors    | Make sure `NEXTAUTH_SECRET` is set                                  |
+| Can't connect repository | Verify GitHub OAuth app has correct callback URL                    |
+| Execution fails          | Check `ANTHROPIC_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY`           |
+| "Not a git repository"   | Run the installer from your project root (where `.git` is)          |
+| `/pm-review` not found   | Make sure `.claude/commands/pm-review.md` exists in your project    |
+| No items in dashboard    | Run `/pm-review` first to generate improvement items                |
+| Dashboard won't start    | Run `pnpm install` in the dashboard directory                       |
+
+### Verify Environment
+
+```bash
+# Check all required env vars are set
+cd packages/mason-dashboard
+cat .env.local | grep -E "^[A-Z]" | cut -d= -f1
+```
+
+Required variables:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXTAUTH_URL`
+- `NEXTAUTH_SECRET`
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `ANTHROPIC_API_KEY`
 
 ---
 
