@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronDown, GitBranch, Settings, Check } from 'lucide-react';
+import {
+  ChevronDown,
+  GitBranch,
+  Settings,
+  Check,
+  AlertCircle,
+  RotateCcw,
+} from 'lucide-react';
 import Link from 'next/link';
 import type { GitHubRepository } from '@/types/auth';
 
@@ -46,6 +53,7 @@ export function RepositorySelector({
   const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -92,32 +100,42 @@ export function RepositorySelector({
   }, []);
 
   const fetchRepositories = async () => {
+    setError(null);
+    setIsLoading(true);
     try {
       const response = await fetch('/api/github/repositories');
-      if (response.ok) {
-        const data = await response.json();
-        setRepositories(data.repositories);
+      if (!response.ok) {
+        const errorText =
+          response.status === 401
+            ? 'GitHub authentication expired. Please reconnect.'
+            : 'Failed to load repositories';
+        setError(errorText);
+        return;
+      }
 
-        // Smart auto-selection priority:
-        // 1. If value already set, keep it
-        // 2. Try last used repository from localStorage
-        // 3. Fall back to first repository
-        if (!value && data.repositories.length > 0) {
-          const lastUsed = getLastUsedRepository();
-          const lastUsedRepo = lastUsed
-            ? data.repositories.find((r: GitHubRepository) => r.id === lastUsed)
-            : null;
+      const data = await response.json();
+      setRepositories(data.repositories);
 
-          if (lastUsedRepo) {
-            onChange(lastUsedRepo.id);
-          } else {
-            onChange(data.repositories[0].id);
-            saveLastUsedRepository(data.repositories[0].id);
-          }
+      // Smart auto-selection priority:
+      // 1. If value already set, keep it
+      // 2. Try last used repository from localStorage
+      // 3. Fall back to first repository
+      if (!value && data.repositories.length > 0) {
+        const lastUsed = getLastUsedRepository();
+        const lastUsedRepo = lastUsed
+          ? data.repositories.find((r: GitHubRepository) => r.id === lastUsed)
+          : null;
+
+        if (lastUsedRepo) {
+          onChange(lastUsedRepo.id);
+        } else {
+          onChange(data.repositories[0].id);
+          saveLastUsedRepository(data.repositories[0].id);
         }
       }
-    } catch (error) {
-      console.error('Error fetching repositories:', error);
+    } catch (err) {
+      console.error('Error fetching repositories:', err);
+      setError('Unable to connect. Check your network and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -127,6 +145,22 @@ export function RepositorySelector({
 
   if (isLoading) {
     return <div className="h-9 w-48 animate-pulse rounded-md bg-gray-800" />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm">
+        <AlertCircle className="h-4 w-4 text-red-400" />
+        <span className="text-red-400">{error}</span>
+        <button
+          onClick={fetchRepositories}
+          className="ml-1 p-1 text-gray-400 hover:text-white"
+          title="Retry"
+        >
+          <RotateCcw className="h-3 w-3" />
+        </button>
+      </div>
+    );
   }
 
   if (repositories.length === 0) {
