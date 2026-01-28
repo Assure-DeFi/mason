@@ -150,6 +150,7 @@ export function getUserServiceSupabase(): SupabaseClient {
 
 /**
  * Test connection to user's Supabase database
+ * This validates that the URL and key are correct, regardless of whether tables exist
  */
 export async function testUserConnection(
   url: string,
@@ -157,21 +158,50 @@ export async function testUserConnection(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const client = createClient(url, anonKey);
+
+    // Try to query any table - we don't care if it exists or not
+    // We just want to verify the credentials are valid
     const { error } = await client.from('mason_users').select('count').limit(1);
 
     if (error) {
-      if (error.code === '42P01') {
-        return { success: true };
+      // Table doesn't exist - that's fine, connection still works
+      // PostgREST returns different error codes/messages for missing tables:
+      // - '42P01' (PostgreSQL error code)
+      // - 'PGRST200' (PostgREST schema cache error)
+      // - Message containing "Could not find the table"
+      const isTableMissing =
+        error.code === '42P01' ||
+        error.code === 'PGRST200' ||
+        error.message?.includes('Could not find the table') ||
+        error.message?.includes('relation') ||
+        error.message?.includes('does not exist');
+
+      if (isTableMissing) {
+        return { success: true }; // Connection works, tables just need to be created
       }
+
+      // Check for auth errors which indicate bad credentials
+      if (
+        error.message?.includes('Invalid API key') ||
+        error.message?.includes('JWT') ||
+        error.code === 'PGRST301'
+      ) {
+        return { success: false, error: 'Invalid API key' };
+      }
+
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : 'Connection failed',
-    };
+    const message = err instanceof Error ? err.message : 'Connection failed';
+
+    // Network errors or invalid URL
+    if (message.includes('fetch') || message.includes('network')) {
+      return { success: false, error: 'Could not connect to Supabase. Check your URL.' };
+    }
+
+    return { success: false, error: message };
   }
 }
 
@@ -204,8 +234,19 @@ export async function checkTablesExist(
 
     for (const table of requiredTables) {
       const { error } = await client.from(table).select('*').limit(1);
-      if (error && error.code === '42P01') {
-        missing.push(table);
+
+      if (error) {
+        // Check for various "table not found" error patterns
+        const isTableMissing =
+          error.code === '42P01' ||
+          error.code === 'PGRST200' ||
+          error.message?.includes('Could not find the table') ||
+          error.message?.includes('relation') ||
+          error.message?.includes('does not exist');
+
+        if (isTableMissing) {
+          missing.push(table);
+        }
       }
     }
 
