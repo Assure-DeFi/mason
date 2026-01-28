@@ -256,6 +256,9 @@ CREATE POLICY "System can insert execution logs" ON mason_execution_logs
 -- Enable realtime for mason_execution_logs table
 ALTER PUBLICATION supabase_realtime ADD TABLE mason_execution_logs;
 
+-- Enable realtime for mason_pm_backlog_items table (for live dashboard updates)
+ALTER PUBLICATION supabase_realtime ADD TABLE mason_pm_backlog_items;
+
 --------------------------------------------------------------------------------
 -- Comments
 --------------------------------------------------------------------------------

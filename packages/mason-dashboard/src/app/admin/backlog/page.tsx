@@ -42,21 +42,12 @@ export default function BacklogPage() {
     setError(null);
 
     try {
-      const { data: userData } = await client
-        .from('mason_users')
-        .select('id')
-        .eq('github_id', session.user.github_id)
-        .single();
-
-      if (!userData) {
-        setItems([]);
-        return;
-      }
-
+      // Privacy architecture: Each user has their own Supabase database,
+      // so all data in this database belongs to the current user.
+      // No user_id filtering needed - the database IS the isolation.
       const { data, error: fetchError } = await client
         .from('mason_pm_backlog_items')
         .select('*')
-        .eq('user_id', userData.id)
         .order('priority_score', { ascending: false });
 
       if (fetchError) {
@@ -79,6 +70,58 @@ export default function BacklogPage() {
       setIsLoading(false);
     }
   }, [fetchItems, isConfigured, isDbLoading]);
+
+  // Real-time subscription for automatic updates when data changes
+  useEffect(() => {
+    if (!client || !isConfigured) return;
+
+    const channel = client
+      .channel('mason_pm_backlog_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'mason_pm_backlog_items',
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setItems((prev) => {
+              const newItem = payload.new as BacklogItem;
+              // Insert in priority order
+              const updated = [...prev, newItem].sort(
+                (a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0),
+              );
+              return updated;
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setItems((prev) =>
+              prev.map((item) =>
+                item.id === payload.new.id
+                  ? (payload.new as BacklogItem)
+                  : item,
+              ),
+            );
+            // Also update selected item if it's the one that changed
+            if (selectedItem?.id === payload.new.id) {
+              setSelectedItem(payload.new as BacklogItem);
+            }
+          } else if (payload.eventType === 'DELETE') {
+            setItems((prev) =>
+              prev.filter((item) => item.id !== payload.old.id),
+            );
+            if (selectedItem?.id === payload.old.id) {
+              setSelectedItem(null);
+            }
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [client, isConfigured, selectedItem?.id]);
 
   // Calculate counts for stats bar
   const counts: StatusCounts = useMemo(() => {

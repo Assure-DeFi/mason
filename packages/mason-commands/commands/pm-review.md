@@ -194,7 +194,6 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   -H "Prefer: return=minimal" \
   -d '{
     "id": "'${ANALYSIS_RUN_ID}'",
-    "user_id": "'${USER_ID}'",
     "mode": "full",
     "items_found": 15,
     "started_at": "'${TIMESTAMP}'",
@@ -203,6 +202,7 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   }'
 
 # Step 2: Insert backlog items
+# Note: No user_id needed - privacy is enforced via separate databases per user
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -210,7 +210,6 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "Prefer: return=minimal" \
   -d '[
     {
-      "user_id": "'${USER_ID}'",
       "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
       "title": "Add data freshness timestamps",
       "problem": "Executives cannot tell when data was updated...",
