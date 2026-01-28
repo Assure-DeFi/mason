@@ -36,6 +36,12 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
       authorization: {
         params: {
+          // OAuth Scopes:
+          // - read:user: Access user profile information
+          // - user:email: Access user email addresses
+          // - repo: Full repository access (required for creating branches, commits, and PRs)
+          //   Note: 'repo' is broad but necessary for Mason to implement improvements
+          //   in your codebase. Mason only accesses repositories you explicitly connect.
           scope: 'read:user user:email repo',
         },
       },
@@ -55,7 +61,9 @@ export const authOptions: NextAuthOptions = {
       try {
         const supabase = createServiceClient();
 
-        const githubProfile = profile as { id?: string | number; login?: string } | undefined;
+        const githubProfile = profile as
+          | { id?: string | number; login?: string }
+          | undefined;
         const githubId = String(githubProfile?.id ?? user.id);
         const githubUsername = githubProfile?.login ?? user.name ?? 'unknown';
         const githubEmail = user.email ?? null;

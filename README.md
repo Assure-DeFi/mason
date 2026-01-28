@@ -118,6 +118,12 @@ cd /path/to/your/project
 curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash
 ```
 
+> **Security Note:** Always review scripts before running them. You can inspect the script first:
+>
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh
+> ```
+
 This creates `.claude/commands/` with Mason commands in your project.
 
 ---
@@ -284,6 +290,30 @@ Edit `mason.config.json` to enable/disable analysis areas:
 ```
 
 Higher weights = higher priority for that domain.
+
+---
+
+## Security
+
+### GitHub OAuth Permissions
+
+Mason requests the following GitHub OAuth scopes:
+
+| Scope        | Purpose                                     |
+| ------------ | ------------------------------------------- |
+| `read:user`  | Access your GitHub profile information      |
+| `user:email` | Access your email for notifications         |
+| `repo`       | Create branches, commits, and pull requests |
+
+**Why `repo` scope?** Mason needs full repository access to implement improvements in your codebase. This includes creating feature branches, committing code changes, and opening pull requests. Mason only accesses repositories you explicitly connect through the dashboard.
+
+### Data Storage
+
+- **Supabase:** All data is stored in your own Supabase project
+- **GitHub tokens:** Stored encrypted at rest by Supabase
+- **No external servers:** Mason runs entirely on your infrastructure
+
+For security issues, see [SECURITY.md](SECURITY.md).
 
 ---
 

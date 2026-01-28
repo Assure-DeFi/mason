@@ -198,7 +198,13 @@ ALTER TABLE pm_backlog_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pm_execution_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pm_execution_tasks ENABLE ROW LEVEL SECURITY;
 
--- Default policies (allow all - customize for production)
+--------------------------------------------------------------------------------
+-- WARNING: DEVELOPMENT-ONLY POLICIES
+-- These permissive policies are for local development and testing only.
+-- For production deployments, replace with restrictive policies like:
+--   USING (auth.uid() = user_id)
+-- See: https://supabase.com/docs/guides/auth/row-level-security
+--------------------------------------------------------------------------------
 CREATE POLICY "Allow all access to pm_analysis_runs" ON pm_analysis_runs
   FOR ALL USING (true) WITH CHECK (true);
 

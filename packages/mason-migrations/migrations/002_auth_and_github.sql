@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS users (
   github_email TEXT,
   github_avatar_url TEXT,
 
-  -- Encrypted access token (encrypted at application level)
+  -- GitHub OAuth access token
+  -- Note: Stored as plain text in database; Supabase encrypts data at rest.
+  -- For additional security, consider implementing application-level encryption.
   github_access_token TEXT NOT NULL,
   github_token_expires_at TIMESTAMPTZ,
 
@@ -205,23 +207,31 @@ ALTER TABLE github_repositories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE remote_execution_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE execution_logs ENABLE ROW LEVEL SECURITY;
 
+--------------------------------------------------------------------------------
+-- WARNING: DEVELOPMENT-ONLY POLICIES
+-- These permissive policies are for local development and testing only.
+-- For production deployments, replace with restrictive policies like:
+--   USING (auth.uid() = user_id)
+-- See: https://supabase.com/docs/guides/auth/row-level-security
+--------------------------------------------------------------------------------
+
 -- Users: Only authenticated user can access their own data
 CREATE POLICY "Users can view own profile" ON users
-  FOR SELECT USING (true);  -- Will be restricted by auth.uid() in production
+  FOR SELECT USING (true);  -- Production: USING (auth.uid()::text = github_id)
 
 CREATE POLICY "Users can update own profile" ON users
   FOR UPDATE USING (true) WITH CHECK (true);
 
 -- GitHub repositories: Users can only access their own repos
 CREATE POLICY "Users can view own repositories" ON github_repositories
-  FOR SELECT USING (true);
+  FOR SELECT USING (true);  -- Production: USING (user_id = auth.uid())
 
 CREATE POLICY "Users can manage own repositories" ON github_repositories
   FOR ALL USING (true) WITH CHECK (true);
 
 -- Remote execution runs: Users can only access their own runs
 CREATE POLICY "Users can view own execution runs" ON remote_execution_runs
-  FOR SELECT USING (true);
+  FOR SELECT USING (true);  -- Production: USING (user_id = auth.uid())
 
 CREATE POLICY "Users can manage own execution runs" ON remote_execution_runs
   FOR ALL USING (true) WITH CHECK (true);
@@ -249,7 +259,7 @@ COMMENT ON TABLE github_repositories IS 'Connected GitHub repositories per user'
 COMMENT ON TABLE remote_execution_runs IS 'Dashboard-initiated execution runs';
 COMMENT ON TABLE execution_logs IS 'Real-time execution logs for progress streaming';
 
-COMMENT ON COLUMN users.github_access_token IS 'GitHub OAuth access token (encrypted at app level)';
+COMMENT ON COLUMN users.github_access_token IS 'GitHub OAuth access token (encrypted at rest by Supabase)';
 COMMENT ON COLUMN users.default_repository_id IS 'User preferred default repository';
 
 COMMENT ON COLUMN github_repositories.github_full_name IS 'Full repository name in owner/repo format';
