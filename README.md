@@ -6,81 +6,129 @@ Mason analyzes your repo, suggests prioritized improvements, and executes them a
 
 ---
 
-## Quick Start (5 minutes)
+## Requirements
 
-### Step 1: Install Mason in Your Repo
+Before you start, make sure you have:
+
+- **Node.js 18+** - [Download here](https://nodejs.org)
+- **Claude Code** with Pro Max subscription - [Get Claude Code](https://claude.com/claude-code)
+- **Supabase account** (free tier works) - [Create account](https://supabase.com)
+- **A git repository** - Mason works on any existing project
+
+---
+
+## Installation (5 minutes)
+
+### Step 1: Open Your Terminal
+
+Open a terminal window on your computer.
+
+### Step 2: Navigate to Your Project
+
+Use `cd` to go to your project's root directory (where your `.git` folder is):
 
 ```bash
-cd ~/projects/article-intake   # or your repo
-
-# Run the setup wizard
-npx @anthropic-ai/claude-code --command "$(curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh)"
+cd /path/to/your/project
 ```
 
-**Or if you have Mason cloned locally:**
+**Examples:**
 
 ```bash
-cd ~/projects/article-intake
-node ~/projects/mason/packages/mason-cli/dist/bin/mason.js init
+cd ~/projects/my-webapp
+cd ~/code/my-saas-app
+cd /Users/jane/Development/my-project
 ```
 
-### Step 2: Follow the Wizard
+### Step 3: Run the Installer
 
-The wizard will:
+Copy and paste this command into your terminal:
 
-1. Ask for your Supabase credentials (or help you create a project)
-2. Install Claude Code commands (`/pm-review`, `/execute-approved`)
-3. Create database migration files
-4. Set up the dashboard
+```bash
+curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash
+```
 
-### Step 3: Run the Database Migrations
+This will:
 
-1. Open your Supabase project dashboard
-2. Go to **SQL Editor**
-3. Run each file from `supabase/migrations/` in order:
+- Create `.claude/commands/` with Mason commands
+- Create `.claude/skills/` with domain knowledge template
+- Create `supabase/migrations/` with database schema
+- Create `mason.config.json` configuration file
+
+### Step 4: Add Your Supabase Credentials
+
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
+2. Select your project (or create a new one)
+3. Go to **Project Settings** > **API**
+4. Copy your **Project URL** and **anon/public key**
+
+5. Open `mason.config.json` in your project and add them:
+
+```json
+{
+  "version": "1.0",
+  "supabase": {
+    "url": "https://xxxxx.supabase.co",
+    "anonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+  }
+}
+```
+
+### Step 5: Run Database Migrations
+
+1. In Supabase Dashboard, go to **SQL Editor**
+2. Click **New Query**
+3. Open each file in `supabase/migrations/` and run them **in order**:
    - `001_pm_backlog_tables.sql`
    - `002_pm_execution_runs.sql`
    - `003_pm_execution_tasks.sql`
 
-### Step 4: Start Using Mason
+### Step 6: Start Using Mason
 
-Open Claude Code in your repo and run:
+1. Open Claude Code in your project directory:
 
-```
-/pm-review
-```
+   ```bash
+   cd /path/to/your/project
+   claude
+   ```
 
-That's it! Mason will analyze your codebase and store improvements in Supabase.
+2. Run your first analysis:
+   ```
+   /pm-review
+   ```
+
+Mason will analyze your codebase and store improvement suggestions in Supabase.
 
 ---
 
 ## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  1. ANALYZE                                                  │
-│     Run /pm-review in Claude Code                           │
-│     → Scans codebase for improvements                       │
-│     → Scores by impact & effort                             │
-│     → Stores in Supabase                                    │
-├─────────────────────────────────────────────────────────────┤
-│  2. REVIEW                                                   │
-│     Open Dashboard at localhost:3000/admin/backlog          │
-│     → See all improvements sorted by priority               │
-│     → Approve items you want implemented                    │
-│     → Generate PRDs for approved items                      │
-├─────────────────────────────────────────────────────────────┤
-│  3. EXECUTE                                                  │
-│     Run /execute-approved in Claude Code                    │
-│     → Creates feature branches                              │
-│     → Implements changes in parallel waves                  │
-│     → Commits with proper messages                          │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|  1. ANALYZE                                                  |
+|     Run /pm-review in Claude Code                           |
+|     - Scans codebase for improvements                       |
+|     - Scores by impact & effort                             |
+|     - Stores in Supabase                                    |
++-------------------------------------------------------------+
+|  2. REVIEW                                                   |
+|     Open Dashboard at localhost:3000/admin/backlog          |
+|     - See all improvements sorted by priority               |
+|     - Approve items you want implemented                    |
+|     - Generate PRDs for approved items                      |
++-------------------------------------------------------------+
+|  3. EXECUTE                                                  |
+|     Run /execute-approved in Claude Code                    |
+|     - Creates feature branches                              |
+|     - Implements changes in parallel waves                  |
+|     - Commits with proper messages                          |
++-------------------------------------------------------------+
 ```
 
 ---
 
-## Commands
+## Commands Reference
+
+Run these commands inside Claude Code:
 
 | Command                       | What It Does                           |
 | ----------------------------- | -------------------------------------- |
@@ -92,19 +140,23 @@ That's it! Mason will analyze your codebase and store improvements in Supabase.
 
 ---
 
-## Dashboard
+## Dashboard (Optional)
 
-Start the dashboard to view and manage improvements:
+The dashboard lets you view and manage improvements in a web UI.
+
+### Setup
+
+After running the installer, a `mason-dashboard/` folder is created. To start it:
 
 ```bash
-cd mason-dashboard
+cd /path/to/your/project/mason-dashboard
 pnpm install
 pnpm dev
 ```
 
-Open http://localhost:3000/admin/backlog
+Then open: http://localhost:3000/admin/backlog
 
-**Features:**
+### Features
 
 - View all improvements sorted by priority
 - Filter by status, area, or type
@@ -113,19 +165,12 @@ Open http://localhost:3000/admin/backlog
 
 ---
 
-## Requirements
-
-- **Node.js 18+**
-- **Claude Code** with Pro Max subscription
-- **Supabase** account (free tier works)
-- **Anthropic API key** (optional, for PRD generation in dashboard)
-
----
-
 ## Project Structure After Setup
 
+After installation, Mason adds these files to your project:
+
 ```
-your-repo/
+your-project/
 ├── mason.config.json              # Mason configuration
 ├── .claude/
 │   ├── commands/
@@ -146,25 +191,24 @@ your-repo/
 
 ## Customization
 
-### Edit Domain Knowledge
+### Add Your Domain Knowledge
 
-Customize what Mason knows about your project:
+Customize what Mason knows about your project by editing:
 
-```bash
-# Edit this file to add your business context
-nano .claude/skills/pm-domain-knowledge/SKILL.md
+```
+.claude/skills/pm-domain-knowledge/SKILL.md
 ```
 
-Add:
+Add information about:
 
 - Your business goals
 - Technical constraints
 - Areas to focus on or avoid
 - User personas
 
-### Configure Domains
+### Configure Analysis Domains
 
-Edit `mason.config.json` to enable/disable analysis domains:
+Edit `mason.config.json` to enable/disable analysis areas:
 
 ```json
 {
@@ -178,17 +222,21 @@ Edit `mason.config.json` to enable/disable analysis domains:
 }
 ```
 
+Higher weights = higher priority for that domain.
+
 ---
 
 ## Troubleshooting
 
-### Check Your Setup
+### Verify Your Setup
+
+From your project directory, run:
 
 ```bash
-mason doctor
+curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/doctor.sh | bash
 ```
 
-This verifies:
+This checks:
 
 - Configuration file exists
 - Supabase credentials are set
@@ -199,17 +247,35 @@ This verifies:
 
 | Problem                        | Solution                                                         |
 | ------------------------------ | ---------------------------------------------------------------- |
+| "Not a git repository"         | Run the installer from your project root (where `.git` is)       |
 | "Missing Supabase credentials" | Add `supabase.url` and `supabase.anonKey` to `mason.config.json` |
-| Dashboard won't start          | Check `mason-dashboard/.env.local` has correct values            |
-| `/pm-review` not found         | Run `mason init` to install commands                             |
-| No items in dashboard          | Run `/pm-review` first, then check Supabase tables               |
+| `/pm-review` not found         | Make sure `.claude/commands/pm-review.md` exists                 |
+| No items in dashboard          | Run `/pm-review` first to generate improvement items             |
+| Dashboard won't start          | Run `pnpm install` in the `mason-dashboard/` directory           |
+
+---
+
+## Uninstall
+
+To remove Mason from your project, delete these files/folders:
+
+```bash
+rm -rf .claude/commands/pm-review.md
+rm -rf .claude/commands/execute-approved.md
+rm -rf .claude/skills/pm-domain-knowledge
+rm -rf supabase/migrations/001_pm_backlog_tables.sql
+rm -rf supabase/migrations/002_pm_execution_runs.sql
+rm -rf supabase/migrations/003_pm_execution_tasks.sql
+rm -rf mason-dashboard
+rm mason.config.json
+```
 
 ---
 
 ## Support
 
-- Issues: https://github.com/Assure-DeFi/mason/issues
-- Run `mason doctor` to diagnose problems
+- **Issues:** https://github.com/Assure-DeFi/mason/issues
+- **Documentation:** This README
 
 ---
 
