@@ -1,4 +1,4 @@
-# Claude Team Config
+# Mason
 
 Shared Claude Code configuration for consistent development across the team.
 
@@ -8,22 +8,22 @@ Shared Claude Code configuration for consistent development across the team.
 
 ```bash
 # Clone this repo
-git clone https://github.com/Assure-DeFi/claude-team-config.git ~/claude-team-config
+git clone https://github.com/Assure-DeFi/mason.git ~/mason
 
 # Run onboarding script
-~/claude-team-config/.claude/scripts/team-onboard.sh
+~/mason/.claude/scripts/team-onboard.sh
 ```
 
 Or one-liner:
 
 ```bash
-git clone https://github.com/Assure-DeFi/claude-team-config.git ~/claude-team-config && ~/claude-team-config/.claude/scripts/team-onboard.sh
+git clone https://github.com/Assure-DeFi/mason.git ~/mason && ~/mason/.claude/scripts/team-onboard.sh
 ```
 
 ### Create New Project
 
 ```bash
-~/claude-team-config/.claude/scripts/setup-new-project.sh my-project-name
+~/mason/.claude/scripts/setup-new-project.sh my-project-name
 ```
 
 ## What's Included
@@ -116,7 +116,7 @@ All hooks properly read input from stdin as JSON (Claude Code API):
 When you improve the shared config:
 
 ```bash
-cd ~/claude-team-config
+cd ~/mason
 git checkout -b improve/description
 # Make changes
 git add .
@@ -128,7 +128,7 @@ git push origin improve/description
 Team members pull updates:
 
 ```bash
-cd ~/claude-team-config
+cd ~/mason
 git pull origin main
 ```
 
