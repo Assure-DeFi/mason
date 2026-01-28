@@ -2,6 +2,23 @@
  * Mason PM System - Backlog Types
  */
 
+export type BacklogComplexity = 'low' | 'medium' | 'high' | 'very_high';
+
+/**
+ * Convert text complexity to numeric value (1-4 scale)
+ * Database stores complexity as text, UI expects numeric for display
+ */
+export function getComplexityValue(complexity: string | number): number {
+  if (typeof complexity === 'number') return complexity;
+  const mapping: Record<string, number> = {
+    low: 1,
+    medium: 2,
+    high: 3,
+    very_high: 4,
+  };
+  return mapping[complexity] ?? 2;
+}
+
 export type BacklogArea = 'frontend' | 'backend';
 
 export type BacklogType = 'dashboard' | 'discovery' | 'auth' | 'backend';
@@ -39,7 +56,7 @@ export interface BacklogItem {
   // Classification
   area: BacklogArea;
   type: BacklogType;
-  complexity: number; // 1-5
+  complexity: BacklogComplexity | number;
 
   // Scoring
   impact_score: number;

@@ -13,9 +13,17 @@ import { UserMenu } from '@/components/auth/user-menu';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
 import { SkeletonTable } from '@/components/ui/Skeleton';
+import { BacklogFilters } from '@/components/backlog/backlog-filters';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
-import type { BacklogItem, BacklogStatus, StatusCounts } from '@/types/backlog';
-import { RefreshCw, Database, ArrowRight } from 'lucide-react';
+import type {
+  BacklogItem,
+  BacklogStatus,
+  StatusCounts,
+  BacklogArea,
+  BacklogType,
+} from '@/types/backlog';
+import { getComplexityValue } from '@/types/backlog';
+import { RefreshCw, Database, ArrowRight, Search } from 'lucide-react';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 
 export default function BacklogPage() {
@@ -32,9 +40,17 @@ export default function BacklogPage() {
   const [executionRunId, setExecutionRunId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
 
+  // New filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedAreas, setSelectedAreas] = useState<BacklogArea[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<BacklogType[]>([]);
+  const [complexityRange, setComplexityRange] = useState<[number, number]>([
+    1, 5,
+  ]);
+  const [showFilters, setShowFilters] = useState(false);
+
   const fetchItems = useCallback(async () => {
     if (!client) {
-      // Database not configured yet - show error if user manually triggered refresh
       if (!isDbLoading) {
         setError('Database not configured. Please complete setup.');
       }
@@ -52,9 +68,6 @@ export default function BacklogPage() {
     setError(null);
 
     try {
-      // Privacy architecture: Each user has their own Supabase database,
-      // so all data in this database belongs to the current user.
-      // No user_id filtering needed - the database IS the isolation.
       const { data, error: fetchError } = await client
         .from('mason_pm_backlog_items')
         .select('*')
@@ -85,7 +98,7 @@ export default function BacklogPage() {
     }
   }, [fetchItems, isConfigured, isDbLoading]);
 
-  // Real-time subscription for automatic updates when data changes
+  // Real-time subscription
   useEffect(() => {
     if (!client || !isConfigured) return;
 
@@ -102,7 +115,6 @@ export default function BacklogPage() {
           if (payload.eventType === 'INSERT') {
             setItems((prev) => {
               const newItem = payload.new as BacklogItem;
-              // Insert in priority order
               const updated = [...prev, newItem].sort(
                 (a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0),
               );
@@ -116,7 +128,6 @@ export default function BacklogPage() {
                   : item,
               ),
             );
-            // Also update selected item if it's the one that changed
             if (selectedItem?.id === payload.new.id) {
               setSelectedItem(payload.new as BacklogItem);
             }
@@ -137,7 +148,7 @@ export default function BacklogPage() {
     };
   }, [client, isConfigured, selectedItem?.id]);
 
-  // Calculate counts for stats bar
+  // Calculate counts
   const counts: StatusCounts = useMemo(() => {
     const result: StatusCounts = {
       total: items.length,
@@ -156,13 +167,55 @@ export default function BacklogPage() {
     return result;
   }, [items]);
 
-  // Filter items by active status
+  // Advanced filtering
   const filteredItems = useMemo(() => {
-    if (!activeStatus) return items;
-    return items.filter((item) => item.status === activeStatus);
-  }, [items, activeStatus]);
+    let filtered = items;
 
-  // Get approved item IDs for execute button
+    // Status filter
+    if (activeStatus) {
+      filtered = filtered.filter((item) => item.status === activeStatus);
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (item) =>
+          item.title.toLowerCase().includes(query) ||
+          item.problem.toLowerCase().includes(query) ||
+          item.solution.toLowerCase().includes(query),
+      );
+    }
+
+    // Area filter
+    if (selectedAreas.length > 0) {
+      filtered = filtered.filter((item) => selectedAreas.includes(item.area));
+    }
+
+    // Type filter
+    if (selectedTypes.length > 0) {
+      filtered = filtered.filter((item) => selectedTypes.includes(item.type));
+    }
+
+    // Complexity filter
+    filtered = filtered.filter((item) => {
+      const numericComplexity = getComplexityValue(item.complexity);
+      return (
+        numericComplexity >= complexityRange[0] &&
+        numericComplexity <= complexityRange[1]
+      );
+    });
+
+    return filtered;
+  }, [
+    items,
+    activeStatus,
+    searchQuery,
+    selectedAreas,
+    selectedTypes,
+    complexityRange,
+  ]);
+
   const approvedItemIds = useMemo(() => {
     return items
       .filter((item) => item.status === 'approved')
@@ -237,10 +290,22 @@ export default function BacklogPage() {
   };
 
   const handleRemoteExecute = (itemIds: string[]) => {
-    // Start remote execution - handled by the UnifiedExecuteButton modal
-    // This would integrate with the existing RemoteExecuteButton logic
-    setExecutionRunId('starting'); // Placeholder - would get actual run ID
+    setExecutionRunId('starting');
   };
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedAreas([]);
+    setSelectedTypes([]);
+    setComplexityRange([1, 5]);
+  };
+
+  const hasActiveFilters =
+    searchQuery.trim() !== '' ||
+    selectedAreas.length > 0 ||
+    selectedTypes.length > 0 ||
+    complexityRange[0] !== 1 ||
+    complexityRange[1] !== 5;
 
   if (!isDbLoading && !isConfigured) {
     return (
@@ -274,7 +339,7 @@ export default function BacklogPage() {
             </p>
             <Link
               href="/setup"
-              className="inline-flex items-center gap-2 rounded-md bg-gold px-6 py-3 font-medium text-navy transition-opacity hover:opacity-90"
+              className="inline-flex items-center gap-2 bg-gold px-6 py-3 font-semibold text-navy transition-opacity hover:opacity-90"
             >
               Complete Setup
               <ArrowRight className="h-4 w-4" />
@@ -304,25 +369,24 @@ export default function BacklogPage() {
     );
   }
 
-  // Check if backlog is empty (after loading)
   const isEmpty = !isLoading && items.length === 0;
 
   return (
     <main className="min-h-screen bg-navy">
       {/* Header */}
-      <div className="border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="border-b border-gray-800/50 bg-black/20">
+        <div className="max-w-7xl mx-auto px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-white">
+              <h1 className="text-3xl font-bold text-white tracking-tight">
                 System Improvements
               </h1>
-              <p className="text-gray-400 text-sm mt-1">
+              <p className="text-gray-400 text-sm mt-2">
                 Manage and track improvement ideas from PM reviews
               </p>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               {session && (
                 <RepositorySelector
                   value={selectedRepoId}
@@ -333,12 +397,12 @@ export default function BacklogPage() {
               <button
                 onClick={fetchItems}
                 disabled={isLoading}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-700 text-gray-300 hover:bg-white/5 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2.5 border border-gray-700 text-gray-300 hover:bg-white/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
                 />
-                Refresh
+                <span className="font-medium">Refresh</span>
               </button>
 
               <UserMenu />
@@ -347,14 +411,72 @@ export default function BacklogPage() {
         </div>
       </div>
 
-      {/* Show stats and tabs only when not empty */}
       {!isEmpty && (
         <>
           {/* Stats Bar */}
           <StatsBar counts={counts} />
 
-          {/* Status Tabs with Unified Execute Button */}
-          <div className="border-b border-gray-800">
+          {/* Filters & Search Bar */}
+          <div className="border-b border-gray-800/50 bg-black/10">
+            <div className="max-w-7xl mx-auto px-8 py-4">
+              <div className="flex items-center gap-4">
+                {/* Search */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search improvements..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/50 transition-all"
+                  />
+                </div>
+
+                {/* Filter Toggle */}
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`px-4 py-2.5 border font-medium transition-all ${
+                    showFilters || hasActiveFilters
+                      ? 'border-gold/50 bg-gold/10 text-gold'
+                      : 'border-gray-700 text-gray-300 hover:bg-white/5'
+                  }`}
+                >
+                  Filters
+                  {hasActiveFilters && (
+                    <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs bg-gold text-navy rounded-full font-bold">
+                      !
+                    </span>
+                  )}
+                </button>
+
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleClearFilters}
+                    className="px-4 py-2.5 text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+
+              {/* Filter Panel */}
+              {showFilters && (
+                <div className="mt-4 p-4 bg-black/30 border border-gray-800">
+                  <BacklogFilters
+                    selectedAreas={selectedAreas}
+                    selectedTypes={selectedTypes}
+                    complexityRange={complexityRange}
+                    onAreasChange={setSelectedAreas}
+                    onTypesChange={setSelectedTypes}
+                    onComplexityChange={setComplexityRange}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Status Tabs with Execute Button */}
+          <div className="border-b border-gray-800/50 bg-black/5">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <StatusTabs
                 activeStatus={activeStatus}
@@ -364,12 +486,11 @@ export default function BacklogPage() {
               />
 
               {session && counts.approved > 0 && (
-                <div className="px-6 py-3">
+                <div className="px-8 py-3">
                   <UnifiedExecuteButton
                     itemIds={approvedItemIds}
                     repositoryId={selectedRepoId}
                     onRemoteExecute={(ids) => {
-                      // Trigger remote execution through existing flow
                       setExecutionRunId('starting');
                     }}
                     remoteAvailable={!!selectedRepoId}
@@ -384,15 +505,24 @@ export default function BacklogPage() {
       {/* Content Area */}
       <div className="max-w-7xl mx-auto">
         {isLoading ? (
-          // Skeleton loading state
-          <div className="p-6">
+          <div className="p-8">
             <SkeletonTable rows={5} columns={5} />
           </div>
         ) : isEmpty ? (
-          // Empty state onboarding
           <EmptyStateOnboarding onRefresh={fetchItems} />
+        ) : filteredItems.length === 0 ? (
+          <div className="p-16 text-center">
+            <p className="text-gray-500 text-lg mb-4">
+              No items match your filters
+            </p>
+            <button
+              onClick={handleClearFilters}
+              className="px-6 py-2.5 bg-gold text-navy font-semibold hover:opacity-90 transition-opacity"
+            >
+              Clear Filters
+            </button>
+          </div>
         ) : (
-          // Regular table view
           <ImprovementsTable
             items={filteredItems}
             selectedIds={selectedIds}
@@ -419,25 +549,24 @@ export default function BacklogPage() {
           runId={executionRunId}
           onClose={() => {
             setExecutionRunId(null);
-            fetchItems(); // Refresh to show updated statuses
+            fetchItems();
           }}
         />
       )}
 
-      {/* Toast */}
+      {/* Toast Notifications */}
       {copiedToast && (
-        <div className="fixed bottom-6 right-6 px-4 py-3 bg-green-600 text-white shadow-lg">
+        <div className="fixed bottom-8 right-8 px-6 py-4 bg-green-600 text-white font-medium shadow-2xl animate-fade-in">
           Command copied! Paste into Claude Code to execute.
         </div>
       )}
 
-      {/* Execution Error Toast */}
       {executionError && (
-        <div className="fixed bottom-6 right-6 px-4 py-3 bg-red-600 text-white shadow-lg">
+        <div className="fixed bottom-8 right-8 px-6 py-4 bg-red-600 text-white font-medium shadow-2xl flex items-center gap-4">
           {executionError}
           <button
             onClick={() => setExecutionError(null)}
-            className="ml-4 text-white/80 hover:text-white"
+            className="text-white/80 hover:text-white transition-colors"
           >
             Dismiss
           </button>
@@ -445,7 +574,7 @@ export default function BacklogPage() {
       )}
 
       {/* Footer */}
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto px-8 py-8">
         <PoweredByFooter showCTA />
       </div>
     </main>
