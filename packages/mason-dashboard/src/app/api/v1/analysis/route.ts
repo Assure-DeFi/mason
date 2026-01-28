@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/client';
 import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
+import { createUserDatabaseClient } from '@/lib/supabase/user-database';
 import type { BacklogArea, BacklogType, Benefit } from '@/types/backlog';
 
 /**
@@ -30,6 +30,9 @@ interface AnalysisRequest {
 /**
  * POST /api/v1/analysis - Submit analysis results from CLI
  * Authorization: Bearer mason_xxxxx
+ *
+ * PRIVACY: Data is stored in the USER'S own Supabase database, not the central platform database.
+ * This implements the BYOD (Bring Your Own Database) architecture.
  */
 export async function POST(request: Request) {
   try {
@@ -94,25 +97,41 @@ export async function POST(request: Request) {
       }
     }
 
-    const supabase = createServiceClient();
+    // Get user's own Supabase client - data goes to THEIR database, not ours
+    const userDb = await createUserDatabaseClient(user.id);
 
-    // Create analysis run record
-    const { data: analysisRun, error: runError } = await supabase
-      .from('pm_analysis_runs')
+    if (!userDb) {
+      return NextResponse.json(
+        {
+          error: 'User database not configured',
+          details:
+            'Please complete setup in the dashboard to configure your Supabase database.',
+        },
+        { status: 400 },
+      );
+    }
+
+    // Create analysis run record in USER'S database
+    const { data: analysisRun, error: runError } = await userDb
+      .from('mason_pm_analysis_runs')
       .insert({
         mode: body.mode,
         items_found: body.items.length,
         started_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
         status: 'completed',
+        user_id: user.id,
       })
       .select('id')
       .single();
 
     if (runError || !analysisRun) {
-      console.error('Failed to create analysis run:', runError);
+      console.error('Failed to create analysis run in user DB:', runError);
       return NextResponse.json(
-        { error: 'Failed to create analysis run' },
+        {
+          error: 'Failed to create analysis run',
+          details: runError?.message,
+        },
         { status: 500 },
       );
     }
@@ -128,21 +147,23 @@ export async function POST(request: Request) {
       effort_score: item.effort_score,
       complexity: item.complexity,
       benefits: item.benefits,
-      priority_score: item.impact_score * 2 - item.effort_score,
       status: 'new' as const,
       analysis_run_id: analysisRun.id,
       user_id: user.id,
     }));
 
-    // Insert all backlog items
-    const { error: itemsError } = await supabase
-      .from('pm_backlog_items')
+    // Insert all backlog items into USER'S database
+    const { error: itemsError } = await userDb
+      .from('mason_pm_backlog_items')
       .insert(backlogItems);
 
     if (itemsError) {
-      console.error('Failed to insert backlog items:', itemsError);
+      console.error('Failed to insert backlog items in user DB:', itemsError);
       return NextResponse.json(
-        { error: 'Failed to insert backlog items' },
+        {
+          error: 'Failed to insert backlog items',
+          details: itemsError.message,
+        },
         { status: 500 },
       );
     }

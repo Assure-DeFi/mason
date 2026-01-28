@@ -12,7 +12,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     const supabase = createServerClient();
 
     const { data, error } = await supabase
-      .from('pm_backlog_items')
+      .from('mason_pm_backlog_items')
       .select('*')
       .eq('id', id)
       .single();
@@ -85,7 +85,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     const { data, error } = await supabase
-      .from('pm_backlog_items')
+      .from('mason_pm_backlog_items')
       .update(updates)
       .eq('id', id)
       .select()

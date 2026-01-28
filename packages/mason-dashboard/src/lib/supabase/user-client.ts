@@ -157,7 +157,7 @@ export async function testUserConnection(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const client = createClient(url, anonKey);
-    const { error } = await client.from('users').select('count').limit(1);
+    const { error } = await client.from('mason_users').select('count').limit(1);
 
     if (error) {
       if (error.code === '42P01') {
@@ -183,13 +183,13 @@ export async function checkTablesExist(
   serviceKey: string,
 ): Promise<{ exists: boolean; missing: string[] }> {
   const requiredTables = [
-    'users',
-    'api_keys',
-    'github_repositories',
-    'pm_backlog_items',
-    'pm_analysis_runs',
-    'remote_execution_runs',
-    'execution_logs',
+    'mason_users',
+    'mason_api_keys',
+    'mason_github_repositories',
+    'mason_pm_backlog_items',
+    'mason_pm_analysis_runs',
+    'mason_remote_execution_runs',
+    'mason_execution_logs',
   ];
 
   const missing: string[] = [];

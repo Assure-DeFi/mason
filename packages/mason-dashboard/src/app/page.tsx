@@ -28,7 +28,7 @@ export default function Home() {
               </h2>
               <p className="text-gray-300">
                 Unlike other tools, Mason stores all your data in your own
-                Supabase database. Assure DeFi has zero access to your
+                Supabase database. Assure DeFi® has zero access to your
                 repositories, improvements, or any other data. We only host the
                 open-source UI - everything else stays with you.
               </p>
@@ -154,7 +154,7 @@ export default function Home() {
             rel="noopener noreferrer"
             className="text-gold hover:underline"
           >
-            Assure DeFi
+            Assure DeFi®
           </a>
         </div>
       </div>

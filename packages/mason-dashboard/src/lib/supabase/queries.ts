@@ -16,7 +16,9 @@ export async function fetchBacklogItems(
   page = 1,
   pageSize = 20,
 ): Promise<{ items: BacklogItem[]; total: number }> {
-  let query = supabase.from('pm_backlog_items').select('*', { count: 'exact' });
+  let query = supabase
+    .from('mason_pm_backlog_items')
+    .select('*', { count: 'exact' });
 
   // Apply filters
   if (filters?.status?.length) {
@@ -66,7 +68,7 @@ export async function fetchBacklogItem(
   id: string,
 ): Promise<BacklogItem | null> {
   const { data, error } = await supabase
-    .from('pm_backlog_items')
+    .from('mason_pm_backlog_items')
     .select('*')
     .eq('id', id)
     .single();
@@ -89,7 +91,7 @@ export async function updateBacklogItemStatus(
   status: BacklogStatus,
 ): Promise<BacklogItem> {
   const { data, error } = await supabase
-    .from('pm_backlog_items')
+    .from('mason_pm_backlog_items')
     .update({ status })
     .eq('id', id)
     .select()
@@ -110,7 +112,7 @@ export async function updateBacklogItemPrd(
   prdContent: string,
 ): Promise<BacklogItem> {
   const { data, error } = await supabase
-    .from('pm_backlog_items')
+    .from('mason_pm_backlog_items')
     .update({
       prd_content: prdContent,
       prd_generated_at: new Date().toISOString(),
@@ -131,7 +133,7 @@ export async function updateBacklogItemPrd(
  */
 export async function fetchExecutionRuns(limit = 10): Promise<ExecutionRun[]> {
   const { data, error } = await supabase
-    .from('pm_execution_runs')
+    .from('mason_pm_execution_runs')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -150,7 +152,7 @@ export async function fetchExecutionTasks(
   runId: string,
 ): Promise<ExecutionTask[]> {
   const { data, error } = await supabase
-    .from('pm_execution_tasks')
+    .from('mason_pm_execution_tasks')
     .select('*')
     .eq('run_id', runId)
     .order('wave_number', { ascending: true })
@@ -172,7 +174,7 @@ export async function getBacklogStats(): Promise<{
   byArea: Record<string, number>;
 }> {
   const { data, error } = await supabase
-    .from('pm_backlog_items')
+    .from('mason_pm_backlog_items')
     .select('status, area');
 
   if (error) {

@@ -16,6 +16,7 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import type { BacklogItem, BacklogStatus, StatusCounts } from '@/types/backlog';
 import { RefreshCw, Database, ArrowRight } from 'lucide-react';
+import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 
 export default function BacklogPage() {
   const { data: session } = useSession();
@@ -385,6 +386,11 @@ export default function BacklogPage() {
           </button>
         </div>
       )}
+
+      {/* Footer */}
+      <div className="max-w-7xl mx-auto px-6">
+        <PoweredByFooter showCTA />
+      </div>
     </main>
   );
 }

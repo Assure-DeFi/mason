@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     // Build query
     const supabase = createServerClient();
     let query = supabase
-      .from('pm_backlog_items')
+      .from('mason_pm_backlog_items')
       .select('*', { count: 'exact' });
 
     // Apply filters

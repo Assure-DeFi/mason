@@ -21,7 +21,7 @@ export async function GET() {
     const supabase = createServiceClient();
 
     const { data: repos, error } = await supabase
-      .from('github_repositories')
+      .from('mason_github_repositories')
       .select('*')
       .eq('user_id', session.user.id)
       .eq('is_active', true)
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     // Insert or update the repository
     const { data: savedRepo, error } = await supabase
-      .from('github_repositories')
+      .from('mason_github_repositories')
       .upsert(
         {
           user_id: session.user.id,
@@ -144,7 +144,7 @@ export async function DELETE(request: NextRequest) {
 
     // Soft delete by setting is_active to false
     const { error } = await supabase
-      .from('github_repositories')
+      .from('mason_github_repositories')
       .update({ is_active: false })
       .eq('id', repositoryId)
       .eq('user_id', session.user.id);

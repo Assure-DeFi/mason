@@ -3,6 +3,7 @@
 import { signIn } from 'next-auth/react';
 import { Github } from 'lucide-react';
 import { useState } from 'react';
+import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 
 export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +53,8 @@ export default function SignInPage() {
             executing approved improvements.
           </p>
         </div>
+
+        <PoweredByFooter className="justify-center" />
       </div>
     </div>
   );

@@ -100,7 +100,7 @@ export function SetupWizard() {
               rel="noopener noreferrer"
               className="text-gold hover:underline"
             >
-              Assure DeFi
+              Assure DeFi®
             </a>
           </div>
         </div>

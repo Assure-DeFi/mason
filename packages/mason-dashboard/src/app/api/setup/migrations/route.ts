@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const MIGRATION_SQL = `
--- Users table
-CREATE TABLE IF NOT EXISTS users (
+-- Mason Users table
+CREATE TABLE IF NOT EXISTS mason_users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -13,27 +13,31 @@ CREATE TABLE IF NOT EXISTS users (
   github_avatar_url TEXT,
   github_access_token TEXT NOT NULL,
   github_token_expires_at TIMESTAMPTZ,
+  -- User's own Supabase credentials (for BYOD architecture)
+  supabase_url TEXT,
+  supabase_anon_key TEXT,
+  supabase_service_role_key TEXT,
   default_repository_id UUID,
   is_active BOOLEAN DEFAULT true
 );
 
--- API Keys table
-CREATE TABLE IF NOT EXISTS api_keys (
+-- Mason API Keys table
+CREATE TABLE IF NOT EXISTS mason_api_keys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES mason_users(id) ON DELETE CASCADE,
   name TEXT NOT NULL DEFAULT 'Default',
   key_hash TEXT NOT NULL,
   key_prefix TEXT NOT NULL,
   last_used_at TIMESTAMPTZ
 );
 
--- GitHub Repositories table
-CREATE TABLE IF NOT EXISTS github_repositories (
+-- Mason GitHub Repositories table
+CREATE TABLE IF NOT EXISTS mason_github_repositories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES mason_users(id) ON DELETE CASCADE,
   github_repo_id BIGINT NOT NULL,
   github_owner TEXT NOT NULL,
   github_name TEXT NOT NULL,
@@ -47,12 +51,12 @@ CREATE TABLE IF NOT EXISTS github_repositories (
   UNIQUE(user_id, github_repo_id)
 );
 
--- PM Analysis Runs table
-CREATE TABLE IF NOT EXISTS pm_analysis_runs (
+-- Mason PM Analysis Runs table
+CREATE TABLE IF NOT EXISTS mason_pm_analysis_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  repository_id UUID REFERENCES github_repositories(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE,
+  repository_id UUID REFERENCES mason_github_repositories(id) ON DELETE SET NULL,
   mode TEXT NOT NULL DEFAULT 'full',
   items_found INTEGER DEFAULT 0,
   started_at TIMESTAMPTZ DEFAULT NOW(),
@@ -61,14 +65,14 @@ CREATE TABLE IF NOT EXISTS pm_analysis_runs (
   error_message TEXT
 );
 
--- PM Backlog Items table
-CREATE TABLE IF NOT EXISTS pm_backlog_items (
+-- Mason PM Backlog Items table
+CREATE TABLE IF NOT EXISTS mason_pm_backlog_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  repository_id UUID REFERENCES github_repositories(id) ON DELETE SET NULL,
-  analysis_run_id UUID REFERENCES pm_analysis_runs(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE,
+  repository_id UUID REFERENCES mason_github_repositories(id) ON DELETE SET NULL,
+  analysis_run_id UUID REFERENCES mason_pm_analysis_runs(id) ON DELETE SET NULL,
   title TEXT NOT NULL,
   problem TEXT NOT NULL,
   solution TEXT NOT NULL,
@@ -86,12 +90,12 @@ CREATE TABLE IF NOT EXISTS pm_backlog_items (
   prd_generated_at TIMESTAMPTZ
 );
 
--- Remote Execution Runs table
-CREATE TABLE IF NOT EXISTS remote_execution_runs (
+-- Mason Remote Execution Runs table
+CREATE TABLE IF NOT EXISTS mason_remote_execution_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  repository_id UUID NOT NULL REFERENCES github_repositories(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES mason_users(id) ON DELETE CASCADE,
+  repository_id UUID NOT NULL REFERENCES mason_github_repositories(id) ON DELETE CASCADE,
   item_ids UUID[] NOT NULL DEFAULT '{}',
   item_count INTEGER DEFAULT 0,
   branch_name TEXT NOT NULL,
@@ -107,35 +111,35 @@ CREATE TABLE IF NOT EXISTS remote_execution_runs (
   lines_removed INTEGER DEFAULT 0
 );
 
--- Execution Logs table
-CREATE TABLE IF NOT EXISTS execution_logs (
+-- Mason Execution Logs table
+CREATE TABLE IF NOT EXISTS mason_execution_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  execution_run_id UUID NOT NULL REFERENCES remote_execution_runs(id) ON DELETE CASCADE,
+  execution_run_id UUID NOT NULL REFERENCES mason_remote_execution_runs(id) ON DELETE CASCADE,
   log_level TEXT DEFAULT 'info' CHECK (log_level IN ('debug', 'info', 'warn', 'error')),
   message TEXT NOT NULL,
   metadata JSONB DEFAULT '{}'::jsonb
 );
 
 -- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
-CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
-CREATE INDEX IF NOT EXISTS idx_github_repositories_user_id ON github_repositories(user_id);
-CREATE INDEX IF NOT EXISTS idx_pm_backlog_items_user_id ON pm_backlog_items(user_id);
-CREATE INDEX IF NOT EXISTS idx_pm_backlog_items_status ON pm_backlog_items(status);
-CREATE INDEX IF NOT EXISTS idx_pm_backlog_items_repository_id ON pm_backlog_items(repository_id);
-CREATE INDEX IF NOT EXISTS idx_pm_analysis_runs_user_id ON pm_analysis_runs(user_id);
-CREATE INDEX IF NOT EXISTS idx_remote_execution_runs_user_id ON remote_execution_runs(user_id);
-CREATE INDEX IF NOT EXISTS idx_execution_logs_execution_run_id ON execution_logs(execution_run_id);
+CREATE INDEX IF NOT EXISTS idx_mason_api_keys_user_id ON mason_api_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_api_keys_key_hash ON mason_api_keys(key_hash);
+CREATE INDEX IF NOT EXISTS idx_mason_github_repositories_user_id ON mason_github_repositories(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_user_id ON mason_pm_backlog_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_status ON mason_pm_backlog_items(status);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_repository_id ON mason_pm_backlog_items(repository_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_analysis_runs_user_id ON mason_pm_analysis_runs(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_remote_execution_runs_user_id ON mason_remote_execution_runs(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_execution_run_id ON mason_execution_logs(execution_run_id);
 
 -- Enable Row Level Security
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
-ALTER TABLE github_repositories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pm_analysis_runs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pm_backlog_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE remote_execution_runs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE execution_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_github_repositories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_pm_analysis_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_pm_backlog_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_remote_execution_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_execution_logs ENABLE ROW LEVEL SECURITY;
 `;
 
 export async function POST(request: NextRequest) {

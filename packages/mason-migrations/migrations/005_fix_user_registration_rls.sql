@@ -17,7 +17,7 @@
 
 -- Allow anon/authenticated users to register themselves
 -- Requires github_id and github_access_token to be present
-CREATE POLICY "Allow user self-registration" ON users
+CREATE POLICY "Allow user self-registration" ON mason_users
   FOR INSERT WITH CHECK (
     github_id IS NOT NULL
     AND github_username IS NOT NULL
@@ -28,5 +28,5 @@ CREATE POLICY "Allow user self-registration" ON users
 -- Comments
 --------------------------------------------------------------------------------
 
-COMMENT ON POLICY "Allow user self-registration" ON users IS
+COMMENT ON POLICY "Allow user self-registration" ON mason_users IS
   'Allows users to register themselves during setup. Safe for private architecture where user owns their database.';

@@ -3,15 +3,15 @@
 -- Description: Adds API key authentication for CLI-to-dashboard communication
 
 --------------------------------------------------------------------------------
--- Table: api_keys
+-- Table: mason_api_keys
 -- Stores API keys for CLI authentication (keys are hashed, never stored plain)
 --------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS api_keys (
+CREATE TABLE IF NOT EXISTS mason_api_keys (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   -- Owner reference
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES mason_users(id) ON DELETE CASCADE,
 
   -- Key identification
   name TEXT NOT NULL DEFAULT 'Default',
@@ -30,19 +30,19 @@ CREATE TABLE IF NOT EXISTS api_keys (
 --------------------------------------------------------------------------------
 
 -- Fast lookup by key hash (used for authentication)
-CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
+CREATE INDEX IF NOT EXISTS idx_mason_api_keys_key_hash ON mason_api_keys(key_hash);
 
 -- List keys by user
-CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_api_keys_user_id ON mason_api_keys(user_id);
 
 -- Find by prefix (for admin/display purposes)
-CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(key_prefix);
+CREATE INDEX IF NOT EXISTS idx_mason_api_keys_prefix ON mason_api_keys(key_prefix);
 
 --------------------------------------------------------------------------------
 -- Row Level Security (RLS)
 --------------------------------------------------------------------------------
 
-ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_api_keys ENABLE ROW LEVEL SECURITY;
 
 --------------------------------------------------------------------------------
 -- WARNING: DEVELOPMENT-ONLY POLICIES
@@ -53,26 +53,26 @@ ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
 --------------------------------------------------------------------------------
 
 -- Users can view their own API keys
-CREATE POLICY "Users can view own API keys" ON api_keys
+CREATE POLICY "Users can view own API keys" ON mason_api_keys
   FOR SELECT USING (true);  -- Production: USING (user_id = auth.uid())
 
 -- Users can create their own API keys
-CREATE POLICY "Users can create own API keys" ON api_keys
+CREATE POLICY "Users can create own API keys" ON mason_api_keys
   FOR INSERT WITH CHECK (true);  -- Production: WITH CHECK (user_id = auth.uid())
 
 -- Users can delete their own API keys
-CREATE POLICY "Users can delete own API keys" ON api_keys
+CREATE POLICY "Users can delete own API keys" ON mason_api_keys
   FOR DELETE USING (true);  -- Production: USING (user_id = auth.uid())
 
 -- System can update last_used_at (via service role)
-CREATE POLICY "System can update API keys" ON api_keys
+CREATE POLICY "System can update API keys" ON mason_api_keys
   FOR UPDATE USING (true) WITH CHECK (true);
 
 --------------------------------------------------------------------------------
 -- Comments
 --------------------------------------------------------------------------------
 
-COMMENT ON TABLE api_keys IS 'API keys for CLI authentication to hosted dashboard';
-COMMENT ON COLUMN api_keys.key_hash IS 'SHA-256 hash of the full API key (never store plain keys)';
-COMMENT ON COLUMN api_keys.key_prefix IS 'First 8 characters of key for display (e.g., mason_ab12)';
-COMMENT ON COLUMN api_keys.last_used_at IS 'Last time this key was used for authentication';
+COMMENT ON TABLE mason_api_keys IS 'API keys for CLI authentication to hosted dashboard';
+COMMENT ON COLUMN mason_api_keys.key_hash IS 'SHA-256 hash of the full API key (never store plain keys)';
+COMMENT ON COLUMN mason_api_keys.key_prefix IS 'First 8 characters of key for display (e.g., mason_ab12)';
+COMMENT ON COLUMN mason_api_keys.last_used_at IS 'Last time this key was used for authentication';

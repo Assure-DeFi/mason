@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 
 interface ApiKeyInfo {
   id: string;
@@ -110,10 +111,9 @@ export default function ApiKeysPage() {
       const keyBytes = new Uint8Array(24);
       crypto.getRandomValues(keyBytes);
       const keyBytesArray = Array.from(keyBytes);
-      const fullKey = `mason_${btoa(String.fromCharCode(...keyBytesArray)).replace(
-        /[+/=]/g,
-        (c) => (c === '+' ? '-' : c === '/' ? '_' : ''),
-      )}`;
+      const fullKey = `mason_${btoa(
+        String.fromCharCode(...keyBytesArray),
+      ).replace(/[+/=]/g, (c) => (c === '+' ? '-' : c === '/' ? '_' : ''))}`;
 
       const keyPrefix = fullKey.substring(0, 12);
       const encoder = new TextEncoder();
@@ -384,6 +384,8 @@ export default function ApiKeysPage() {
             Then paste your API key when prompted during installation.
           </p>
         </div>
+
+        <PoweredByFooter />
       </div>
 
       {newKey && (

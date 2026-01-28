@@ -71,7 +71,7 @@ export const authOptions: NextAuthOptions = {
         const accessToken = account.access_token ?? '';
 
         // Upsert user in database
-        const { error } = await supabase.from('users').upsert(
+        const { error } = await supabase.from('mason_users').upsert(
           {
             github_id: githubId,
             github_username: githubUsername,
@@ -108,7 +108,7 @@ export const authOptions: NextAuthOptions = {
 
         // Fetch user from database to get the UUID
         const { data: dbUser } = await supabase
-          .from('users')
+          .from('mason_users')
           .select('*')
           .eq('github_id', githubId)
           .single();

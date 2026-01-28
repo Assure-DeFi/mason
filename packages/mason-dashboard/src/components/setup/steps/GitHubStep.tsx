@@ -150,7 +150,7 @@ export function GitHubStep({ onNext, onBack }: WizardStepProps) {
         <h3 className="mb-2 font-medium text-white">Privacy Note</h3>
         <p className="text-sm text-gray-400">
           Your GitHub access token is stored only in YOUR Supabase database.
-          Assure DeFi never sees or stores your token. We only use GitHub OAuth
+          Assure DeFi® never sees or stores your token. We only use GitHub OAuth
           for the initial authentication redirect.
         </p>
       </div>

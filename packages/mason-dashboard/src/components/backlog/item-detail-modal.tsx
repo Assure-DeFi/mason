@@ -437,6 +437,30 @@ export function ItemDetailModal({
             )}
           </div>
 
+          {/* Security CTA - show for auth-related items */}
+          {item.type === 'auth' && (
+            <div className="px-6 py-4 border-t border-gray-800">
+              <div className="flex items-center justify-between text-sm">
+                <div className="text-gray-400">
+                  <span className="font-medium text-gray-300">
+                    Need a comprehensive security audit?
+                  </span>
+                  <span className="ml-2">
+                    2,000+ projects &amp; $2B+ secured since 2021.
+                  </span>
+                </div>
+                <a
+                  href="https://assuredefi.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 transition-colors hover:text-gold"
+                >
+                  Learn More →
+                </a>
+              </div>
+            </div>
+          )}
+
           {/* Footer */}
           <div className="flex items-center justify-center gap-4 p-4 border-t border-gray-800 bg-black/20">
             {/* View/Generate PRD Button */}

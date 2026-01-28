@@ -5,9 +5,9 @@
 -- Enable UUID extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Table: pm_analysis_runs
+-- Table: mason_pm_analysis_runs
 -- Tracks each analysis run (when /pm-review is executed)
-CREATE TABLE IF NOT EXISTS pm_analysis_runs (
+CREATE TABLE IF NOT EXISTS mason_pm_analysis_runs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
@@ -24,9 +24,9 @@ CREATE TABLE IF NOT EXISTS pm_analysis_runs (
   error_message TEXT
 );
 
--- Table: pm_backlog_items
+-- Table: mason_pm_backlog_items
 -- Stores individual improvement items identified during analysis
-CREATE TABLE IF NOT EXISTS pm_backlog_items (
+CREATE TABLE IF NOT EXISTS mason_pm_backlog_items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS pm_backlog_items (
   prd_generated_at TIMESTAMPTZ,
 
   -- Link to analysis run
-  analysis_run_id UUID REFERENCES pm_analysis_runs(id) ON DELETE SET NULL,
+  analysis_run_id UUID REFERENCES mason_pm_analysis_runs(id) ON DELETE SET NULL,
 
   -- Constraints
   CONSTRAINT valid_area CHECK (area IN ('frontend-ux', 'api-backend', 'reliability', 'security', 'code-quality')),
@@ -74,14 +74,14 @@ CREATE TABLE IF NOT EXISTS pm_backlog_items (
 );
 
 -- Indexes for common queries
-CREATE INDEX IF NOT EXISTS idx_pm_backlog_items_status ON pm_backlog_items(status);
-CREATE INDEX IF NOT EXISTS idx_pm_backlog_items_priority ON pm_backlog_items(priority_score DESC);
-CREATE INDEX IF NOT EXISTS idx_pm_backlog_items_area ON pm_backlog_items(area);
-CREATE INDEX IF NOT EXISTS idx_pm_backlog_items_analysis_run ON pm_backlog_items(analysis_run_id);
-CREATE INDEX IF NOT EXISTS idx_pm_analysis_runs_status ON pm_analysis_runs(status);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_status ON mason_pm_backlog_items(status);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_priority ON mason_pm_backlog_items(priority_score DESC);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_area ON mason_pm_backlog_items(area);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_analysis_run ON mason_pm_backlog_items(analysis_run_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_analysis_runs_status ON mason_pm_analysis_runs(status);
 
 -- Trigger to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_pm_backlog_items_updated_at()
+CREATE OR REPLACE FUNCTION update_mason_pm_backlog_items_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = now();
@@ -89,26 +89,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trigger_pm_backlog_items_updated_at ON pm_backlog_items;
-CREATE TRIGGER trigger_pm_backlog_items_updated_at
-  BEFORE UPDATE ON pm_backlog_items
+DROP TRIGGER IF EXISTS trigger_mason_pm_backlog_items_updated_at ON mason_pm_backlog_items;
+CREATE TRIGGER trigger_mason_pm_backlog_items_updated_at
+  BEFORE UPDATE ON mason_pm_backlog_items
   FOR EACH ROW
-  EXECUTE FUNCTION update_pm_backlog_items_updated_at();
+  EXECUTE FUNCTION update_mason_pm_backlog_items_updated_at();
 
 -- Row Level Security (RLS) - Enable but allow all for now
 -- Users should customize these policies based on their auth setup
-ALTER TABLE pm_analysis_runs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pm_backlog_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_pm_analysis_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_pm_backlog_items ENABLE ROW LEVEL SECURITY;
 
 -- Default policies (allow all - customize for production)
-CREATE POLICY "Allow all access to pm_analysis_runs" ON pm_analysis_runs
+CREATE POLICY "Allow all access to mason_pm_analysis_runs" ON mason_pm_analysis_runs
   FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow all access to pm_backlog_items" ON pm_backlog_items
+CREATE POLICY "Allow all access to mason_pm_backlog_items" ON mason_pm_backlog_items
   FOR ALL USING (true) WITH CHECK (true);
 
 -- Comments for documentation
-COMMENT ON TABLE pm_analysis_runs IS 'Tracks each PM review analysis run';
-COMMENT ON TABLE pm_backlog_items IS 'Improvement items identified during PM analysis';
-COMMENT ON COLUMN pm_backlog_items.priority_score IS 'Auto-calculated: (impact_score * 2) - effort_score';
-COMMENT ON COLUMN pm_backlog_items.benefits_json IS 'JSON array of benefit strings';
+COMMENT ON TABLE mason_pm_analysis_runs IS 'Tracks each PM review analysis run';
+COMMENT ON TABLE mason_pm_backlog_items IS 'Improvement items identified during PM analysis';
+COMMENT ON COLUMN mason_pm_backlog_items.priority_score IS 'Auto-calculated: (impact_score * 2) - effort_score';
+COMMENT ON COLUMN mason_pm_backlog_items.benefits_json IS 'JSON array of benefit strings';

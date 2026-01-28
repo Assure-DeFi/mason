@@ -9,7 +9,7 @@ export function WelcomeStep({ onNext }: WizardStepProps) {
       <div className="text-center">
         <h2 className="text-2xl font-bold text-white">Welcome to Mason</h2>
         <p className="mt-2 text-gray-400">
-          A free, open-source tool from Assure DeFi for continuous codebase
+          A free, open-source tool from Assure DeFi® for continuous codebase
           improvement
         </p>
       </div>
@@ -23,7 +23,7 @@ export function WelcomeStep({ onNext }: WizardStepProps) {
             </h3>
             <p className="mt-1 text-sm text-gray-300">
               Mason stores all your data in your own Supabase database. Assure
-              DeFi has zero access to your repositories, improvements, or any
+              DeFi® has zero access to your repositories, improvements, or any
               other data. We only host the UI - everything else stays with you.
             </p>
           </div>

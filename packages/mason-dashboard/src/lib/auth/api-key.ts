@@ -42,7 +42,7 @@ export async function validateApiKey(key: string): Promise<User | null> {
 
   // Look up the key by its hash
   const { data: apiKey, error: keyError } = await supabase
-    .from('api_keys')
+    .from('mason_api_keys')
     .select('id, user_id')
     .eq('key_hash', hash)
     .single();
@@ -53,13 +53,13 @@ export async function validateApiKey(key: string): Promise<User | null> {
 
   // Update last_used_at
   await supabase
-    .from('api_keys')
+    .from('mason_api_keys')
     .update({ last_used_at: new Date().toISOString() })
     .eq('id', apiKey.id);
 
   // Fetch the associated user
   const { data: user, error: userError } = await supabase
-    .from('users')
+    .from('mason_users')
     .select('*')
     .eq('id', apiKey.user_id)
     .single();
@@ -108,7 +108,7 @@ export async function listApiKeys(userId: string): Promise<ApiKeyInfo[]> {
   const supabase = createServiceClient();
 
   const { data, error } = await supabase
-    .from('api_keys')
+    .from('mason_api_keys')
     .select('id, name, key_prefix, created_at, last_used_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
@@ -133,7 +133,7 @@ export async function createApiKey(
   const supabase = createServiceClient();
 
   const { data, error } = await supabase
-    .from('api_keys')
+    .from('mason_api_keys')
     .insert({
       user_id: userId,
       name,
@@ -165,7 +165,7 @@ export async function deleteApiKey(
   const supabase = createServiceClient();
 
   const { error } = await supabase
-    .from('api_keys')
+    .from('mason_api_keys')
     .delete()
     .eq('id', keyId)
     .eq('user_id', userId);

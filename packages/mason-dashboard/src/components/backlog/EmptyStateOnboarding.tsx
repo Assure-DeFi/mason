@@ -131,6 +131,32 @@ export function EmptyStateOnboarding({ onRefresh }: EmptyStateOnboardingProps) {
           Already ran a review? Click to refresh
         </button>
       )}
+
+      {/* Brand Attribution */}
+      <div className="mt-12 pt-8 border-t border-gray-800 text-center">
+        <p className="text-sm text-gray-500">
+          Built by{' '}
+          <a
+            href="https://assuredefi.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gold hover:underline"
+          >
+            Assure DeFi®
+          </a>
+        </p>
+        <p className="mt-1 text-xs text-gray-600">
+          2,000+ projects &amp; $2B+ secured since 2021.
+        </p>
+        <a
+          href="https://assuredefi.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-block text-sm text-gray-400 transition-colors hover:text-gold"
+        >
+          Visit assuredefi.com →
+        </a>
+      </div>
     </div>
   );
 }

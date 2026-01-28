@@ -14,7 +14,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Fetch the item
     const { data: item, error: fetchError } = await supabase
-      .from('pm_backlog_items')
+      .from('mason_pm_backlog_items')
       .select('*')
       .eq('id', id)
       .single();
@@ -35,7 +35,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Update the item with PRD content
     const { data: updated, error: updateError } = await supabase
-      .from('pm_backlog_items')
+      .from('mason_pm_backlog_items')
       .update({
         prd_content: prdContent,
         prd_generated_at: new Date().toISOString(),

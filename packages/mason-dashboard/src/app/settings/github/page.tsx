@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, GitBranch } from 'lucide-react';
 import Link from 'next/link';
+import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { RepositoryList } from '@/components/github/repository-list';
 import { ConnectRepoModal } from '@/components/github/connect-repo-modal';
 import type { GitHubRepository } from '@/types/auth';
@@ -135,6 +136,8 @@ export default function GitHubSettingsPage() {
             </li>
           </ul>
         </div>
+
+        <PoweredByFooter />
       </div>
 
       <ConnectRepoModal
