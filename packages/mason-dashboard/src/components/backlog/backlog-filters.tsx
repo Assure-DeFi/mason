@@ -6,9 +6,11 @@ interface BacklogFiltersProps {
   selectedAreas: BacklogArea[];
   selectedTypes: BacklogType[];
   complexityRange: [number, number];
+  effortRange: [number, number];
   onAreasChange: (areas: BacklogArea[]) => void;
   onTypesChange: (types: BacklogType[]) => void;
   onComplexityChange: (range: [number, number]) => void;
+  onEffortChange: (range: [number, number]) => void;
 }
 
 const AREAS: { value: BacklogArea; label: string }[] = [
@@ -27,9 +29,11 @@ export function BacklogFilters({
   selectedAreas,
   selectedTypes,
   complexityRange,
+  effortRange,
   onAreasChange,
   onTypesChange,
   onComplexityChange,
+  onEffortChange,
 }: BacklogFiltersProps) {
   const toggleArea = (area: BacklogArea) => {
     if (selectedAreas.includes(area)) {
@@ -48,7 +52,7 @@ export function BacklogFilters({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
       {/* Area Filter */}
       <div>
         <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
@@ -137,6 +141,51 @@ export function BacklogFilters({
                   complexityRange[0],
                   parseInt(e.target.value),
                 ])
+              }
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-gold"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Effort Score Range */}
+      <div>
+        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          Effort Score
+        </label>
+        <div className="space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-400">Min</span>
+              <span className="text-sm font-semibold text-white">
+                {effortRange[0]}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={effortRange[0]}
+              onChange={(e) =>
+                onEffortChange([parseInt(e.target.value), effortRange[1]])
+              }
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-gold"
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-400">Max</span>
+              <span className="text-sm font-semibold text-white">
+                {effortRange[1]}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={effortRange[1]}
+              onChange={(e) =>
+                onEffortChange([effortRange[0], parseInt(e.target.value)])
               }
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-gold"
             />

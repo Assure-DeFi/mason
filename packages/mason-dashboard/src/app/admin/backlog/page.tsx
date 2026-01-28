@@ -1,7 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  Suspense,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
@@ -11,26 +19,70 @@ import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
+import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
 import { UserMenu } from '@/components/auth/user-menu';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { BacklogFilters } from '@/components/backlog/backlog-filters';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { useGitHubToken } from '@/hooks/useGitHubToken';
+import { API_ROUTES } from '@/lib/constants';
 import type {
   BacklogItem,
   BacklogStatus,
   StatusCounts,
   BacklogArea,
   BacklogType,
+  SortField,
+  SortDirection,
 } from '@/types/backlog';
 import { getComplexityValue } from '@/types/backlog';
-import { RefreshCw, Database, ArrowRight, Search, Loader2 } from 'lucide-react';
+import {
+  RefreshCw,
+  Database,
+  ArrowRight,
+  Search,
+  Loader2,
+  Undo2,
+} from 'lucide-react';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 
+interface UndoState {
+  items: { id: string; previousStatus: BacklogStatus }[];
+  action: 'approve' | 'reject';
+  expiresAt: number;
+}
+
+interface BulkProgress {
+  current: number;
+  total: number;
+}
+
+// Wrapper component that provides Suspense boundary
 export default function BacklogPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-navy">
+          <div className="p-8">
+            <SkeletonTable rows={5} columns={5} />
+          </div>
+        </main>
+      }
+    >
+      <BacklogPageContent />
+    </Suspense>
+  );
+}
+
+function BacklogPageContent() {
   const { data: session } = useSession();
   const { client, isConfigured, isLoading: isDbLoading } = useUserDatabase();
+  const { token: githubToken, hasToken } = useGitHubToken();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -42,20 +94,102 @@ export default function BacklogPage() {
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [executionRunId, setExecutionRunId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
+  const [isStartingExecution, setIsStartingExecution] = useState(false);
 
   // Bulk action loading states
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const [isBulkApproving, setIsBulkApproving] = useState(false);
   const [isBulkRejecting, setIsBulkRejecting] = useState(false);
+  const [generationProgress, setGenerationProgress] =
+    useState<BulkProgress | null>(null);
 
-  // New filter states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAreas, setSelectedAreas] = useState<BacklogArea[]>([]);
-  const [selectedTypes, setSelectedTypes] = useState<BacklogType[]>([]);
-  const [complexityRange, setComplexityRange] = useState<[number, number]>([
-    1, 5,
-  ]);
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    action: 'approve' | 'reject';
+    ids: string[];
+    titles: string[];
+  }>({ isOpen: false, action: 'approve', ids: [], titles: [] });
+
+  // Undo state
+  const [undoState, setUndoState] = useState<UndoState | null>(null);
+  const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Last selected item for shift+click range selection
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+
+  // Sort state
+  const [sort, setSort] = useState<{
+    field: SortField;
+    direction: SortDirection;
+  } | null>(null);
+
+  // Initialize filter states from URL
+  const [searchQuery, setSearchQuery] = useState(
+    searchParams.get('search') || '',
+  );
+  const [selectedAreas, setSelectedAreas] = useState<BacklogArea[]>(() => {
+    const areas = searchParams.get('areas');
+    return areas ? (areas.split(',') as BacklogArea[]) : [];
+  });
+  const [selectedTypes, setSelectedTypes] = useState<BacklogType[]>(() => {
+    const types = searchParams.get('types');
+    return types ? (types.split(',') as BacklogType[]) : [];
+  });
+  const [complexityRange, setComplexityRange] = useState<[number, number]>(
+    () => {
+      const min = searchParams.get('complexityMin');
+      const max = searchParams.get('complexityMax');
+      return [min ? parseInt(min) : 1, max ? parseInt(max) : 5];
+    },
+  );
+  const [effortRange, setEffortRange] = useState<[number, number]>(() => {
+    const min = searchParams.get('effortMin');
+    const max = searchParams.get('effortMax');
+    return [min ? parseInt(min) : 1, max ? parseInt(max) : 10];
+  });
   const [showFilters, setShowFilters] = useState(false);
+
+  // Sync filter state to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (searchQuery) params.set('search', searchQuery);
+    if (selectedAreas.length > 0) params.set('areas', selectedAreas.join(','));
+    if (selectedTypes.length > 0) params.set('types', selectedTypes.join(','));
+    if (complexityRange[0] !== 1)
+      params.set('complexityMin', complexityRange[0].toString());
+    if (complexityRange[1] !== 5)
+      params.set('complexityMax', complexityRange[1].toString());
+    if (effortRange[0] !== 1)
+      params.set('effortMin', effortRange[0].toString());
+    if (effortRange[1] !== 10)
+      params.set('effortMax', effortRange[1].toString());
+    if (activeStatus && activeStatus !== 'new')
+      params.set('status', activeStatus);
+
+    const newUrl = params.toString()
+      ? `${window.location.pathname}?${params.toString()}`
+      : window.location.pathname;
+
+    router.replace(newUrl, { scroll: false });
+  }, [
+    searchQuery,
+    selectedAreas,
+    selectedTypes,
+    complexityRange,
+    effortRange,
+    activeStatus,
+    router,
+  ]);
+
+  // Initialize status from URL
+  useEffect(() => {
+    const urlStatus = searchParams.get('status');
+    if (urlStatus && urlStatus !== activeStatus) {
+      setActiveStatus(urlStatus as TabStatus);
+    }
+  }, [searchParams, activeStatus]);
 
   const fetchFilteredCount = useCallback(async () => {
     if (!client) return;
@@ -198,7 +332,7 @@ export default function BacklogPage() {
   // Check if viewing filtered items tab
   const isViewingFiltered = activeStatus === 'filtered';
 
-  // Advanced filtering
+  // Advanced filtering and sorting
   const filteredItems = useMemo(() => {
     let filtered = items;
 
@@ -237,6 +371,66 @@ export default function BacklogPage() {
       );
     });
 
+    // Effort filter
+    filtered = filtered.filter(
+      (item) =>
+        item.effort_score >= effortRange[0] &&
+        item.effort_score <= effortRange[1],
+    );
+
+    // Apply sorting
+    if (sort) {
+      filtered = [...filtered].sort((a, b) => {
+        let aVal: string | number;
+        let bVal: string | number;
+
+        switch (sort.field) {
+          case 'title':
+            aVal = a.title.toLowerCase();
+            bVal = b.title.toLowerCase();
+            break;
+          case 'type':
+            aVal = a.type;
+            bVal = b.type;
+            break;
+          case 'priority_score':
+            aVal = a.priority_score;
+            bVal = b.priority_score;
+            break;
+          case 'complexity':
+            aVal = getComplexityValue(a.complexity);
+            bVal = getComplexityValue(b.complexity);
+            break;
+          case 'area':
+            aVal = a.area;
+            bVal = b.area;
+            break;
+          case 'updated_at':
+            aVal = new Date(a.updated_at).getTime();
+            bVal = new Date(b.updated_at).getTime();
+            break;
+          case 'impact_score':
+            aVal = a.impact_score;
+            bVal = b.impact_score;
+            break;
+          case 'effort_score':
+            aVal = a.effort_score;
+            bVal = b.effort_score;
+            break;
+          case 'created_at':
+            aVal = new Date(a.created_at).getTime();
+            bVal = new Date(b.created_at).getTime();
+            break;
+          default:
+            return 0;
+        }
+
+        if (aVal < bVal) return sort.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sort.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
     return filtered;
   }, [
     items,
@@ -245,7 +439,22 @@ export default function BacklogPage() {
     selectedAreas,
     selectedTypes,
     complexityRange,
+    effortRange,
+    sort,
   ]);
+
+  const handleSortChange = useCallback((field: SortField) => {
+    setSort((prev) => {
+      if (prev?.field === field) {
+        // Toggle direction or clear
+        if (prev.direction === 'asc') {
+          return { field, direction: 'desc' };
+        }
+        return null; // Clear sort on third click
+      }
+      return { field, direction: 'asc' };
+    });
+  }, []);
 
   const approvedItemIds = useMemo(() => {
     return items
@@ -303,15 +512,40 @@ export default function BacklogPage() {
     }
   };
 
-  const handleSelectItem = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
-    );
-  };
+  const handleSelectItem = useCallback(
+    (id: string, event?: React.MouseEvent) => {
+      if (event?.shiftKey && lastSelectedId) {
+        // Shift+click: select range
+        const itemIds = filteredItems.map((item) => item.id);
+        const lastIndex = itemIds.indexOf(lastSelectedId);
+        const currentIndex = itemIds.indexOf(id);
+
+        if (lastIndex !== -1 && currentIndex !== -1) {
+          const start = Math.min(lastIndex, currentIndex);
+          const end = Math.max(lastIndex, currentIndex);
+          const rangeIds = itemIds.slice(start, end + 1);
+
+          setSelectedIds((prev) => {
+            const newSelection = new Set(prev);
+            rangeIds.forEach((rangeId) => newSelection.add(rangeId));
+            return Array.from(newSelection);
+          });
+        }
+      } else {
+        // Normal click: toggle selection
+        setSelectedIds((prev) =>
+          prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
+        );
+        setLastSelectedId(id);
+      }
+    },
+    [lastSelectedId, filteredItems],
+  );
 
   const handleSelectAll = () => {
     if (selectedIds.length === filteredItems.length) {
       setSelectedIds([]);
+      setLastSelectedId(null);
     } else {
       setSelectedIds(filteredItems.map((item) => item.id));
     }
@@ -321,9 +555,14 @@ export default function BacklogPage() {
     if (ids.length === 0) return;
 
     setIsBulkGenerating(true);
+    setGenerationProgress({ current: 0, total: ids.length });
+
     try {
       // Generate PRDs sequentially to avoid overwhelming the API
-      for (const id of ids) {
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        setGenerationProgress({ current: i + 1, total: ids.length });
+
         const response = await fetch(`/api/prd/${id}`, {
           method: 'POST',
         });
@@ -342,17 +581,47 @@ export default function BacklogPage() {
       console.error('Bulk PRD generation error:', err);
     } finally {
       setIsBulkGenerating(false);
+      setGenerationProgress(null);
     }
   };
 
-  const handleBulkApprove = async (ids: string[]) => {
-    if (!client || ids.length === 0) return;
+  const handleBulkApproveRequest = (ids: string[]) => {
+    if (ids.length === 0) return;
+    const titles = items
+      .filter((item) => ids.includes(item.id))
+      .map((item) => item.title);
+    setConfirmDialog({ isOpen: true, action: 'approve', ids, titles });
+  };
 
-    setIsBulkApproving(true);
+  const handleBulkRejectRequest = (ids: string[]) => {
+    if (ids.length === 0) return;
+    const titles = items
+      .filter((item) => ids.includes(item.id))
+      .map((item) => item.title);
+    setConfirmDialog({ isOpen: true, action: 'reject', ids, titles });
+  };
+
+  const handleConfirmBulkAction = async () => {
+    if (!client) return;
+
+    const { action, ids } = confirmDialog;
+    const newStatus = action === 'approve' ? 'approved' : 'rejected';
+
+    // Store previous states for undo
+    const previousStates = items
+      .filter((item) => ids.includes(item.id))
+      .map((item) => ({ id: item.id, previousStatus: item.status }));
+
+    if (action === 'approve') {
+      setIsBulkApproving(true);
+    } else {
+      setIsBulkRejecting(true);
+    }
+
     try {
       const { data: updated, error: updateError } = await client
         .from('mason_pm_backlog_items')
-        .update({ status: 'approved', updated_at: new Date().toISOString() })
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
         .in('id', ids)
         .select();
 
@@ -369,46 +638,63 @@ export default function BacklogPage() {
         );
       }
       setSelectedIds([]);
+      setConfirmDialog({
+        isOpen: false,
+        action: 'approve',
+        ids: [],
+        titles: [],
+      });
+
+      // Set up undo state
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current);
+      }
+
+      const expiresAt = Date.now() + 30000; // 30 seconds
+      setUndoState({ items: previousStates, action, expiresAt });
+
+      undoTimeoutRef.current = setTimeout(() => {
+        setUndoState(null);
+      }, 30000);
     } catch (err) {
-      console.error('Bulk approve error:', err);
+      console.error(`Bulk ${action} error:`, err);
     } finally {
       setIsBulkApproving(false);
+      setIsBulkRejecting(false);
     }
   };
 
-  const handleBulkReject = async (ids: string[]) => {
-    if (!client || ids.length === 0) return;
+  const handleUndo = async () => {
+    if (!client || !undoState) return;
 
-    setIsBulkRejecting(true);
     try {
-      const { data: updated, error: updateError } = await client
-        .from('mason_pm_backlog_items')
-        .update({ status: 'rejected', updated_at: new Date().toISOString() })
-        .in('id', ids)
-        .select();
-
-      if (updateError) {
-        throw updateError;
+      // Restore each item to its previous status
+      for (const { id, previousStatus } of undoState.items) {
+        await client
+          .from('mason_pm_backlog_items')
+          .update({
+            status: previousStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id);
       }
 
-      if (updated) {
-        setItems((prev) =>
-          prev.map((item) => {
-            const match = updated.find((u) => u.id === item.id);
-            return match ? match : item;
-          }),
-        );
+      // Refresh items
+      fetchItems();
+
+      // Clear undo state
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current);
       }
-      setSelectedIds([]);
+      setUndoState(null);
     } catch (err) {
-      console.error('Bulk reject error:', err);
-    } finally {
-      setIsBulkRejecting(false);
+      console.error('Undo error:', err);
     }
   };
 
   const handleClearSelection = () => {
     setSelectedIds([]);
+    setLastSelectedId(null);
   };
 
   const handleExecuteAll = async () => {
@@ -423,8 +709,52 @@ export default function BacklogPage() {
     }
   };
 
-  const handleRemoteExecute = (itemIds: string[]) => {
-    setExecutionRunId('starting');
+  const handleRemoteExecute = async (itemIds: string[]) => {
+    if (!selectedRepoId) {
+      setExecutionError('Please select a repository first');
+      return;
+    }
+
+    if (!githubToken) {
+      setExecutionError(
+        'GitHub token not found. Please sign out and sign back in.',
+      );
+      return;
+    }
+
+    setIsStartingExecution(true);
+    setExecutionError(null);
+
+    try {
+      const response = await fetch(API_ROUTES.EXECUTION_START, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repositoryId: selectedRepoId,
+          itemIds,
+          githubToken,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to start execution');
+      }
+
+      if (!data.runId) {
+        throw new Error('No run ID returned from server');
+      }
+
+      setExecutionRunId(data.runId);
+    } catch (err) {
+      console.error('Failed to start remote execution:', err);
+      setExecutionError(
+        err instanceof Error ? err.message : 'Failed to start execution',
+      );
+    } finally {
+      setIsStartingExecution(false);
+    }
   };
 
   const handleClearFilters = () => {
@@ -432,6 +762,8 @@ export default function BacklogPage() {
     setSelectedAreas([]);
     setSelectedTypes([]);
     setComplexityRange([1, 5]);
+    setEffortRange([1, 10]);
+    setSort(null);
   };
 
   const hasActiveFilters =
@@ -439,7 +771,9 @@ export default function BacklogPage() {
     selectedAreas.length > 0 ||
     selectedTypes.length > 0 ||
     complexityRange[0] !== 1 ||
-    complexityRange[1] !== 5;
+    complexityRange[1] !== 5 ||
+    effortRange[0] !== 1 ||
+    effortRange[1] !== 10;
 
   if (!isDbLoading && !isConfigured) {
     return (
@@ -608,9 +942,11 @@ export default function BacklogPage() {
                     selectedAreas={selectedAreas}
                     selectedTypes={selectedTypes}
                     complexityRange={complexityRange}
+                    effortRange={effortRange}
                     onAreasChange={setSelectedAreas}
                     onTypesChange={setSelectedTypes}
                     onComplexityChange={setComplexityRange}
+                    onEffortChange={setEffortRange}
                   />
                 </div>
               )}
@@ -633,10 +969,10 @@ export default function BacklogPage() {
                   <UnifiedExecuteButton
                     itemIds={approvedItemIds}
                     repositoryId={selectedRepoId}
-                    onRemoteExecute={(ids) => {
-                      setExecutionRunId('starting');
-                    }}
-                    remoteAvailable={!!selectedRepoId}
+                    onRemoteExecute={handleRemoteExecute}
+                    remoteAvailable={
+                      !!selectedRepoId && hasToken && !isStartingExecution
+                    }
                   />
                 </div>
               )}
@@ -674,6 +1010,8 @@ export default function BacklogPage() {
             onSelectItem={handleSelectItem}
             onSelectAll={handleSelectAll}
             onItemClick={setSelectedItem}
+            sort={sort}
+            onSortChange={handleSortChange}
           />
         )}
       </div>
@@ -703,18 +1041,70 @@ export default function BacklogPage() {
       <BulkActionsBar
         selectedItems={selectedItems}
         onGeneratePrds={handleBulkGeneratePrds}
-        onApprove={handleBulkApprove}
-        onReject={handleBulkReject}
+        onApprove={handleBulkApproveRequest}
+        onReject={handleBulkRejectRequest}
         onClearSelection={handleClearSelection}
         isGenerating={isBulkGenerating}
         isApproving={isBulkApproving}
         isRejecting={isBulkRejecting}
+        generationProgress={generationProgress}
+      />
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() =>
+          setConfirmDialog({
+            isOpen: false,
+            action: 'approve',
+            ids: [],
+            titles: [],
+          })
+        }
+        onConfirm={handleConfirmBulkAction}
+        title={
+          confirmDialog.action === 'approve'
+            ? 'Confirm Bulk Approve'
+            : 'Confirm Bulk Reject'
+        }
+        message={
+          confirmDialog.action === 'approve'
+            ? 'Are you sure you want to approve these items? They will be marked as ready for implementation.'
+            : 'Are you sure you want to reject these items? They will be removed from the active backlog.'
+        }
+        itemCount={confirmDialog.ids.length}
+        itemTitles={confirmDialog.titles}
+        confirmLabel={
+          confirmDialog.action === 'approve' ? 'Approve All' : 'Reject All'
+        }
+        confirmVariant={
+          confirmDialog.action === 'approve' ? 'approve' : 'reject'
+        }
+        isLoading={isBulkApproving || isBulkRejecting}
       />
 
       {/* Toast Notifications */}
       {copiedToast && (
         <div className="fixed bottom-8 right-8 px-6 py-4 bg-green-600 text-white font-medium shadow-2xl animate-fade-in">
           Command copied! Paste into Claude Code to execute.
+        </div>
+      )}
+
+      {/* Undo Toast */}
+      {undoState && (
+        <div className="fixed bottom-8 right-8 px-6 py-4 bg-gray-800 border border-gray-700 text-white font-medium shadow-2xl animate-fade-in flex items-center gap-4">
+          <span>
+            {undoState.items.length} item
+            {undoState.items.length !== 1 ? 's' : ''}{' '}
+            {undoState.action === 'approve' ? 'approved' : 'rejected'}
+          </span>
+          <button
+            onClick={handleUndo}
+            className="flex items-center gap-2 px-3 py-1.5 bg-gold text-navy font-semibold hover:opacity-90 transition-opacity"
+          >
+            <Undo2 className="w-4 h-4" />
+            Undo
+          </button>
         </div>
       )}
 
