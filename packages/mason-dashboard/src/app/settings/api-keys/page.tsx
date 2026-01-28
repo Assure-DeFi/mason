@@ -11,8 +11,11 @@ import {
   Check,
   Trash2,
   AlertCircle,
+  Database,
+  ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useUserDatabase } from '@/hooks/useUserDatabase';
 
 interface ApiKeyInfo {
   id: string;
@@ -25,6 +28,7 @@ interface ApiKeyInfo {
 export default function ApiKeysPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { client, isConfigured, isLoading: isDbLoading } = useUserDatabase();
   const [keys, setKeys] = useState<ApiKeyInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -34,18 +38,40 @@ export default function ApiKeysPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchKeys = useCallback(async () => {
+    if (!client || !session?.user) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch('/api/keys');
-      if (response.ok) {
-        const data = await response.json();
-        setKeys(data.keys);
+      const { data: userData } = await client
+        .from('users')
+        .select('id')
+        .eq('github_id', session.user.github_id)
+        .single();
+
+      if (!userData) {
+        setKeys([]);
+        return;
       }
+
+      const { data, error: fetchError } = await client
+        .from('api_keys')
+        .select('id, name, key_prefix, created_at, last_used_at')
+        .eq('user_id', userData.id)
+        .order('created_at', { ascending: false });
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      setKeys(data || []);
     } catch (err) {
       console.error('Error fetching API keys:', err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [client, session]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -54,29 +80,67 @@ export default function ApiKeysPage() {
   }, [status, router]);
 
   useEffect(() => {
-    if (session) {
+    if (session && isConfigured && !isDbLoading) {
       fetchKeys();
+    } else if (!isDbLoading && !isConfigured) {
+      setIsLoading(false);
     }
-  }, [session, fetchKeys]);
+  }, [session, fetchKeys, isConfigured, isDbLoading]);
 
   const handleCreateKey = async () => {
+    if (!client || !session?.user) {
+      setError('Database not configured');
+      return;
+    }
+
     setIsCreating(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Default' }),
-      });
+      const { data: userData } = await client
+        .from('users')
+        .select('id')
+        .eq('github_id', session.user.github_id)
+        .single();
 
-      if (!response.ok) {
-        throw new Error('Failed to create API key');
+      if (!userData) {
+        throw new Error('User not found');
       }
 
-      const data = await response.json();
-      setNewKey(data.key);
-      setKeys((prev) => [data.info, ...prev]);
+      const keyBytes = new Uint8Array(24);
+      crypto.getRandomValues(keyBytes);
+      const keyBytesArray = Array.from(keyBytes);
+      const fullKey = `mason_${btoa(String.fromCharCode(...keyBytesArray)).replace(
+        /[+/=]/g,
+        (c) => (c === '+' ? '-' : c === '/' ? '_' : ''),
+      )}`;
+
+      const keyPrefix = fullKey.substring(0, 12);
+      const encoder = new TextEncoder();
+      const data = encoder.encode(fullKey);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const keyHash = hashArray
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      const { data: insertedKey, error: insertError } = await client
+        .from('api_keys')
+        .insert({
+          user_id: userData.id,
+          name: 'Default',
+          key_hash: keyHash,
+          key_prefix: keyPrefix,
+        })
+        .select('id, name, key_prefix, created_at, last_used_at')
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      setNewKey(fullKey);
+      setKeys((prev) => [insertedKey, ...prev]);
     } catch (err) {
       setError('Failed to create API key. Please try again.');
       console.error('Error creating API key:', err);
@@ -99,15 +163,20 @@ export default function ApiKeysPage() {
   };
 
   const handleDeleteKey = async (id: string) => {
+    if (!client) {
+      return;
+    }
+
     setDeletingId(id);
 
     try {
-      const response = await fetch(`/api/keys/${id}`, {
-        method: 'DELETE',
-      });
+      const { error: deleteError } = await client
+        .from('api_keys')
+        .delete()
+        .eq('id', id);
 
-      if (!response.ok) {
-        throw new Error('Failed to delete API key');
+      if (deleteError) {
+        throw deleteError;
       }
 
       setKeys((prev) => prev.filter((k) => k.id !== id));
@@ -143,7 +212,7 @@ export default function ApiKeysPage() {
     return formatDate(dateString);
   };
 
-  if (status === 'loading' || isLoading) {
+  if (status === 'loading' || isLoading || isDbLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-navy">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
@@ -153,6 +222,47 @@ export default function ApiKeysPage() {
 
   if (!session) {
     return null;
+  }
+
+  if (!isConfigured) {
+    return (
+      <div className="min-h-screen bg-navy">
+        <div className="mx-auto max-w-4xl px-4 py-8">
+          <div className="mb-8">
+            <Link
+              href="/admin/backlog"
+              className="mb-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Backlog
+            </Link>
+
+            <h1 className="text-2xl font-bold text-white">API Keys</h1>
+            <p className="mt-1 text-gray-400">
+              Manage API keys for CLI authentication
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-gray-800 bg-black/50 p-8 text-center">
+            <Database className="mx-auto mb-4 h-16 w-16 text-gray-600" />
+            <h2 className="mb-2 text-xl font-semibold text-white">
+              Database Not Configured
+            </h2>
+            <p className="mb-6 text-gray-400">
+              Complete the setup wizard to connect your database and manage API
+              keys.
+            </p>
+            <Link
+              href="/setup"
+              className="inline-flex items-center gap-2 rounded-md bg-gold px-6 py-3 font-medium text-navy transition-opacity hover:opacity-90"
+            >
+              Complete Setup
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -276,7 +386,6 @@ export default function ApiKeysPage() {
         </div>
       </div>
 
-      {/* New Key Modal */}
       {newKey && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
           <div className="mx-4 w-full max-w-lg rounded-lg border border-gray-800 bg-navy p-6">
@@ -303,7 +412,7 @@ export default function ApiKeysPage() {
                 Your API Key
               </label>
               <div className="flex items-center gap-2">
-                <code className="flex-1 rounded-md bg-black p-3 font-mono text-sm text-white break-all">
+                <code className="flex-1 break-all rounded-md bg-black p-3 font-mono text-sm text-white">
                   {newKey}
                 </code>
                 <button

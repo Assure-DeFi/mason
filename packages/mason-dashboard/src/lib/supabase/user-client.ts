@@ -1,0 +1,228 @@
+/**
+ * User Supabase Client
+ *
+ * Creates Supabase clients from user-provided credentials stored in localStorage.
+ * This enables the fully private architecture where users bring their own database.
+ *
+ * Privacy Model:
+ * - Mason UI is hosted by Assure DeFi
+ * - All user data stays in the user's own Supabase database
+ * - Assure DeFi has zero access to user data
+ */
+
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+const STORAGE_KEY = 'mason_config';
+
+export interface MasonConfig {
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  supabaseServiceKey?: string;
+  setupComplete: boolean;
+}
+
+let _userClient: SupabaseClient | null = null;
+let _userServiceClient: SupabaseClient | null = null;
+let _cachedConfig: MasonConfig | null = null;
+
+/**
+ * Get the Mason config from localStorage
+ */
+export function getMasonConfig(): MasonConfig | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  if (_cachedConfig) {
+    return _cachedConfig;
+  }
+
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      return null;
+    }
+    _cachedConfig = JSON.parse(stored) as MasonConfig;
+    return _cachedConfig;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save the Mason config to localStorage
+ */
+export function saveMasonConfig(config: MasonConfig): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  _cachedConfig = config;
+  _userClient = null;
+  _userServiceClient = null;
+}
+
+/**
+ * Clear the Mason config from localStorage
+ */
+export function clearMasonConfig(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  localStorage.removeItem(STORAGE_KEY);
+  _cachedConfig = null;
+  _userClient = null;
+  _userServiceClient = null;
+}
+
+/**
+ * Check if the user has configured their Supabase connection
+ */
+export function hasUserDatabase(): boolean {
+  const config = getMasonConfig();
+  return Boolean(config?.supabaseUrl && config?.supabaseAnonKey);
+}
+
+/**
+ * Check if setup is complete
+ */
+export function isSetupComplete(): boolean {
+  const config = getMasonConfig();
+  return Boolean(config?.setupComplete);
+}
+
+/**
+ * Get a Supabase client configured with the user's credentials.
+ * Uses the anon key (RLS-enforced).
+ */
+export function getUserSupabase(): SupabaseClient {
+  const config = getMasonConfig();
+
+  if (!config?.supabaseUrl || !config?.supabaseAnonKey) {
+    throw new Error(
+      'User Supabase not configured. Please complete the setup wizard.',
+    );
+  }
+
+  if (!_userClient) {
+    _userClient = createClient(config.supabaseUrl, config.supabaseAnonKey);
+  }
+
+  return _userClient;
+}
+
+/**
+ * Get a service role Supabase client for the user's database.
+ * Bypasses RLS - use only for migrations and admin operations during setup.
+ */
+export function getUserServiceSupabase(): SupabaseClient {
+  const config = getMasonConfig();
+
+  if (!config?.supabaseUrl) {
+    throw new Error(
+      'User Supabase URL not configured. Please complete the setup wizard.',
+    );
+  }
+
+  if (!config?.supabaseServiceKey) {
+    throw new Error(
+      'User Supabase service key not configured. Required for migrations.',
+    );
+  }
+
+  if (!_userServiceClient) {
+    _userServiceClient = createClient(
+      config.supabaseUrl,
+      config.supabaseServiceKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      },
+    );
+  }
+
+  return _userServiceClient;
+}
+
+/**
+ * Test connection to user's Supabase database
+ */
+export async function testUserConnection(
+  url: string,
+  anonKey: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = createClient(url, anonKey);
+    const { error } = await client.from('users').select('count').limit(1);
+
+    if (error) {
+      if (error.code === '42P01') {
+        return { success: true };
+      }
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Connection failed',
+    };
+  }
+}
+
+/**
+ * Check if the required tables exist in the user's database
+ */
+export async function checkTablesExist(
+  url: string,
+  serviceKey: string,
+): Promise<{ exists: boolean; missing: string[] }> {
+  const requiredTables = [
+    'users',
+    'api_keys',
+    'github_repositories',
+    'pm_backlog_items',
+    'pm_analysis_runs',
+    'remote_execution_runs',
+    'execution_logs',
+  ];
+
+  const missing: string[] = [];
+
+  try {
+    const client = createClient(url, serviceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    for (const table of requiredTables) {
+      const { error } = await client.from(table).select('*').limit(1);
+      if (error && error.code === '42P01') {
+        missing.push(table);
+      }
+    }
+
+    return { exists: missing.length === 0, missing };
+  } catch (err) {
+    return {
+      exists: false,
+      missing: requiredTables,
+    };
+  }
+}
+
+/**
+ * Clear cached clients (useful when credentials change)
+ */
+export function clearUserClients(): void {
+  _userClient = null;
+  _userServiceClient = null;
+  _cachedConfig = null;
+}

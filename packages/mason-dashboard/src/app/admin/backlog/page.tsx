@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
+import Link from 'next/link';
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs } from '@/components/backlog/status-tabs';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
@@ -10,11 +11,13 @@ import { UserMenu } from '@/components/auth/user-menu';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { RemoteExecuteButton } from '@/components/execution/remote-execute-button';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
+import { useUserDatabase } from '@/hooks/useUserDatabase';
 import type { BacklogItem, BacklogStatus, StatusCounts } from '@/types/backlog';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Database, ArrowRight } from 'lucide-react';
 
 export default function BacklogPage() {
   const { data: session } = useSession();
+  const { client, isConfigured, isLoading: isDbLoading } = useUserDatabase();
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -26,30 +29,53 @@ export default function BacklogPage() {
   const [executionRunId, setExecutionRunId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
 
-  // Fetch all items (no filter - we filter client-side for counts)
   const fetchItems = useCallback(async () => {
+    if (!client || !session?.user) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/backlog');
+      const { data: userData } = await client
+        .from('users')
+        .select('id')
+        .eq('github_id', session.user.github_id)
+        .single();
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch backlog items');
+      if (!userData) {
+        setItems([]);
+        return;
       }
 
-      const data = await response.json();
-      setItems(data.items);
+      const { data, error: fetchError } = await client
+        .from('pm_backlog_items')
+        .select('*')
+        .eq('user_id', userData.id)
+        .order('priority_score', { ascending: false });
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      setItems(data || []);
     } catch (err) {
+      console.error('Error fetching backlog:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [client, session]);
 
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    if (isConfigured && !isDbLoading) {
+      fetchItems();
+    } else if (!isDbLoading && !isConfigured) {
+      setIsLoading(false);
+    }
+  }, [fetchItems, isConfigured, isDbLoading]);
 
   // Calculate counts for stats bar
   const counts: StatusCounts = useMemo(() => {
@@ -84,22 +110,23 @@ export default function BacklogPage() {
   }, [items]);
 
   const handleUpdateStatus = async (id: string, status: BacklogStatus) => {
-    const response = await fetch(`/api/backlog/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
+    if (!client) {
+      throw new Error('Database not configured');
+    }
 
-    if (!response.ok) {
+    const { data: updated, error: updateError } = await client
+      .from('pm_backlog_items')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
       throw new Error('Failed to update status');
     }
 
-    const updated = await response.json();
-
-    // Update local state
     setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
 
-    // Update selected item if it's the one being updated
     if (selectedItem?.id === id) {
       setSelectedItem(updated);
     }
@@ -116,10 +143,8 @@ export default function BacklogPage() {
 
     const updated = await response.json();
 
-    // Update local state
     setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
 
-    // Update selected item
     if (selectedItem?.id === id) {
       setSelectedItem(updated);
     }
@@ -151,17 +176,59 @@ export default function BacklogPage() {
     }
   };
 
-  // Error state
+  if (!isDbLoading && !isConfigured) {
+    return (
+      <main className="min-h-screen bg-navy">
+        <div className="border-b border-gray-800">
+          <div className="mx-auto max-w-7xl px-6 py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-white">
+                  System Improvements
+                </h1>
+                <p className="mt-1 text-sm text-gray-400">
+                  Manage and track improvement ideas from PM reviews
+                </p>
+              </div>
+              <UserMenu />
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-2xl px-6 py-16">
+          <div className="rounded-lg border border-gray-800 bg-black/50 p-8 text-center">
+            <Database className="mx-auto mb-4 h-16 w-16 text-gray-600" />
+            <h2 className="mb-2 text-xl font-semibold text-white">
+              Database Not Configured
+            </h2>
+            <p className="mb-6 text-gray-400">
+              Mason stores all your data in your own Supabase database. Complete
+              the setup wizard to connect your database and start analyzing your
+              codebase.
+            </p>
+            <Link
+              href="/setup"
+              className="inline-flex items-center gap-2 rounded-md bg-gold px-6 py-3 font-medium text-navy transition-opacity hover:opacity-90"
+            >
+              Complete Setup
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   if (error && !isLoading) {
     return (
       <main className="min-h-screen bg-navy">
-        <div className="max-w-7xl mx-auto p-8">
-          <div className="p-8 bg-red-900/20 border border-red-800 text-center">
-            <h2 className="text-xl font-semibold text-red-400 mb-2">Error</h2>
-            <p className="text-gray-300 mb-4">{error}</p>
+        <div className="mx-auto max-w-7xl p-8">
+          <div className="border border-red-800 bg-red-900/20 p-8 text-center">
+            <h2 className="mb-2 text-xl font-semibold text-red-400">Error</h2>
+            <p className="mb-4 text-gray-300">{error}</p>
             <button
               onClick={fetchItems}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700"
+              className="bg-red-600 px-4 py-2 hover:bg-red-700"
             >
               Try Again
             </button>

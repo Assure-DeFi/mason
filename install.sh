@@ -1,6 +1,7 @@
 #!/bin/bash
 # Mason Installation Script
 # This script sets up Mason in your current directory for the hosted service
+# with direct Supabase connection for privacy
 
 set -e
 
@@ -8,6 +9,9 @@ echo ""
 echo "=================================="
 echo "  Mason Setup Wizard"
 echo "=================================="
+echo ""
+echo "Mason is a privacy-first tool - all your data stays in YOUR database."
+echo "Assure DeFi has zero access to your repositories or improvements."
 echo ""
 
 # Check if we're in a git repo
@@ -105,13 +109,47 @@ download_file \
     ".claude/skills/pm-domain-knowledge/SKILL.md" \
     "SKILL.md"
 
+# Configuration
+echo ""
+echo "=================================="
+echo "  Database Configuration"
+echo "=================================="
+echo ""
+echo "Mason connects directly to YOUR Supabase database."
+echo "Complete the setup wizard at: https://mason.assuredefi.com/setup"
+echo "to get your credentials."
+echo ""
+
+# Prompt for Supabase URL
+read -p "Enter your Supabase Project URL (e.g., https://xxx.supabase.co): " SUPABASE_URL
+
+# Validate Supabase URL format
+if [[ ! "$SUPABASE_URL" =~ ^https://.*\.supabase\.co$ ]]; then
+    echo ""
+    echo "WARNING: URL should be in format https://xxx.supabase.co"
+    echo "Continuing anyway, but please verify the URL is correct."
+    echo ""
+fi
+
+# Prompt for Supabase Anon Key
+echo ""
+read -p "Enter your Supabase Anon Key (starts with 'eyJ'): " SUPABASE_ANON_KEY
+
+# Validate Anon Key format
+if [[ ! "$SUPABASE_ANON_KEY" =~ ^eyJ ]]; then
+    echo ""
+    echo "WARNING: Anon key should start with 'eyJ'"
+    echo "Continuing anyway, but please verify the key is correct."
+    echo ""
+fi
+
 # Prompt for API key
 echo ""
 echo "=================================="
 echo "  API Key Configuration"
 echo "=================================="
 echo ""
-echo "Get your API key from: https://mason.assuredefi.com/settings/api-keys"
+echo "Generate an API key in the setup wizard: https://mason.assuredefi.com/setup"
 echo ""
 read -p "Enter your Mason API key: " API_KEY
 
@@ -123,14 +161,15 @@ if [[ ! "$API_KEY" =~ ^mason_ ]]; then
     echo ""
 fi
 
-# Create config with API key
+# Create config with all credentials
 echo ""
 echo "Creating configuration file..."
 cat > mason.config.json << EOF
 {
   "version": "2.0",
+  "supabaseUrl": "$SUPABASE_URL",
+  "supabaseAnonKey": "$SUPABASE_ANON_KEY",
   "apiKey": "$API_KEY",
-  "apiUrl": "https://mason.assuredefi.com/api/v1",
   "domains": [
     { "name": "frontend-ux", "enabled": true, "weight": 1 },
     { "name": "api-backend", "enabled": true, "weight": 1 },
@@ -174,6 +213,10 @@ echo "=================================="
 echo "  Installation Complete!"
 echo "=================================="
 echo ""
+echo "PRIVACY NOTE:"
+echo "  All your data is stored in YOUR Supabase database."
+echo "  Assure DeFi has zero access to your data."
+echo ""
 echo "NEXT STEPS:"
 echo ""
 echo "1. Customize your domain knowledge (optional):"
@@ -186,4 +229,5 @@ echo "   - Run: /pm-review"
 echo ""
 echo "3. Review improvements in Dashboard:"
 echo "   - Open: https://mason.assuredefi.com/admin/backlog"
+echo "   - Data loads from YOUR Supabase database"
 echo ""

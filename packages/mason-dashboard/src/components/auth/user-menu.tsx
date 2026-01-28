@@ -1,7 +1,7 @@
 'use client';
 
 import { signOut, useSession } from 'next-auth/react';
-import { LogOut, Settings, User } from 'lucide-react';
+import { LogOut, Settings, User, Key, Database } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { SignInButton } from './sign-in-button';
@@ -74,6 +74,26 @@ export function UserMenu() {
               <Settings className="h-4 w-4" />
               Repository Settings
             </Link>
+
+            <Link
+              href="/settings/api-keys"
+              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-900"
+              onClick={() => setIsOpen(false)}
+            >
+              <Key className="h-4 w-4" />
+              API Keys
+            </Link>
+
+            <Link
+              href="/setup"
+              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-900"
+              onClick={() => setIsOpen(false)}
+            >
+              <Database className="h-4 w-4" />
+              Database Setup
+            </Link>
+
+            <div className="my-1 border-t border-gray-800" />
 
             <button
               onClick={() => signOut({ callbackUrl: '/auth/signin' })}
