@@ -499,16 +499,27 @@ function BacklogPageContent() {
       method: 'POST',
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      throw new Error('Failed to generate PRD');
+      // Parse specific error types for better user feedback
+      if (data.error === 'AI_KEY_NOT_CONFIGURED') {
+        throw new Error(
+          'AI_KEY_NOT_CONFIGURED: No AI provider configured. Go to Settings > AI Providers to add your API key.',
+        );
+      }
+      if (data.error === 'AI_KEY_INVALID') {
+        throw new Error(
+          'AI_KEY_INVALID: Your AI provider key is invalid. Please check your key in Settings > AI Providers.',
+        );
+      }
+      throw new Error(data.message || data.error || 'Failed to generate PRD');
     }
 
-    const updated = await response.json();
-
-    setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+    setItems((prev) => prev.map((item) => (item.id === id ? data : item)));
 
     if (selectedItem?.id === id) {
-      setSelectedItem(updated);
+      setSelectedItem(data);
     }
   };
 

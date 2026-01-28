@@ -12,7 +12,9 @@ import {
   TrendingUp,
   Zap,
   AlertCircle,
+  Settings,
 } from 'lucide-react';
+import Link from 'next/link';
 import { clsx } from 'clsx';
 import { TypeBadge } from './type-badge';
 import { PriorityDots } from './priority-dots';
@@ -558,7 +560,39 @@ export function ItemDetailModal({
               <div className="px-6 py-4 border-t border-red-800/50 bg-red-900/20">
                 <div className="flex items-center gap-3">
                   <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                  <p className="text-sm text-red-300 flex-1">{error}</p>
+                  <div className="flex-1">
+                    {error.includes('AI_KEY_NOT_CONFIGURED') ? (
+                      <div className="flex items-center gap-3">
+                        <p className="text-sm text-red-300">
+                          No AI provider configured.
+                        </p>
+                        <Link
+                          href="/settings/ai-providers"
+                          className="flex items-center gap-1 text-sm text-gold hover:text-gold/80 font-medium"
+                          onClick={onClose}
+                        >
+                          <Settings className="w-4 h-4" />
+                          Configure AI Provider
+                        </Link>
+                      </div>
+                    ) : error.includes('AI_KEY_INVALID') ? (
+                      <div className="flex items-center gap-3">
+                        <p className="text-sm text-red-300">
+                          AI provider key is invalid.
+                        </p>
+                        <Link
+                          href="/settings/ai-providers"
+                          className="flex items-center gap-1 text-sm text-gold hover:text-gold/80 font-medium"
+                          onClick={onClose}
+                        >
+                          <Settings className="w-4 h-4" />
+                          Update API Key
+                        </Link>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-red-300">{error}</p>
+                    )}
+                  </div>
                   <button
                     onClick={() => setError(null)}
                     className="text-red-400 hover:text-red-300 transition-colors"

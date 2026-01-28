@@ -7,6 +7,7 @@ import { WelcomeStep } from './steps/WelcomeStep';
 import { DatabaseStep } from './steps/DatabaseStep';
 import { GitHubStep } from './steps/GitHubStep';
 import { RepoStep } from './steps/RepoStep';
+import { AIProviderStep } from './steps/AIProviderStep';
 import { CompleteStep } from './steps/CompleteStep';
 import { PreSetupChecklist } from './PreSetupChecklist';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
@@ -16,7 +17,8 @@ const WIZARD_STEPS = [
   { id: 2, name: 'Database', description: 'Connect your Supabase' },
   { id: 3, name: 'GitHub', description: 'Sign in with GitHub' },
   { id: 4, name: 'Repository', description: 'Select a repo' },
-  { id: 5, name: 'Complete', description: 'Install the CLI' },
+  { id: 5, name: 'AI Provider', description: 'Configure AI (optional)' },
+  { id: 6, name: 'Complete', description: 'Install the CLI' },
 ];
 
 export interface WizardStepProps {
@@ -62,6 +64,8 @@ export function SetupWizard() {
       case 4:
         return <RepoStep onNext={handleNext} onBack={handleBack} />;
       case 5:
+        return <AIProviderStep onNext={handleNext} onBack={handleBack} />;
+      case 6:
         return <CompleteStep onNext={handleNext} onBack={handleBack} />;
       default:
         return null;

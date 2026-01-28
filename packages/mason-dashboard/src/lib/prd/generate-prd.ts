@@ -1,5 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import type { BacklogItem } from '@/types/backlog';
+
+export type AIProvider = 'anthropic' | 'openai';
 
 const PRD_SYSTEM_PROMPT = `You are a senior product manager creating a detailed PRD (Product Requirements Document) for a development team.
 
@@ -23,20 +26,86 @@ Subagent types:
 export interface GeneratePrdOptions {
   item: BacklogItem;
   additionalContext?: string;
+  provider?: AIProvider;
+  apiKey?: string;
+}
+
+async function generateWithAnthropic(
+  apiKey: string,
+  userPrompt: string,
+): Promise<string> {
+  const client = new Anthropic({ apiKey });
+
+  const message = await client.messages.create({
+    model: 'claude-3-5-sonnet-20241022',
+    max_tokens: 4096,
+    system: PRD_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: 'user',
+        content: userPrompt,
+      },
+    ],
+  });
+
+  const textContent = message.content.find((block) => block.type === 'text');
+  if (!textContent || textContent.type !== 'text') {
+    throw new Error('No text content in PRD generation response');
+  }
+
+  return textContent.text;
+}
+
+async function generateWithOpenAI(
+  apiKey: string,
+  userPrompt: string,
+): Promise<string> {
+  const client = new OpenAI({ apiKey });
+
+  const completion = await client.chat.completions.create({
+    model: 'gpt-4o',
+    max_tokens: 4096,
+    messages: [
+      {
+        role: 'system',
+        content: PRD_SYSTEM_PROMPT,
+      },
+      {
+        role: 'user',
+        content: userPrompt,
+      },
+    ],
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error('No content in PRD generation response');
+  }
+
+  return content;
 }
 
 export async function generatePrd(
   options: GeneratePrdOptions,
 ): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const { provider = 'anthropic', apiKey } = options;
 
-  if (!apiKey) {
-    throw new Error(
-      'ANTHROPIC_API_KEY environment variable is required for PRD generation',
-    );
+  // Check for provided API key first, then fall back to environment variable
+  let resolvedApiKey = apiKey;
+
+  if (!resolvedApiKey) {
+    if (provider === 'anthropic') {
+      resolvedApiKey = process.env.ANTHROPIC_API_KEY;
+    } else if (provider === 'openai') {
+      resolvedApiKey = process.env.OPENAI_API_KEY;
+    }
   }
 
-  const client = new Anthropic({ apiKey });
+  if (!resolvedApiKey) {
+    throw new Error(
+      `AI_KEY_NOT_CONFIGURED: No API key configured for ${provider}. Please configure your AI provider key in Settings > AI Providers.`,
+    );
+  }
 
   const userPrompt = `Create a detailed PRD for the following improvement:
 
@@ -73,25 +142,13 @@ Generate a comprehensive PRD with the following sections:
 
 For the Technical Approach, break down into waves with specific tasks and subagent assignments.`;
 
-  const message = await client.messages.create({
-    model: 'claude-3-5-sonnet-20241022',
-    max_tokens: 4096,
-    system: PRD_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: userPrompt,
-      },
-    ],
-  });
-
-  // Extract text content from response
-  const textContent = message.content.find((block) => block.type === 'text');
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text content in PRD generation response');
+  // Generate using the appropriate provider
+  if (provider === 'openai') {
+    return generateWithOpenAI(resolvedApiKey, userPrompt);
   }
 
-  return textContent.text;
+  // Default to Anthropic
+  return generateWithAnthropic(resolvedApiKey, userPrompt);
 }
 
 export function parsePrdWaves(prdContent: string): Array<{
