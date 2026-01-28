@@ -1,6 +1,70 @@
 # Mason
 
-Shared Claude Code configuration for consistent development across the team.
+Mason is an agentic continuous-improvement system for web app repositories. It analyzes your codebase, generates a prioritized backlog of improvements, and can execute approved items via safe, wave-based automation.
+
+This repo also contains shared Claude Code configuration for consistent development across the team.
+
+## Mason CLI
+
+### Installation
+
+```bash
+# Install from source (development)
+pnpm install && pnpm build
+node packages/mason-cli/dist/bin/mason.js init
+
+# Or link globally
+pnpm link packages/mason-cli
+mason init
+```
+
+### Quick Start
+
+```bash
+# 1. Initialize Mason in your repository
+mason init
+
+# 2. Check your environment
+mason doctor
+
+# 3. Analyze your codebase for improvements
+mason review
+
+# 4. View and approve items
+mason list
+mason show 1
+mason approve 1 2 3
+
+# 5. Execute approved improvements
+mason execute --top 3
+```
+
+### Commands
+
+| Command                | Description                                |
+| ---------------------- | ------------------------------------------ |
+| `mason init`           | Initialize Mason in your repository        |
+| `mason doctor`         | Check environment and configuration        |
+| `mason review`         | Analyze codebase and generate improvements |
+| `mason list`           | List backlog items                         |
+| `mason show <n>`       | Show item details                          |
+| `mason approve <n...>` | Approve items for execution                |
+| `mason execute`        | Execute approved items                     |
+| `mason status`         | Show execution status                      |
+
+### Domains
+
+Mason analyzes code across five domains:
+
+- **frontend-ux** - UI, accessibility, loading states, error handling
+- **api-backend** - API design, data fetching, performance
+- **reliability** - Error handling, logging, retry logic
+- **security** - Auth, validation, secrets management
+- **code-quality** - Type safety, organization, testing
+
+---
+
+## Shared Claude Code Configuration
 
 ## Quick Start
 

@@ -1,0 +1,39 @@
+{
+  "name": "@mason/executor",
+  "version": "0.1.0",
+  "description": "Mason Executor - Wave orchestration and git operations",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@mason/core": "workspace:*",
+    "@mason/storage": "workspace:*",
+    "execa": "^8.0.0",
+    "simple-git": "^3.22.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "mason",
+    "executor",
+    "git"
+  ]
+}

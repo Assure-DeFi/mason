@@ -1,0 +1,20 @@
+export type { GitState, GitStateIssue } from './operations.js';
+export {
+  isGitRepo,
+  getCurrentBranch,
+  getHeadCommit,
+  hasUncommittedChanges,
+  hasUntrackedFiles,
+  isDetachedHead,
+  isMergeInProgress,
+  isRebaseInProgress,
+  getGitState,
+  validateGitState,
+  createBranch,
+  checkoutBranch,
+  createBackupBranch,
+  commitChanges,
+  generateBranchName,
+  branchExists,
+  deleteBranch,
+} from './operations.js';
