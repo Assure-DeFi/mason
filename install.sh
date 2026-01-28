@@ -109,65 +109,85 @@ download_file \
     ".claude/skills/pm-domain-knowledge/SKILL.md" \
     "SKILL.md"
 
-# Configuration
-echo ""
-echo "=================================="
-echo "  Database Configuration"
-echo "=================================="
-echo ""
-echo "Mason connects directly to YOUR Supabase database."
-echo "Complete the setup wizard at: https://mason.assuredefi.com/setup"
-echo "to get your credentials."
-echo ""
-
-# Prompt for Supabase URL (read from /dev/tty for piped execution)
-printf "Enter your Supabase Project URL (e.g., https://xxx.supabase.co): "
-read SUPABASE_URL < /dev/tty
-
-# Validate Supabase URL format
-if [[ ! "$SUPABASE_URL" =~ ^https://.*\.supabase\.co$ ]]; then
+# Check for existing config file (downloaded from dashboard wizard)
+CONFIG_EXISTS=false
+if [ -f "mason.config.json" ]; then
     echo ""
-    echo "WARNING: URL should be in format https://xxx.supabase.co"
-    echo "Continuing anyway, but please verify the URL is correct."
-    echo ""
+    echo "Found existing mason.config.json..."
+
+    # Validate config has required fields using node
+    if node -e "
+        const config = require('./mason.config.json');
+        if (!config.supabaseUrl || !config.supabaseAnonKey || !config.apiKey) {
+            process.exit(1);
+        }
+        console.log('  Supabase URL: ' + config.supabaseUrl.substring(0, 30) + '...');
+        console.log('  API Key: ' + config.apiKey.substring(0, 12) + '...');
+    " 2>/dev/null; then
+        CONFIG_EXISTS=true
+        echo "  [OK] Config file is valid"
+    else
+        echo "  Config file is incomplete, will prompt for credentials"
+    fi
 fi
 
-# Prompt for Supabase Anon Key
-echo ""
-printf "Enter your Supabase Anon Key (starts with 'eyJ'): "
-read SUPABASE_ANON_KEY < /dev/tty
-
-# Validate Anon Key format
-if [[ ! "$SUPABASE_ANON_KEY" =~ ^eyJ ]]; then
+if [ "$CONFIG_EXISTS" = false ]; then
+    # Configuration prompts
     echo ""
-    echo "WARNING: Anon key should start with 'eyJ'"
-    echo "Continuing anyway, but please verify the key is correct."
+    echo "=================================="
+    echo "  Configuration"
+    echo "=================================="
     echo ""
-fi
-
-# Prompt for API key
-echo ""
-echo "=================================="
-echo "  API Key Configuration"
-echo "=================================="
-echo ""
-echo "Generate an API key in the setup wizard: https://mason.assuredefi.com/setup"
-echo ""
-printf "Enter your Mason API key: "
-read API_KEY < /dev/tty
-
-# Validate API key format
-if [[ ! "$API_KEY" =~ ^mason_ ]]; then
+    echo "You can skip these prompts by downloading mason.config.json"
+    echo "from the setup wizard: https://mason.assuredefi.com/setup"
     echo ""
-    echo "WARNING: API key should start with 'mason_'"
-    echo "Continuing anyway, but please verify your key is correct."
+    echo "Place the file in your project root before running this installer."
     echo ""
-fi
+    echo "----------------------------------"
+    echo ""
 
-# Create config with all credentials
-echo ""
-echo "Creating configuration file..."
-cat > mason.config.json << EOF
+    # Prompt for Supabase URL (read from /dev/tty for piped execution)
+    printf "Enter your Supabase Project URL (e.g., https://xxx.supabase.co): "
+    read SUPABASE_URL < /dev/tty
+
+    # Validate Supabase URL format
+    if [[ ! "$SUPABASE_URL" =~ ^https://.*\.supabase\.co$ ]]; then
+        echo ""
+        echo "WARNING: URL should be in format https://xxx.supabase.co"
+        echo "Continuing anyway, but please verify the URL is correct."
+        echo ""
+    fi
+
+    # Prompt for Supabase Anon Key
+    echo ""
+    printf "Enter your Supabase Anon Key (starts with 'eyJ'): "
+    read SUPABASE_ANON_KEY < /dev/tty
+
+    # Validate Anon Key format
+    if [[ ! "$SUPABASE_ANON_KEY" =~ ^eyJ ]]; then
+        echo ""
+        echo "WARNING: Anon key should start with 'eyJ'"
+        echo "Continuing anyway, but please verify the key is correct."
+        echo ""
+    fi
+
+    # Prompt for API key
+    echo ""
+    printf "Enter your Mason API key (starts with 'mason_'): "
+    read API_KEY < /dev/tty
+
+    # Validate API key format
+    if [[ ! "$API_KEY" =~ ^mason_ ]]; then
+        echo ""
+        echo "WARNING: API key should start with 'mason_'"
+        echo "Continuing anyway, but please verify your key is correct."
+        echo ""
+    fi
+
+    # Create config with all credentials
+    echo ""
+    echo "Creating configuration file..."
+    cat > mason.config.json << EOF
 {
   "version": "2.0",
   "supabaseUrl": "$SUPABASE_URL",
@@ -182,7 +202,8 @@ cat > mason.config.json << EOF
   ]
 }
 EOF
-echo "  [OK] mason.config.json"
+    echo "  [OK] mason.config.json"
+fi
 
 # Verify all files exist
 echo ""
