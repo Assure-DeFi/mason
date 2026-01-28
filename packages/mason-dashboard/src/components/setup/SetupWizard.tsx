@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { WizardProgress } from './WizardProgress';
 import { WelcomeStep } from './steps/WelcomeStep';
 import { DatabaseStep } from './steps/DatabaseStep';
@@ -24,9 +25,23 @@ export interface WizardStepProps {
 }
 
 export function SetupWizard() {
+  const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState(1);
   const [showChecklist, setShowChecklist] = useState(true);
   const { saveConfig, config } = useUserDatabase();
+
+  // Read step from URL on mount (for OAuth callback)
+  useEffect(() => {
+    const stepParam = searchParams.get('step');
+    if (stepParam) {
+      const step = parseInt(stepParam, 10);
+      if (step >= 1 && step <= WIZARD_STEPS.length) {
+        setCurrentStep(step);
+        // Skip checklist if returning from OAuth
+        setShowChecklist(false);
+      }
+    }
+  }, [searchParams]);
 
   const handleNext = useCallback(() => {
     setCurrentStep((prev) => Math.min(prev + 1, WIZARD_STEPS.length));
