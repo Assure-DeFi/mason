@@ -33,7 +33,17 @@ export default function BacklogPage() {
   const [executionError, setExecutionError] = useState<string | null>(null);
 
   const fetchItems = useCallback(async () => {
-    if (!client || !session?.user) {
+    if (!client) {
+      // Database not configured yet - show error if user manually triggered refresh
+      if (!isDbLoading) {
+        setError('Database not configured. Please complete setup.');
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    if (!session?.user) {
+      setError('Please sign in to view your backlog.');
       setIsLoading(false);
       return;
     }
@@ -57,11 +67,15 @@ export default function BacklogPage() {
       setItems(data || []);
     } catch (err) {
       console.error('Error fetching backlog:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to fetch data from database',
+      );
     } finally {
       setIsLoading(false);
     }
-  }, [client, session]);
+  }, [client, session, isDbLoading]);
 
   useEffect(() => {
     if (isConfigured && !isDbLoading) {
