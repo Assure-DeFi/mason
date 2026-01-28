@@ -2,23 +2,29 @@
  * Mason PM System - Backlog Types
  */
 
-export type BacklogArea =
-  | 'frontend-ux'
-  | 'api-backend'
-  | 'reliability'
-  | 'security'
-  | 'code-quality';
+export type BacklogArea = 'frontend' | 'backend';
 
-export type BacklogType = 'feature' | 'fix' | 'refactor' | 'optimization';
-
-export type BacklogComplexity = 'low' | 'medium' | 'high' | 'very_high';
+export type BacklogType = 'dashboard' | 'discovery' | 'auth' | 'backend';
 
 export type BacklogStatus =
   | 'new'
   | 'approved'
   | 'in_progress'
   | 'completed'
+  | 'deferred'
   | 'rejected';
+
+export interface Benefit {
+  category:
+    | 'user_experience'
+    | 'sales_team'
+    | 'operations'
+    | 'performance'
+    | 'reliability';
+  icon: string;
+  title: string;
+  description: string;
+}
 
 export interface BacklogItem {
   id: string;
@@ -33,15 +39,15 @@ export interface BacklogItem {
   // Classification
   area: BacklogArea;
   type: BacklogType;
-  complexity: BacklogComplexity;
+  complexity: number; // 1-5
 
   // Scoring
   impact_score: number;
   effort_score: number;
   priority_score: number; // Computed: (impact * 2) - effort
 
-  // Benefits
-  benefits_json: string[];
+  // Benefits (structured array)
+  benefits: Benefit[];
 
   // Status
   status: BacklogStatus;
@@ -73,7 +79,6 @@ export interface BacklogFilters {
   status?: BacklogStatus[];
   area?: BacklogArea[];
   type?: BacklogType[];
-  complexity?: BacklogComplexity[];
   search?: string;
 }
 
@@ -98,4 +103,15 @@ export interface BacklogListResponse {
 export interface BacklogUpdateRequest {
   status?: BacklogStatus;
   prd_content?: string;
+}
+
+// Status counts for stats bar
+export interface StatusCounts {
+  total: number;
+  new: number;
+  approved: number;
+  in_progress: number;
+  completed: number;
+  deferred: number;
+  rejected: number;
 }

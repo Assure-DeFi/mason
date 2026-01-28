@@ -57,7 +57,7 @@ ${options.item.solution}
 - Effort Score: ${options.item.effort_score}/10
 
 ## Benefits
-${options.item.benefits_json.map((b) => `- ${b}`).join('\n')}
+${options.item.benefits.map((b) => `- **${b.title}**: ${b.description}`).join('\n')}
 
 ${options.additionalContext ? `## Additional Context\n${options.additionalContext}` : ''}
 
@@ -74,7 +74,7 @@ Generate a comprehensive PRD with the following sections:
 For the Technical Approach, break down into waves with specific tasks and subagent assignments.`;
 
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-3-5-sonnet-20241022',
     max_tokens: 4096,
     system: PRD_SYSTEM_PROMPT,
     messages: [

@@ -2,7 +2,7 @@
 
 **AI-powered continuous improvement for your codebase.**
 
-Mason analyzes your repo, suggests prioritized improvements, and executes them automatically using Claude Code.
+Mason analyzes your repo, suggests prioritized improvements, and lets you review and execute them through a dashboard.
 
 ---
 
@@ -17,31 +17,15 @@ Before you start, make sure you have:
 
 ---
 
-## Installation (5 minutes)
+## Installation
 
-### Step 1: Open Your Terminal
-
-Open a terminal window on your computer.
-
-### Step 2: Navigate to Your Project
-
-Use `cd` to go to your project's root directory (where your `.git` folder is):
+### Step 1: Navigate to Your Project
 
 ```bash
 cd /path/to/your/project
 ```
 
-**Examples:**
-
-```bash
-cd ~/projects/my-webapp
-cd ~/code/my-saas-app
-cd /Users/jane/Development/my-project
-```
-
-### Step 3: Run the Installer
-
-Copy and paste this command into your terminal:
+### Step 2: Run the Installer
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash
@@ -54,14 +38,13 @@ This will:
 - Create `supabase/migrations/` with database schema
 - Create `mason.config.json` configuration file
 
-### Step 4: Add Your Supabase Credentials
+### Step 3: Add Your Supabase Credentials
 
 1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
 2. Select your project (or create a new one)
 3. Go to **Project Settings** > **API**
 4. Copy your **Project URL** and **anon/public key**
-
-5. Open `mason.config.json` in your project and add them:
+5. Open `mason.config.json` and add them:
 
 ```json
 {
@@ -73,56 +56,89 @@ This will:
 }
 ```
 
-### Step 5: Run Database Migrations
+### Step 4: Run Database Migration
 
 1. In Supabase Dashboard, go to **SQL Editor**
 2. Click **New Query**
-3. Open each file in `supabase/migrations/` and run them **in order**:
-   - `001_pm_backlog_tables.sql`
-   - `002_pm_execution_runs.sql`
-   - `003_pm_execution_tasks.sql`
-
-### Step 6: Start Using Mason
-
-1. Open Claude Code in your project directory:
-
-   ```bash
-   cd /path/to/your/project
-   claude
-   ```
-
-2. Run your first analysis:
-   ```
-   /pm-review
-   ```
-
-Mason will analyze your codebase and store improvement suggestions in Supabase.
+3. Copy the contents of `supabase/migrations/001_mason_schema.sql`
+4. Paste and run in SQL Editor
 
 ---
 
 ## How It Works
 
 ```
-+-------------------------------------------------------------+
-|  1. ANALYZE                                                  |
-|     Run /pm-review in Claude Code                           |
-|     - Scans codebase for improvements                       |
-|     - Scores by impact & effort                             |
-|     - Stores in Supabase                                    |
-+-------------------------------------------------------------+
-|  2. REVIEW                                                   |
-|     Open Dashboard at localhost:3000/admin/backlog          |
-|     - See all improvements sorted by priority               |
-|     - Approve items you want implemented                    |
-|     - Generate PRDs for approved items                      |
-+-------------------------------------------------------------+
-|  3. EXECUTE                                                  |
-|     Run /execute-approved in Claude Code                    |
-|     - Creates feature branches                              |
-|     - Implements changes in parallel waves                  |
-|     - Commits with proper messages                          |
-+-------------------------------------------------------------+
++------------------------------------------------------------------+
+|  1. ANALYZE                                                       |
+|     Run /pm-review in Claude Code                                 |
+|     - Scans codebase for improvements                             |
+|     - Scores by impact & effort                                   |
+|     - Stores in Supabase                                          |
++------------------------------------------------------------------+
+|  2. REVIEW (Dashboard)                                            |
+|     Open Dashboard at localhost:3000/admin/backlog                |
+|     - See all improvements with stats                             |
+|     - Filter by status: New, Approved, In Progress, etc.          |
+|     - Click item to view details and benefits                     |
+|     - Approve or Reject improvements                              |
++------------------------------------------------------------------+
+|  3. EXECUTE                                                       |
+|     Click "Execute All" on Approved tab                           |
+|     - Copies command to clipboard                                 |
+|     - Paste into Claude Code                                      |
+|     - Claude implements all approved items                        |
++------------------------------------------------------------------+
 ```
+
+---
+
+## Usage
+
+### 1. Analyze Your Codebase
+
+Open Claude Code in your project directory:
+
+```bash
+cd /path/to/your/project
+claude
+```
+
+Run the analysis:
+
+```
+/pm-review
+```
+
+This scans your codebase and stores improvement suggestions in Supabase.
+
+### 2. Review in Dashboard
+
+Start the dashboard:
+
+```bash
+cd mason-dashboard
+pnpm install
+pnpm dev
+```
+
+Open http://localhost:3000/admin/backlog
+
+**Dashboard Features:**
+
+- **Stats Bar** - See counts for each status
+- **Status Tabs** - Filter by New, Approved, In Progress, etc.
+- **Table View** - See all improvements with type, priority, complexity
+- **Detail Modal** - View full problem, solution, and benefits
+- **Approve/Reject** - Change item status with one click
+- **Execute All** - Copy command to implement approved items
+
+### 3. Execute Approved Items
+
+1. Click the **Approved** tab
+2. Click **Execute All** button
+3. Paste the copied command into Claude Code
+
+Claude will implement all approved improvements automatically.
 
 ---
 
@@ -130,44 +146,16 @@ Mason will analyze your codebase and store improvement suggestions in Supabase.
 
 Run these commands inside Claude Code:
 
-| Command                       | What It Does                           |
-| ----------------------------- | -------------------------------------- |
-| `/pm-review`                  | Analyze codebase and find improvements |
-| `/pm-review quick`            | Find 5-7 quick wins only               |
-| `/pm-review area:security`    | Focus on security improvements         |
-| `/execute-approved`           | Implement all approved items           |
-| `/execute-approved --limit 3` | Implement top 3 approved items         |
-
----
-
-## Dashboard (Optional)
-
-The dashboard lets you view and manage improvements in a web UI.
-
-### Setup
-
-After running the installer, a `mason-dashboard/` folder is created. To start it:
-
-```bash
-cd /path/to/your/project/mason-dashboard
-pnpm install
-pnpm dev
-```
-
-Then open: http://localhost:3000/admin/backlog
-
-### Features
-
-- View all improvements sorted by priority
-- Filter by status, area, or type
-- Approve/reject items
-- Generate PRDs with one click
+| Command                    | What It Does                           |
+| -------------------------- | -------------------------------------- |
+| `/pm-review`               | Analyze codebase and find improvements |
+| `/pm-review quick`         | Find 5-7 quick wins only               |
+| `/pm-review area:security` | Focus on security improvements         |
+| `/execute-approved`        | Implement all approved items           |
 
 ---
 
 ## Project Structure After Setup
-
-After installation, Mason adds these files to your project:
 
 ```
 your-project/
@@ -179,12 +167,9 @@ your-project/
 │   └── skills/
 │       └── pm-domain-knowledge/
 │           └── SKILL.md           # Customize for your project
-├── supabase/
-│   └── migrations/                # Database schema
-│       ├── 001_pm_backlog_tables.sql
-│       ├── 002_pm_execution_runs.sql
-│       └── 003_pm_execution_tasks.sql
-└── mason-dashboard/               # Next.js dashboard (optional)
+└── supabase/
+    └── migrations/
+        └── 001_mason_schema.sql   # Database schema
 ```
 
 ---
@@ -228,21 +213,6 @@ Higher weights = higher priority for that domain.
 
 ## Troubleshooting
 
-### Verify Your Setup
-
-From your project directory, run:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/doctor.sh | bash
-```
-
-This checks:
-
-- Configuration file exists
-- Supabase credentials are set
-- Claude Code commands are installed
-- Migration files are present
-
 ### Common Issues
 
 | Problem                        | Solution                                                         |
@@ -251,22 +221,19 @@ This checks:
 | "Missing Supabase credentials" | Add `supabase.url` and `supabase.anonKey` to `mason.config.json` |
 | `/pm-review` not found         | Make sure `.claude/commands/pm-review.md` exists                 |
 | No items in dashboard          | Run `/pm-review` first to generate improvement items             |
-| Dashboard won't start          | Run `pnpm install` in the `mason-dashboard/` directory           |
+| Dashboard won't start          | Run `pnpm install` in the dashboard directory                    |
 
 ---
 
 ## Uninstall
 
-To remove Mason from your project, delete these files/folders:
+To remove Mason from your project:
 
 ```bash
 rm -rf .claude/commands/pm-review.md
 rm -rf .claude/commands/execute-approved.md
 rm -rf .claude/skills/pm-domain-knowledge
-rm -rf supabase/migrations/001_pm_backlog_tables.sql
-rm -rf supabase/migrations/002_pm_execution_runs.sql
-rm -rf supabase/migrations/003_pm_execution_tasks.sql
-rm -rf mason-dashboard
+rm -rf supabase/migrations/001_mason_schema.sql
 rm mason.config.json
 ```
 
@@ -275,7 +242,6 @@ rm mason.config.json
 ## Support
 
 - **Issues:** https://github.com/Assure-DeFi/mason/issues
-- **Documentation:** This README
 
 ---
 

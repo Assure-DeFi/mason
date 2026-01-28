@@ -61,14 +61,76 @@ For each improvement identified, assign scores:
   - 3-4: Quick changes, hours
   - 1-2: Trivial, minutes
 
-- **Priority Score**: Calculated as `(Impact × 2) - Effort`
+- **Priority Score**: Calculated as `(Impact x 2) - Effort`
   - Higher = better priority
 
-- **Complexity**: `low` | `medium` | `high` | `very_high`
+- **Complexity (1-5)**: Technical complexity rating
+  - 1: Trivial - simple change, single file
+  - 2: Low - straightforward, few files
+  - 3: Medium - requires understanding of multiple components
+  - 4: High - significant architectural consideration
+  - 5: Very High - major system changes, high risk
 
-### Step 4: Store Results in Supabase
+### Step 4: Classify Each Improvement
 
-For each improvement, insert into `pm_backlog_items` table:
+For each improvement, assign these classifications:
+
+**Type** (matches UI badge):
+
+- `dashboard` - Dashboard/UI improvements (Gold badge)
+- `discovery` - Discovery engine improvements (Purple badge)
+- `auth` - Authentication/authorization (Cyan badge)
+- `backend` - Backend/API improvements (Green badge)
+
+**Area**:
+
+- `frontend` - Frontend code changes
+- `backend` - Backend code changes
+
+### Step 5: Generate Benefits
+
+For EVERY improvement, populate ALL 5 benefit categories. Each benefit should be specific to the improvement:
+
+```json
+{
+  "benefits": [
+    {
+      "category": "user_experience",
+      "icon": "user",
+      "title": "USER EXPERIENCE",
+      "description": "Specific benefit for end users..."
+    },
+    {
+      "category": "sales_team",
+      "icon": "users",
+      "title": "SALES TEAM",
+      "description": "Specific benefit for sales/business..."
+    },
+    {
+      "category": "operations",
+      "icon": "settings",
+      "title": "OPERATIONS",
+      "description": "Specific benefit for ops/support..."
+    },
+    {
+      "category": "performance",
+      "icon": "chart",
+      "title": "PERFORMANCE",
+      "description": "Technical performance impact..."
+    },
+    {
+      "category": "reliability",
+      "icon": "wrench",
+      "title": "RELIABILITY",
+      "description": "System reliability impact..."
+    }
+  ]
+}
+```
+
+### Step 6: Store Results in Supabase
+
+For each improvement, insert into `pm_backlog_items` table with the NEW schema:
 
 ```sql
 INSERT INTO pm_backlog_items (
@@ -80,18 +142,24 @@ INSERT INTO pm_backlog_items (
   complexity,
   impact_score,
   effort_score,
-  benefits_json,
+  benefits,
   status
 ) VALUES (
-  'Improvement title',
-  'Description of the problem',
-  'Proposed solution',
-  'frontend-ux', -- or other domain
-  'feature', -- feature, fix, refactor, optimization
-  'medium', -- low, medium, high, very_high
-  8, -- impact 1-10
-  4, -- effort 1-10
-  '["Benefit 1", "Benefit 2"]'::jsonb,
+  'Add data freshness timestamps to Executive Snapshot',
+  'Executives cannot tell when snapshot data was last updated. No visible "as of" timestamps or data freshness indicators. This creates uncertainty about whether viewing current or stale information.',
+  'Add visible timestamps showing when each section was last refreshed. Include "Last updated: X minutes ago" badges on KPI cards, funnel summary, and revenue chart. Add global "Data as of [timestamp]" indicator in page header.',
+  'frontend',
+  'dashboard',
+  2,
+  9,
+  2,
+  '[
+    {"category": "user_experience", "icon": "user", "title": "USER EXPERIENCE", "description": "Clear visibility into data freshness increases trust"},
+    {"category": "sales_team", "icon": "users", "title": "SALES TEAM", "description": "Executives gain confidence in data currency for decision-making"},
+    {"category": "operations", "icon": "settings", "title": "OPERATIONS", "description": "Reduces support questions about data staleness"},
+    {"category": "performance", "icon": "chart", "title": "PERFORMANCE", "description": "No performance impact - timestamps already in data"},
+    {"category": "reliability", "icon": "wrench", "title": "RELIABILITY", "description": "Helps users identify when refresh needed"}
+  ]'::jsonb,
   'new'
 );
 ```
@@ -104,13 +172,13 @@ INSERT INTO pm_analysis_runs (
   items_found,
   completed_at
 ) VALUES (
-  'full', -- or area:X, quick
-  15, -- number of items found
+  'full',
+  15,
   now()
 );
 ```
 
-### Step 5: Generate PRDs (Full Mode Only)
+### Step 7: Generate PRDs (Full Mode Only)
 
 For the top 3 items by priority score, generate detailed PRDs following this structure:
 
@@ -169,10 +237,10 @@ After analysis, provide a summary:
 
 ### Top Improvements by Priority
 
-| #   | Title | Domain | Impact | Effort | Priority |
-| --- | ----- | ------ | ------ | ------ | -------- |
-| 1   | ...   | ...    | 8      | 3      | 13       |
-| 2   | ...   | ...    | 9      | 5      | 13       |
+| #   | Title | Type      | Impact | Effort | Priority |
+| --- | ----- | --------- | ------ | ------ | -------- |
+| 1   | ...   | dashboard | 9      | 2      | 16       |
+| 2   | ...   | discovery | 8      | 3      | 13       |
 
 ### Quick Wins (Low Effort, High Impact)
 
@@ -181,9 +249,10 @@ After analysis, provide a summary:
 
 ### Next Steps
 
-1. View all items in Dashboard: [dashboard URL]
-2. Approve items for execution
-3. Run `/execute-approved` to implement
+1. View all items in Dashboard: http://localhost:3000/admin/backlog
+2. Review and approve items for execution
+3. Click "Execute All" on Approved tab to copy command
+4. Paste command into Claude Code to implement
 ```
 
 ## Supabase Connection
@@ -199,7 +268,76 @@ Read Supabase credentials from `mason.config.json`:
 }
 ```
 
-If credentials are missing, prompt user to run `mason init` first.
+### Connection Error Handling
+
+If you encounter Supabase connection errors:
+
+1. **Missing credentials**: Prompt user to add credentials to `mason.config.json`
+2. **Invalid URL/key**: Suggest checking the credentials in Supabase Dashboard > Project Settings > API
+3. **Network error**: Retry up to 3 times with exponential backoff
+4. **RLS error**: Ensure the anon key has proper permissions or temporarily disable RLS for testing
+
+Example error response:
+
+```
+Error: Unable to connect to Supabase.
+
+Please verify:
+1. mason.config.json exists and contains valid credentials
+2. Your Supabase project is accessible
+3. The anon key has permissions to insert into pm_backlog_items
+
+Get credentials from: https://supabase.com/dashboard > Project Settings > API
+```
+
+## Complete Improvement JSON Schema
+
+Each improvement MUST include ALL of these fields:
+
+```json
+{
+  "title": "Add data freshness timestamps to Executive Snapshot",
+  "problem": "Executives cannot tell when snapshot data was last updated. No visible 'as of' timestamps or data freshness indicators. This creates uncertainty about whether viewing current or stale information.",
+  "solution": "Add visible timestamps showing when each section was last refreshed. Include 'Last updated: X minutes ago' badges on KPI cards, funnel summary, and revenue chart. Add global 'Data as of [timestamp]' indicator in page header.",
+  "type": "dashboard",
+  "area": "frontend",
+  "impact_score": 9,
+  "effort_score": 2,
+  "complexity": 2,
+  "benefits": [
+    {
+      "category": "user_experience",
+      "icon": "user",
+      "title": "USER EXPERIENCE",
+      "description": "Clear visibility into data freshness increases trust"
+    },
+    {
+      "category": "sales_team",
+      "icon": "users",
+      "title": "SALES TEAM",
+      "description": "Executives gain confidence in data currency for decision-making"
+    },
+    {
+      "category": "operations",
+      "icon": "settings",
+      "title": "OPERATIONS",
+      "description": "Reduces support questions about data staleness"
+    },
+    {
+      "category": "performance",
+      "icon": "chart",
+      "title": "PERFORMANCE",
+      "description": "No performance impact - timestamps already in data"
+    },
+    {
+      "category": "reliability",
+      "icon": "wrench",
+      "title": "RELIABILITY",
+      "description": "Helps users identify when refresh needed"
+    }
+  ]
+}
+```
 
 ## Important Notes
 
@@ -208,3 +346,7 @@ If credentials are missing, prompt user to run `mason init` first.
 3. **Prioritize ruthlessly** - Focus on high-impact, low-effort items first
 4. **Be specific** - Vague suggestions are not actionable
 5. **Include evidence** - Reference specific files/lines when possible
+6. **All 5 benefits required** - Every improvement must have all 5 benefit categories populated
+7. **Use new type values** - dashboard, discovery, auth, backend (not feature, fix, refactor)
+8. **Use new area values** - frontend, backend (not frontend-ux, api-backend, etc.)
+9. **Complexity is numeric** - Use 1-5 integer, not text

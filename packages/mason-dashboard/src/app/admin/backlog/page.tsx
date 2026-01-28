@@ -1,45 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { BacklogTable } from '@/components/backlog/backlog-table';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { StatsBar } from '@/components/backlog/stats-bar';
+import { StatusTabs } from '@/components/backlog/status-tabs';
+import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
-import { Filters } from '@/components/backlog/filters';
-import type {
-  BacklogItem,
-  BacklogFilters,
-  BacklogStatus,
-} from '@/types/backlog';
-import { RefreshCw, ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
+import type { BacklogItem, BacklogStatus, StatusCounts } from '@/types/backlog';
+import { RefreshCw } from 'lucide-react';
 
 export default function BacklogPage() {
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
-  const [filters, setFilters] = useState<BacklogFilters>({});
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [activeStatus, setActiveStatus] = useState<BacklogStatus | null>('new');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedToast, setCopiedToast] = useState(false);
 
+  // Fetch all items (no filter - we filter client-side for counts)
   const fetchItems = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const params = new URLSearchParams();
-
-      if (filters.status?.length) {
-        params.set('status', filters.status.join(','));
-      }
-      if (filters.area?.length) {
-        params.set('area', filters.area.join(','));
-      }
-      if (filters.type?.length) {
-        params.set('type', filters.type.join(','));
-      }
-      if (filters.search) {
-        params.set('search', filters.search);
-      }
-
-      const response = await fetch(`/api/backlog?${params.toString()}`);
+      const response = await fetch('/api/backlog');
 
       if (!response.ok) {
         throw new Error('Failed to fetch backlog items');
@@ -52,11 +36,43 @@ export default function BacklogPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
+
+  // Calculate counts for stats bar
+  const counts: StatusCounts = useMemo(() => {
+    const result: StatusCounts = {
+      total: items.length,
+      new: 0,
+      approved: 0,
+      in_progress: 0,
+      completed: 0,
+      deferred: 0,
+      rejected: 0,
+    };
+
+    items.forEach((item) => {
+      result[item.status]++;
+    });
+
+    return result;
+  }, [items]);
+
+  // Filter items by active status
+  const filteredItems = useMemo(() => {
+    if (!activeStatus) return items;
+    return items.filter((item) => item.status === activeStatus);
+  }, [items, activeStatus]);
+
+  // Get approved item IDs for execute button
+  const approvedItemIds = useMemo(() => {
+    return items
+      .filter((item) => item.status === 'approved')
+      .map((item) => item.id);
+  }, [items]);
 
   const handleUpdateStatus = async (id: string, status: BacklogStatus) => {
     const response = await fetch(`/api/backlog/${id}`, {
@@ -100,17 +116,43 @@ export default function BacklogPage() {
     }
   };
 
+  const handleSelectItem = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === filteredItems.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredItems.map((item) => item.id));
+    }
+  };
+
+  const handleExecuteAll = async () => {
+    const command = `/execute-approved --ids ${approvedItemIds.join(',')}`;
+
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopiedToast(true);
+      setTimeout(() => setCopiedToast(false), 3000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
   // Error state
   if (error && !isLoading) {
     return (
-      <main className="min-h-screen p-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="p-8 bg-red-900/20 border border-red-800 rounded-lg text-center">
+      <main className="min-h-screen bg-navy">
+        <div className="max-w-7xl mx-auto p-8">
+          <div className="p-8 bg-red-900/20 border border-red-800 text-center">
             <h2 className="text-xl font-semibold text-red-400 mb-2">Error</h2>
             <p className="text-gray-300 mb-4">{error}</p>
             <button
               onClick={fetchItems}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700"
             >
               Try Again
             </button>
@@ -121,68 +163,78 @@ export default function BacklogPage() {
   }
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="p-2 hover:bg-white/10 rounded transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
+    <main className="min-h-screen bg-navy">
+      {/* Header */}
+      <div className="border-b border-gray-800">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">PM Backlog</h1>
-              <p className="text-gray-400 text-sm">
-                {items.length} items{' '}
-                {filters.status?.length ? '(filtered)' : ''}
+              <h1 className="text-2xl font-bold text-white">
+                System Improvements
+              </h1>
+              <p className="text-gray-400 text-sm mt-1">
+                Manage and track improvement ideas from PM reviews
               </p>
             </div>
+
+            <button
+              onClick={fetchItems}
+              disabled={isLoading}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-700 text-gray-300 hover:bg-white/5 disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
+              />
+              Refresh
+            </button>
           </div>
-
-          <button
-            onClick={fetchItems}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-black/30 border border-gray-800 rounded-lg hover:border-gray-700 disabled:opacity-50"
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </button>
         </div>
+      </div>
 
-        {/* Filters */}
-        <div className="mb-6">
-          <Filters filters={filters} onFiltersChange={setFilters} />
-        </div>
+      {/* Stats Bar */}
+      <StatsBar counts={counts} />
 
-        {/* Table */}
-        <div className="bg-black/20 border border-gray-800 rounded-lg">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <RefreshCw className="w-6 h-6 animate-spin text-gray-500" />
-            </div>
-          ) : (
-            <BacklogTable
-              items={items}
-              onSelectItem={setSelectedItem}
-              onUpdateStatus={handleUpdateStatus}
-            />
-          )}
-        </div>
+      {/* Status Tabs */}
+      <StatusTabs
+        activeStatus={activeStatus}
+        onStatusChange={setActiveStatus}
+        onExecuteAll={handleExecuteAll}
+        approvedCount={counts.approved}
+      />
 
-        {/* Detail Modal */}
-        {selectedItem && (
-          <ItemDetailModal
-            item={selectedItem}
-            onClose={() => setSelectedItem(null)}
-            onUpdateStatus={handleUpdateStatus}
-            onGeneratePrd={handleGeneratePrd}
+      {/* Table */}
+      <div className="max-w-7xl mx-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <RefreshCw className="w-6 h-6 animate-spin text-gray-500" />
+          </div>
+        ) : (
+          <ImprovementsTable
+            items={filteredItems}
+            selectedIds={selectedIds}
+            onSelectItem={handleSelectItem}
+            onSelectAll={handleSelectAll}
+            onItemClick={setSelectedItem}
           />
         )}
       </div>
+
+      {/* Detail Modal */}
+      {selectedItem && (
+        <ItemDetailModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onUpdateStatus={handleUpdateStatus}
+          onGeneratePrd={handleGeneratePrd}
+        />
+      )}
+
+      {/* Toast */}
+      {copiedToast && (
+        <div className="fixed bottom-6 right-6 px-4 py-3 bg-green-600 text-white shadow-lg">
+          Command copied! Paste into Claude Code to execute.
+        </div>
+      )}
     </main>
   );
 }

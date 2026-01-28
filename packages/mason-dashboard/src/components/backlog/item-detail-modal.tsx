@@ -2,8 +2,11 @@
 
 import { useState } from 'react';
 import type { BacklogItem, BacklogStatus } from '@/types/backlog';
-import { X, FileText, GitBranch, ExternalLink } from 'lucide-react';
+import { X, FileText } from 'lucide-react';
 import { clsx } from 'clsx';
+import { TypeBadge } from './type-badge';
+import { PriorityDots } from './priority-dots';
+import { BenefitsGrid } from './benefits-grid';
 
 interface ItemDetailModalProps {
   item: BacklogItem;
@@ -11,6 +14,36 @@ interface ItemDetailModalProps {
   onUpdateStatus: (id: string, status: BacklogStatus) => Promise<void>;
   onGeneratePrd: (id: string) => Promise<void>;
 }
+
+const STATUS_CONFIG: Record<
+  BacklogStatus,
+  { label: string; className: string }
+> = {
+  new: {
+    label: 'New',
+    className: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+  },
+  approved: {
+    label: 'Approved',
+    className: 'bg-green-500/20 text-green-300 border-green-500/30',
+  },
+  in_progress: {
+    label: 'In Progress',
+    className: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+  },
+  completed: {
+    label: 'Completed',
+    className: 'bg-green-500/20 text-green-300 border-green-500/30',
+  },
+  deferred: {
+    label: 'Deferred',
+    className: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
+  },
+  rejected: {
+    label: 'Rejected',
+    className: 'bg-red-500/20 text-red-300 border-red-500/30',
+  },
+};
 
 export function ItemDetailModal({
   item,
@@ -20,13 +53,13 @@ export function ItemDetailModal({
 }: ItemDetailModalProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'prd'>('details');
+  const [showPrd, setShowPrd] = useState(false);
 
   const handleGeneratePrd = async () => {
     setIsGenerating(true);
     try {
       await onGeneratePrd(item.id);
-      setActiveTab('prd');
+      setShowPrd(true);
     } finally {
       setIsGenerating(false);
     }
@@ -41,203 +74,182 @@ export function ItemDetailModal({
     }
   };
 
+  const statusConfig = STATUS_CONFIG[item.status];
+
+  // Get priority label based on score
+  const getPriorityLabel = () => {
+    if (item.impact_score >= 9) return 'Critical Priority';
+    if (item.impact_score >= 7) return 'High Priority';
+    if (item.impact_score >= 5) return 'Medium Priority';
+    return 'Low Priority';
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="bg-navy border border-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div className="bg-navy border border-gray-800 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
-          <div>
-            <h2 className="text-xl font-semibold">{item.title}</h2>
-            <div className="flex gap-2 mt-1">
-              <span className="text-xs text-gray-400">{item.area}</span>
-              <span className="text-xs text-gray-600">|</span>
-              <span className="text-xs text-gray-400">{item.type}</span>
-              <span className="text-xs text-gray-600">|</span>
-              <span className="text-xs text-gray-400">{item.complexity}</span>
+        <div className="flex items-start justify-between p-6 border-b border-gray-800">
+          <div className="flex-1">
+            {/* Status and Priority */}
+            <div className="flex items-center gap-3 mb-3">
+              <span
+                className={clsx(
+                  'px-2 py-1 text-xs border',
+                  statusConfig.className,
+                )}
+              >
+                {statusConfig.label}
+              </span>
+              <div className="flex items-center gap-2">
+                <PriorityDots value={item.impact_score} variant="priority" />
+                <span className="text-sm text-gray-400">
+                  {getPriorityLabel()}
+                </span>
+              </div>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-xl font-semibold text-white mb-3">
+              {item.title}
+            </h2>
+
+            {/* Tags */}
+            <div className="flex items-center gap-3">
+              <TypeBadge type={item.type} size="md" />
+              <span className="px-3 py-1 text-sm bg-gray-800 text-gray-300">
+                {item.area === 'frontend' ? 'Frontend' : 'Backend'}
+              </span>
+              <div className="flex items-center gap-2">
+                <PriorityDots
+                  value={item.effort_score}
+                  variant="effort"
+                  showLabel
+                />
+              </div>
             </div>
           </div>
+
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded transition-colors"
+            className="p-2 hover:bg-white/10 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-800">
-          <button
-            onClick={() => setActiveTab('details')}
-            className={clsx(
-              'px-4 py-2 text-sm font-medium transition-colors',
-              activeTab === 'details'
-                ? 'text-gold border-b-2 border-gold'
-                : 'text-gray-400 hover:text-white',
-            )}
-          >
-            Details
-          </button>
-          <button
-            onClick={() => setActiveTab('prd')}
-            className={clsx(
-              'px-4 py-2 text-sm font-medium transition-colors',
-              activeTab === 'prd'
-                ? 'text-gold border-b-2 border-gold'
-                : 'text-gray-400 hover:text-white',
-            )}
-          >
-            PRD {item.prd_content && '(Ready)'}
-          </button>
+        {/* Scores Bar */}
+        <div className="flex items-center gap-8 px-6 py-4 border-b border-gray-800 bg-black/20">
+          <div>
+            <span className="text-xs text-gray-500 uppercase tracking-wide">
+              Impact
+            </span>
+            <span className="ml-2 text-lg font-bold text-white">
+              {item.impact_score}/10
+            </span>
+          </div>
+          <div>
+            <span className="text-xs text-gray-500 uppercase tracking-wide">
+              Effort
+            </span>
+            <span className="ml-2 text-lg font-bold text-white">
+              {item.effort_score}/10
+            </span>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="p-4 overflow-y-auto max-h-[60vh]">
-          {activeTab === 'details' && (
-            <div className="space-y-6">
-              {/* Scores */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="p-4 bg-black/30 rounded-lg text-center">
-                  <div className="text-3xl font-bold text-gold">
-                    {item.priority_score}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">Priority</div>
-                </div>
-                <div className="p-4 bg-black/30 rounded-lg text-center">
-                  <div className="text-3xl font-bold text-green-400">
-                    {item.impact_score}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">Impact</div>
-                </div>
-                <div className="p-4 bg-black/30 rounded-lg text-center">
-                  <div className="text-3xl font-bold text-orange-400">
-                    {item.effort_score}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">Effort</div>
-                </div>
-              </div>
-
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {showPrd && item.prd_content ? (
+            <div>
+              <button
+                onClick={() => setShowPrd(false)}
+                className="mb-4 text-sm text-gold hover:underline"
+              >
+                Back to Details
+              </button>
+              <pre className="whitespace-pre-wrap text-sm text-gray-200 bg-black/30 p-4 overflow-x-auto">
+                {item.prd_content}
+              </pre>
+            </div>
+          ) : (
+            <>
               {/* Problem */}
               <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">
+                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                   Problem
                 </h3>
-                <p className="text-gray-200 whitespace-pre-wrap">
-                  {item.problem}
-                </p>
+                <div className="p-4 bg-black/30 border border-gray-800">
+                  <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">
+                    {item.problem}
+                  </p>
+                </div>
               </div>
 
               {/* Solution */}
               <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">
+                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                   Solution
                 </h3>
-                <p className="text-gray-200 whitespace-pre-wrap">
-                  {item.solution}
-                </p>
+                <div className="p-4 bg-black/30 border border-gray-800">
+                  <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">
+                    {item.solution}
+                  </p>
+                </div>
               </div>
 
               {/* Benefits */}
-              {item.benefits_json.length > 0 && (
+              {item.benefits && item.benefits.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-400 mb-2">
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                     Benefits
                   </h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-200">
-                    {item.benefits_json.map((benefit, i) => (
-                      <li key={i}>{benefit}</li>
-                    ))}
-                  </ul>
+                  <BenefitsGrid benefits={item.benefits} />
                 </div>
               )}
-
-              {/* Git info */}
-              {(item.branch_name || item.pr_url) && (
-                <div className="flex gap-4">
-                  {item.branch_name && (
-                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                      <GitBranch className="w-4 h-4" />
-                      <code className="bg-black/50 px-2 py-0.5 rounded">
-                        {item.branch_name}
-                      </code>
-                    </div>
-                  )}
-                  {item.pr_url && (
-                    <a
-                      href={item.pr_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-gold hover:underline"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      View PR
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'prd' && (
-            <div>
-              {item.prd_content ? (
-                <div className="prose prose-invert max-w-none">
-                  <pre className="whitespace-pre-wrap text-sm text-gray-200 bg-black/30 p-4 rounded-lg overflow-x-auto">
-                    {item.prd_content}
-                  </pre>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <FileText className="w-12 h-12 mx-auto text-gray-600 mb-4" />
-                  <p className="text-gray-400 mb-4">
-                    No PRD generated yet. Generate a PRD to enable execution.
-                  </p>
-                  <button
-                    onClick={handleGeneratePrd}
-                    disabled={isGenerating}
-                    className="px-4 py-2 bg-gold text-navy font-medium rounded hover:bg-gold/90 disabled:opacity-50"
-                  >
-                    {isGenerating ? 'Generating...' : 'Generate PRD'}
-                  </button>
-                </div>
-              )}
-            </div>
+            </>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-gray-800 bg-black/20">
-          <div className="text-sm text-gray-500">
-            Status: <span className="text-white">{item.status}</span>
-          </div>
-          <div className="flex gap-2">
-            {item.status === 'new' && (
-              <>
-                <button
-                  onClick={() => handleStatusChange('rejected')}
-                  disabled={isUpdating}
-                  className="px-4 py-2 text-sm bg-red-600/50 hover:bg-red-600 rounded disabled:opacity-50"
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={() => handleStatusChange('approved')}
-                  disabled={isUpdating}
-                  className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 rounded disabled:opacity-50"
-                >
-                  {isUpdating ? 'Updating...' : 'Approve'}
-                </button>
-              </>
-            )}
-            {item.status === 'approved' && !item.prd_content && (
-              <button
-                onClick={handleGeneratePrd}
-                disabled={isGenerating}
-                className="px-4 py-2 text-sm bg-gold text-navy font-medium rounded hover:bg-gold/90 disabled:opacity-50"
-              >
-                {isGenerating ? 'Generating...' : 'Generate PRD'}
-              </button>
-            )}
-          </div>
+        <div className="flex items-center justify-center gap-4 p-4 border-t border-gray-800 bg-black/20">
+          {/* View PRD Button */}
+          <button
+            onClick={
+              item.prd_content ? () => setShowPrd(true) : handleGeneratePrd
+            }
+            disabled={isGenerating}
+            className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-600 text-gray-300 hover:bg-white/5 disabled:opacity-50"
+          >
+            <FileText className="w-4 h-4" />
+            {isGenerating
+              ? 'Generating...'
+              : item.prd_content
+                ? 'View PRD'
+                : 'Generate PRD'}
+          </button>
+
+          {/* Reject Button - only show for new items */}
+          {item.status === 'new' && (
+            <button
+              onClick={() => handleStatusChange('rejected')}
+              disabled={isUpdating}
+              className="flex items-center gap-2 px-4 py-2 text-sm border border-red-600/50 text-red-400 hover:bg-red-600/10 disabled:opacity-50"
+            >
+              <X className="w-4 h-4" />
+              Reject
+            </button>
+          )}
+
+          {/* Approve Button - only show for new items */}
+          {item.status === 'new' && (
+            <button
+              onClick={() => handleStatusChange('approved')}
+              disabled={isUpdating}
+              className="flex items-center gap-2 px-6 py-2 text-sm bg-gold text-navy font-medium hover:bg-gold/90 disabled:opacity-50"
+            >
+              {isUpdating ? 'Updating...' : 'Approve'}
+            </button>
+          )}
         </div>
       </div>
     </div>
