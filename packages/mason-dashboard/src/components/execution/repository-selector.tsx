@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   ChevronDown,
   GitBranch,
@@ -50,12 +51,16 @@ export function RepositorySelector({
   onChange,
   compact = false,
 }: RepositorySelectorProps) {
+  const searchParams = useSearchParams();
   const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRetrying, setIsRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Refresh trigger from URL param (e.g., after setup wizard completion)
+  const refreshTrigger = searchParams.get('refresh');
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -96,9 +101,10 @@ export function RepositorySelector({
     [onChange],
   );
 
+  // Re-fetch when refreshTrigger changes (e.g., after setup wizard completion)
   useEffect(() => {
     fetchRepositories();
-  }, []);
+  }, [refreshTrigger]);
 
   const fetchRepositories = async () => {
     setError(null);

@@ -164,7 +164,8 @@ export function CompleteStep({ onBack }: WizardStepProps) {
   };
 
   const handleGoToDashboard = () => {
-    router.push('/admin/backlog');
+    // Add timestamp param to force RepositorySelector to refresh its data
+    router.push('/admin/backlog?refresh=' + Date.now());
   };
 
   return (
