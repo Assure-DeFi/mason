@@ -1,6 +1,10 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { SessionProvider } from '@/components/auth/session-provider';
 import './globals.css';
+
+export const viewport: Viewport = {
+  themeColor: '#0A0724',
+};
 
 export const metadata: Metadata = {
   title: 'Mason - AI-Powered Codebase Improvement',
@@ -15,7 +19,6 @@ export const metadata: Metadata = {
     apple: '/apple-touch-icon.png',
   },
   manifest: '/site.webmanifest',
-  themeColor: '#0A0724',
   openGraph: {
     title: 'Mason by Assure DeFi®',
     description: 'AI-powered continuous improvement for your codebase.',
