@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { RepositoryList } from '@/components/github/repository-list';
 import { ConnectRepoModal } from '@/components/github/connect-repo-modal';
+import { getGitHubToken } from '@/lib/supabase/user-client';
 import type { GitHubRepository } from '@/types/auth';
 
 export default function GitHubSettingsPage() {
@@ -42,10 +43,15 @@ export default function GitHubSettingsPage() {
   };
 
   const handleConnect = async (owner: string, name: string) => {
+    const githubToken = getGitHubToken();
+    if (!githubToken) {
+      throw new Error('GitHub token not found. Please sign in again.');
+    }
+
     const response = await fetch('/api/github/repositories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ owner, name }),
+      body: JSON.stringify({ owner, name, githubToken }),
     });
 
     if (!response.ok) {
