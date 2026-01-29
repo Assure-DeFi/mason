@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  RefreshCw,
-  ArrowRight,
-  Search,
-  Undo2,
-  Sparkles,
-} from 'lucide-react';
+import { RefreshCw, ArrowRight, Search, Undo2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -63,11 +57,6 @@ interface UndoState {
   expiresAt: number;
 }
 
-interface BulkProgress {
-  current: number;
-  total: number;
-}
-
 // Wrapper component that provides Suspense boundary
 export default function BacklogPage() {
   return (
@@ -113,12 +102,9 @@ function BacklogPageContent() {
   const [pmReviewCopiedToast, setPmReviewCopiedToast] = useState(false);
 
   // Bulk action loading states
-  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const [isBulkApproving, setIsBulkApproving] = useState(false);
   const [isBulkRejecting, setIsBulkRejecting] = useState(false);
   const [isBulkRestoring, setIsBulkRestoring] = useState(false);
-  const [generationProgress, setGenerationProgress] =
-    useState<BulkProgress | null>(null);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -171,19 +157,30 @@ function BacklogPageContent() {
   useEffect(() => {
     const params = new URLSearchParams();
 
-    if (searchQuery) {params.set('search', searchQuery);}
-    if (selectedAreas.length > 0) {params.set('areas', selectedAreas.join(','));}
-    if (selectedTypes.length > 0) {params.set('types', selectedTypes.join(','));}
-    if (complexityRange[0] !== 1)
-      {params.set('complexityMin', complexityRange[0].toString());}
-    if (complexityRange[1] !== 5)
-      {params.set('complexityMax', complexityRange[1].toString());}
-    if (effortRange[0] !== 1)
-      {params.set('effortMin', effortRange[0].toString());}
-    if (effortRange[1] !== 10)
-      {params.set('effortMax', effortRange[1].toString());}
-    if (activeStatus && activeStatus !== 'new')
-      {params.set('status', activeStatus);}
+    if (searchQuery) {
+      params.set('search', searchQuery);
+    }
+    if (selectedAreas.length > 0) {
+      params.set('areas', selectedAreas.join(','));
+    }
+    if (selectedTypes.length > 0) {
+      params.set('types', selectedTypes.join(','));
+    }
+    if (complexityRange[0] !== 1) {
+      params.set('complexityMin', complexityRange[0].toString());
+    }
+    if (complexityRange[1] !== 5) {
+      params.set('complexityMax', complexityRange[1].toString());
+    }
+    if (effortRange[0] !== 1) {
+      params.set('effortMin', effortRange[0].toString());
+    }
+    if (effortRange[1] !== 10) {
+      params.set('effortMax', effortRange[1].toString());
+    }
+    if (activeStatus && activeStatus !== 'new') {
+      params.set('status', activeStatus);
+    }
 
     const newUrl = params.toString()
       ? `${window.location.pathname}?${params.toString()}`
@@ -210,7 +207,9 @@ function BacklogPageContent() {
   }, [searchParams]);
 
   const fetchFilteredCount = useCallback(async () => {
-    if (!client) {return;}
+    if (!client) {
+      return;
+    }
 
     try {
       let query = client
@@ -276,8 +275,12 @@ function BacklogPageContent() {
           .order('priority_score', { ascending: false }),
       ]);
 
-      if (repoItems.error) {throw repoItems.error;}
-      if (legacyItems.error) {throw legacyItems.error;}
+      if (repoItems.error) {
+        throw repoItems.error;
+      }
+      if (legacyItems.error) {
+        throw legacyItems.error;
+      }
 
       // Merge and dedupe results, sort by priority
       const allItems = [...(repoItems.data || []), ...(legacyItems.data || [])];
@@ -311,7 +314,9 @@ function BacklogPageContent() {
 
   // Real-time subscription - filters by selected repository (includes legacy items with null repo)
   useEffect(() => {
-    if (!client || !isConfigured || !selectedRepoId) {return;}
+    if (!client || !isConfigured || !selectedRepoId) {
+      return;
+    }
 
     // Helper to check if item belongs to current view (matches repo OR has no repo)
     const itemBelongsToCurrentView = (repoId: string | null) =>
@@ -331,7 +336,9 @@ function BacklogPageContent() {
             setItems((prev) => {
               const newItem = payload.new as BacklogItem;
               // Only add if it matches current repo OR has no repo assigned
-              if (!itemBelongsToCurrentView(newItem.repository_id)) {return prev;}
+              if (!itemBelongsToCurrentView(newItem.repository_id)) {
+                return prev;
+              }
               const updated = [...prev, newItem].sort(
                 (a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0),
               );
@@ -491,8 +498,12 @@ function BacklogPageContent() {
             return 0;
         }
 
-        if (aVal < bVal) {return sort.direction === 'asc' ? -1 : 1;}
-        if (aVal > bVal) {return sort.direction === 'asc' ? 1 : -1;}
+        if (aVal < bVal) {
+          return sort.direction === 'asc' ? -1 : 1;
+        }
+        if (aVal > bVal) {
+          return sort.direction === 'asc' ? 1 : -1;
+        }
         return 0;
       });
     }
@@ -664,42 +675,10 @@ function BacklogPageContent() {
     }
   };
 
-  const handleBulkGeneratePrds = async (ids: string[]) => {
-    if (ids.length === 0) {return;}
-
-    setIsBulkGenerating(true);
-    setGenerationProgress({ current: 0, total: ids.length });
-
-    try {
-      // Generate PRDs sequentially to avoid overwhelming the API
-      for (let i = 0; i < ids.length; i++) {
-        const id = ids[i];
-        setGenerationProgress({ current: i + 1, total: ids.length });
-
-        const response = await fetch(`/api/prd/${id}`, {
-          method: 'POST',
-        });
-
-        if (!response.ok) {
-          console.error(`Failed to generate PRD for ${id}`);
-          continue;
-        }
-
-        const updated = await response.json();
-        setItems((prev) =>
-          prev.map((item) => (item.id === id ? updated : item)),
-        );
-      }
-    } catch (err) {
-      console.error('Bulk PRD generation error:', err);
-    } finally {
-      setIsBulkGenerating(false);
-      setGenerationProgress(null);
-    }
-  };
-
   const handleBulkApproveRequest = (ids: string[]) => {
-    if (ids.length === 0) {return;}
+    if (ids.length === 0) {
+      return;
+    }
     const titles = items
       .filter((item) => ids.includes(item.id))
       .map((item) => item.title);
@@ -707,7 +686,9 @@ function BacklogPageContent() {
   };
 
   const handleBulkRejectRequest = (ids: string[]) => {
-    if (ids.length === 0) {return;}
+    if (ids.length === 0) {
+      return;
+    }
     const titles = items
       .filter((item) => ids.includes(item.id))
       .map((item) => item.title);
@@ -715,7 +696,9 @@ function BacklogPageContent() {
   };
 
   const handleBulkRestoreRequest = (ids: string[]) => {
-    if (ids.length === 0) {return;}
+    if (ids.length === 0) {
+      return;
+    }
     const titles = items
       .filter((item) => ids.includes(item.id))
       .map((item) => item.title);
@@ -723,7 +706,9 @@ function BacklogPageContent() {
   };
 
   const handleConfirmBulkAction = async () => {
-    if (!client) {return;}
+    if (!client) {
+      return;
+    }
 
     const { action, ids } = confirmDialog;
     const newStatus =
@@ -794,7 +779,9 @@ function BacklogPageContent() {
   };
 
   const handleUndo = async () => {
-    if (!client || !undoState) {return;}
+    if (!client || !undoState) {
+      return;
+    }
 
     try {
       // Restore each item to its previous status
@@ -1161,7 +1148,10 @@ function BacklogPageContent() {
         ) : isEmpty ? (
           <EmptyStateOnboarding onRefresh={fetchItems} />
         ) : isViewingFiltered ? (
-          <FilteredItemsTab onRestoreComplete={handleRestoreComplete} />
+          <FilteredItemsTab
+            onRestoreComplete={handleRestoreComplete}
+            selectedRepoId={selectedRepoId}
+          />
         ) : filteredItems.length === 0 ? (
           <div className="p-16 text-center">
             <p className="text-gray-500 text-lg mb-4">
@@ -1225,16 +1215,13 @@ function BacklogPageContent() {
       {/* Bulk Actions Bar */}
       <BulkActionsBar
         selectedItems={selectedItems}
-        onGeneratePrds={handleBulkGeneratePrds}
         onApprove={handleBulkApproveRequest}
         onReject={handleBulkRejectRequest}
         onRestore={handleBulkRestoreRequest}
         onClearSelection={handleClearSelection}
-        isGenerating={isBulkGenerating}
         isApproving={isBulkApproving}
         isRejecting={isBulkRejecting}
         isRestoring={isBulkRestoring}
-        generationProgress={generationProgress}
       />
 
       {/* Confirmation Dialog */}

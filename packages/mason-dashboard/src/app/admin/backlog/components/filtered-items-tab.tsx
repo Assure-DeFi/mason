@@ -16,6 +16,7 @@ import type { FilteredItem, FilterTier } from '@/types/backlog';
 
 interface FilteredItemsTabProps {
   onRestoreComplete?: () => void;
+  selectedRepoId?: string | null;
 }
 
 const TIER_LABELS: Record<FilterTier, { label: string; color: string }> = {
@@ -24,7 +25,10 @@ const TIER_LABELS: Record<FilterTier, { label: string; color: string }> = {
   tier3: { label: 'Impact', color: 'text-orange-400' },
 };
 
-export function FilteredItemsTab({ onRestoreComplete }: FilteredItemsTabProps) {
+export function FilteredItemsTab({
+  onRestoreComplete,
+  selectedRepoId,
+}: FilteredItemsTabProps) {
   const { client } = useUserDatabase();
   const [items, setItems] = useState<FilteredItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,11 +47,21 @@ export function FilteredItemsTab({ onRestoreComplete }: FilteredItemsTabProps) {
     setError(null);
 
     try {
-      const { data, error: fetchError } = await client
+      let query = client
         .from('mason_pm_filtered_items')
         .select('*')
-        .eq('override_status', 'filtered')
-        .order('created_at', { ascending: false });
+        .eq('override_status', 'filtered');
+
+      // Filter by repository if selected (include items with no repo for backwards compatibility)
+      if (selectedRepoId) {
+        query = query.or(
+          `repository_id.eq.${selectedRepoId},repository_id.is.null`,
+        );
+      }
+
+      const { data, error: fetchError } = await query.order('created_at', {
+        ascending: false,
+      });
 
       if (fetchError) {
         throw fetchError;
@@ -62,14 +76,16 @@ export function FilteredItemsTab({ onRestoreComplete }: FilteredItemsTabProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [client]);
+  }, [client, selectedRepoId]);
 
   useEffect(() => {
     void fetchFilteredItems();
   }, [fetchFilteredItems]);
 
   const handleRestore = async (item: FilteredItem) => {
-    if (!client) {return;}
+    if (!client) {
+      return;
+    }
 
     setRestoringId(item.id);
 

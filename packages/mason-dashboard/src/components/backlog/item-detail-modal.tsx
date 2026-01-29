@@ -26,7 +26,6 @@ import { PriorityDots } from './priority-dots';
 import { QuickWinBadge } from './QuickWinBadge';
 import { TypeBadge } from './type-badge';
 
-
 interface ItemDetailModalProps {
   item: BacklogItem;
   onClose: () => void;
@@ -82,7 +81,8 @@ export function ItemDetailModal({
   onUpdatePrd,
   initialViewMode = 'details',
 }: ItemDetailModalProps) {
-  const [isGenerating, setIsGenerating] = useState(false);
+  // Note: isGenerating kept for potential legacy item PRD generation via API
+  const [_isGenerating, setIsGenerating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -119,19 +119,25 @@ export function ItemDetailModal({
   };
 
   const handleCancelEdit = () => {
-    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {return;}
+    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {
+      return;
+    }
     setIsEditingPrd(false);
     setEditedPrdContent('');
   };
 
   const handleClose = () => {
-    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {return;}
+    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {
+      return;
+    }
     setIsEditingPrd(false);
     onClose();
   };
 
   const handleTabChange = (newMode: ViewMode) => {
-    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {return;}
+    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {
+      return;
+    }
     setIsEditingPrd(false);
     setViewMode(newMode);
   };
@@ -159,11 +165,6 @@ export function ItemDetailModal({
         case 'Escape':
           handleClose();
           break;
-        case 'g':
-          if (!isGenerating && !item.prd_content) {
-            void handleGeneratePrd();
-          }
-          break;
         case 'a':
           if (item.status === 'new' && !isUpdating) {
             void handleStatusChange('approved');
@@ -184,9 +185,10 @@ export function ItemDetailModal({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [item, isGenerating, isUpdating, isEditingPrd, isPrdDirty, viewMode]);
+  }, [item, isUpdating, isEditingPrd, isPrdDirty, viewMode]);
 
-  const handleGeneratePrd = async () => {
+  // Note: handleGeneratePrd kept for potential legacy item PRD generation via API
+  const _handleGeneratePrd = async () => {
     setIsGenerating(true);
     setError(null);
     try {
@@ -254,9 +256,15 @@ export function ItemDetailModal({
   const statusConfig = STATUS_CONFIG[item.status];
 
   const getPriorityLabel = () => {
-    if (item.impact_score >= 9) {return 'Critical Priority';}
-    if (item.impact_score >= 7) {return 'High Priority';}
-    if (item.impact_score >= 5) {return 'Medium Priority';}
+    if (item.impact_score >= 9) {
+      return 'Critical Priority';
+    }
+    if (item.impact_score >= 7) {
+      return 'High Priority';
+    }
+    if (item.impact_score >= 5) {
+      return 'Medium Priority';
+    }
     return 'Low Priority';
   };
 
@@ -737,25 +745,20 @@ export function ItemDetailModal({
               <div className="flex items-center justify-between gap-4 p-6">
                 {/* Left Actions */}
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={
-                      item.prd_content
-                        ? () => handleTabChange('prd')
-                        : handleGeneratePrd
-                    }
-                    disabled={isGenerating}
-                    className="flex items-center gap-2 px-5 py-2.5 text-sm border border-gray-700 text-gray-300 hover:bg-white/5 hover:border-gray-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                    title={item.prd_content ? '' : 'Press G to generate'}
-                  >
-                    <FileText className="w-4 h-4" />
-                    {isGenerating
-                      ? 'Generating...'
-                      : item.prd_content
-                        ? 'View PRD'
-                        : 'Generate PRD'}
-                  </button>
+                  {item.prd_content && (
+                    <button
+                      onClick={() => handleTabChange('prd')}
+                      className="flex items-center gap-2 px-5 py-2.5 text-sm border border-gray-700 text-gray-300 hover:bg-white/5 hover:border-gray-600 transition-all font-medium"
+                    >
+                      <FileText className="w-4 h-4" />
+                      View PRD
+                    </button>
+                  )}
+                </div>
 
-                  {item.status === 'new' && (
+                {/* Right Actions */}
+                {item.status === 'new' && (
+                  <div className="flex items-center gap-3">
                     <button
                       onClick={() => handleStatusChange('rejected')}
                       disabled={isUpdating}
@@ -765,26 +768,12 @@ export function ItemDetailModal({
                       <X className="w-4 h-4" />
                       Reject
                     </button>
-                  )}
-                </div>
-
-                {/* Right Actions */}
-                {item.status === 'new' && (
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleStatusChange('approved')}
-                      disabled={isUpdating || isGenerating}
-                      className="flex items-center gap-2 px-5 py-2.5 text-sm border border-green-600/30 text-green-400 hover:bg-green-600/10 hover:border-green-600/50 transition-all disabled:opacity-50 font-medium"
-                      title="Press A to approve"
-                    >
-                      <Check className="w-4 h-4" />
-                      Approve
-                    </button>
 
                     <button
                       onClick={() => handleStatusChange('approved')}
                       disabled={isUpdating}
                       className="flex items-center gap-2 px-6 py-2.5 text-sm bg-gold text-navy font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-lg"
+                      title="Press A to approve"
                     >
                       <Check className="w-4 h-4" />
                       {isUpdating ? 'Approving...' : 'Approve'}
@@ -816,14 +805,6 @@ export function ItemDetailModal({
                       <span>reject</span>
                     </div>
                   </>
-                )}
-                {!item.prd_content && (
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-gray-800 text-gray-400 rounded font-mono">
-                      G
-                    </kbd>
-                    <span>generate PRD</span>
-                  </div>
                 )}
                 {viewMode === 'prd' && item.prd_content && !isEditingPrd && (
                   <div className="flex items-center gap-2">

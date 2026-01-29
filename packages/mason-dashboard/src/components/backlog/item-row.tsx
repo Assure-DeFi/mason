@@ -147,14 +147,14 @@ export function ItemRow({
           <button
             onClick={() => onPrdClick?.(item)}
             className="inline-flex items-center justify-center hover:scale-110 transition-transform"
-            title="PRD available - click to view"
+            title="View PRD"
           >
             <FileText className="w-5 h-5 text-gold fill-gold" />
           </button>
         ) : (
           <div
             className="inline-flex items-center justify-center"
-            title="No PRD generated (legacy item)"
+            title="No PRD (legacy item)"
           >
             <FileText className="w-5 h-5 text-gray-600" />
           </div>

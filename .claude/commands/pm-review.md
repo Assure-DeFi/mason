@@ -8,9 +8,9 @@ This command performs a comprehensive analysis of the codebase to identify impro
 
 ## Modes
 
-- `full` (default): Generate 10-20 improvements + 3 PRDs for top items
+- `full` (default): Generate 10-20 improvements with PRDs for ALL items
 - `area:<name>`: Focus on specific area (frontend-ux, api-backend, reliability, security, code-quality)
-- `quick`: Generate 5-7 quick wins only (low effort, high impact)
+- `quick`: Generate 5-7 quick wins only (low effort, high impact) with PRDs for ALL items
 
 Usage: `/pm-review [mode]`
 
@@ -316,9 +316,57 @@ if [ -z "$REPOSITORY_ID" ]; then
 fi
 ```
 
-#### Step 6c: Write Data Directly to User's Supabase
+#### Step 6c: Generate PRDs for ALL Items
 
-Then, write the improvements directly to the user's own Supabase using the REST API:
+Before submitting to the database, generate a PRD for EVERY validated item. This ensures all items arrive in the dashboard with complete PRD documentation.
+
+For each improvement, generate a PRD following this structure:
+
+```markdown
+# PRD: [Title]
+
+## Problem Statement
+
+[Clear description of the problem]
+
+## Proposed Solution
+
+[Detailed solution description]
+
+## Success Criteria
+
+- [ ] Criterion 1
+- [ ] Criterion 2
+
+## Technical Approach
+
+### Wave 1: Foundation
+
+[Tasks that can run in parallel, no dependencies]
+
+### Wave 2: Implementation
+
+[Tasks blocked by Wave 1]
+
+### Wave 3: Validation
+
+[Testing, review, polish]
+
+## Risks & Mitigations
+
+| Risk | Mitigation |
+| ---- | ---------- |
+
+## Out of Scope
+
+- [Explicitly excluded items]
+```
+
+Store the generated PRD content with each item for inclusion in the database INSERT.
+
+#### Step 6d: Write Data Directly to User's Supabase
+
+Write the improvements (WITH PRDs) directly to the user's own Supabase using the REST API:
 
 ```bash
 # Generate a UUID for the analysis run
@@ -341,8 +389,8 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
     "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")'
   }'
 
-# Step 2: Insert backlog items with repository_id for multi-repo support
-# Note: repository_id enables filtering by repo in the dashboard
+# Step 2: Insert backlog items with repository_id AND prd_content
+# Note: ALL items now include their generated PRD
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -361,7 +409,9 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
       "effort_score": 2,
       "complexity": 2,
       "benefits": [...],
-      "status": "new"
+      "status": "new",
+      "prd_content": "# PRD: Add data freshness timestamps\n\n## Problem Statement\n...",
+      "prd_generated_at": "'${TIMESTAMP}'"
     }
   ]'
 ```
@@ -373,13 +423,14 @@ After successful submission, show:
 ```
 Analysis submitted successfully!
 Items created: 15
+PRDs generated: 15
 Data stored in: YOUR Supabase (not central server)
 View in Dashboard: https://mason.assuredefi.com/admin/backlog
 ```
 
-### Step 7: Generate PRDs (Full Mode Only)
+### Step 7: (Deprecated - PRDs now generated in Step 6c)
 
-For the top 3 items by priority score, generate detailed PRDs following this structure:
+PRD generation has been moved to Step 6c. All items now include PRDs at submission time. This step is kept for reference only.
 
 ```markdown
 # PRD: [Title]
@@ -432,7 +483,7 @@ After analysis, provide a summary:
 
 **Mode**: [full/area:X/quick]
 **Items Found**: [count]
-**PRDs Generated**: [count]
+**PRDs Generated**: [count] (all items)
 
 ### Top Improvements by Priority
 

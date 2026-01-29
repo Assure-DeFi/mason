@@ -1,43 +1,31 @@
 'use client';
 
-import { FileText, Check, X, Loader2, Download, RotateCcw } from 'lucide-react';
+import { Check, X, Loader2, Download, RotateCcw } from 'lucide-react';
 
 import type { BacklogItem } from '@/types/backlog';
 
-interface BulkProgress {
-  current: number;
-  total: number;
-}
-
 interface BulkActionsBarProps {
   selectedItems: BacklogItem[];
-  onGeneratePrds: (ids: string[]) => Promise<void>;
   onApprove: (ids: string[]) => void;
   onReject: (ids: string[]) => void;
   onRestore: (ids: string[]) => void;
   onClearSelection: () => void;
-  isGenerating: boolean;
   isApproving: boolean;
   isRejecting: boolean;
   isRestoring: boolean;
-  generationProgress?: BulkProgress | null;
 }
 
 export function BulkActionsBar({
   selectedItems,
-  onGeneratePrds,
   onApprove,
   onReject,
   onRestore,
   onClearSelection,
-  isGenerating,
   isApproving,
   isRejecting,
   isRestoring,
-  generationProgress,
 }: BulkActionsBarProps) {
   const count = selectedItems.length;
-  const itemsWithoutPrd = selectedItems.filter((item) => !item.prd_content);
   const itemsWithPrd = selectedItems.filter((item) => item.prd_content);
   const itemsNeedingApproval = selectedItems.filter(
     (item) => item.status === 'new',
@@ -46,11 +34,12 @@ export function BulkActionsBar({
     (item) => item.status === 'rejected',
   );
 
-  const isAnyLoading =
-    isGenerating || isApproving || isRejecting || isRestoring;
+  const isAnyLoading = isApproving || isRejecting || isRestoring;
 
   const handleExportPrds = () => {
-    if (itemsWithPrd.length === 0) {return;}
+    if (itemsWithPrd.length === 0) {
+      return;
+    }
 
     const markdown = itemsWithPrd
       .map((item) => {
@@ -85,7 +74,9 @@ ${item.prd_content}
     URL.revokeObjectURL(url);
   };
 
-  if (count === 0) {return null;}
+  if (count === 0) {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
@@ -97,34 +88,6 @@ ${item.prd_content}
             item{count !== 1 ? 's' : ''} selected
           </span>
         </div>
-
-        {/* Generate PRDs Button */}
-        <button
-          onClick={() => onGeneratePrds(itemsWithoutPrd.map((item) => item.id))}
-          disabled={isAnyLoading || itemsWithoutPrd.length === 0}
-          className="flex items-center gap-2 px-4 py-2 bg-gold/10 border border-gold/30 text-gold font-medium hover:bg-gold/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          title={
-            itemsWithoutPrd.length === 0
-              ? 'All selected items have PRDs'
-              : `Generate PRDs for ${itemsWithoutPrd.length} item${itemsWithoutPrd.length !== 1 ? 's' : ''}`
-          }
-        >
-          {isGenerating ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <FileText className="w-4 h-4" />
-          )}
-          <span>
-            {isGenerating && generationProgress
-              ? `Generating ${generationProgress.current}/${generationProgress.total}`
-              : 'Generate PRDs'}
-          </span>
-          {!isGenerating && itemsWithoutPrd.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 text-xs bg-gold/20 text-gold">
-              {itemsWithoutPrd.length}
-            </span>
-          )}
-        </button>
 
         {/* Export PRDs Button */}
         <button
