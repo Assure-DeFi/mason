@@ -8,9 +8,9 @@ This command performs a comprehensive analysis of the codebase to identify impro
 
 ## Modes
 
-- `full` (default): Generate 10-20 improvements with PRDs for ALL items
+- `full` (default): Generate 10-20 improvements with PRDs for all items
 - `area:<name>`: Focus on specific area (frontend-ux, api-backend, reliability, security, code-quality)
-- `quick`: Generate 5-7 quick wins only (low effort, high impact) with PRDs for ALL items
+- `quick`: Generate 5-7 quick wins only (low effort, high impact)
 
 Usage: `/pm-review [mode]`
 
@@ -72,9 +72,169 @@ Focus on: Dashboard components in src/components/dashboard/
 
 ## Process
 
+### Step 0: Initialize Domain Knowledge (if needed)
+
+Before starting analysis, check if domain knowledge needs to be generated.
+
+**Check if domain knowledge file is populated:**
+
+1. Read `.claude/skills/pm-domain-knowledge/SKILL.md`
+2. If it contains template placeholders (`[PROJECT_NAME]`, `[Goal 1]`, `[type of application]`), the file needs initialization
+3. If the file doesn't exist or contains placeholders, proceed with initialization below
+4. If the file is already populated (no placeholders), skip to Step 1
+
+**If initialization is needed:**
+
+#### A. Ask 3 Quick Questions
+
+Use the AskUserQuestion tool with these 3 questions in a single call:
+
+```json
+{
+  "questions": [
+    {
+      "question": "What matters most to your team right now?",
+      "header": "Priorities",
+      "multiSelect": true,
+      "options": [
+        {
+          "label": "Ship features quickly",
+          "description": "Focus on delivering new functionality fast"
+        },
+        {
+          "label": "Stability/reliability",
+          "description": "Reduce bugs, improve uptime"
+        },
+        {
+          "label": "User experience",
+          "description": "Polish UI, reduce friction"
+        },
+        {
+          "label": "Security",
+          "description": "Harden auth, fix vulnerabilities"
+        }
+      ]
+    },
+    {
+      "question": "Who primarily uses this application?",
+      "header": "Users",
+      "multiSelect": false,
+      "options": [
+        {
+          "label": "Developers/technical",
+          "description": "CLI users, API consumers, technical staff"
+        },
+        {
+          "label": "Business/non-technical",
+          "description": "End users who need intuitive UI"
+        },
+        {
+          "label": "Mixed audience",
+          "description": "Both technical and non-technical users"
+        }
+      ]
+    },
+    {
+      "question": "Any areas that should NOT receive improvement suggestions?",
+      "header": "Off-limits",
+      "multiSelect": false,
+      "options": [
+        {
+          "label": "No off-limits areas",
+          "description": "Analyze the entire codebase"
+        },
+        {
+          "label": "Yes, exclude some areas",
+          "description": "Use 'Other' to specify areas to skip"
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### B. Auto-Detect from Repository
+
+Gather project information automatically:
+
+| Field           | Detection Strategy                                          |
+| --------------- | ----------------------------------------------------------- |
+| Project Name    | `package.json` name field, or directory name as fallback    |
+| Description     | `package.json` description, or first paragraph of README.md |
+| Tech Stack      | Parse dependencies (react, next, express, supabase, etc.)   |
+| Tech Debt Count | Count of TODO, FIXME, @todo, HACK comments in codebase      |
+
+**Detection commands:**
+
+```bash
+# Project name and description
+jq -r '.name // empty' package.json 2>/dev/null
+jq -r '.description // empty' package.json 2>/dev/null
+
+# Tech stack from dependencies
+jq -r '.dependencies // {} | keys[]' package.json 2>/dev/null | head -20
+
+# Tech debt count
+grep -r -E '(TODO|FIXME|@todo|HACK):?' --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | wc -l
+```
+
+#### C. Map User Answers to Domain Knowledge
+
+**Priority Mapping:**
+
+| User Selection        | Domain Priority Weights                                         |
+| --------------------- | --------------------------------------------------------------- |
+| Ship features quickly | frontend-ux: High, api-backend: High, code-quality: Low         |
+| Stability/reliability | reliability: Critical, code-quality: High, frontend-ux: Medium  |
+| User experience       | frontend-ux: Critical, api-backend: Medium, reliability: Medium |
+| Security              | security: Critical, reliability: High, code-quality: Medium     |
+
+**User Persona Mapping:**
+
+| User Selection         | Generated Persona                                                       |
+| ---------------------- | ----------------------------------------------------------------------- |
+| Developers/technical   | Technical users comfortable with CLI/APIs, value efficiency over polish |
+| Business/non-technical | Non-technical users who need intuitive UI and clear messaging           |
+| Mixed audience         | Both technical and non-technical users with varying skill sets          |
+
+**Off-Limits Mapping:**
+
+| User Selection          | Off-Limits Section                              |
+| ----------------------- | ----------------------------------------------- |
+| No off-limits areas     | Leave section empty with "None specified"       |
+| Yes, exclude some areas | Parse the "Other" text input into bullet points |
+
+#### D. Generate Domain Knowledge File
+
+Write the populated domain knowledge to `.claude/skills/pm-domain-knowledge/SKILL.md` using the Write tool. Include:
+
+1. Auto-generated header comment: `<!-- Auto-generated by /pm-review. Edit to customize. -->`
+2. Project overview from auto-detection
+3. User personas from user answer
+4. Domain priorities from user answer
+5. Off-limits areas from user answer
+6. Sensible defaults for other sections
+
+#### E. Show Summary and Continue
+
+Display a brief summary:
+
+```
+Domain knowledge initialized for [Project Name]
+  Priorities: [user selections]
+  Users: [user selection]
+  Saved to: .claude/skills/pm-domain-knowledge/SKILL.md
+
+Continuing with PM review...
+```
+
+Then proceed to Step 1.
+
+---
+
 ### Step 1: Load Domain Knowledge
 
-First, load any domain-specific knowledge from `.claude/skills/pm-domain-knowledge/` if it exists. This provides context about:
+Load the domain-specific knowledge from `.claude/skills/pm-domain-knowledge/SKILL.md`. This provides context about:
 
 - Business goals and priorities
 - Technical constraints
@@ -316,57 +476,9 @@ if [ -z "$REPOSITORY_ID" ]; then
 fi
 ```
 
-#### Step 6c: Generate PRDs for ALL Items
+#### Step 6c: Write Data Directly to User's Supabase
 
-Before submitting to the database, generate a PRD for EVERY validated item. This ensures all items arrive in the dashboard with complete PRD documentation.
-
-For each improvement, generate a PRD following this structure:
-
-```markdown
-# PRD: [Title]
-
-## Problem Statement
-
-[Clear description of the problem]
-
-## Proposed Solution
-
-[Detailed solution description]
-
-## Success Criteria
-
-- [ ] Criterion 1
-- [ ] Criterion 2
-
-## Technical Approach
-
-### Wave 1: Foundation
-
-[Tasks that can run in parallel, no dependencies]
-
-### Wave 2: Implementation
-
-[Tasks blocked by Wave 1]
-
-### Wave 3: Validation
-
-[Testing, review, polish]
-
-## Risks & Mitigations
-
-| Risk | Mitigation |
-| ---- | ---------- |
-
-## Out of Scope
-
-- [Explicitly excluded items]
-```
-
-Store the generated PRD content with each item for inclusion in the database INSERT.
-
-#### Step 6d: Write Data Directly to User's Supabase
-
-Write the improvements (WITH PRDs) directly to the user's own Supabase using the REST API:
+Then, write the improvements directly to the user's own Supabase using the REST API:
 
 ```bash
 # Generate a UUID for the analysis run
@@ -389,8 +501,8 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
     "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")'
   }'
 
-# Step 2: Insert backlog items with repository_id AND prd_content
-# Note: ALL items now include their generated PRD
+# Step 2: Insert backlog items with repository_id for multi-repo support
+# Note: repository_id enables filtering by repo in the dashboard
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -409,9 +521,7 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
       "effort_score": 2,
       "complexity": 2,
       "benefits": [...],
-      "status": "new",
-      "prd_content": "# PRD: Add data freshness timestamps\n\n## Problem Statement\n...",
-      "prd_generated_at": "'${TIMESTAMP}'"
+      "status": "new"
     }
   ]'
 ```
@@ -423,56 +533,97 @@ After successful submission, show:
 ```
 Analysis submitted successfully!
 Items created: 15
-PRDs generated: 15
 Data stored in: YOUR Supabase (not central server)
 View in Dashboard: https://mason.assuredefi.com/admin/backlog
 ```
 
-### Step 7: (Deprecated - PRDs now generated in Step 6c)
+### Step 7: Generate PRDs (All Items, All Modes)
 
-PRD generation has been moved to Step 6c. All items now include PRDs at submission time. This step is kept for reference only.
+For EVERY backlog item generated, create a detailed PRD. This ensures all items arrive in the dashboard complete and ready for approval.
+
+**PRD Structure:**
 
 ```markdown
 # PRD: [Title]
 
 ## Problem Statement
 
-[Clear description of the problem]
+[From item.problem - expanded with context]
 
 ## Proposed Solution
 
-[Detailed solution description]
+[From item.solution - expanded with implementation details]
 
 ## Success Criteria
 
-- [ ] Criterion 1
-- [ ] Criterion 2
+- [ ] [Measurable criterion based on the problem being solved]
+- [ ] [User-observable improvement or metric]
+- [ ] [Technical validation criterion]
 
 ## Technical Approach
 
-### Wave 1: Foundation
+### Wave 1: Foundation (Explore subagent)
 
-[Tasks that can run in parallel, no dependencies]
+| #   | Subagent | Task                                        |
+| --- | -------- | ------------------------------------------- |
+| 1.1 | Explore  | Research existing patterns and dependencies |
+| 1.2 | Explore  | Identify affected components and files      |
 
-### Wave 2: Implementation
+### Wave 2: Implementation (general-purpose subagent)
 
-[Tasks blocked by Wave 1]
+| #   | Subagent        | Task                            |
+| --- | --------------- | ------------------------------- |
+| 2.1 | general-purpose | Implement core changes          |
+| 2.2 | general-purpose | Add tests for new functionality |
 
-### Wave 3: Validation
+### Wave 3: Validation (code-reviewer subagent)
 
-[Testing, review, polish]
+| #   | Subagent      | Task                                         |
+| --- | ------------- | -------------------------------------------- |
+| 3.1 | code-reviewer | Review all changes for quality and standards |
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-| ---- | ---------- |
+| Risk                        | Mitigation                     |
+| --------------------------- | ------------------------------ |
+| [Based on complexity score] | [Specific mitigation strategy] |
 
 ## Out of Scope
 
-- [Explicitly excluded items]
+- [Explicitly excluded items to prevent scope creep]
 ```
 
-Store the PRD content in the `prd_content` field and set `prd_generated_at`.
+**Include PRD in submission payload:**
+
+When submitting backlog items in Step 6c, include the PRD content:
+
+```json
+{
+  "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+  "repository_id": "${REPOSITORY_ID}",
+  "title": "...",
+  "problem": "...",
+  "solution": "...",
+  "type": "...",
+  "area": "...",
+  "impact_score": 8,
+  "effort_score": 3,
+  "complexity": 2,
+  "benefits": [...],
+  "status": "new",
+  "prd_content": "# PRD: [Title]\n\n## Problem Statement\n...",
+  "prd_generated_at": "'${TIMESTAMP}'"
+}
+```
+
+**PRD Quality Guidelines:**
+
+1. **Problem Statement**: Expand on `item.problem` with user impact and business context
+2. **Proposed Solution**: Expand on `item.solution` with specific implementation approach
+3. **Success Criteria**: 3-5 measurable criteria that indicate the problem is solved
+4. **Technical Approach**: Use wave-based parallel execution (per parallel-task-execution.md rules)
+5. **Risks**: Scale complexity based on item's `complexity` score (1-5)
+6. **Out of Scope**: Prevent scope creep by explicitly listing what won't be addressed
 
 ## Output Format
 

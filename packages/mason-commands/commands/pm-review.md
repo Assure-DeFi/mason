@@ -72,9 +72,169 @@ Focus on: Dashboard components in src/components/dashboard/
 
 ## Process
 
+### Step 0: Initialize Domain Knowledge (if needed)
+
+Before starting analysis, check if domain knowledge needs to be generated.
+
+**Check if domain knowledge file is populated:**
+
+1. Read `.claude/skills/pm-domain-knowledge/SKILL.md`
+2. If it contains template placeholders (`[PROJECT_NAME]`, `[Goal 1]`, `[type of application]`), the file needs initialization
+3. If the file doesn't exist or contains placeholders, proceed with initialization below
+4. If the file is already populated (no placeholders), skip to Step 1
+
+**If initialization is needed:**
+
+#### A. Ask 3 Quick Questions
+
+Use the AskUserQuestion tool with these 3 questions in a single call:
+
+```json
+{
+  "questions": [
+    {
+      "question": "What matters most to your team right now?",
+      "header": "Priorities",
+      "multiSelect": true,
+      "options": [
+        {
+          "label": "Ship features quickly",
+          "description": "Focus on delivering new functionality fast"
+        },
+        {
+          "label": "Stability/reliability",
+          "description": "Reduce bugs, improve uptime"
+        },
+        {
+          "label": "User experience",
+          "description": "Polish UI, reduce friction"
+        },
+        {
+          "label": "Security",
+          "description": "Harden auth, fix vulnerabilities"
+        }
+      ]
+    },
+    {
+      "question": "Who primarily uses this application?",
+      "header": "Users",
+      "multiSelect": false,
+      "options": [
+        {
+          "label": "Developers/technical",
+          "description": "CLI users, API consumers, technical staff"
+        },
+        {
+          "label": "Business/non-technical",
+          "description": "End users who need intuitive UI"
+        },
+        {
+          "label": "Mixed audience",
+          "description": "Both technical and non-technical users"
+        }
+      ]
+    },
+    {
+      "question": "Any areas that should NOT receive improvement suggestions?",
+      "header": "Off-limits",
+      "multiSelect": false,
+      "options": [
+        {
+          "label": "No off-limits areas",
+          "description": "Analyze the entire codebase"
+        },
+        {
+          "label": "Yes, exclude some areas",
+          "description": "Use 'Other' to specify areas to skip"
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### B. Auto-Detect from Repository
+
+Gather project information automatically:
+
+| Field           | Detection Strategy                                          |
+| --------------- | ----------------------------------------------------------- |
+| Project Name    | `package.json` name field, or directory name as fallback    |
+| Description     | `package.json` description, or first paragraph of README.md |
+| Tech Stack      | Parse dependencies (react, next, express, supabase, etc.)   |
+| Tech Debt Count | Count of TODO, FIXME, @todo, HACK comments in codebase      |
+
+**Detection commands:**
+
+```bash
+# Project name and description
+jq -r '.name // empty' package.json 2>/dev/null
+jq -r '.description // empty' package.json 2>/dev/null
+
+# Tech stack from dependencies
+jq -r '.dependencies // {} | keys[]' package.json 2>/dev/null | head -20
+
+# Tech debt count
+grep -r -E '(TODO|FIXME|@todo|HACK):?' --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | wc -l
+```
+
+#### C. Map User Answers to Domain Knowledge
+
+**Priority Mapping:**
+
+| User Selection        | Domain Priority Weights                                         |
+| --------------------- | --------------------------------------------------------------- |
+| Ship features quickly | frontend-ux: High, api-backend: High, code-quality: Low         |
+| Stability/reliability | reliability: Critical, code-quality: High, frontend-ux: Medium  |
+| User experience       | frontend-ux: Critical, api-backend: Medium, reliability: Medium |
+| Security              | security: Critical, reliability: High, code-quality: Medium     |
+
+**User Persona Mapping:**
+
+| User Selection         | Generated Persona                                                       |
+| ---------------------- | ----------------------------------------------------------------------- |
+| Developers/technical   | Technical users comfortable with CLI/APIs, value efficiency over polish |
+| Business/non-technical | Non-technical users who need intuitive UI and clear messaging           |
+| Mixed audience         | Both technical and non-technical users with varying skill sets          |
+
+**Off-Limits Mapping:**
+
+| User Selection          | Off-Limits Section                              |
+| ----------------------- | ----------------------------------------------- |
+| No off-limits areas     | Leave section empty with "None specified"       |
+| Yes, exclude some areas | Parse the "Other" text input into bullet points |
+
+#### D. Generate Domain Knowledge File
+
+Write the populated domain knowledge to `.claude/skills/pm-domain-knowledge/SKILL.md` using the Write tool. Include:
+
+1. Auto-generated header comment: `<!-- Auto-generated by /pm-review. Edit to customize. -->`
+2. Project overview from auto-detection
+3. User personas from user answer
+4. Domain priorities from user answer
+5. Off-limits areas from user answer
+6. Sensible defaults for other sections
+
+#### E. Show Summary and Continue
+
+Display a brief summary:
+
+```
+Domain knowledge initialized for [Project Name]
+  Priorities: [user selections]
+  Users: [user selection]
+  Saved to: .claude/skills/pm-domain-knowledge/SKILL.md
+
+Continuing with PM review...
+```
+
+Then proceed to Step 1.
+
+---
+
 ### Step 1: Load Domain Knowledge
 
-First, load any domain-specific knowledge from `.claude/skills/pm-domain-knowledge/` if it exists. This provides context about:
+Load the domain-specific knowledge from `.claude/skills/pm-domain-knowledge/SKILL.md`. This provides context about:
 
 - Business goals and priorities
 - Technical constraints
