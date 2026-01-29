@@ -8,7 +8,7 @@ import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration'
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
 import { StatsBar } from '@/components/backlog/stats-bar';
-import { StatusTabs } from '@/components/backlog/status-tabs';
+import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
 import { UserMenu } from '@/components/auth/user-menu';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
@@ -19,7 +19,7 @@ import { OnboardingProgress } from '@/components/ui/OnboardingProgress';
 import { QuickStartFAB } from '@/components/ui/QuickStartFAB';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
-import type { BacklogItem, BacklogStatus, StatusCounts } from '@/types/backlog';
+import type { BacklogItem, BacklogStatus, StatusCounts, SortField, SortDirection } from '@/types/backlog';
 import { RefreshCw, Database, ArrowRight } from 'lucide-react';
 
 export default function BacklogPage() {
@@ -28,7 +28,7 @@ export default function BacklogPage() {
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [activeStatus, setActiveStatus] = useState<BacklogStatus | null>('new');
+  const [activeStatus, setActiveStatus] = useState<TabStatus>('new');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedToast, setCopiedToast] = useState(false);
@@ -36,6 +36,18 @@ export default function BacklogPage() {
   const [executionRunId, setExecutionRunId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [sort, setSort] = useState<{ field: SortField; direction: SortDirection } | null>(null);
+
+  const handleSortChange = useCallback((field: SortField) => {
+    setSort((prev) => {
+      if (prev?.field === field) {
+        return prev.direction === 'asc'
+          ? { field, direction: 'desc' }
+          : null;
+      }
+      return { field, direction: 'asc' };
+    });
+  }, []);
 
   const fetchItems = useCallback(async () => {
     if (!client || !session?.user) {
@@ -382,6 +394,8 @@ export default function BacklogPage() {
             onSelectItem={handleSelectItem}
             onSelectAll={handleSelectAll}
             onItemClick={setSelectedItem}
+            sort={sort}
+            onSortChange={handleSortChange}
           />
         )}
       </div>
