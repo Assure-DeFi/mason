@@ -39,6 +39,10 @@ export function ExecutionProgress({ runId, onClose }: ExecutionProgressProps) {
           setStatus(data.status);
           setPrUrl(data.pr_url);
           eventSource.close();
+        } else if (data.type === 'error') {
+          setError(data.message || 'An error occurred during execution');
+          setStatus('failed');
+          eventSource.close();
         } else {
           setLogs((prev) => [...prev, data]);
         }
