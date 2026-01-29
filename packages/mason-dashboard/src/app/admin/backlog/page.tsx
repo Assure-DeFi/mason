@@ -250,17 +250,30 @@ function BacklogPageContent() {
 
     try {
       // Fetch items that match the selected repo OR have no repo assigned (legacy items)
-      const { data, error: fetchError } = await client
-        .from('mason_pm_backlog_items')
-        .select('*')
-        .or(`repository_id.eq.${selectedRepoId},repository_id.is.null`)
-        .order('priority_score', { ascending: false });
+      // Using two queries and merging results for better compatibility
+      const [repoItems, legacyItems] = await Promise.all([
+        client
+          .from('mason_pm_backlog_items')
+          .select('*')
+          .eq('repository_id', selectedRepoId)
+          .order('priority_score', { ascending: false }),
+        client
+          .from('mason_pm_backlog_items')
+          .select('*')
+          .is('repository_id', null)
+          .order('priority_score', { ascending: false }),
+      ]);
 
-      if (fetchError) {
-        throw fetchError;
-      }
+      if (repoItems.error) throw repoItems.error;
+      if (legacyItems.error) throw legacyItems.error;
 
-      setItems(data || []);
+      // Merge and dedupe results, sort by priority
+      const allItems = [...(repoItems.data || []), ...(legacyItems.data || [])];
+      const uniqueItems = Array.from(
+        new Map(allItems.map((item) => [item.id, item])).values(),
+      ).sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0));
+
+      setItems(uniqueItems);
 
       // Also fetch filtered count
       fetchFilteredCount();
