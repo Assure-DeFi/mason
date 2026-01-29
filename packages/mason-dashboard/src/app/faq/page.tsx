@@ -1,424 +1,483 @@
 'use client';
 
+import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import {
-  Search,
   ChevronDown,
   ChevronUp,
-  HelpCircle,
+  Search,
+  ArrowLeft,
+  Terminal,
+  Database,
+  Github,
+  Shield,
+  Cpu,
+  Wrench,
+  AlertTriangle,
 } from 'lucide-react';
-import Link from 'next/link';
-import { useState, useMemo } from 'react';
-
 import { UserMenu } from '@/components/auth/user-menu';
-import { MasonMark } from '@/components/brand';
 
 interface FAQItem {
   question: string;
   answer: string;
-  category: string;
 }
 
-const FAQ_ITEMS: FAQItem[] = [
-  // Getting Started
-  {
-    category: 'Getting Started',
-    question: 'What is Mason?',
-    answer:
-      'Mason is an AI-powered tool for continuous codebase improvement. It analyzes your repositories, identifies potential improvements, and helps you implement them systematically. Unlike other tools, Mason stores all data in your own Supabase database, ensuring complete privacy.',
-  },
-  {
-    category: 'Getting Started',
-    question: 'How do I get started with Mason?',
-    answer:
-      'To get started: 1) Sign in with your GitHub account, 2) Set up your Supabase database by providing your project URL and service role key, 3) Connect a GitHub repository, and 4) Run /pm-review in Claude Code to analyze your codebase. The Setup wizard will guide you through each step.',
-  },
-  {
-    category: 'Getting Started',
-    question: 'Is Mason free to use?',
-    answer:
-      'Mason is open-source and free to use. You will need your own Supabase account (free tier available) and AI provider API keys (OpenAI, Anthropic, or Google) to use the analysis features.',
-  },
+interface FAQCategory {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  items: FAQItem[];
+}
 
-  // Privacy & Security
+const FAQ_DATA: FAQCategory[] = [
   {
-    category: 'Privacy & Security',
-    question: 'Where is my data stored?',
-    answer:
-      'All your data is stored in your own Supabase database. Mason does not have access to your repositories, improvement items, API keys, or any other data. We only host the open-source UI - everything else stays with you.',
+    id: 'getting-started',
+    title: 'Getting Started',
+    icon: <Terminal className="w-5 h-5" />,
+    items: [
+      {
+        question: 'What is Mason?',
+        answer:
+          "Mason is an AI-powered tool that reviews your codebase and suggests improvements. It works through Claude Code (Anthropic's CLI) and stores all data in YOUR Supabase database - nothing is stored on Mason servers.",
+      },
+      {
+        question: 'What is Claude Code and how do I install it?',
+        answer:
+          "Claude Code is Anthropic's official command-line interface for Claude. You can install it by visiting anthropic.com/claude-code. Mason uses Claude Code to analyze your codebase and execute approved improvements.",
+      },
+      {
+        question: 'What do I need to get started?',
+        answer:
+          'You need: 1) Claude Code installed, 2) A GitHub account for authentication, 3) A free Supabase account for your database, and 4) About 5 minutes to complete setup.',
+      },
+      {
+        question: 'How does the setup process work?',
+        answer:
+          'The setup wizard guides you through: 1) Signing in with GitHub, 2) Connecting your Supabase database, 3) Generating an API key for the CLI. After setup, you can run /pm-review in Claude Code to start analyzing your codebase.',
+      },
+      {
+        question: 'Is Mason free to use?',
+        answer:
+          "Mason itself is free. You'll need your own Anthropic API key for Claude Code usage, and a free Supabase account for your database. Supabase's free tier is generous and sufficient for most users.",
+      },
+    ],
   },
   {
-    category: 'Privacy & Security',
-    question: 'Can Assure DeFi see my code or data?',
-    answer:
-      'No. Assure DeFi has zero access to your repositories, improvements, or any other data. Your Supabase credentials are stored only in your browser and sent directly to your database. The Mason UI is completely stateless.',
+    id: 'privacy-security',
+    title: 'Privacy & Security',
+    icon: <Shield className="w-5 h-5" />,
+    items: [
+      {
+        question: 'Where is my data stored?',
+        answer:
+          "All your data (backlog items, PRDs, analysis results) is stored in YOUR Supabase database. Mason's central server only knows who you are and what repos you've connected - it never sees your actual data.",
+      },
+      {
+        question: 'Can Mason developers see my code?',
+        answer:
+          'No. Your code analysis happens locally through Claude Code. Results are stored in your own Supabase database. We have no access to your code, analysis results, or any data in your database.',
+      },
+      {
+        question: 'What data does Mason collect?',
+        answer:
+          "Our central server stores only: your GitHub user ID, username, email, avatar URL, and which repositories you've connected. Everything else stays in your Supabase.",
+      },
+      {
+        question: 'How are my API keys protected?',
+        answer:
+          "API keys are hashed before storage and credentials are kept in your browser's localStorage or your own database. We never store plaintext secrets on our servers.",
+      },
+    ],
   },
   {
-    category: 'Privacy & Security',
-    question: 'How are my API keys protected?',
-    answer:
-      'Your AI provider API keys are stored encrypted in your own Supabase database using AES-256 encryption. The encryption key is derived from your database credentials, so only you can decrypt them.',
+    id: 'database-setup',
+    title: 'Database Setup',
+    icon: <Database className="w-5 h-5" />,
+    items: [
+      {
+        question: 'Why do I need my own Supabase?',
+        answer:
+          'This architecture ensures your data privacy. Your analysis results, PRDs, and backlog items never touch our servers. You have full control and ownership of your data.',
+      },
+      {
+        question: 'How do I find my Supabase credentials?',
+        answer:
+          'In Supabase: Go to Settings > API. Your Project URL and anon/public key are visible there. The service_role key is under "Service Role" (keep this secret!). The database password was set when you created the project.',
+      },
+      {
+        question: 'What if I lose my Supabase credentials?',
+        answer:
+          'You can always find them in your Supabase dashboard under Settings > API. If you lose your database password, you can reset it in Supabase under Settings > Database.',
+      },
+      {
+        question: 'Can I use an existing Supabase project?',
+        answer:
+          "Yes! Mason creates its own tables (prefixed with mason_) and won't interfere with your existing data. Just provide your project credentials during setup.",
+      },
+    ],
   },
   {
-    category: 'Privacy & Security',
-    question: 'Is Mason open source?',
-    answer:
-      'Yes, Mason is fully open source. You can audit the code, self-host if you prefer, and contribute improvements. The source code is available on GitHub.',
-  },
-
-  // Database Setup
-  {
-    category: 'Database Setup',
-    question: 'How do I set up my Supabase database?',
-    answer:
-      'Create a free Supabase project at supabase.com. Then go to Settings in the Mason UI and enter your Supabase project URL and service role key. Mason will automatically create the necessary tables when you run the database migrations.',
-  },
-  {
-    category: 'Database Setup',
-    question: 'Where do I find my Supabase credentials?',
-    answer:
-      'In your Supabase project dashboard, go to Settings > API. Your Project URL is listed there, and you can find the service_role key under Project API keys. Use the service_role key (not the anon key) for full database access.',
-  },
-  {
-    category: 'Database Setup',
-    question: 'What tables does Mason create?',
-    answer:
-      'Mason creates several tables including: mason_pm_backlog_items (improvement items), mason_api_keys (your encrypted API keys), mason_github_repos (connected repositories), and mason_settings (configuration). All tables are prefixed with "mason_" to avoid conflicts.',
-  },
-  {
-    category: 'Database Setup',
-    question: 'Can I use an existing Supabase project?',
-    answer:
-      "Yes! Mason uses its own prefixed tables (mason_*) so it won't conflict with your existing data. You can safely use Mason alongside other applications in the same Supabase project.",
-  },
-
-  // GitHub Integration
-  {
-    category: 'GitHub Integration',
-    question: 'How do I connect a GitHub repository?',
-    answer:
-      'Go to Repository Settings in the user menu and click "Connect Repository". Enter your GitHub Personal Access Token (with repo scope) and select the repository you want to analyze. The token is stored encrypted in your database.',
+    id: 'github-integration',
+    title: 'GitHub Integration',
+    icon: <Github className="w-5 h-5" />,
+    items: [
+      {
+        question: 'What GitHub permissions does Mason need?',
+        answer:
+          'Mason requires read access to repositories you connect. This allows the CLI to access your code for analysis. You can revoke access at any time in GitHub settings.',
+      },
+      {
+        question: 'Can I use Mason with private repositories?',
+        answer:
+          'Yes! As long as you grant the appropriate GitHub permissions, Mason can analyze private repositories. Remember, analysis happens locally through Claude Code.',
+      },
+      {
+        question: 'How do I disconnect a repository?',
+        answer:
+          'Go to Settings > GitHub in the Mason dashboard. You can disconnect individual repositories there. To fully revoke access, remove Mason from your GitHub authorized applications.',
+      },
+      {
+        question: "Why can't I see my repositories?",
+        answer:
+          "Make sure you've granted the appropriate permissions when signing in with GitHub. You may need to re-authenticate or check your GitHub application settings.",
+      },
+    ],
   },
   {
-    category: 'GitHub Integration',
-    question: 'What GitHub permissions does Mason need?',
-    answer:
-      'Mason requires a Personal Access Token with the "repo" scope to read repository contents for analysis. If you want Mason to create pull requests, it also needs write access. You control exactly which repositories Mason can access.',
+    id: 'ai-providers',
+    title: 'AI Providers',
+    icon: <Cpu className="w-5 h-5" />,
+    items: [
+      {
+        question: 'Which AI providers does Mason support?',
+        answer:
+          'Mason supports Anthropic Claude (recommended), OpenAI GPT models, and can work with any Claude Code compatible AI provider.',
+      },
+      {
+        question: 'Do I need my own API key?',
+        answer:
+          'Yes. Mason uses your own AI provider API key, ensuring your API usage is under your control and billing. This is configured in Claude Code.',
+      },
+      {
+        question: 'How do I configure my AI provider?',
+        answer:
+          'AI provider configuration is handled through Claude Code. Refer to Claude Code documentation for setting up your preferred AI provider.',
+      },
+    ],
   },
   {
-    category: 'GitHub Integration',
-    question: 'Can I connect multiple repositories?',
-    answer:
-      'Yes, you can connect as many repositories as you like. Each repository is analyzed separately, and you can filter your backlog by repository.',
+    id: 'using-mason',
+    title: 'Using Mason',
+    icon: <Wrench className="w-5 h-5" />,
+    items: [
+      {
+        question: 'How do I run a PM review?',
+        answer:
+          'Open your terminal in your project directory with Claude Code running, then type /pm-review. Mason will analyze your codebase and send improvement suggestions to your dashboard.',
+      },
+      {
+        question: 'What are the different backlog statuses?',
+        answer:
+          "New: Just discovered, needs review. Approved: Ready to implement. In Progress: Being worked on. Completed: Done. Deferred: Saved for later. Rejected: Won't implement.",
+      },
+      {
+        question: 'How do I execute approved items?',
+        answer:
+          'Click "Execute Approved" in the dashboard to copy the command, then paste it into Claude Code. The command will be: /execute-approved --ids [item-ids]',
+      },
+      {
+        question: 'What is a PRD?',
+        answer:
+          'PRD (Product Requirements Document) is a detailed specification generated for backlog items. It includes context, requirements, acceptance criteria, and implementation notes.',
+      },
+      {
+        question: 'Can I customize the analysis focus?',
+        answer:
+          'Yes! You can use flags with /pm-review: --domain=security, --domain=performance, --domain=ux, etc. to focus on specific areas.',
+      },
+      {
+        question: 'How does the priority score work?',
+        answer:
+          'Priority score (0-100) is calculated based on impact, effort, risk, and strategic alignment. Higher scores indicate items that provide more value for less effort.',
+      },
+    ],
   },
   {
-    category: 'GitHub Integration',
-    question: 'How do I install the Mason GitHub App?',
-    answer:
-      "The Mason GitHub App provides seamless integration for executing improvements. When connecting a repository, you'll be prompted to install the app on your GitHub account or organization. This enables Mason to create branches and pull requests on your behalf.",
-  },
-
-  // AI Providers
-  {
-    category: 'AI Providers',
-    question: 'Which AI providers does Mason support?',
-    answer:
-      'Mason supports OpenAI (GPT-4), Anthropic (Claude), and Google (Gemini). You can configure one or more providers in AI Provider settings. Mason will use the first available provider for analysis.',
-  },
-  {
-    category: 'AI Providers',
-    question: 'How do I add an AI provider?',
-    answer:
-      'Go to AI Providers in the user menu and click "Add Provider". Enter your API key for OpenAI, Anthropic, or Google. You can test the key to verify it works before saving.',
-  },
-  {
-    category: 'AI Providers',
-    question: 'Do I need all three AI providers?',
-    answer:
-      'No, you only need one AI provider to use Mason. Configure whichever provider you have access to. Having multiple providers configured provides fallback options if one is unavailable.',
-  },
-
-  // Using Mason
-  {
-    category: 'Using Mason',
-    question: 'How do I analyze my codebase?',
-    answer:
-      'Run the /pm-review command in Claude Code while in your repository. This will analyze your codebase and create improvement items in your Mason backlog. You can then review, prioritize, and approve items in the Mason dashboard.',
-  },
-  {
-    category: 'Using Mason',
-    question: 'What is the backlog?',
-    answer:
-      'The backlog is where all improvement items are tracked. Items have statuses: New (pending review), Approved (ready for implementation), In Progress (being worked on), Completed (done), Deferred (postponed), Rejected (not needed), and Filtered (hidden by auto-filters).',
-  },
-  {
-    category: 'Using Mason',
-    question: 'How do I approve an improvement item?',
-    answer:
-      'Click on an item in the backlog to open its details. Review the suggested improvement, optionally generate a PRD (Product Requirements Document), then click "Approve" to mark it ready for implementation.',
-  },
-  {
-    category: 'Using Mason',
-    question: 'What is a PRD and why generate one?',
-    answer:
-      'A PRD (Product Requirements Document) provides detailed requirements and acceptance criteria for an improvement. Generating a PRD helps ensure the AI implements the improvement correctly by providing clear specifications.',
-  },
-  {
-    category: 'Using Mason',
-    question: 'How do I execute approved improvements?',
-    answer:
-      'Run the /execute-approved command in Claude Code. This will implement the next approved item from your backlog, creating the necessary code changes. You can review the changes before committing.',
-  },
-  {
-    category: 'Using Mason',
-    question: 'Can I bulk approve or reject items?',
-    answer:
-      'Yes! Select multiple items using the checkboxes, then use the bulk actions bar that appears to approve, reject, or defer all selected items at once.',
-  },
-
-  // Troubleshooting
-  {
-    category: 'Troubleshooting',
-    question: 'Why are my backlog items not showing up?',
-    answer:
-      "Check that: 1) Your database is properly connected in Settings, 2) You've run /pm-review to generate items, 3) You're not filtering by status or repository that excludes your items. Also verify the database migrations have been run.",
-  },
-  {
-    category: 'Troubleshooting',
-    question: 'Why is the AI analysis failing?',
-    answer:
-      'Verify that: 1) You have at least one AI provider configured with a valid API key, 2) Your API key has sufficient credits/quota, 3) The provider service is not experiencing outages. You can test your API key in AI Provider settings.',
-  },
-  {
-    category: 'Troubleshooting',
-    question: 'How do I reset my database?',
-    answer:
-      'In your Supabase dashboard, you can drop the mason_* tables and re-run migrations. Go to Database Setup in Mason and click "Run Migrations" to recreate the tables. This will delete all your improvement items.',
-  },
-  {
-    category: 'Troubleshooting',
-    question: 'The GitHub connection is not working. What should I check?',
-    answer:
-      'Verify that: 1) Your Personal Access Token has the "repo" scope, 2) The token hasn\'t expired, 3) You have access to the repository you\'re trying to connect. You can regenerate your token in GitHub Settings > Developer Settings > Personal Access Tokens.',
+    id: 'troubleshooting',
+    title: 'Troubleshooting',
+    icon: <AlertTriangle className="w-5 h-5" />,
+    items: [
+      {
+        question: 'Install command not working',
+        answer:
+          "Make sure: 1) You're running the command in a terminal, not Claude Code directly, 2) curl is installed on your system, 3) You have internet access. Try: curl --version to verify curl is installed.",
+      },
+      {
+        question: '/pm-review command not found',
+        answer:
+          'Verify: 1) Claude Code is running in your project directory, 2) mason.config.json exists in your project root, 3) The .claude/commands/ directory contains pm-review.md. Try reinstalling Mason.',
+      },
+      {
+        question: 'Items not appearing in dashboard',
+        answer:
+          "Check: 1) You're logged in with the same GitHub account, 2) The correct repository is selected in the dashboard, 3) Your Supabase connection is working. Try clicking Refresh.",
+      },
+      {
+        question: 'API key invalid or not working',
+        answer:
+          "API keys cannot be recovered once created. If your key isn't working: 1) Generate a new key in the dashboard, 2) Update mason.config.json with the new key, 3) Make sure the key wasn't truncated when copying.",
+      },
+      {
+        question: 'Supabase connection failed',
+        answer:
+          'Verify: 1) Project URL format is correct (https://[project-id].supabase.co), 2) Anon key and service role key are from the API settings, 3) Your Supabase project is active (not paused).',
+      },
+      {
+        question: 'No repositories showing in selector',
+        answer:
+          "This usually means: 1) You haven't granted repository access to GitHub, 2) The OAuth token has expired. Try signing out and back in, or check GitHub authorized applications.",
+      },
+      {
+        question: 'PRD generation failed',
+        answer:
+          'PRD generation requires: 1) A valid AI provider API key configured in Claude Code, 2) The backlog item to have sufficient detail. Check Claude Code configuration.',
+      },
+      {
+        question: 'Execute command does nothing',
+        answer:
+          'Make sure: 1) Items are in "Approved" status (not New or other), 2) Claude Code is running in your project directory, 3) You have at least one approved item. Check the item IDs in the command.',
+      },
+      {
+        question: 'Dashboard shows loading forever',
+        answer:
+          'This could mean: 1) Supabase connection issues - check your credentials, 2) Network problems - check your internet, 3) Database tables missing - go to Settings and click "Update Database Schema".',
+      },
+      {
+        question: 'Error: User not found in database',
+        answer:
+          'This happens when your user record is missing. Go to Settings and click "Update Database Schema" to ensure all tables exist, then try signing out and back in.',
+      },
+      {
+        question: '"mason.config.json" not found errors',
+        answer:
+          'The config file should be in your project root. Either: 1) Run the install command again, 2) Download the config from the Setup Complete page, 3) Manually create it with your Supabase URL, anon key, and API key.',
+      },
+      {
+        question: 'How do I reset everything and start fresh?',
+        answer:
+          'To reset: 1) Delete mason.config.json from your project, 2) Clear browser localStorage (or use Settings > Clear Local Data), 3) Go through the setup wizard again. Your Supabase data will remain unless you manually delete it.',
+      },
+    ],
   },
 ];
 
-const CATEGORIES = Array.from(new Set(FAQ_ITEMS.map((item) => item.category)));
+function FAQAccordionItem({
+  item,
+  isOpen,
+  onToggle,
+}: {
+  item: FAQItem;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="border-b border-gray-800 last:border-b-0">
+      <button
+        onClick={onToggle}
+        className="flex items-center justify-between w-full py-4 text-left text-white hover:text-gold transition-colors"
+      >
+        <span className="font-medium pr-4">{item.question}</span>
+        {isOpen ? (
+          <ChevronUp className="w-5 h-5 flex-shrink-0 text-gray-400" />
+        ) : (
+          <ChevronDown className="w-5 h-5 flex-shrink-0 text-gray-400" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="pb-4 text-gray-400 text-sm leading-relaxed whitespace-pre-line">
+          {item.answer}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FAQCategorySection({
+  category,
+  openItems,
+  onToggleItem,
+}: {
+  category: FAQCategory;
+  openItems: Set<string>;
+  onToggleItem: (key: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-gray-800 bg-black/30 overflow-hidden">
+      <div className="flex items-center gap-3 px-6 py-4 bg-gray-900/50 border-b border-gray-800">
+        <div className="text-gold">{category.icon}</div>
+        <h2 className="text-lg font-semibold text-white">{category.title}</h2>
+        <span className="text-sm text-gray-500">
+          ({category.items.length} items)
+        </span>
+      </div>
+      <div className="px-6">
+        {category.items.map((item, index) => {
+          const key = `${category.id}-${index}`;
+          return (
+            <FAQAccordionItem
+              key={key}
+              item={item}
+              isOpen={openItems.has(key)}
+              onToggle={() => onToggleItem(key)}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function FAQPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [openItems, setOpenItems] = useState<Set<string>>(new Set());
 
-  const filteredItems = useMemo(() => {
-    return FAQ_ITEMS.filter((item) => {
-      const matchesSearch =
-        searchQuery === '' ||
-        item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.answer.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory =
-        selectedCategory === null || item.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [searchQuery, selectedCategory]);
-
-  const groupedItems = useMemo(() => {
-    const groups: Record<string, FAQItem[]> = {};
-    filteredItems.forEach((item) => {
-      if (!groups[item.category]) {
-        groups[item.category] = [];
-      }
-      groups[item.category].push(item);
-    });
-    return groups;
-  }, [filteredItems]);
-
-  const toggleItem = (index: number) => {
-    setExpandedItems((prev) => {
+  const handleToggleItem = (key: string) => {
+    setOpenItems((prev) => {
       const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(index);
+        next.add(key);
       }
       return next;
     });
   };
 
-  const expandAll = () => {
-    setExpandedItems(new Set(filteredItems.map((_, i) => i)));
-  };
+  // Filter categories and items based on search
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return FAQ_DATA;
 
-  const collapseAll = () => {
-    setExpandedItems(new Set());
-  };
+    const query = searchQuery.toLowerCase();
+    return FAQ_DATA.map((category) => ({
+      ...category,
+      items: category.items.filter(
+        (item) =>
+          item.question.toLowerCase().includes(query) ||
+          item.answer.toLowerCase().includes(query),
+      ),
+    })).filter((category) => category.items.length > 0);
+  }, [searchQuery]);
+
+  // Auto-expand search results
+  useMemo(() => {
+    if (searchQuery.trim()) {
+      const newOpenItems = new Set<string>();
+      filteredCategories.forEach((category) => {
+        category.items.forEach((_, index) => {
+          newOpenItems.add(`${category.id}-${index}`);
+        });
+      });
+      setOpenItems(newOpenItems);
+    }
+  }, [searchQuery, filteredCategories]);
+
+  const totalQuestions = FAQ_DATA.reduce(
+    (sum, cat) => sum + cat.items.length,
+    0,
+  );
 
   return (
     <main className="min-h-screen bg-navy">
-      {/* Header with Mason branding */}
-      <div className="border-b border-gray-800/50 bg-black/20">
-        <div className="mx-auto max-w-4xl px-4 py-4">
+      {/* Header */}
+      <div className="border-b border-gray-800">
+        <div className="max-w-4xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
-                href="/"
-                className="group flex items-center gap-3 transition-opacity hover:opacity-80"
+                href="/admin/backlog"
+                className="p-2 text-gray-400 hover:text-white transition-colors"
               >
-                <MasonMark
-                  size="sm"
-                  className="transition-transform group-hover:scale-105"
-                />
-                <span className="mason-wordmark text-lg font-bold tracking-wider text-white">
-                  MASON
-                </span>
+                <ArrowLeft className="w-5 h-5" />
               </Link>
+              <div>
+                <h1 className="text-2xl font-bold text-white">
+                  Frequently Asked Questions
+                </h1>
+                <p className="text-gray-400 text-sm mt-1">
+                  {totalQuestions} questions across {FAQ_DATA.length} categories
+                </p>
+              </div>
             </div>
             <UserMenu />
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        {/* Title */}
-        <div className="mason-entrance mb-8 text-center">
-          <div className="mb-4 flex items-center justify-center gap-3">
-            <div className="rounded-lg bg-gold/10 p-2">
-              <HelpCircle className="h-8 w-8 text-gold" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold text-white">
-            Frequently Asked Questions
-          </h1>
-          <p className="mt-2 text-gray-400">
-            Find answers to common questions about Mason
-          </p>
-        </div>
-
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search questions..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-800 bg-black/50 py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-          />
-        </div>
-
-        {/* Category Filters */}
-        <div className="mb-6 flex flex-wrap gap-2">
-          <button
-            onClick={() => setSelectedCategory(null)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              selectedCategory === null
-                ? 'bg-gold text-navy'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-            }`}
-          >
-            All
-          </button>
-          {CATEGORIES.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                selectedCategory === category
-                  ? 'bg-gold text-navy'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-
-        {/* Expand/Collapse Controls */}
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm text-gray-400">
-            Showing {filteredItems.length} of {FAQ_ITEMS.length} questions
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={expandAll}
-              className="text-sm text-gray-400 hover:text-white"
-            >
-              Expand all
-            </button>
-            <span className="text-gray-600">|</span>
-            <button
-              onClick={collapseAll}
-              className="text-sm text-gray-400 hover:text-white"
-            >
-              Collapse all
-            </button>
+      {/* Search Bar */}
+      <div className="border-b border-gray-800 bg-black/20">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search questions..."
+              className="w-full pl-10 pr-4 py-3 bg-black/50 border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-gold"
+            />
           </div>
         </div>
+      </div>
 
-        {/* FAQ Items */}
-        {Object.entries(groupedItems).length === 0 ? (
-          <div className="rounded-lg border border-gray-800 bg-black/30 p-8 text-center">
+      {/* Content */}
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        {filteredCategories.length === 0 ? (
+          <div className="text-center py-12">
+            <Search className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-white mb-2">
+              No results found
+            </h2>
             <p className="text-gray-400">
-              No questions found matching your search.
+              Try a different search term or browse all categories below.
             </p>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="mt-4 text-gold hover:underline"
+            >
+              Clear search
+            </button>
           </div>
         ) : (
-          <div className="space-y-8">
-            {Object.entries(groupedItems).map(([category, items]) => (
-              <div key={category}>
-                <h2 className="mb-4 text-lg font-semibold text-gold">
-                  {category}
-                </h2>
-                <div className="space-y-2">
-                  {items.map((item) => {
-                    const globalIndex = FAQ_ITEMS.indexOf(item);
-                    const isExpanded = expandedItems.has(globalIndex);
-                    return (
-                      <div
-                        key={globalIndex}
-                        className="rounded-lg border border-gray-800 bg-black/30"
-                      >
-                        <button
-                          onClick={() => toggleItem(globalIndex)}
-                          className="flex w-full items-center justify-between px-4 py-3 text-left"
-                        >
-                          <span className="font-medium text-white">
-                            {item.question}
-                          </span>
-                          {isExpanded ? (
-                            <ChevronUp className="h-5 w-5 flex-shrink-0 text-gray-400" />
-                          ) : (
-                            <ChevronDown className="h-5 w-5 flex-shrink-0 text-gray-400" />
-                          )}
-                        </button>
-                        {isExpanded && (
-                          <div className="border-t border-gray-800 px-4 py-3">
-                            <p className="whitespace-pre-wrap text-gray-300">
-                              {item.answer}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+          <div className="space-y-6">
+            {filteredCategories.map((category) => (
+              <FAQCategorySection
+                key={category.id}
+                category={category}
+                openItems={openItems}
+                onToggleItem={handleToggleItem}
+              />
             ))}
           </div>
         )}
 
-        {/* Footer */}
-        <div className="mt-12 text-center">
-          <p className="text-sm text-gray-400">
-            Can&apos;t find what you&apos;re looking for?{' '}
-            <a
-              href="https://github.com/anthropics/claude-code/issues"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gold hover:underline"
-            >
-              Open an issue on GitHub
-            </a>
+        {/* Still need help? */}
+        <div className="mt-12 p-6 rounded-lg border border-gray-800 bg-black/30 text-center">
+          <h3 className="text-lg font-semibold text-white mb-2">
+            Still need help?
+          </h3>
+          <p className="text-gray-400 mb-4">
+            Can&apos;t find what you&apos;re looking for? Open an issue on
+            GitHub.
           </p>
+          <a
+            href="https://github.com/Assure-DeFi/mason/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gold text-navy font-medium rounded hover:opacity-90 transition-opacity"
+          >
+            <Github className="w-4 h-4" />
+            Open an Issue
+          </a>
         </div>
       </div>
     </main>

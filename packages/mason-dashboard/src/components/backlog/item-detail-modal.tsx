@@ -1,22 +1,10 @@
 'use client';
 
 import { clsx } from 'clsx';
-import {
-  X,
-  FileText,
-  Check,
-  Clock,
-  ChevronRight,
-  TrendingUp,
-  Zap,
-  AlertCircle,
-  Settings,
-  Pencil,
-  Loader2,
-} from 'lucide-react';
-import Link from 'next/link';
+import { X, FileText, Check, Sparkles, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SuccessAnimation } from '@/components/ui/SuccessAnimation';
 import type { BacklogItem, BacklogStatus } from '@/types/backlog';
 
@@ -31,45 +19,7 @@ interface ItemDetailModalProps {
   onClose: () => void;
   onUpdateStatus: (id: string, status: BacklogStatus) => Promise<void>;
   onGeneratePrd: (id: string) => Promise<void>;
-  onUpdatePrd: (id: string, prdContent: string) => Promise<void>;
-  initialViewMode?: ViewMode;
 }
-
-const STATUS_CONFIG: Record<
-  BacklogStatus,
-  { label: string; className: string; dotColor: string }
-> = {
-  new: {
-    label: 'New',
-    className: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30',
-    dotColor: 'bg-cyan-400',
-  },
-  approved: {
-    label: 'Approved',
-    className: 'bg-green-500/10 text-green-300 border-green-500/30',
-    dotColor: 'bg-green-400',
-  },
-  in_progress: {
-    label: 'In Progress',
-    className: 'bg-yellow-500/10 text-yellow-300 border-yellow-500/30',
-    dotColor: 'bg-yellow-400',
-  },
-  completed: {
-    label: 'Completed',
-    className: 'bg-green-500/10 text-green-300 border-green-500/30',
-    dotColor: 'bg-green-400',
-  },
-  deferred: {
-    label: 'Deferred',
-    className: 'bg-gray-500/10 text-gray-300 border-gray-500/30',
-    dotColor: 'bg-gray-400',
-  },
-  rejected: {
-    label: 'Rejected',
-    className: 'bg-red-500/10 text-red-300 border-red-500/30',
-    dotColor: 'bg-red-400',
-  },
-};
 
 type ViewMode = 'details' | 'prd' | 'timeline';
 
@@ -78,82 +28,17 @@ export function ItemDetailModal({
   onClose,
   onUpdateStatus,
   onGeneratePrd,
-  onUpdatePrd,
-  initialViewMode = 'details',
 }: ItemDetailModalProps) {
-  // Note: isGenerating kept for potential legacy item PRD generation via API
-  const [_isGenerating, setIsGenerating] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
+  const [viewMode, setViewMode] = useState<ViewMode>('details');
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  // PRD editing state
-  const [isEditingPrd, setIsEditingPrd] = useState(false);
-  const [editedPrdContent, setEditedPrdContent] = useState('');
-  const [isSavingPrd, setIsSavingPrd] = useState(false);
-
-  // Computed dirty check
-  const isPrdDirty =
-    isEditingPrd && editedPrdContent !== (item.prd_content ?? '');
-
-  const handleEditPrd = () => {
-    setEditedPrdContent(item.prd_content ?? '');
-    setIsEditingPrd(true);
-  };
-
-  const handleSavePrd = async () => {
-    setIsSavingPrd(true);
-    setError(null);
-    try {
-      await onUpdatePrd(item.id, editedPrdContent);
-      setIsEditingPrd(false);
-      setSuccessMessage('PRD Saved!');
-      setShowSuccess(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save PRD');
-    } finally {
-      setIsSavingPrd(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {
-      return;
-    }
-    setIsEditingPrd(false);
-    setEditedPrdContent('');
-  };
-
-  const handleClose = () => {
-    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {
-      return;
-    }
-    setIsEditingPrd(false);
-    onClose();
-  };
-
-  const handleTabChange = (newMode: ViewMode) => {
-    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {
-      return;
-    }
-    setIsEditingPrd(false);
-    setViewMode(newMode);
-  };
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Handle Cmd/Ctrl+S for saving PRD
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        if (isEditingPrd && isPrdDirty) {
-          e.preventDefault();
-          void handleSavePrd();
-        }
-        return;
-      }
-
+      // Don't handle if focused on an input
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -163,21 +48,21 @@ export function ItemDetailModal({
 
       switch (e.key) {
         case 'Escape':
-          handleClose();
+          onClose();
+          break;
+        case 'g':
+          if (!isGenerating && !item.prd_content) {
+            handleGeneratePrd();
+          }
           break;
         case 'a':
           if (item.status === 'new' && !isUpdating) {
-            void handleStatusChange('approved');
+            handleStatusChange('approved');
           }
           break;
         case 'x':
           if (item.status === 'new' && !isUpdating) {
-            void handleStatusChange('rejected');
-          }
-          break;
-        case 'e':
-          if (viewMode === 'prd' && item.prd_content && !isEditingPrd) {
-            handleEditPrd();
+            handleStatusChange('rejected');
           }
           break;
       }
@@ -185,24 +70,15 @@ export function ItemDetailModal({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [item, isUpdating, isEditingPrd, isPrdDirty, viewMode]);
+  }, [item, isGenerating, isUpdating, onClose]);
 
-  // Note: handleGeneratePrd kept for potential legacy item PRD generation via API
-  const _handleGeneratePrd = async () => {
+  const handleGeneratePrd = async () => {
     setIsGenerating(true);
-    setError(null);
     try {
       await onGeneratePrd(item.id);
       setViewMode('prd');
       setSuccessMessage('PRD Generated!');
       setShowSuccess(true);
-    } catch (err) {
-      console.error('PRD generation error:', err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to generate PRD. Please try again.',
-      );
     } finally {
       setIsGenerating(false);
     }
@@ -221,66 +97,46 @@ export function ItemDetailModal({
     }
   };
 
-  const _handleApproveAndGeneratePrd = async () => {
+  // Combo action: Approve + Generate PRD
+  const handleApproveAndGeneratePrd = async () => {
     setIsUpdating(true);
-    setError(null);
-    const hasPrd = !!item.prd_content;
-    if (!hasPrd) {
-      setIsGenerating(true);
-    }
+    setIsGenerating(true);
     try {
       await onUpdateStatus(item.id, 'approved');
-      if (!hasPrd) {
-        await onGeneratePrd(item.id);
-        setViewMode('prd');
-        setSuccessMessage('Approved & PRD Generated!');
-      } else {
-        setSuccessMessage('Approved!');
-      }
+      await onGeneratePrd(item.id);
+      setViewMode('prd');
+      setSuccessMessage('Approved & PRD Generated!');
       setShowSuccess(true);
-    } catch (err) {
-      console.error('Approve & PRD generation error:', err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : hasPrd
-            ? 'Failed to approve. Please try again.'
-            : 'Failed to approve or generate PRD. Please try again.',
-      );
     } finally {
       setIsUpdating(false);
       setIsGenerating(false);
     }
   };
 
-  const statusConfig = STATUS_CONFIG[item.status];
-
+  // Get priority label based on score
   const getPriorityLabel = () => {
-    if (item.impact_score >= 9) {
-      return 'Critical Priority';
-    }
-    if (item.impact_score >= 7) {
-      return 'High Priority';
-    }
-    if (item.impact_score >= 5) {
-      return 'Medium Priority';
-    }
+    if (item.impact_score >= 9) return 'Critical Priority';
+    if (item.impact_score >= 7) return 'High Priority';
+    if (item.impact_score >= 5) return 'Medium Priority';
     return 'Low Priority';
   };
 
+  // Simple markdown-like rendering for PRD content
   const renderPrdContent = (content: string) => {
+    // Split into lines and process
     const lines = content.split('\n');
     const elements: React.ReactNode[] = [];
     let inCodeBlock = false;
     let codeContent: string[] = [];
 
     lines.forEach((line, index) => {
+      // Code block handling
       if (line.startsWith('```')) {
         if (inCodeBlock) {
           elements.push(
             <pre
               key={`code-${index}`}
-              className="my-4 p-4 bg-black/50 rounded border border-gray-800 overflow-x-auto font-mono text-sm text-gray-300"
+              className="my-3 p-3 bg-black rounded border border-gray-800 overflow-x-auto font-mono text-sm text-gray-300"
             >
               {codeContent.join('\n')}
             </pre>,
@@ -298,11 +154,12 @@ export function ItemDetailModal({
         return;
       }
 
+      // Headers
       if (line.startsWith('### ')) {
         elements.push(
           <h4
             key={index}
-            className="mt-6 mb-3 text-base font-semibold text-white"
+            className="mt-4 mb-2 text-sm font-semibold text-white"
           >
             {line.slice(4)}
           </h4>,
@@ -311,7 +168,10 @@ export function ItemDetailModal({
       }
       if (line.startsWith('## ')) {
         elements.push(
-          <h3 key={index} className="mt-8 mb-4 text-lg font-bold text-white">
+          <h3
+            key={index}
+            className="mt-5 mb-2 text-base font-semibold text-white"
+          >
             {line.slice(3)}
           </h3>,
         );
@@ -319,54 +179,56 @@ export function ItemDetailModal({
       }
       if (line.startsWith('# ')) {
         elements.push(
-          <h2 key={index} className="mt-10 mb-5 text-xl font-bold text-gold">
+          <h2 key={index} className="mt-6 mb-3 text-lg font-bold text-white">
             {line.slice(2)}
           </h2>,
         );
         return;
       }
 
+      // Lists
       if (line.startsWith('- ') || line.startsWith('* ')) {
         elements.push(
-          <li key={index} className="ml-6 text-gray-300 leading-relaxed">
+          <li key={index} className="ml-4 text-gray-300">
             {line.slice(2)}
           </li>,
         );
         return;
       }
 
+      // Numbered lists
       const numberedMatch = line.match(/^(\d+)\.\s+(.+)$/);
       if (numberedMatch) {
         elements.push(
-          <li
-            key={index}
-            className="ml-6 text-gray-300 list-decimal leading-relaxed"
-          >
+          <li key={index} className="ml-4 text-gray-300 list-decimal">
             {numberedMatch[2]}
           </li>,
         );
         return;
       }
 
+      // Bold text (basic)
       let processedLine = line.replace(
         /\*\*(.+?)\*\*/g,
         '<strong class="font-semibold text-white">$1</strong>',
       );
+      // Inline code
       processedLine = processedLine.replace(
         /`([^`]+)`/g,
-        '<code class="px-1.5 py-0.5 bg-gold/20 text-gold font-mono text-sm">$1</code>',
+        '<code class="px-1 py-0.5 bg-black rounded text-gold font-mono text-sm">$1</code>',
       );
 
+      // Regular paragraph
       if (line.trim()) {
         elements.push(
           <p
             key={index}
-            className="my-3 text-gray-300 leading-relaxed"
+            className="my-2 text-gray-300 leading-relaxed"
             dangerouslySetInnerHTML={{ __html: processedLine }}
           />,
         );
       } else {
-        elements.push(<div key={index} className="h-3" />);
+        elements.push(<div key={index} className="h-2" />);
       }
     });
 
@@ -375,459 +237,250 @@ export function ItemDetailModal({
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm animate-fade-in"
-        onClick={handleClose}
-      >
-        <div
-          className="flex items-center justify-center min-h-screen p-4"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="bg-navy border border-gray-800 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-            {/* Elegant Header */}
-            <div className="relative border-b border-gray-800/50 bg-gradient-to-b from-black/40 to-transparent">
-              <div className="p-8">
-                {/* Status Badge & Metadata Row */}
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-2 h-2 rounded-full ${statusConfig.dotColor} animate-pulse`}
-                      />
-                      <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-                        {statusConfig.label}
-                      </span>
-                    </div>
-                    <div className="w-px h-4 bg-gray-700" />
-                    <TypeBadge type={item.type} size="md" />
-                    <QuickWinBadge
-                      impactScore={item.impact_score}
-                      effortScore={item.effort_score}
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleClose}
-                    className="p-2 text-gray-400 hover:text-white hover:bg-white/10 transition-all"
-                    title="Close (Esc)"
-                    aria-label="Close modal"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Title */}
-                <h2 className="text-2xl font-bold text-white leading-tight mb-4">
-                  {item.title}
-                </h2>
-
-                {/* Metrics Grid */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-black/30 border border-gray-800 p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <TrendingUp className="w-4 h-4 text-gold" />
-                      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        Impact
-                      </span>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-white">
-                        {item.impact_score}
-                      </span>
-                      <span className="text-sm text-gray-500">/10</span>
-                    </div>
-                    <div className="mt-2">
-                      <PriorityDots
-                        value={item.impact_score}
-                        variant="priority"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-black/30 border border-gray-800 p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Zap className="w-4 h-4 text-gray-400" />
-                      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        Effort
-                      </span>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-white">
-                        {item.effort_score}
-                      </span>
-                      <span className="text-sm text-gray-500">/10</span>
-                    </div>
-                    <div className="mt-2">
-                      <PriorityDots
-                        value={item.effort_score}
-                        variant="effort"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-black/30 border border-gray-800 p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        Priority
-                      </span>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-gold">
-                        {item.priority_score}
-                      </span>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      {getPriorityLabel()}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* View Mode Tabs */}
-              <div className="px-8 pb-4">
-                <div
-                  className="flex items-center gap-2 border-b border-gray-800"
-                  role="tablist"
-                  aria-label="Item view options"
-                >
-                  <button
-                    onClick={() => handleTabChange('details')}
-                    role="tab"
-                    aria-selected={viewMode === 'details'}
-                    className={clsx(
-                      'px-4 py-3 text-sm font-medium transition-all relative',
-                      viewMode === 'details'
-                        ? 'text-gold'
-                        : 'text-gray-400 hover:text-white',
-                    )}
-                  >
-                    Details
-                    {viewMode === 'details' && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleTabChange('prd')}
-                    disabled={!item.prd_content}
-                    role="tab"
-                    aria-selected={viewMode === 'prd'}
-                    aria-disabled={!item.prd_content}
-                    className={clsx(
-                      'px-4 py-3 text-sm font-medium transition-all relative flex items-center gap-2',
-                      viewMode === 'prd'
-                        ? 'text-gold'
-                        : 'text-gray-400 hover:text-white',
-                      !item.prd_content && 'opacity-40 cursor-not-allowed',
-                    )}
-                  >
-                    <FileText className="w-4 h-4" />
-                    PRD
-                    {viewMode === 'prd' && item.prd_content && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleTabChange('timeline')}
-                    role="tab"
-                    aria-selected={viewMode === 'timeline'}
-                    className={clsx(
-                      'px-4 py-3 text-sm font-medium transition-all relative flex items-center gap-2',
-                      viewMode === 'timeline'
-                        ? 'text-gold'
-                        : 'text-gray-400 hover:text-white',
-                    )}
-                  >
-                    <Clock className="w-4 h-4" />
-                    History
-                    {viewMode === 'timeline' && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Content Area */}
-            <div className="flex-1 overflow-y-auto p-8 bg-black/10">
-              {viewMode === 'prd' && item.prd_content ? (
-                <div className="space-y-4">
-                  {/* Edit/Save/Cancel buttons */}
-                  <div className="flex justify-end">
-                    {isEditingPrd ? (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleCancelEdit}
-                          disabled={isSavingPrd}
-                          className="px-4 py-2 text-sm border border-gray-700 text-gray-300 hover:bg-white/5"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSavePrd}
-                          disabled={isSavingPrd || !isPrdDirty}
-                          className="flex items-center gap-2 px-4 py-2 text-sm bg-gold text-navy font-semibold disabled:opacity-50"
-                        >
-                          {isSavingPrd ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            'Save'
-                          )}
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={handleEditPrd}
-                        className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-700 text-gray-300 hover:bg-white/5 hover:border-gray-600"
-                      >
-                        <Pencil className="w-4 h-4" />
-                        Edit PRD
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Content: textarea in edit mode, rendered in view mode */}
-                  {isEditingPrd ? (
-                    <textarea
-                      value={editedPrdContent}
-                      onChange={(e) => setEditedPrdContent(e.target.value)}
-                      disabled={isSavingPrd}
-                      className="w-full h-[500px] p-4 bg-black/30 border border-gray-700 text-gray-300 font-mono text-sm resize-y focus:border-gold/50 focus:ring-1 focus:ring-gold/50 outline-none"
-                      placeholder="PRD content in markdown..."
-                    />
-                  ) : (
-                    <div className="prose prose-invert max-w-none">
-                      {renderPrdContent(item.prd_content)}
-                    </div>
-                  )}
-                </div>
-              ) : viewMode === 'timeline' ? (
-                <ItemTimeline
-                  createdAt={item.created_at}
-                  updatedAt={item.updated_at}
-                  currentStatus={item.status}
-                  prdGeneratedAt={
-                    item.prd_content ? item.updated_at : undefined
-                  }
-                />
-              ) : (
-                <div className="space-y-8">
-                  {/* Problem Section */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-1 h-6 bg-red-500/50" />
-                      <h3 className="text-sm font-bold text-white uppercase tracking-widest">
-                        Problem
-                      </h3>
-                    </div>
-                    <div className="pl-4 border-l-2 border-gray-800">
-                      <p className="text-gray-300 leading-relaxed text-base">
-                        {item.problem}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Solution Section */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-1 h-6 bg-green-500/50" />
-                      <h3 className="text-sm font-bold text-white uppercase tracking-widest">
-                        Proposed Solution
-                      </h3>
-                    </div>
-                    <div className="pl-4 border-l-2 border-gray-800">
-                      <p className="text-gray-300 leading-relaxed text-base">
-                        {item.solution}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Benefits Section */}
-                  {item.benefits && item.benefits.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-1 h-6 bg-gold" />
-                        <h3 className="text-sm font-bold text-white uppercase tracking-widest">
-                          Expected Benefits
-                        </h3>
-                      </div>
-                      <BenefitsGrid benefits={item.benefits} />
-                    </div>
-                  )}
-
-                  {/* Metadata */}
-                  <div className="pt-6 border-t border-gray-800">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">Area:</span>
-                        <span className="ml-2 text-white font-medium">
-                          {item.area === 'frontend' ? 'Frontend' : 'Backend'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Complexity:</span>
-                        <span className="ml-2 text-white font-medium">
-                          {item.complexity}/5
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Security CTA - show for auth-related items */}
-            {item.type === 'auth' && (
-              <div className="px-8 py-4 border-t border-gray-800/50 bg-black/20">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="text-gray-400">
-                    <span className="font-semibold text-gray-300">
-                      Need a comprehensive security audit?
-                    </span>
-                    <span className="ml-2">
-                      2,000+ projects secured since 2021.
-                    </span>
-                  </div>
-                  <a
-                    href="https://assuredefi.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-gold hover:text-gold/80 transition-colors font-medium"
-                  >
-                    Learn More
-                    <ChevronRight className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {/* Error Banner */}
-            {error && (
-              <div className="px-6 py-4 border-t border-red-800/50 bg-red-900/20">
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                  <div className="flex-1">
-                    {error.includes('AI_KEY_NOT_CONFIGURED') ? (
-                      <div className="flex items-center gap-3">
-                        <p className="text-sm text-red-300">
-                          No AI provider configured.
-                        </p>
-                        <Link
-                          href="/settings/ai-providers"
-                          className="flex items-center gap-1 text-sm text-gold hover:text-gold/80 font-medium"
-                          onClick={onClose}
-                        >
-                          <Settings className="w-4 h-4" />
-                          Configure AI Provider
-                        </Link>
-                      </div>
-                    ) : error.includes('AI_KEY_INVALID') ? (
-                      <div className="flex items-center gap-3">
-                        <p className="text-sm text-red-300">
-                          AI provider key is invalid.
-                        </p>
-                        <Link
-                          href="/settings/ai-providers"
-                          className="flex items-center gap-1 text-sm text-gold hover:text-gold/80 font-medium"
-                          onClick={onClose}
-                        >
-                          <Settings className="w-4 h-4" />
-                          Update API Key
-                        </Link>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-red-300">{error}</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setError(null)}
-                    className="text-red-400 hover:text-red-300 transition-colors"
-                    aria-label="Dismiss error"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Action Footer */}
-            <div className="border-t border-gray-800/50 bg-gradient-to-t from-black/40 to-transparent">
-              <div className="flex items-center justify-between gap-4 p-6">
-                {/* Left Actions */}
-                <div className="flex items-center gap-3">
-                  {item.prd_content && (
-                    <button
-                      onClick={() => handleTabChange('prd')}
-                      className="flex items-center gap-2 px-5 py-2.5 text-sm border border-gray-700 text-gray-300 hover:bg-white/5 hover:border-gray-600 transition-all font-medium"
-                    >
-                      <FileText className="w-4 h-4" />
-                      View PRD
-                    </button>
-                  )}
-                </div>
-
-                {/* Right Actions */}
-                {item.status === 'new' && (
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleStatusChange('rejected')}
-                      disabled={isUpdating}
-                      className="flex items-center gap-2 px-5 py-2.5 text-sm border border-red-600/30 text-red-400 hover:bg-red-600/10 hover:border-red-600/50 transition-all disabled:opacity-50 font-medium"
-                      title="Press X to reject"
-                    >
-                      <X className="w-4 h-4" />
-                      Reject
-                    </button>
-
-                    <button
-                      onClick={() => handleStatusChange('approved')}
-                      disabled={isUpdating}
-                      className="flex items-center gap-2 px-6 py-2.5 text-sm bg-gold text-navy font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-lg"
-                      title="Press A to approve"
-                    >
-                      <Check className="w-4 h-4" />
-                      {isUpdating ? 'Approving...' : 'Approve'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Keyboard hints */}
-              <div className="px-6 pb-4 text-xs text-gray-500 flex items-center gap-6">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+        <div className="bg-navy border border-gray-800 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="flex items-start justify-between p-6 border-b border-gray-800">
+            <div className="flex-1">
+              {/* Status and Priority */}
+              <div className="flex items-center gap-3 mb-3">
+                <StatusBadge status={item.status} showTooltip={true} />
                 <div className="flex items-center gap-2">
-                  <kbd className="px-2 py-1 bg-gray-800 text-gray-400 rounded font-mono">
-                    Esc
-                  </kbd>
-                  <span>close</span>
+                  <PriorityDots value={item.impact_score} variant="priority" />
+                  <span className="text-sm text-gray-400">
+                    {getPriorityLabel()}
+                  </span>
                 </div>
-                {item.status === 'new' && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <kbd className="px-2 py-1 bg-gray-800 text-gray-400 rounded font-mono">
-                        A
-                      </kbd>
-                      <span>approve</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <kbd className="px-2 py-1 bg-gray-800 text-gray-400 rounded font-mono">
-                        X
-                      </kbd>
-                      <span>reject</span>
-                    </div>
-                  </>
-                )}
-                {viewMode === 'prd' && item.prd_content && !isEditingPrd && (
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-gray-800 text-gray-400 rounded font-mono">
-                      E
-                    </kbd>
-                    <span>edit PRD</span>
-                  </div>
-                )}
+                <QuickWinBadge
+                  impactScore={item.impact_score}
+                  effortScore={item.effort_score}
+                />
+              </div>
+
+              {/* Title */}
+              <h2 className="text-xl font-semibold text-white mb-3">
+                {item.title}
+              </h2>
+
+              {/* Tags */}
+              <div className="flex items-center gap-3">
+                <TypeBadge type={item.type} size="md" />
+                <span className="px-3 py-1 text-sm bg-gray-800 text-gray-300">
+                  {item.area === 'frontend' ? 'Frontend' : 'Backend'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <PriorityDots
+                    value={item.effort_score}
+                    variant="effort"
+                    showLabel
+                  />
+                </div>
               </div>
             </div>
+
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/10 transition-colors"
+              title="Close (Esc)"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Scores Bar */}
+          <div className="flex items-center gap-8 px-6 py-4 border-b border-gray-800 bg-black/20">
+            <div>
+              <span className="text-xs text-gray-500 uppercase tracking-wide">
+                Impact
+              </span>
+              <span className="ml-2 text-lg font-bold text-white">
+                {item.impact_score}/10
+              </span>
+            </div>
+            <div>
+              <span className="text-xs text-gray-500 uppercase tracking-wide">
+                Effort
+              </span>
+              <span className="ml-2 text-lg font-bold text-white">
+                {item.effort_score}/10
+              </span>
+            </div>
+
+            {/* View Mode Tabs */}
+            <div className="flex-1 flex justify-end">
+              <div className="flex items-center gap-1 bg-black/30 rounded p-1">
+                <button
+                  onClick={() => setViewMode('details')}
+                  className={clsx(
+                    'px-3 py-1 text-xs rounded transition-colors',
+                    viewMode === 'details'
+                      ? 'bg-gray-700 text-white'
+                      : 'text-gray-400 hover:text-white',
+                  )}
+                >
+                  Details
+                </button>
+                <button
+                  onClick={() => setViewMode('prd')}
+                  disabled={!item.prd_content}
+                  className={clsx(
+                    'px-3 py-1 text-xs rounded transition-colors',
+                    viewMode === 'prd'
+                      ? 'bg-gray-700 text-white'
+                      : 'text-gray-400 hover:text-white',
+                    !item.prd_content && 'opacity-50 cursor-not-allowed',
+                  )}
+                >
+                  PRD
+                </button>
+                <button
+                  onClick={() => setViewMode('timeline')}
+                  className={clsx(
+                    'px-3 py-1 text-xs rounded transition-colors flex items-center gap-1',
+                    viewMode === 'timeline'
+                      ? 'bg-gray-700 text-white'
+                      : 'text-gray-400 hover:text-white',
+                  )}
+                >
+                  <Clock className="w-3 h-3" />
+                  History
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {viewMode === 'prd' && item.prd_content ? (
+              <div className="prose prose-invert prose-sm max-w-none">
+                {renderPrdContent(item.prd_content)}
+              </div>
+            ) : viewMode === 'timeline' ? (
+              <ItemTimeline
+                createdAt={item.created_at}
+                updatedAt={item.updated_at}
+                currentStatus={item.status}
+                prdGeneratedAt={item.prd_content ? item.updated_at : undefined}
+              />
+            ) : (
+              <>
+                {/* Problem */}
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    Problem
+                  </h3>
+                  <div className="p-4 bg-black/30 border border-gray-800">
+                    <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">
+                      {item.problem}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Solution */}
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    Solution
+                  </h3>
+                  <div className="p-4 bg-black/30 border border-gray-800">
+                    <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">
+                      {item.solution}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Benefits */}
+                {item.benefits && item.benefits.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                      Benefits
+                    </h3>
+                    <BenefitsGrid benefits={item.benefits} />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-center gap-4 p-4 border-t border-gray-800 bg-black/20">
+            {/* View/Generate PRD Button */}
+            <button
+              onClick={
+                item.prd_content ? () => setViewMode('prd') : handleGeneratePrd
+              }
+              disabled={isGenerating}
+              className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-600 text-gray-300 hover:bg-white/5 disabled:opacity-50"
+              title={item.prd_content ? '' : 'Press G to generate'}
+            >
+              <FileText className="w-4 h-4" />
+              {isGenerating
+                ? 'Generating...'
+                : item.prd_content
+                  ? 'View PRD'
+                  : 'Generate PRD'}
+            </button>
+
+            {/* Reject Button - only show for new items */}
+            {item.status === 'new' && (
+              <button
+                onClick={() => handleStatusChange('rejected')}
+                disabled={isUpdating}
+                className="flex items-center gap-2 px-4 py-2 text-sm border border-red-600/50 text-red-400 hover:bg-red-600/10 disabled:opacity-50"
+                title="Press X to reject"
+              >
+                <X className="w-4 h-4" />
+                Reject
+              </button>
+            )}
+
+            {/* Approve Button - only show for new items */}
+            {item.status === 'new' && (
+              <>
+                {/* Simple Approve */}
+                <button
+                  onClick={() => handleStatusChange('approved')}
+                  disabled={isUpdating || isGenerating}
+                  className="flex items-center gap-2 px-4 py-2 text-sm border border-green-600/50 text-green-400 hover:bg-green-600/10 disabled:opacity-50"
+                  title="Press A to approve"
+                >
+                  <Check className="w-4 h-4" />
+                  Approve
+                </button>
+
+                {/* Approve + Generate PRD Combo */}
+                <button
+                  onClick={handleApproveAndGeneratePrd}
+                  disabled={isUpdating || isGenerating}
+                  className="flex items-center gap-2 px-6 py-2 text-sm bg-gold text-navy font-medium hover:opacity-90 disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  {isUpdating || isGenerating
+                    ? 'Working...'
+                    : 'Approve & Generate PRD'}
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Keyboard hints */}
+          <div className="px-4 py-2 border-t border-gray-800 bg-black/30 text-xs text-gray-500 text-center">
+            Keyboard: <kbd className="px-1 py-0.5 bg-gray-800 rounded">Esc</kbd>{' '}
+            close
+            {item.status === 'new' && (
+              <>
+                {' • '}
+                <kbd className="px-1 py-0.5 bg-gray-800 rounded">A</kbd> approve
+                {' • '}
+                <kbd className="px-1 py-0.5 bg-gray-800 rounded">X</kbd> reject
+              </>
+            )}
+            {!item.prd_content && (
+              <>
+                {' • '}
+                <kbd className="px-1 py-0.5 bg-gray-800 rounded">G</kbd>{' '}
+                generate PRD
+              </>
+            )}
           </div>
         </div>
       </div>

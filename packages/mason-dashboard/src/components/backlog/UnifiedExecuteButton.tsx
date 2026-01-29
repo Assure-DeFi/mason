@@ -4,108 +4,52 @@ import { clsx } from 'clsx';
 import {
   Play,
   Terminal,
-  Cloud,
   X,
   Check,
+  Copy,
   AlertCircle,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 
-import { STORAGE_KEYS } from '@/lib/constants';
+import { ClaudeCodeExplainer } from '@/components/ui/ClaudeCodeExplainer';
 
 interface UnifiedExecuteButtonProps {
   /** IDs of approved items to execute */
   itemIds: string[];
-  /** Repository ID for remote execution */
-  repositoryId: string | null;
-  /** Callback when remote execution starts */
-  onRemoteExecute?: (itemIds: string[]) => void;
-  /** Whether remote execution is available */
-  remoteAvailable?: boolean;
   /** Optional className */
   className?: string;
 }
 
-type ExecuteMethod = 'cli' | 'remote';
-
 export function UnifiedExecuteButton({
   itemIds,
-  repositoryId,
-  onRemoteExecute,
-  remoteAvailable = true,
   className,
 }: UnifiedExecuteButtonProps) {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
-  const [preferredMethod, setPreferredMethod] = useState<ExecuteMethod | null>(
-    null,
-  );
-
-  // Load preferred method from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.EXECUTE_PREFERENCE);
-    if (saved === 'cli' || saved === 'remote') {
-      setPreferredMethod(saved);
-    }
-  }, []);
-
-  // Save preference
-  const savePreference = (method: ExecuteMethod) => {
-    localStorage.setItem(STORAGE_KEYS.EXECUTE_PREFERENCE, method);
-    setPreferredMethod(method);
-  };
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+  const [showClaudeCodeExplainer, setShowClaudeCodeExplainer] = useState(false);
 
   const command = `/execute-approved --ids ${itemIds.join(',')}`;
 
-  const handleClick = () => {
-    // If user has a preference, use it directly
-    if (preferredMethod === 'cli') {
-      void handleCopyCommand();
-    } else if (
-      preferredMethod === 'remote' &&
-      remoteAvailable &&
-      repositoryId
-    ) {
-      handleRemoteExecute();
-    } else {
-      // Show modal for selection
-      setShowModal(true);
-    }
-  };
-
-  const handleCopyCommand = async () => {
+  const handleCopyCommand = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(command);
       setCopied(true);
       setCopyError(false);
-      setTimeout(() => setCopied(false), 2000);
-      setShowModal(false);
+      setTimeout(() => {
+        setCopied(false);
+        setShowModal(false);
+      }, 1500);
     } catch (err) {
       console.error('Failed to copy:', err);
       setCopyError(true);
       setTimeout(() => setCopyError(false), 3000);
     }
-  };
-
-  const handleRemoteExecute = () => {
-    if (onRemoteExecute) {
-      onRemoteExecute(itemIds);
-    }
-    setShowModal(false);
-  };
-
-  const handleSelectMethod = (method: ExecuteMethod, remember: boolean) => {
-    if (remember) {
-      savePreference(method);
-    }
-
-    if (method === 'cli') {
-      void handleCopyCommand();
-    } else {
-      handleRemoteExecute();
-    }
-  };
+  }, [command]);
 
   if (itemIds.length === 0) {
     return null;
@@ -114,41 +58,25 @@ export function UnifiedExecuteButton({
   return (
     <>
       <button
-        onClick={handleClick}
+        onClick={() => setShowModal(true)}
         className={clsx(
-          'flex items-center gap-2 px-4 py-2 font-medium text-sm transition-opacity',
-          copyError
-            ? 'bg-red-600 text-white'
-            : 'bg-gold text-navy hover:opacity-90',
+          'flex items-center gap-2 px-4 py-2 bg-gold text-navy font-medium text-sm hover:opacity-90 transition-opacity',
           className,
         )}
       >
-        {copyError ? (
-          <>
-            <AlertCircle className="w-4 h-4" />
-            Copy failed
-          </>
-        ) : copied ? (
-          <>
-            <Check className="w-4 h-4" />
-            Copied!
-          </>
-        ) : (
-          <>
-            <Play className="w-4 h-4" />
-            Execute Approved ({itemIds.length})
-          </>
-        )}
+        <Play className="w-4 h-4" />
+        Execute Approved ({itemIds.length})
       </button>
 
-      {/* Method Selection Modal */}
+      {/* Execute Modal - CLI Only */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="bg-navy border border-gray-800 w-full max-w-md mx-4 rounded-lg">
+          <div className="bg-navy border border-gray-800 w-full max-w-lg mx-4 rounded-lg overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-800">
               <h3 className="text-lg font-semibold text-white">
-                How do you want to execute?
+                Execute {itemIds.length} Approved Item
+                {itemIds.length !== 1 ? 's' : ''}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
@@ -158,105 +86,151 @@ export function UnifiedExecuteButton({
               </button>
             </div>
 
-            {/* Options */}
-            <div className="p-4 space-y-3">
-              {/* CLI Option */}
-              <button
-                onClick={() => handleSelectMethod('cli', false)}
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <p className="text-gray-400 text-sm">
+                Ready to implement these improvements? Copy the command below
+                and paste it in Claude Code.
+              </p>
+
+              {/* Command Box */}
+              <div
                 className={clsx(
-                  'w-full flex items-start gap-4 p-4 rounded-lg border transition-all text-left',
-                  preferredMethod === 'cli'
-                    ? 'border-gold bg-gold/5'
-                    : 'border-gray-700 hover:border-gray-600 bg-black/30',
+                  'flex items-center gap-3 p-4 rounded-lg border bg-black/50 font-mono cursor-pointer transition-all',
+                  copyError
+                    ? 'border-red-600 bg-red-900/20'
+                    : copied
+                      ? 'border-green-600 bg-green-900/20'
+                      : 'border-gray-700 hover:border-gold/50',
                 )}
+                onClick={handleCopyCommand}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    void handleCopyCommand();
+                  }
+                }}
               >
-                <div className="flex-shrink-0 p-2 rounded-lg bg-cyan-500/20">
-                  <Terminal className="w-5 h-5 text-cyan-400" />
+                <Terminal className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                <code className="flex-1 text-gold text-sm overflow-x-auto whitespace-nowrap">
+                  {command}
+                </code>
+                <div className="flex-shrink-0">
+                  {copyError ? (
+                    <AlertCircle className="w-5 h-5 text-red-400" />
+                  ) : copied ? (
+                    <Check className="w-5 h-5 text-green-400" />
+                  ) : (
+                    <Copy className="w-5 h-5 text-gray-400" />
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-white">
-                      In Claude Code (CLI)
-                    </span>
-                    {preferredMethod === 'cli' && (
-                      <span className="px-2 py-0.5 text-xs bg-gold/20 text-gold rounded">
-                        Preferred
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Copies command to clipboard. Paste in Claude Code to
-                    execute.
-                  </p>
-                </div>
+              </div>
+
+              {/* Status message */}
+              {copied && (
+                <p className="text-green-400 text-sm text-center">
+                  Command copied! Paste in Claude Code to execute.
+                </p>
+              )}
+              {copyError && (
+                <p className="text-red-400 text-sm text-center">
+                  Copy failed. Try selecting the command and copying manually.
+                </p>
+              )}
+
+              {/* What's Claude Code link */}
+              <button
+                onClick={() => setShowClaudeCodeExplainer(true)}
+                className="flex items-center gap-2 text-sm text-gray-400 hover:text-gold transition-colors"
+              >
+                <HelpCircle className="w-4 h-4" />
+                What&apos;s Claude Code?
               </button>
 
-              {/* Remote Option */}
-              <button
-                onClick={() => handleSelectMethod('remote', false)}
-                disabled={!remoteAvailable || !repositoryId}
-                className={clsx(
-                  'w-full flex items-start gap-4 p-4 rounded-lg border transition-all text-left',
-                  !remoteAvailable || !repositoryId
-                    ? 'opacity-50 cursor-not-allowed border-gray-800'
-                    : preferredMethod === 'remote'
-                      ? 'border-gold bg-gold/5'
-                      : 'border-gray-700 hover:border-gray-600 bg-black/30',
-                )}
-              >
-                <div className="flex-shrink-0 p-2 rounded-lg bg-purple-500/20">
-                  <Cloud className="w-5 h-5 text-purple-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-white">
-                      From Dashboard (Remote)
-                    </span>
-                    {preferredMethod === 'remote' && (
-                      <span className="px-2 py-0.5 text-xs bg-gold/20 text-gold rounded">
-                        Preferred
+              {/* Troubleshooting */}
+              <div className="pt-4 border-t border-gray-800">
+                <button
+                  onClick={() => setShowTroubleshooting(!showTroubleshooting)}
+                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  {showTroubleshooting ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                  Command not working?
+                </button>
+
+                {showTroubleshooting && (
+                  <div className="mt-3 p-3 bg-black/30 border border-gray-800 rounded-lg text-sm text-gray-400 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <Terminal className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
+                      <span>
+                        Make sure Claude Code is running in your project
+                        directory
                       </span>
-                    )}
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Terminal className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
+                      <span>Ensure you have approved items ready</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Terminal className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
+                      <span>
+                        Check that{' '}
+                        <code className="px-1 bg-black rounded text-gold">
+                          mason.config.json
+                        </code>{' '}
+                        exists
+                      </span>
+                    </div>
+                    <a
+                      href="/faq"
+                      className="block mt-2 text-gold hover:underline"
+                    >
+                      See full troubleshooting guide &rarr;
+                    </a>
                   </div>
-                  <p className="text-sm text-gray-400 mt-1">
-                    {!repositoryId
-                      ? 'Select a repository first'
-                      : !remoteAvailable
-                        ? 'Remote execution not available'
-                        : 'Execute directly from dashboard with live progress'}
-                  </p>
-                </div>
-              </button>
+                )}
+              </div>
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-gray-800 bg-black/20">
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    id="remember-preference"
-                    className="w-4 h-4 rounded border-gray-600 bg-black text-gold focus:ring-gold focus:ring-offset-0"
-                    onChange={(e) => {
-                      if (e.target.checked && preferredMethod) {
-                        savePreference(preferredMethod);
-                      }
-                    }}
-                  />
-                  Remember my choice
-                </label>
-
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
+            <div className="p-4 border-t border-gray-800 bg-black/20 flex justify-end gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCopyCommand}
+                className="flex items-center gap-2 px-4 py-2 bg-gold text-navy font-semibold text-sm rounded hover:opacity-90 transition-opacity"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    Copy Command
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Claude Code Explainer Modal */}
+      <ClaudeCodeExplainer
+        isOpen={showClaudeCodeExplainer}
+        onClose={() => setShowClaudeCodeExplainer(false)}
+      />
     </>
   );
 }
