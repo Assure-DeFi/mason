@@ -20,6 +20,56 @@ Examples:
 - `/pm-review area:frontend-ux` - Focus on frontend improvements
 - `/pm-review quick` - Quick wins only
 
+## Context Instructions
+
+The command may include additional context after the mode parameter. This context tells the agent WHERE to focus the analysis within the codebase.
+
+**Format:**
+
+```
+/pm-review [mode]
+
+Focus on: <context>
+```
+
+**Examples:**
+
+```
+/pm-review area:frontend-ux
+
+Focus on: Authentication flow, specifically the login page and session management
+```
+
+```
+/pm-review quick
+
+Focus on: Dashboard components in src/components/dashboard/
+```
+
+**How to Use Focus Context:**
+
+1. **Parse the context**: Extract the text after "Focus on:"
+2. **Narrow file exploration**: Prioritize files/directories mentioned in the context
+3. **Filter suggestions**: Only generate improvements relevant to the focused area
+4. **Interpret intent**: Understand semantic descriptions like "authentication flow" and map to relevant files (auth/, login, session, etc.)
+
+**Context Interpretation Rules:**
+
+| Context Pattern                   | Files/Dirs to Prioritize                     |
+| --------------------------------- | -------------------------------------------- |
+| "authentication", "auth", "login" | `**/auth/**`, `**/login/**`, `**/session/**` |
+| "dashboard", "admin panel"        | `**/dashboard/**`, `**/admin/**`             |
+| "API", "endpoints", "routes"      | `**/api/**`, `**/routes/**`                  |
+| "database", "queries", "supabase" | `**/lib/supabase/**`, `**/db/**`, `**/*.sql` |
+| "components", "UI"                | `**/components/**`                           |
+| Specific path mentioned           | That exact path and subdirectories           |
+
+**Important:** When focus context is provided:
+
+- Reduce total suggestions (5-10 instead of 10-20) but make them highly targeted
+- Every suggestion MUST relate to the focused area
+- Include file paths in suggestions that match the focus
+
 ## Process
 
 ### Step 1: Load Domain Knowledge
@@ -32,6 +82,8 @@ First, load any domain-specific knowledge from `.claude/skills/pm-domain-knowled
 - Known pain points
 
 ### Step 2: Analyze Codebase
+
+**If focus context is provided:** Before exploring all domains, first identify the relevant files/directories based on the "Focus on:" context. Limit your initial exploration to these areas. Only generate improvements that directly relate to the focused area.
 
 Explore the codebase systematically across these domains:
 
@@ -128,6 +180,67 @@ For EVERY improvement, populate ALL 5 benefit categories. Each benefit should be
 }
 ```
 
+### Step 5.5: Validate Suggestions (Parallel)
+
+Before submission, validate each suggestion to filter false positives. This step runs in parallel for efficiency.
+
+#### Validation Process
+
+Invoke the pm-validator agent to check all suggestions:
+
+1. **Tier 1 (Pattern-Based)**: Auto-reject obvious false positives
+   - `.env.example` placeholder values
+   - Test fixtures (`test_api_key`, `mock_secret`)
+   - `NEXT_PUBLIC_*` environment variables
+   - Example/sample data in documentation
+
+2. **Tier 2 (Contextual)**: Investigate the codebase
+   - Check for `// why`, `// NOTE`, `// intentional` comments
+   - Look for existing error handling/mitigations
+   - Check `.claude/skills/pm-domain-knowledge/` Off-Limits
+
+3. **Tier 3 (Impact)**: Verify actionable solutions
+   - Solution references specific files/patterns
+   - Fix improves system without side effects
+
+#### Log Filtered Items
+
+Insert filtered items to `mason_pm_filtered_items` (include repository_id if available):
+
+```bash
+curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_filtered_items" \
+  -H "apikey: ${supabaseAnonKey}" \
+  -H "Authorization: Bearer ${supabaseAnonKey}" \
+  -H "Content-Type: application/json" \
+  -d '[{
+    "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+    "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
+    "title": "...",
+    "problem": "...",
+    "solution": "...",
+    "type": "...",
+    "area": "...",
+    "impact_score": 8,
+    "effort_score": 2,
+    "filter_reason": "Pattern matches .env.example placeholder values",
+    "filter_tier": "tier1",
+    "filter_confidence": 0.95
+  }]'
+```
+
+#### Display Validation Summary
+
+```
+## Validation Complete
+- Suggestions Generated: 15
+- Validated (will submit): 12
+- Filtered (false positives): 3
+
+Filtered items logged to dashboard → Filtered tab for review.
+```
+
+Continue to Step 6 with validated items only.
+
 ### Step 6: Submit Results Directly to User's Supabase
 
 **Privacy Architecture:** Data is written DIRECTLY to the user's own Supabase database, never to the central server. The central server only validates the API key for identity.
@@ -154,11 +267,11 @@ Read the configuration from `mason.config.json`:
 
 - `dashboardUrl`: Dashboard URL (defaults to `https://mason.assuredefi.com`)
 
-**Submission Process (2 Steps):**
+**Submission Process (3 Steps):**
 
-#### Step 6a: Validate API Key (Central Server)
+#### Step 6a: Validate API Key and Get Repositories (Central Server)
 
-First, validate the API key to confirm identity:
+First, validate the API key and retrieve connected repositories:
 
 ```bash
 DASHBOARD_URL="${dashboardUrl:-https://mason.assuredefi.com}"
@@ -175,9 +288,35 @@ fi
 
 USER_ID=$(echo "$VALIDATION" | jq -r '.user_id')
 DASHBOARD_BACKLOG_URL=$(echo "$VALIDATION" | jq -r '.dashboard_url')
+# Get connected repositories for matching
+REPOSITORIES=$(echo "$VALIDATION" | jq -r '.repositories')
 ```
 
-#### Step 6b: Write Data Directly to User's Supabase
+#### Step 6b: Match Current Repository
+
+Get the current git remote and match it to find the repository_id:
+
+```bash
+# Get the current git remote URL
+GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+
+# Extract owner/repo from git remote URL (handles both HTTPS and SSH)
+# Examples:
+#   https://github.com/owner/repo.git -> owner/repo
+#   git@github.com:owner/repo.git -> owner/repo
+REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/.*github\.com[:/]([^/]+\/[^/]+)(\.git)?$/\1/')
+
+# Find matching repository_id from the validation response
+REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select(.github_full_name == $name) | .id // empty')
+
+if [ -z "$REPOSITORY_ID" ]; then
+  echo "Warning: Repository '$REPO_FULL_NAME' not connected in Mason dashboard."
+  echo "Items will be created without repository association."
+  echo "To enable multi-repo filtering, connect this repository at: ${DASHBOARD_URL}/settings/github"
+fi
+```
+
+#### Step 6c: Write Data Directly to User's Supabase
 
 Then, write the improvements directly to the user's own Supabase using the REST API:
 
@@ -186,7 +325,7 @@ Then, write the improvements directly to the user's own Supabase using the REST 
 ANALYSIS_RUN_ID=$(uuidgen)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Step 1: Create analysis run record
+# Step 1: Create analysis run record (include repository_id if available)
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -198,11 +337,12 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
     "items_found": 15,
     "started_at": "'${TIMESTAMP}'",
     "completed_at": "'${TIMESTAMP}'",
-    "status": "completed"
+    "status": "completed",
+    "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")'
   }'
 
-# Step 2: Insert backlog items
-# Note: No user_id needed - privacy is enforced via separate databases per user
+# Step 2: Insert backlog items with repository_id for multi-repo support
+# Note: repository_id enables filtering by repo in the dashboard
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -211,6 +351,7 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -d '[
     {
       "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+      "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
       "title": "Add data freshness timestamps",
       "problem": "Executives cannot tell when data was updated...",
       "solution": "Add visible timestamps...",
@@ -366,6 +507,7 @@ Each improvement MUST include ALL of these fields:
 
 ```json
 {
+  "repository_id": "${REPOSITORY_ID}",
   "title": "Add data freshness timestamps to Executive Snapshot",
   "problem": "Executives cannot tell when snapshot data was last updated. No visible 'as of' timestamps or data freshness indicators. This creates uncertainty about whether viewing current or stale information.",
   "solution": "Add visible timestamps showing when each section was last refreshed. Include 'Last updated: X minutes ago' badges on KPI cards, funnel summary, and revenue chart. Add global 'Data as of [timestamp]' indicator in page header.",

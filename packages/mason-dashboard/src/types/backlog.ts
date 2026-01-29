@@ -79,6 +79,9 @@ export interface BacklogItem {
 
   // Analysis run reference
   analysis_run_id: string | null;
+
+  // Repository association (for multi-repo support)
+  repository_id: string | null;
 }
 
 export interface AnalysisRun {

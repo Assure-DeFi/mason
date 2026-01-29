@@ -201,10 +201,17 @@ function BacklogPageContent() {
     if (!client) return;
 
     try {
-      const { count, error: countError } = await client
+      let query = client
         .from('mason_pm_filtered_items')
         .select('*', { count: 'exact', head: true })
         .eq('override_status', 'filtered');
+
+      // Filter by repository if selected
+      if (selectedRepoId) {
+        query = query.eq('repository_id', selectedRepoId);
+      }
+
+      const { count, error: countError } = await query;
 
       if (!countError && count !== null) {
         setFilteredCount(count);
@@ -212,7 +219,7 @@ function BacklogPageContent() {
     } catch (err) {
       console.error('Error fetching filtered count:', err);
     }
-  }, [client]);
+  }, [client, selectedRepoId]);
 
   const fetchItems = useCallback(async () => {
     if (!client) {
@@ -229,6 +236,13 @@ function BacklogPageContent() {
       return;
     }
 
+    // Wait for repository selection before fetching
+    if (!selectedRepoId) {
+      setItems([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -236,6 +250,7 @@ function BacklogPageContent() {
       const { data, error: fetchError } = await client
         .from('mason_pm_backlog_items')
         .select('*')
+        .eq('repository_id', selectedRepoId)
         .order('priority_score', { ascending: false });
 
       if (fetchError) {
@@ -256,7 +271,7 @@ function BacklogPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [client, session, isDbLoading, fetchFilteredCount]);
+  }, [client, session, isDbLoading, selectedRepoId, fetchFilteredCount]);
 
   useEffect(() => {
     if (isConfigured && !isDbLoading) {
@@ -266,29 +281,43 @@ function BacklogPageContent() {
     }
   }, [fetchItems, isConfigured, isDbLoading]);
 
-  // Real-time subscription
+  // Real-time subscription - filters by selected repository
   useEffect(() => {
-    if (!client || !isConfigured) return;
+    if (!client || !isConfigured || !selectedRepoId) return;
 
     const channel = client
-      .channel('mason_pm_backlog_changes')
+      .channel(`mason_pm_backlog_changes_${selectedRepoId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'mason_pm_backlog_items',
+          filter: `repository_id=eq.${selectedRepoId}`,
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
             setItems((prev) => {
               const newItem = payload.new as BacklogItem;
+              // Only add if it matches the current repository
+              if (newItem.repository_id !== selectedRepoId) return prev;
               const updated = [...prev, newItem].sort(
                 (a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0),
               );
               return updated;
             });
           } else if (payload.eventType === 'UPDATE') {
+            const updatedItem = payload.new as BacklogItem;
+            // If repository changed and no longer matches, remove from list
+            if (updatedItem.repository_id !== selectedRepoId) {
+              setItems((prev) =>
+                prev.filter((item) => item.id !== updatedItem.id),
+              );
+              if (selectedItem?.id === updatedItem.id) {
+                setSelectedItem(null);
+              }
+              return;
+            }
             setItems((prev) =>
               prev.map((item) =>
                 item.id === payload.new.id
@@ -314,7 +343,7 @@ function BacklogPageContent() {
     return () => {
       client.removeChannel(channel);
     };
-  }, [client, isConfigured, selectedItem?.id]);
+  }, [client, isConfigured, selectedRepoId, selectedItem?.id]);
 
   // Calculate counts
   const counts: StatusCounts = useMemo(() => {

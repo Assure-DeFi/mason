@@ -205,7 +205,7 @@ Invoke the pm-validator agent to check all suggestions:
 
 #### Log Filtered Items
 
-Insert filtered items to `mason_pm_filtered_items`:
+Insert filtered items to `mason_pm_filtered_items` (include repository_id if available):
 
 ```bash
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_filtered_items" \
@@ -214,6 +214,7 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_filtered_items" \
   -H "Content-Type: application/json" \
   -d '[{
     "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+    "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
     "title": "...",
     "problem": "...",
     "solution": "...",
@@ -266,11 +267,11 @@ Read the configuration from `mason.config.json`:
 
 - `dashboardUrl`: Dashboard URL (defaults to `https://mason.assuredefi.com`)
 
-**Submission Process (2 Steps):**
+**Submission Process (3 Steps):**
 
-#### Step 6a: Validate API Key (Central Server)
+#### Step 6a: Validate API Key and Get Repositories (Central Server)
 
-First, validate the API key to confirm identity:
+First, validate the API key and retrieve connected repositories:
 
 ```bash
 DASHBOARD_URL="${dashboardUrl:-https://mason.assuredefi.com}"
@@ -287,9 +288,35 @@ fi
 
 USER_ID=$(echo "$VALIDATION" | jq -r '.user_id')
 DASHBOARD_BACKLOG_URL=$(echo "$VALIDATION" | jq -r '.dashboard_url')
+# Get connected repositories for matching
+REPOSITORIES=$(echo "$VALIDATION" | jq -r '.repositories')
 ```
 
-#### Step 6b: Write Data Directly to User's Supabase
+#### Step 6b: Match Current Repository
+
+Get the current git remote and match it to find the repository_id:
+
+```bash
+# Get the current git remote URL
+GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+
+# Extract owner/repo from git remote URL (handles both HTTPS and SSH)
+# Examples:
+#   https://github.com/owner/repo.git -> owner/repo
+#   git@github.com:owner/repo.git -> owner/repo
+REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/.*github\.com[:/]([^/]+\/[^/]+)(\.git)?$/\1/')
+
+# Find matching repository_id from the validation response
+REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select(.github_full_name == $name) | .id // empty')
+
+if [ -z "$REPOSITORY_ID" ]; then
+  echo "Warning: Repository '$REPO_FULL_NAME' not connected in Mason dashboard."
+  echo "Items will be created without repository association."
+  echo "To enable multi-repo filtering, connect this repository at: ${DASHBOARD_URL}/settings/github"
+fi
+```
+
+#### Step 6c: Write Data Directly to User's Supabase
 
 Then, write the improvements directly to the user's own Supabase using the REST API:
 
@@ -298,7 +325,7 @@ Then, write the improvements directly to the user's own Supabase using the REST 
 ANALYSIS_RUN_ID=$(uuidgen)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Step 1: Create analysis run record
+# Step 1: Create analysis run record (include repository_id if available)
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -310,11 +337,12 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
     "items_found": 15,
     "started_at": "'${TIMESTAMP}'",
     "completed_at": "'${TIMESTAMP}'",
-    "status": "completed"
+    "status": "completed",
+    "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")'
   }'
 
-# Step 2: Insert backlog items
-# Note: No user_id needed - privacy is enforced via separate databases per user
+# Step 2: Insert backlog items with repository_id for multi-repo support
+# Note: repository_id enables filtering by repo in the dashboard
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -323,6 +351,7 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -d '[
     {
       "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+      "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
       "title": "Add data freshness timestamps",
       "problem": "Executives cannot tell when data was updated...",
       "solution": "Add visible timestamps...",
@@ -478,6 +507,7 @@ Each improvement MUST include ALL of these fields:
 
 ```json
 {
+  "repository_id": "${REPOSITORY_ID}",
   "title": "Add data freshness timestamps to Executive Snapshot",
   "problem": "Executives cannot tell when snapshot data was last updated. No visible 'as of' timestamps or data freshness indicators. This creates uncertainty about whether viewing current or stale information.",
   "solution": "Add visible timestamps showing when each section was last refreshed. Include 'Last updated: X minutes ago' badges on KPI cards, funnel summary, and revenue chart. Add global 'Data as of [timestamp]' indicator in page header.",
