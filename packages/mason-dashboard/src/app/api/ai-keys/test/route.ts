@@ -1,9 +1,18 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+import { authOptions } from '@/lib/auth/auth-options';
+
 export async function POST(request: Request) {
   try {
+    // Require authentication before allowing API key testing
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { provider, apiKey } = body;
 
