@@ -6,10 +6,11 @@
 # - Auto-pilot skill for autonomous backlog execution
 # - Pattern learning plugin for continuous improvement
 #
-# Usage:
-#   bash install-autopilot.sh
-#   # or with environment variables:
-#   MASON_SUPABASE_URL="..." MASON_API_KEY="..." bash install-autopilot.sh
+# Usage (from any project directory):
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/extras/compound-learning/install.sh)
+#
+# Or if you have the mason repo cloned:
+#   bash /path/to/mason/extras/compound-learning/install.sh
 #
 
 set -e
@@ -133,54 +134,51 @@ create_directories() {
 install_files() {
     print_info "Installing files..."
 
-    # Base URL for raw files (if downloading from GitHub)
-    # For local install, we'll copy from the repo
-
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-    # Check if we're running from the mason repo
-    if [[ -f "$SCRIPT_DIR/.claude/skills/mason-autopilot/SKILL.md" ]]; then
+    # Check if we're running from the mason repo extras directory
+    if [[ -f "$SCRIPT_DIR/skills/mason-autopilot/SKILL.md" ]]; then
         print_info "Installing from local repository..."
 
         # Copy auto-pilot skill
-        cp -r "$SCRIPT_DIR/.claude/skills/mason-autopilot/"* .claude/skills/mason-autopilot/
+        cp -r "$SCRIPT_DIR/skills/mason-autopilot/"* .claude/skills/mason-autopilot/
 
         # Copy pattern learning plugin
-        cp -r "$SCRIPT_DIR/.claude/plugins/mason-learning/"* .claude/plugins/mason-learning/
+        cp -r "$SCRIPT_DIR/plugins/mason-learning/"* .claude/plugins/mason-learning/
 
         # Copy commands
-        cp "$SCRIPT_DIR/.claude/commands/mason-autopilot.md" .claude/commands/
-        cp "$SCRIPT_DIR/.claude/commands/mason-patterns.md" .claude/commands/
+        cp "$SCRIPT_DIR/commands/mason-autopilot.md" .claude/commands/
+        cp "$SCRIPT_DIR/commands/mason-patterns.md" .claude/commands/
 
     else
         print_info "Downloading from GitHub..."
 
-        # GitHub raw URL base
-        GITHUB_RAW="https://raw.githubusercontent.com/assuredefi/mason/main"
+        # GitHub raw URL base - files are in extras/compound-learning/
+        GITHUB_RAW="https://raw.githubusercontent.com/Assure-DeFi/mason/main/extras/compound-learning"
 
         # Download auto-pilot skill
-        curl -fsSL "$GITHUB_RAW/.claude/skills/mason-autopilot/SKILL.md" -o .claude/skills/mason-autopilot/SKILL.md
-        curl -fsSL "$GITHUB_RAW/.claude/skills/mason-autopilot/scripts/fetch_next_item.py" -o .claude/skills/mason-autopilot/scripts/fetch_next_item.py
-        curl -fsSL "$GITHUB_RAW/.claude/skills/mason-autopilot/scripts/create_pr.py" -o .claude/skills/mason-autopilot/scripts/create_pr.py
-        curl -fsSL "$GITHUB_RAW/.claude/skills/mason-autopilot/scripts/requirements.txt" -o .claude/skills/mason-autopilot/scripts/requirements.txt
-        curl -fsSL "$GITHUB_RAW/.claude/skills/mason-autopilot/scripts/lib/__init__.py" -o .claude/skills/mason-autopilot/scripts/lib/__init__.py
-        curl -fsSL "$GITHUB_RAW/.claude/skills/mason-autopilot/scripts/lib/mason_api.py" -o .claude/skills/mason-autopilot/scripts/lib/mason_api.py
-        curl -fsSL "$GITHUB_RAW/.claude/skills/mason-autopilot/scripts/lib/git_ops.py" -o .claude/skills/mason-autopilot/scripts/lib/git_ops.py
+        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/SKILL.md" -o .claude/skills/mason-autopilot/SKILL.md
+        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/fetch_next_item.py" -o .claude/skills/mason-autopilot/scripts/fetch_next_item.py
+        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/create_pr.py" -o .claude/skills/mason-autopilot/scripts/create_pr.py
+        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/requirements.txt" -o .claude/skills/mason-autopilot/scripts/requirements.txt
+        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/lib/__init__.py" -o .claude/skills/mason-autopilot/scripts/lib/__init__.py
+        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/lib/mason_api.py" -o .claude/skills/mason-autopilot/scripts/lib/mason_api.py
+        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/lib/git_ops.py" -o .claude/skills/mason-autopilot/scripts/lib/git_ops.py
 
         # Download pattern learning plugin
-        curl -fsSL "$GITHUB_RAW/.claude/plugins/mason-learning/.claude-plugin/plugin.json" -o .claude/plugins/mason-learning/.claude-plugin/plugin.json
-        curl -fsSL "$GITHUB_RAW/.claude/plugins/mason-learning/hooks/hooks.json" -o .claude/plugins/mason-learning/hooks/hooks.json
-        curl -fsSL "$GITHUB_RAW/.claude/plugins/mason-learning/scripts/track_tool.py" -o .claude/plugins/mason-learning/scripts/track_tool.py
-        curl -fsSL "$GITHUB_RAW/.claude/plugins/mason-learning/scripts/analyze_session.py" -o .claude/plugins/mason-learning/scripts/analyze_session.py
-        curl -fsSL "$GITHUB_RAW/.claude/plugins/mason-learning/scripts/requirements.txt" -o .claude/plugins/mason-learning/scripts/requirements.txt
-        curl -fsSL "$GITHUB_RAW/.claude/plugins/mason-learning/scripts/lib/__init__.py" -o .claude/plugins/mason-learning/scripts/lib/__init__.py
-        curl -fsSL "$GITHUB_RAW/.claude/plugins/mason-learning/scripts/lib/state.py" -o .claude/plugins/mason-learning/scripts/lib/state.py
-        curl -fsSL "$GITHUB_RAW/.claude/plugins/mason-learning/scripts/lib/patterns.py" -o .claude/plugins/mason-learning/scripts/lib/patterns.py
-        curl -fsSL "$GITHUB_RAW/.claude/plugins/mason-learning/scripts/lib/rules.py" -o .claude/plugins/mason-learning/scripts/lib/rules.py
+        curl -fsSL "$GITHUB_RAW/plugins/mason-learning/.claude-plugin/plugin.json" -o .claude/plugins/mason-learning/.claude-plugin/plugin.json
+        curl -fsSL "$GITHUB_RAW/plugins/mason-learning/hooks/hooks.json" -o .claude/plugins/mason-learning/hooks/hooks.json
+        curl -fsSL "$GITHUB_RAW/plugins/mason-learning/scripts/track_tool.py" -o .claude/plugins/mason-learning/scripts/track_tool.py
+        curl -fsSL "$GITHUB_RAW/plugins/mason-learning/scripts/analyze_session.py" -o .claude/plugins/mason-learning/scripts/analyze_session.py
+        curl -fsSL "$GITHUB_RAW/plugins/mason-learning/scripts/requirements.txt" -o .claude/plugins/mason-learning/scripts/requirements.txt
+        curl -fsSL "$GITHUB_RAW/plugins/mason-learning/scripts/lib/__init__.py" -o .claude/plugins/mason-learning/scripts/lib/__init__.py
+        curl -fsSL "$GITHUB_RAW/plugins/mason-learning/scripts/lib/state.py" -o .claude/plugins/mason-learning/scripts/lib/state.py
+        curl -fsSL "$GITHUB_RAW/plugins/mason-learning/scripts/lib/patterns.py" -o .claude/plugins/mason-learning/scripts/lib/patterns.py
+        curl -fsSL "$GITHUB_RAW/plugins/mason-learning/scripts/lib/rules.py" -o .claude/plugins/mason-learning/scripts/lib/rules.py
 
         # Download commands
-        curl -fsSL "$GITHUB_RAW/.claude/commands/mason-autopilot.md" -o .claude/commands/mason-autopilot.md
-        curl -fsSL "$GITHUB_RAW/.claude/commands/mason-patterns.md" -o .claude/commands/mason-patterns.md
+        curl -fsSL "$GITHUB_RAW/commands/mason-autopilot.md" -o .claude/commands/mason-autopilot.md
+        curl -fsSL "$GITHUB_RAW/commands/mason-patterns.md" -o .claude/commands/mason-patterns.md
     fi
 
     print_success "Files installed"

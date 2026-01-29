@@ -1,0 +1,14 @@
+{
+  "hooks": [
+    {
+      "event": "PostToolUse",
+      "command": "python ${PLUGIN_DIR}/scripts/track_tool.py",
+      "description": "Track tool usage results to detect retry patterns"
+    },
+    {
+      "event": "Stop",
+      "command": "python ${PLUGIN_DIR}/scripts/analyze_session.py",
+      "description": "Analyze session for learning opportunities and update rules"
+    }
+  ]
+}

@@ -4,10 +4,11 @@
 # - Auto-pilot skill for autonomous backlog execution
 # - Pattern learning plugin for continuous improvement
 #
-# Usage:
-#   .\install-autopilot.ps1
-#   # or with environment variables:
-#   $env:MASON_SUPABASE_URL="..."; $env:MASON_API_KEY="..."; .\install-autopilot.ps1
+# Usage (from any project directory):
+#   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Assure-DeFi/mason/main/extras/compound-learning/install.ps1" -OutFile "install-autopilot.ps1"; .\install-autopilot.ps1
+#
+# Or if you have the mason repo cloned:
+#   .\path\to\mason\extras\compound-learning\install.ps1
 #
 
 $ErrorActionPreference = "Stop"
@@ -91,49 +92,50 @@ function Install-Files {
     Write-Info "Installing files..."
 
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-    $localSkillPath = Join-Path $scriptDir ".claude/skills/mason-autopilot/SKILL.md"
+    $localSkillPath = Join-Path $scriptDir "skills/mason-autopilot/SKILL.md"
 
     if (Test-Path $localSkillPath) {
         Write-Info "Installing from local repository..."
 
         # Copy auto-pilot skill
-        Copy-Item -Path "$scriptDir/.claude/skills/mason-autopilot/*" -Destination ".claude/skills/mason-autopilot/" -Recurse -Force
+        Copy-Item -Path "$scriptDir/skills/mason-autopilot/*" -Destination ".claude/skills/mason-autopilot/" -Recurse -Force
 
         # Copy pattern learning plugin
-        Copy-Item -Path "$scriptDir/.claude/plugins/mason-learning/*" -Destination ".claude/plugins/mason-learning/" -Recurse -Force
+        Copy-Item -Path "$scriptDir/plugins/mason-learning/*" -Destination ".claude/plugins/mason-learning/" -Recurse -Force
 
         # Copy commands
-        Copy-Item -Path "$scriptDir/.claude/commands/mason-autopilot.md" -Destination ".claude/commands/" -Force
-        Copy-Item -Path "$scriptDir/.claude/commands/mason-patterns.md" -Destination ".claude/commands/" -Force
+        Copy-Item -Path "$scriptDir/commands/mason-autopilot.md" -Destination ".claude/commands/" -Force
+        Copy-Item -Path "$scriptDir/commands/mason-patterns.md" -Destination ".claude/commands/" -Force
 
     } else {
         Write-Info "Downloading from GitHub..."
 
-        $githubRaw = "https://raw.githubusercontent.com/assuredefi/mason/main"
+        # GitHub raw URL base - files are in extras/compound-learning/
+        $githubRaw = "https://raw.githubusercontent.com/Assure-DeFi/mason/main/extras/compound-learning"
 
         # Download auto-pilot skill
-        Invoke-WebRequest -Uri "$githubRaw/.claude/skills/mason-autopilot/SKILL.md" -OutFile ".claude/skills/mason-autopilot/SKILL.md"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/skills/mason-autopilot/scripts/fetch_next_item.py" -OutFile ".claude/skills/mason-autopilot/scripts/fetch_next_item.py"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/skills/mason-autopilot/scripts/create_pr.py" -OutFile ".claude/skills/mason-autopilot/scripts/create_pr.py"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/skills/mason-autopilot/scripts/requirements.txt" -OutFile ".claude/skills/mason-autopilot/scripts/requirements.txt"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/skills/mason-autopilot/scripts/lib/__init__.py" -OutFile ".claude/skills/mason-autopilot/scripts/lib/__init__.py"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/skills/mason-autopilot/scripts/lib/mason_api.py" -OutFile ".claude/skills/mason-autopilot/scripts/lib/mason_api.py"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/skills/mason-autopilot/scripts/lib/git_ops.py" -OutFile ".claude/skills/mason-autopilot/scripts/lib/git_ops.py"
+        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/SKILL.md" -OutFile ".claude/skills/mason-autopilot/SKILL.md"
+        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/fetch_next_item.py" -OutFile ".claude/skills/mason-autopilot/scripts/fetch_next_item.py"
+        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/create_pr.py" -OutFile ".claude/skills/mason-autopilot/scripts/create_pr.py"
+        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/requirements.txt" -OutFile ".claude/skills/mason-autopilot/scripts/requirements.txt"
+        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/lib/__init__.py" -OutFile ".claude/skills/mason-autopilot/scripts/lib/__init__.py"
+        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/lib/mason_api.py" -OutFile ".claude/skills/mason-autopilot/scripts/lib/mason_api.py"
+        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/lib/git_ops.py" -OutFile ".claude/skills/mason-autopilot/scripts/lib/git_ops.py"
 
         # Download pattern learning plugin
-        Invoke-WebRequest -Uri "$githubRaw/.claude/plugins/mason-learning/.claude-plugin/plugin.json" -OutFile ".claude/plugins/mason-learning/.claude-plugin/plugin.json"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/plugins/mason-learning/hooks/hooks.json" -OutFile ".claude/plugins/mason-learning/hooks/hooks.json"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/plugins/mason-learning/scripts/track_tool.py" -OutFile ".claude/plugins/mason-learning/scripts/track_tool.py"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/plugins/mason-learning/scripts/analyze_session.py" -OutFile ".claude/plugins/mason-learning/scripts/analyze_session.py"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/plugins/mason-learning/scripts/requirements.txt" -OutFile ".claude/plugins/mason-learning/scripts/requirements.txt"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/plugins/mason-learning/scripts/lib/__init__.py" -OutFile ".claude/plugins/mason-learning/scripts/lib/__init__.py"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/plugins/mason-learning/scripts/lib/state.py" -OutFile ".claude/plugins/mason-learning/scripts/lib/state.py"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/plugins/mason-learning/scripts/lib/patterns.py" -OutFile ".claude/plugins/mason-learning/scripts/lib/patterns.py"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/plugins/mason-learning/scripts/lib/rules.py" -OutFile ".claude/plugins/mason-learning/scripts/lib/rules.py"
+        Invoke-WebRequest -Uri "$githubRaw/plugins/mason-learning/.claude-plugin/plugin.json" -OutFile ".claude/plugins/mason-learning/.claude-plugin/plugin.json"
+        Invoke-WebRequest -Uri "$githubRaw/plugins/mason-learning/hooks/hooks.json" -OutFile ".claude/plugins/mason-learning/hooks/hooks.json"
+        Invoke-WebRequest -Uri "$githubRaw/plugins/mason-learning/scripts/track_tool.py" -OutFile ".claude/plugins/mason-learning/scripts/track_tool.py"
+        Invoke-WebRequest -Uri "$githubRaw/plugins/mason-learning/scripts/analyze_session.py" -OutFile ".claude/plugins/mason-learning/scripts/analyze_session.py"
+        Invoke-WebRequest -Uri "$githubRaw/plugins/mason-learning/scripts/requirements.txt" -OutFile ".claude/plugins/mason-learning/scripts/requirements.txt"
+        Invoke-WebRequest -Uri "$githubRaw/plugins/mason-learning/scripts/lib/__init__.py" -OutFile ".claude/plugins/mason-learning/scripts/lib/__init__.py"
+        Invoke-WebRequest -Uri "$githubRaw/plugins/mason-learning/scripts/lib/state.py" -OutFile ".claude/plugins/mason-learning/scripts/lib/state.py"
+        Invoke-WebRequest -Uri "$githubRaw/plugins/mason-learning/scripts/lib/patterns.py" -OutFile ".claude/plugins/mason-learning/scripts/lib/patterns.py"
+        Invoke-WebRequest -Uri "$githubRaw/plugins/mason-learning/scripts/lib/rules.py" -OutFile ".claude/plugins/mason-learning/scripts/lib/rules.py"
 
         # Download commands
-        Invoke-WebRequest -Uri "$githubRaw/.claude/commands/mason-autopilot.md" -OutFile ".claude/commands/mason-autopilot.md"
-        Invoke-WebRequest -Uri "$githubRaw/.claude/commands/mason-patterns.md" -OutFile ".claude/commands/mason-patterns.md"
+        Invoke-WebRequest -Uri "$githubRaw/commands/mason-autopilot.md" -OutFile ".claude/commands/mason-autopilot.md"
+        Invoke-WebRequest -Uri "$githubRaw/commands/mason-patterns.md" -OutFile ".claude/commands/mason-patterns.md"
     }
 
     Write-Success "Files installed"

@@ -1,0 +1,10 @@
+# Mason Auto-Pilot Dependencies
+# These are the Python packages required for the auto-pilot scripts.
+#
+# Note: The scripts use only Python standard library modules for maximum
+# portability. No external dependencies are required.
+#
+# If you need to add dependencies in the future, add them here:
+# requests>=2.28.0
+
+# Currently no external dependencies required
