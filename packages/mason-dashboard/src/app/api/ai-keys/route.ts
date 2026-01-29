@@ -1,15 +1,24 @@
+import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 
+import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import { createServerClient } from '@/lib/supabase/client';
 
 export async function GET() {
   try {
+    // Require authentication
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const supabase = createServerClient();
 
     const { data, error } = await supabase
       .from(TABLES.AI_PROVIDER_KEYS)
       .select('id, provider, created_at, updated_at')
+      .eq('user_id', session.user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -32,10 +41,17 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    // Require authentication and use session user ID (not request body)
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const supabase = createServerClient();
     const body = await request.json();
 
-    const { provider, apiKey, userId } = body;
+    const { provider, apiKey } = body;
+    // Note: userId from body is intentionally ignored - we use session.user.id
 
     if (!provider || !apiKey) {
       return NextResponse.json(
@@ -70,7 +86,7 @@ export async function POST(request: Request) {
       .from(TABLES.AI_PROVIDER_KEYS)
       .upsert(
         {
-          user_id: userId,
+          user_id: session.user.id, // Use authenticated session, not body
           provider,
           api_key: apiKey,
           updated_at: new Date().toISOString(),
@@ -102,6 +118,12 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    // Require authentication
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const supabase = createServerClient();
     const { searchParams } = new URL(request.url);
     const provider = searchParams.get('provider');
@@ -116,7 +138,8 @@ export async function DELETE(request: Request) {
     const { error } = await supabase
       .from(TABLES.AI_PROVIDER_KEYS)
       .delete()
-      .eq('provider', provider);
+      .eq('provider', provider)
+      .eq('user_id', session.user.id); // Only delete user's own keys
 
     if (error) {
       console.error('Error deleting AI key:', error);
