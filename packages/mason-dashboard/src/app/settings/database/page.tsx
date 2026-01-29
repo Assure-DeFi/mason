@@ -22,8 +22,11 @@ import {
   getOAuthSession,
   hasValidOAuthSession,
   getAccessToken,
+  getRefreshToken,
+  updateTokens,
   saveOAuthSession,
   setSelectedProject,
+  clearOAuthSession,
   type SupabaseOAuthTokens,
 } from '@/lib/supabase/oauth';
 import { listProjects } from '@/lib/supabase/management-api';
@@ -161,15 +164,73 @@ function DatabaseSettingsContent() {
 
   const handleRunMigrationsOAuth = async () => {
     const oauthSession = getOAuthSession();
-    const accessToken = getAccessToken();
+    let accessToken = getAccessToken();
 
-    if (!oauthSession?.selectedProjectRef || !accessToken) {
+    // If no project selected, show error
+    if (!oauthSession?.selectedProjectRef) {
       setMigration({
         status: 'error',
-        message: 'OAuth session expired. Please use the manual method below.',
+        message: 'No Supabase project selected. Please reconnect with OAuth.',
       });
       setShowManualFallback(true);
       return;
+    }
+
+    // If access token expired, try to refresh it
+    if (!accessToken) {
+      const refreshToken = getRefreshToken();
+      if (refreshToken) {
+        setMigration({
+          status: 'running',
+          message: 'Refreshing OAuth session...',
+        });
+        try {
+          const response = await fetch('/api/auth/supabase/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+          });
+
+          if (response.ok) {
+            const newTokens = (await response.json()) as SupabaseOAuthTokens;
+            updateTokens(newTokens);
+            accessToken = newTokens.accessToken;
+          } else {
+            // Refresh failed - session is truly expired
+            clearOAuthSession();
+            setHasOAuth(false);
+            setMigration({
+              status: 'error',
+              message:
+                'OAuth session expired. Please reconnect with Supabase or use the manual method below.',
+            });
+            setShowManualFallback(true);
+            return;
+          }
+        } catch (err) {
+          console.error('Token refresh failed:', err);
+          clearOAuthSession();
+          setHasOAuth(false);
+          setMigration({
+            status: 'error',
+            message:
+              'Failed to refresh OAuth session. Please reconnect with Supabase or use the manual method below.',
+          });
+          setShowManualFallback(true);
+          return;
+        }
+      } else {
+        // No refresh token available
+        clearOAuthSession();
+        setHasOAuth(false);
+        setMigration({
+          status: 'error',
+          message:
+            'OAuth session expired. Please reconnect with Supabase or use the manual method below.',
+        });
+        setShowManualFallback(true);
+        return;
+      }
     }
 
     setMigration({ status: 'running', message: 'Running migrations...' });
