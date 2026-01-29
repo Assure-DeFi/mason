@@ -4,12 +4,17 @@ import { useSession, signIn } from 'next-auth/react';
 import { Github, Check, Loader2, User } from 'lucide-react';
 import type { WizardStepProps } from '../SetupWizard';
 import { useGitHubToken } from '@/hooks/useGitHubToken';
+import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { useEffect, useState } from 'react';
 
 export function GitHubStep({ onNext, onBack }: WizardStepProps) {
   const { data: session, status } = useSession();
   const { hasToken, isLoading: isTokenLoading } = useGitHubToken();
+  const { client, isConfigured } = useUserDatabase();
   const [isTokenStored, setIsTokenStored] = useState(false);
+  const [isUserRecordCreated, setIsUserRecordCreated] = useState(false);
+
+  const isAuthenticated = status === 'authenticated' && session?.user;
 
   const handleSignIn = async () => {
     await signIn('github', { callbackUrl: '/setup?step=3' });
@@ -22,9 +27,53 @@ export function GitHubStep({ onNext, onBack }: WizardStepProps) {
     }
   }, [hasToken, status]);
 
-  const isAuthenticated = status === 'authenticated' && session?.user;
-  // Complete when authenticated AND token is stored in localStorage
-  const isComplete = isAuthenticated && (isTokenStored || hasToken);
+  // Create user record in mason_users after OAuth completes
+  useEffect(() => {
+    async function ensureUserRecord() {
+      if (
+        !isAuthenticated ||
+        !hasToken ||
+        !isConfigured ||
+        !client ||
+        !session?.user ||
+        isUserRecordCreated
+      ) {
+        return;
+      }
+
+      try {
+        const { error } = await client.from('mason_users').upsert(
+          {
+            github_id: session.user.github_id,
+            github_username: session.user.github_username,
+            github_email: session.user.github_email,
+            github_avatar_url: session.user.github_avatar_url,
+            is_active: true,
+          },
+          { onConflict: 'github_id' },
+        );
+
+        if (!error) {
+          setIsUserRecordCreated(true);
+        }
+      } catch (err) {
+        console.error('Error creating user record:', err);
+      }
+    }
+
+    ensureUserRecord();
+  }, [
+    isAuthenticated,
+    hasToken,
+    isConfigured,
+    client,
+    session,
+    isUserRecordCreated,
+  ]);
+
+  // Complete when authenticated, token is stored, AND user record is created
+  const isComplete =
+    isAuthenticated && (isTokenStored || hasToken) && isUserRecordCreated;
 
   return (
     <div className="space-y-6">
