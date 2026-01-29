@@ -590,6 +590,32 @@ function BacklogPageContent() {
     }
   };
 
+  const handleUpdatePrd = async (id: string, prdContent: string) => {
+    if (!client) {
+      throw new Error('Database not configured');
+    }
+
+    const { data: updated, error: updateError } = await client
+      .from('mason_pm_backlog_items')
+      .update({
+        prd_content: prdContent,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new Error('Failed to save PRD');
+    }
+
+    setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+
+    if (selectedItem?.id === id) {
+      setSelectedItem(updated);
+    }
+  };
+
   const handleItemClick = useCallback((item: BacklogItem) => {
     setSelectedItemViewMode('details');
     setSelectedItem(item);
@@ -1170,6 +1196,7 @@ function BacklogPageContent() {
           onClose={() => setSelectedItem(null)}
           onUpdateStatus={handleUpdateStatus}
           onGeneratePrd={handleGeneratePrd}
+          onUpdatePrd={handleUpdatePrd}
           initialViewMode={selectedItemViewMode}
         />
       )}

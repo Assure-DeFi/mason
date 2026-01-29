@@ -13,6 +13,8 @@ import {
   Zap,
   AlertCircle,
   Settings,
+  Pencil,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
@@ -28,6 +30,7 @@ interface ItemDetailModalProps {
   onClose: () => void;
   onUpdateStatus: (id: string, status: BacklogStatus) => Promise<void>;
   onGeneratePrd: (id: string) => Promise<void>;
+  onUpdatePrd: (id: string, prdContent: string) => Promise<void>;
   initialViewMode?: ViewMode;
 }
 
@@ -74,6 +77,7 @@ export function ItemDetailModal({
   onClose,
   onUpdateStatus,
   onGeneratePrd,
+  onUpdatePrd,
   initialViewMode = 'details',
 }: ItemDetailModalProps) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -83,9 +87,65 @@ export function ItemDetailModal({
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // PRD editing state
+  const [isEditingPrd, setIsEditingPrd] = useState(false);
+  const [editedPrdContent, setEditedPrdContent] = useState('');
+  const [isSavingPrd, setIsSavingPrd] = useState(false);
+
+  // Computed dirty check
+  const isPrdDirty =
+    isEditingPrd && editedPrdContent !== (item.prd_content ?? '');
+
+  const handleEditPrd = () => {
+    setEditedPrdContent(item.prd_content ?? '');
+    setIsEditingPrd(true);
+  };
+
+  const handleSavePrd = async () => {
+    setIsSavingPrd(true);
+    setError(null);
+    try {
+      await onUpdatePrd(item.id, editedPrdContent);
+      setIsEditingPrd(false);
+      setSuccessMessage('PRD Saved!');
+      setShowSuccess(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save PRD');
+    } finally {
+      setIsSavingPrd(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) return;
+    setIsEditingPrd(false);
+    setEditedPrdContent('');
+  };
+
+  const handleClose = () => {
+    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) return;
+    setIsEditingPrd(false);
+    onClose();
+  };
+
+  const handleTabChange = (newMode: ViewMode) => {
+    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) return;
+    setIsEditingPrd(false);
+    setViewMode(newMode);
+  };
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle Cmd/Ctrl+S for saving PRD
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        if (isEditingPrd && isPrdDirty) {
+          e.preventDefault();
+          handleSavePrd();
+        }
+        return;
+      }
+
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -95,7 +155,7 @@ export function ItemDetailModal({
 
       switch (e.key) {
         case 'Escape':
-          onClose();
+          handleClose();
           break;
         case 'g':
           if (!isGenerating && !item.prd_content) {
@@ -112,12 +172,17 @@ export function ItemDetailModal({
             handleStatusChange('rejected');
           }
           break;
+        case 'e':
+          if (viewMode === 'prd' && item.prd_content && !isEditingPrd) {
+            handleEditPrd();
+          }
+          break;
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [item, isGenerating, isUpdating, onClose]);
+  }, [item, isGenerating, isUpdating, isEditingPrd, isPrdDirty, viewMode]);
 
   const handleGeneratePrd = async () => {
     setIsGenerating(true);
@@ -302,7 +367,7 @@ export function ItemDetailModal({
     <>
       <div
         className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm animate-fade-in"
-        onClick={onClose}
+        onClick={handleClose}
       >
         <div
           className="flex items-center justify-center min-h-screen p-4"
@@ -332,7 +397,7 @@ export function ItemDetailModal({
                   </div>
 
                   <button
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="p-2 text-gray-400 hover:text-white hover:bg-white/10 transition-all"
                     title="Close (Esc)"
                   >
@@ -411,7 +476,7 @@ export function ItemDetailModal({
               <div className="px-8 pb-4">
                 <div className="flex items-center gap-2 border-b border-gray-800">
                   <button
-                    onClick={() => setViewMode('details')}
+                    onClick={() => handleTabChange('details')}
                     className={clsx(
                       'px-4 py-3 text-sm font-medium transition-all relative',
                       viewMode === 'details'
@@ -425,7 +490,7 @@ export function ItemDetailModal({
                     )}
                   </button>
                   <button
-                    onClick={() => setViewMode('prd')}
+                    onClick={() => handleTabChange('prd')}
                     disabled={!item.prd_content}
                     className={clsx(
                       'px-4 py-3 text-sm font-medium transition-all relative flex items-center gap-2',
@@ -442,7 +507,7 @@ export function ItemDetailModal({
                     )}
                   </button>
                   <button
-                    onClick={() => setViewMode('timeline')}
+                    onClick={() => handleTabChange('timeline')}
                     className={clsx(
                       'px-4 py-3 text-sm font-medium transition-all relative flex items-center gap-2',
                       viewMode === 'timeline'
@@ -463,8 +528,58 @@ export function ItemDetailModal({
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto p-8 bg-black/10">
               {viewMode === 'prd' && item.prd_content ? (
-                <div className="prose prose-invert max-w-none">
-                  {renderPrdContent(item.prd_content)}
+                <div className="space-y-4">
+                  {/* Edit/Save/Cancel buttons */}
+                  <div className="flex justify-end">
+                    {isEditingPrd ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleCancelEdit}
+                          disabled={isSavingPrd}
+                          className="px-4 py-2 text-sm border border-gray-700 text-gray-300 hover:bg-white/5"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSavePrd}
+                          disabled={isSavingPrd || !isPrdDirty}
+                          className="flex items-center gap-2 px-4 py-2 text-sm bg-gold text-navy font-semibold disabled:opacity-50"
+                        >
+                          {isSavingPrd ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            'Save'
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleEditPrd}
+                        className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-700 text-gray-300 hover:bg-white/5 hover:border-gray-600"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Edit PRD
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Content: textarea in edit mode, rendered in view mode */}
+                  {isEditingPrd ? (
+                    <textarea
+                      value={editedPrdContent}
+                      onChange={(e) => setEditedPrdContent(e.target.value)}
+                      disabled={isSavingPrd}
+                      className="w-full h-[500px] p-4 bg-black/30 border border-gray-700 text-gray-300 font-mono text-sm resize-y focus:border-gold/50 focus:ring-1 focus:ring-gold/50 outline-none"
+                      placeholder="PRD content in markdown..."
+                    />
+                  ) : (
+                    <div className="prose prose-invert max-w-none">
+                      {renderPrdContent(item.prd_content)}
+                    </div>
+                  )}
                 </div>
               ) : viewMode === 'timeline' ? (
                 <ItemTimeline
@@ -623,7 +738,7 @@ export function ItemDetailModal({
                   <button
                     onClick={
                       item.prd_content
-                        ? () => setViewMode('prd')
+                        ? () => handleTabChange('prd')
                         : handleGeneratePrd
                     }
                     disabled={isGenerating}
@@ -706,6 +821,14 @@ export function ItemDetailModal({
                       G
                     </kbd>
                     <span>generate PRD</span>
+                  </div>
+                )}
+                {viewMode === 'prd' && item.prd_content && !isEditingPrd && (
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-gray-800 text-gray-400 rounded font-mono">
+                      E
+                    </kbd>
+                    <span>edit PRD</span>
                   </div>
                 )}
               </div>
