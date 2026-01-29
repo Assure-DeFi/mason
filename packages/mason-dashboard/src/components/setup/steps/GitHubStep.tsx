@@ -1,23 +1,35 @@
 'use client';
 
-import { useSession, signIn } from 'next-auth/react';
-import { Github, Check, Loader2, User } from 'lucide-react';
+import { useSession, signIn, signOut } from 'next-auth/react';
+import { Github, Check, Loader2, User, RefreshCw } from 'lucide-react';
 import type { WizardStepProps } from '../SetupWizard';
 import { useGitHubToken } from '@/hooks/useGitHubToken';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { useEffect, useState } from 'react';
 
 export function GitHubStep({ onNext, onBack }: WizardStepProps) {
   const { data: session, status } = useSession();
-  const { hasToken, isLoading: isTokenLoading } = useGitHubToken();
-  const { client, isConfigured } = useUserDatabase();
+  const { hasToken, isLoading: isTokenLoading, clearToken } = useGitHubToken();
   const [isTokenStored, setIsTokenStored] = useState(false);
-  const [isUserRecordCreated, setIsUserRecordCreated] = useState(false);
 
   const isAuthenticated = status === 'authenticated' && session?.user;
 
   const handleSignIn = async () => {
-    await signIn('github', { callbackUrl: '/setup?step=3' });
+    await signIn('github', { callbackUrl: '/setup?step=1' });
+  };
+
+  const handleSwitchAccount = async () => {
+    // Clear local token and sign out to allow re-authentication with different account
+    clearToken();
+    await signOut({ redirect: false });
+    await signIn('github', { callbackUrl: '/setup?step=1' });
+  };
+
+  const handleDisconnect = async () => {
+    // Clear local token and sign out completely
+    clearToken();
+    await signOut({ redirect: false });
+    // Reload the page to reset state
+    window.location.reload();
   };
 
   // Check if token was stored after sign-in
@@ -27,53 +39,8 @@ export function GitHubStep({ onNext, onBack }: WizardStepProps) {
     }
   }, [hasToken, status]);
 
-  // Create user record in mason_users after OAuth completes
-  useEffect(() => {
-    async function ensureUserRecord() {
-      if (
-        !isAuthenticated ||
-        !hasToken ||
-        !isConfigured ||
-        !client ||
-        !session?.user ||
-        isUserRecordCreated
-      ) {
-        return;
-      }
-
-      try {
-        const { error } = await client.from('mason_users').upsert(
-          {
-            github_id: session.user.github_id,
-            github_username: session.user.github_username,
-            github_email: session.user.github_email,
-            github_avatar_url: session.user.github_avatar_url,
-            is_active: true,
-          },
-          { onConflict: 'github_id' },
-        );
-
-        if (!error) {
-          setIsUserRecordCreated(true);
-        }
-      } catch (err) {
-        console.error('Error creating user record:', err);
-      }
-    }
-
-    ensureUserRecord();
-  }, [
-    isAuthenticated,
-    hasToken,
-    isConfigured,
-    client,
-    session,
-    isUserRecordCreated,
-  ]);
-
-  // Complete when authenticated, token is stored, AND user record is created
-  const isComplete =
-    isAuthenticated && (isTokenStored || hasToken) && isUserRecordCreated;
+  // Complete when authenticated and token is stored (no DB dependency - that happens in step 2)
+  const isComplete = isAuthenticated && (isTokenStored || hasToken);
 
   return (
     <div className="space-y-6">
@@ -132,6 +99,23 @@ export function GitHubStep({ onNext, onBack }: WizardStepProps) {
                 <span>GitHub token stored securely in your browser</span>
               </div>
             )}
+
+            {/* Account Management Options */}
+            <div className="flex gap-2 border-t border-gray-800 pt-4">
+              <button
+                onClick={handleSwitchAccount}
+                className="flex items-center gap-2 rounded-md border border-gray-700 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-900"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Use Different Account
+              </button>
+              <button
+                onClick={handleDisconnect}
+                className="rounded-md px-3 py-2 text-sm text-gray-500 transition-colors hover:text-red-400"
+              >
+                Disconnect
+              </button>
+            </div>
           </div>
         ) : (
           <div className="text-center">

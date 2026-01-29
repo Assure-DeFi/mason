@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   Search,
@@ -14,6 +14,7 @@ import {
 import type { WizardStepProps } from '../SetupWizard';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { useGitHubToken } from '@/hooks/useGitHubToken';
+import { createMasonUserRecord } from '@/lib/supabase/user-record';
 
 interface GitHubRepo {
   id: number;
@@ -46,6 +47,43 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const userRecordCreatedRef = useRef(false);
+
+  // Ensure user record exists (fallback in case SupabaseConnectStep didn't create it)
+  useEffect(() => {
+    async function ensureUserRecord() {
+      if (
+        !isConfigured ||
+        !client ||
+        !session?.user ||
+        userRecordCreatedRef.current
+      ) {
+        return;
+      }
+
+      userRecordCreatedRef.current = true;
+
+      try {
+        const result = await createMasonUserRecord(client, {
+          github_id: session.user.github_id,
+          github_username: session.user.github_username,
+          github_email: session.user.github_email,
+          github_avatar_url: session.user.github_avatar_url,
+        });
+
+        if (!result.success) {
+          console.warn(
+            'Failed to create user record in RepoStep:',
+            result.error,
+          );
+        }
+      } catch (err) {
+        console.error('Error ensuring user record:', err);
+      }
+    }
+
+    ensureUserRecord();
+  }, [isConfigured, client, session]);
 
   // Fetch repos using token from localStorage (not session)
   useEffect(() => {

@@ -2,15 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   Database,
   Loader2,
   Check,
   X,
   ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import type { WizardStepProps } from '../SetupWizard';
 import {
@@ -21,6 +20,7 @@ import {
   getRefreshToken,
   setSelectedProject,
   getSelectedProject,
+  clearOAuthSession,
   type SupabaseOAuthTokens,
 } from '@/lib/supabase/oauth';
 import {
@@ -33,6 +33,7 @@ import {
 } from '@/lib/supabase/management-api';
 import { saveMasonConfig } from '@/lib/supabase/user-client';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { createMasonUserRecord } from '@/lib/supabase/user-record';
 
 type ConnectionStatus =
   | 'idle'
@@ -51,31 +52,15 @@ interface ConnectionState {
 
 export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
   const searchParams = useSearchParams();
-  const { refresh } = useUserDatabase();
+  const { data: session } = useSession();
+  const { refresh, client, isConfigured } = useUserDatabase();
   const [connection, setConnection] = useState<ConnectionState>({
     status: 'idle',
   });
   const [selectedProjectRef, setSelectedProjectRef] = useState<string | null>(
     null,
   );
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [oauthConfigured, setOauthConfigured] = useState(true);
   const [setupProgress, setSetupProgress] = useState<string | null>(null);
-
-  // Check if OAuth is configured
-  useEffect(() => {
-    const checkOAuthConfig = async () => {
-      try {
-        const response = await fetch('/api/auth/supabase/login', {
-          method: 'HEAD',
-        });
-        setOauthConfigured(response.status !== 500);
-      } catch {
-        setOauthConfigured(false);
-      }
-    };
-    checkOAuthConfig();
-  }, []);
 
   // Handle OAuth callback
   useEffect(() => {
@@ -240,6 +225,24 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
         });
         refresh();
 
+        // Step 5: Create user record in mason_users (now that DB is configured)
+        if (session?.user) {
+          setSetupProgress('Creating user record...');
+          // Need to create a new client with the fresh config
+          const { createClient } = await import('@supabase/supabase-js');
+          const freshClient = createClient(projectUrl, keys.anonKey);
+          const userResult = await createMasonUserRecord(freshClient, {
+            github_id: session.user.github_id,
+            github_username: session.user.github_username,
+            github_email: session.user.github_email,
+            github_avatar_url: session.user.github_avatar_url,
+          });
+          if (!userResult.success) {
+            console.warn('Failed to create user record:', userResult.error);
+            // Don't fail the step, just log the warning - RepoStep will retry
+          }
+        }
+
         setSetupProgress(null);
         setConnection({
           status: 'success',
@@ -255,7 +258,7 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
         });
       }
     },
-    [connection.projects, refresh],
+    [connection.projects, refresh, session],
   );
 
   const handleRefreshToken = async () => {
@@ -320,11 +323,11 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
         </div>
       </div>
 
-      {/* OAuth Connect Button */}
-      {oauthConfigured && connection.status === 'idle' && (
+      {/* OAuth Connect Button - Always shown when idle */}
+      {connection.status === 'idle' && (
         <button
           onClick={handleConnect}
-          className="flex w-full items-center justify-center gap-3 rounded-lg border border-gold bg-gold/10 px-6 py-4 font-medium text-gold transition-colors hover:bg-gold/20"
+          className="flex w-full items-center justify-center gap-3 rounded-lg bg-gold px-6 py-4 font-medium text-navy transition-colors hover:opacity-90"
         >
           <Database className="h-5 w-5" />
           Connect to Supabase
@@ -393,9 +396,22 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
 
       {/* Success State */}
       {connection.status === 'success' && (
-        <div className="flex items-center gap-2 rounded-lg bg-green-900/20 p-4 text-green-400">
-          <Check className="h-5 w-5" />
-          <span>{connection.message}</span>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 rounded-lg bg-green-900/20 p-4 text-green-400">
+            <Check className="h-5 w-5" />
+            <span>{connection.message}</span>
+          </div>
+          <button
+            onClick={() => {
+              clearOAuthSession();
+              setSelectedProjectRef(null);
+              setConnection({ status: 'idle' });
+            }}
+            className="flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-300"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Use Different Project
+          </button>
         </div>
       )}
 
@@ -415,64 +431,20 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
         </div>
       )}
 
-      {/* OAuth Not Configured - Show Advanced Setup */}
-      {!oauthConfigured && connection.status === 'idle' && (
-        <div className="space-y-4">
-          <div className="flex items-start gap-2 rounded-lg border border-yellow-800/30 bg-yellow-900/10 p-4">
-            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-500" />
-            <div className="text-sm text-yellow-200">
-              <p className="font-medium">OAuth Not Configured</p>
-              <p className="mt-1 text-yellow-200/80">
-                Supabase OAuth is not configured on this instance. Please use
-                the advanced setup below.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowAdvanced(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-700 bg-gray-900 px-4 py-3 font-medium text-white transition-colors hover:bg-gray-800"
-          >
-            <Database className="h-4 w-4" />
-            Use Advanced Setup
-          </button>
-        </div>
-      )}
-
-      {/* Advanced Setup Toggle (when OAuth is configured) */}
-      {oauthConfigured && connection.status === 'idle' && (
-        <div className="border-t border-gray-800 pt-4">
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex w-full items-center justify-between text-sm text-gray-400 hover:text-gray-300"
-          >
-            <span>Advanced: Manual Setup</span>
-            {showAdvanced ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* Advanced Setup Content */}
-      {showAdvanced && (
-        <div className="space-y-4 rounded-lg border border-gray-700 bg-gray-900/50 p-4">
-          <p className="text-sm text-gray-400">
-            If you prefer to set up manually or are using a self-hosted Supabase
-            instance, you can use the legacy setup process.
-          </p>
+      {/* Manual Setup - Hidden as small text link */}
+      {connection.status === 'idle' && (
+        <p className="text-center text-xs text-gray-500">
+          Having trouble?{' '}
           <button
             onClick={() => {
               // Signal to parent to switch to legacy DatabaseStep
-              // This is handled by the SetupWizard via a custom event or prop
               window.dispatchEvent(new CustomEvent('use-legacy-db-setup'));
             }}
-            className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-700"
+            className="underline transition-colors hover:text-gray-400"
           >
-            Use Manual Credential Entry
+            Use manual setup
           </button>
-        </div>
+        </p>
       )}
 
       {/* Navigation */}
