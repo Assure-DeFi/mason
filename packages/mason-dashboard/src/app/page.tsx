@@ -10,6 +10,7 @@ import {
   MasonAvatar,
   MasonLoader,
   MasonMark,
+  MasonTagline,
 } from '@/components/brand';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 
@@ -28,8 +29,9 @@ export default function Home() {
             <MasonLogo
               variant="wordmark"
               size="xl"
-              className="mb-4 justify-center"
+              className="mb-2 justify-center"
             />
+            <MasonTagline size="lg" className="text-center" />
           </div>
           <p
             className="mason-entrance mx-auto max-w-2xl text-xl text-gray-400"

@@ -2,7 +2,7 @@
 
 import { Shield, Database, Github, Key, ArrowRight } from 'lucide-react';
 
-import { MasonAvatar, MasonLogo } from '@/components/brand';
+import { MasonAvatar, MasonLogo, MasonTagline } from '@/components/brand';
 
 import type { WizardStepProps } from '../SetupWizard';
 
@@ -17,9 +17,10 @@ export function WelcomeStep({ onNext }: WizardStepProps) {
         <MasonLogo
           variant="wordmark"
           size="lg"
-          className="mb-2 justify-center"
+          className="mb-1 justify-center"
         />
-        <p className="mt-2 text-gray-400">
+        <MasonTagline size="md" className="text-center" />
+        <p className="mt-3 text-gray-400">
           A free, open-source tool from Assure DeFi® for continuous codebase
           improvement
         </p>

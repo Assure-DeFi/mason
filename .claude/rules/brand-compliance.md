@@ -4,13 +4,13 @@ These rules apply to ALL UI/UX work across projects.
 
 ## Mandatory Color Palette
 
-| Color | Hex | Usage |
-|-------|-----|-------|
-| Navy | #0A0724 | Primary background |
-| Gold | #E2D243 | CTAs, accents, highlights |
-| Light Grey | #F2F2F2 | Secondary text |
-| White | #FFFFFF | Primary text |
-| Black | #000000 | Card surfaces |
+| Color      | Hex     | Usage                     |
+| ---------- | ------- | ------------------------- |
+| Navy       | #0A0724 | Primary background        |
+| Gold       | #E2D243 | CTAs, accents, highlights |
+| Light Grey | #F2F2F2 | Secondary text            |
+| White      | #FFFFFF | Primary text              |
+| Black      | #000000 | Card surfaces             |
 
 **No other colors may be introduced without explicit approval.**
 
@@ -43,9 +43,21 @@ These rules apply to ALL UI/UX work across projects.
 - Maintain clear space around logos
 - Primary logo for dark backgrounds
 
+## Tagline
+
+**Primary:** "Rock Solid by Design"
+
+Usage:
+
+- Hero sections: Display prominently below logo
+- Meta descriptions: Include in SEO copy
+- Sign-in/onboarding: Reinforce brand identity
+- Never modify or abbreviate the tagline
+
 ## Enforcement
 
 When creating UI components:
+
 1. Verify colors against palette
 2. Check for prohibited patterns
 3. Ensure dark-mode compatibility

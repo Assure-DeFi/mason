@@ -1,8 +1,15 @@
 'use client';
 
-import { HelpCircle, ChevronDown, ChevronUp, Terminal, Sparkles } from 'lucide-react';
+import {
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  Terminal,
+  Sparkles,
+} from 'lucide-react';
 import { useState } from 'react';
 
+import { MasonTagline } from '@/components/brand';
 import { ClaudeCodeExplainer } from '@/components/ui/ClaudeCodeExplainer';
 import { CopyCommand } from '@/components/ui/CopyCommand';
 
@@ -22,9 +29,10 @@ export function EmptyStateOnboarding({ onRefresh }: EmptyStateOnboardingProps) {
       </div>
 
       {/* Heading */}
-      <h2 className="mb-3 text-2xl font-bold text-white text-center">
+      <h2 className="mb-2 text-2xl font-bold text-white text-center">
         Ready to find improvements?
       </h2>
+      <MasonTagline size="sm" variant="muted" className="mb-4 text-center" />
       <p className="mb-8 text-gray-400 text-center max-w-md">
         Copy and paste this command into Claude Code to analyze your codebase.
       </p>

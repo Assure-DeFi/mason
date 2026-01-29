@@ -8,9 +8,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Mason - AI-Powered Codebase Improvement',
+  title: 'Mason - Rock Solid by Design',
   description:
-    'Continuous improvement for your codebase. 100% private. Built by Assure DeFi®.',
+    'Rock Solid by Design. AI-powered continuous improvement for your codebase. 100% private.',
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -21,8 +21,9 @@ export const metadata: Metadata = {
   },
   manifest: '/site.webmanifest',
   openGraph: {
-    title: 'Mason by Assure DeFi®',
-    description: 'AI-powered continuous improvement for your codebase.',
+    title: 'Mason - Rock Solid by Design',
+    description:
+      'Rock Solid by Design. AI-powered continuous improvement for your codebase.',
     siteName: 'Mason',
     type: 'website',
   },

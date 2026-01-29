@@ -4,7 +4,12 @@ import { Github } from 'lucide-react';
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
 
-import { MasonAvatar, MasonLogo, MasonLoader } from '@/components/brand';
+import {
+  MasonAvatar,
+  MasonLogo,
+  MasonLoader,
+  MasonTagline,
+} from '@/components/brand';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 
 export default function SignInPage() {
@@ -33,7 +38,12 @@ export default function SignInPage() {
             <MasonLogo
               variant="wordmark"
               size="lg"
-              className="mb-2 justify-center"
+              className="mb-1 justify-center"
+            />
+            <MasonTagline
+              size="md"
+              variant="muted"
+              className="mb-2 text-center"
             />
             <p className="text-gray-400">
               Sign in to manage your product backlog

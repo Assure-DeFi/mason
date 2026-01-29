@@ -20,3 +20,4 @@ export {
   MasonErrorState,
   Mason404State,
 } from './MasonEmptyState';
+export { MasonTagline } from './MasonTagline';
