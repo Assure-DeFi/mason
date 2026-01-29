@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  Key,
-  AlertCircle,
-  Loader2,
-  ExternalLink,
-  Check,
-  Monitor,
-} from 'lucide-react';
+import { Key, AlertCircle, Loader2, ExternalLink, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useMemo } from 'react';
@@ -17,8 +10,6 @@ import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { saveMasonConfig, getMasonConfig } from '@/lib/supabase/user-client';
 
 import type { WizardStepProps } from '../SetupWizard';
-
-type Platform = 'macos' | 'windows' | 'linux';
 
 export function CompleteStep({ onBack }: WizardStepProps) {
   const router = useRouter();
@@ -30,19 +21,6 @@ export function CompleteStep({ onBack }: WizardStepProps) {
   const [error, setError] = useState<string | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
   const [autoCopied, setAutoCopied] = useState(false);
-  const [platform, setPlatform] = useState<Platform>('macos');
-
-  // Auto-detect platform on mount
-  useEffect(() => {
-    const userAgent = navigator.userAgent.toLowerCase();
-    if (userAgent.includes('win')) {
-      setPlatform('windows');
-    } else if (userAgent.includes('linux')) {
-      setPlatform('linux');
-    } else {
-      setPlatform('macos');
-    }
-  }, []);
 
   // Validate config on mount and when dependencies change
   useEffect(() => {
@@ -60,29 +38,28 @@ export function CompleteStep({ onBack }: WizardStepProps) {
     }
   }, [isConfigured, client]);
 
-  // Generate the full install command with credentials embedded
-  const installCommand = useMemo(() => {
+  // Generate install commands for both platforms
+  const installCommands = useMemo(() => {
     const currentConfig = getMasonConfig();
     if (!currentConfig || !apiKey) {
       return null;
     }
 
-    // Platform-specific install commands
-    if (platform === 'windows') {
-      return `$env:MASON_SUPABASE_URL="${currentConfig.supabaseUrl}"; $env:MASON_SUPABASE_ANON_KEY="${currentConfig.supabaseAnonKey}"; $env:MASON_API_KEY="${apiKey}"; iwr -useb https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.ps1 | iex`;
-    }
+    return {
+      bash: `MASON_SUPABASE_URL="${currentConfig.supabaseUrl}" MASON_SUPABASE_ANON_KEY="${currentConfig.supabaseAnonKey}" MASON_API_KEY="${apiKey}" bash <(curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh)`,
+      powershell: `$env:MASON_SUPABASE_URL="${currentConfig.supabaseUrl}"; $env:MASON_SUPABASE_ANON_KEY="${currentConfig.supabaseAnonKey}"; $env:MASON_API_KEY="${apiKey}"; iwr -useb https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.ps1 | iex`,
+    };
+  }, [apiKey]);
 
-    // macOS/Linux command
-    return `MASON_SUPABASE_URL="${currentConfig.supabaseUrl}" MASON_SUPABASE_ANON_KEY="${currentConfig.supabaseAnonKey}" MASON_API_KEY="${apiKey}" bash <(curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh)`;
-  }, [apiKey, platform]);
-
-  // Auto-copy install command when API key is generated
+  // Auto-copy bash install command when API key is generated (bash works universally including WSL)
   useEffect(() => {
-    if (!installCommand) {return;}
+    if (!installCommands) {
+      return;
+    }
 
     const autoCopyInstallCommand = async () => {
       try {
-        await navigator.clipboard.writeText(installCommand);
+        await navigator.clipboard.writeText(installCommands.bash);
         setAutoCopied(true);
         setTimeout(() => setAutoCopied(false), 3000);
       } catch (err) {
@@ -92,7 +69,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
 
     const timer = setTimeout(() => void autoCopyInstallCommand(), 300);
     return () => clearTimeout(timer);
-  }, [installCommand]);
+  }, [installCommands]);
 
   const generateApiKey = async () => {
     if (!client || !session?.user) {
@@ -195,31 +172,6 @@ export function CompleteStep({ onBack }: WizardStepProps) {
         </div>
       )}
 
-      {/* Platform Selection */}
-      <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <Monitor className="h-4 w-4 text-gray-400" />
-          <span className="text-sm font-medium text-gray-300">
-            Select your operating system
-          </span>
-        </div>
-        <div className="flex gap-2">
-          {(['macos', 'windows', 'linux'] as Platform[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPlatform(p)}
-              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                platform === p
-                  ? 'bg-gold text-navy'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              {p === 'macos' ? 'macOS' : p === 'windows' ? 'Windows' : 'Linux'}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Step 1: Generate API Key */}
       <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-6">
         <div className="mb-4 flex items-center gap-3">
@@ -289,7 +241,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
           <div className="flex-1">
             <h3 className="font-semibold text-white">Copy Install Command</h3>
             <p className="text-sm text-gray-400">
-              Run this in your project directory
+              Run one of these in your project directory
             </p>
           </div>
           {autoCopied && (
@@ -300,24 +252,49 @@ export function CompleteStep({ onBack }: WizardStepProps) {
           )}
         </div>
 
-        {apiKey && installCommand ? (
-          <div className="space-y-3">
-            <div className="flex items-start gap-2">
-              <code className="flex-1 overflow-x-auto rounded-md bg-black p-3 font-mono text-xs text-gray-300">
-                {installCommand}
+        {apiKey && installCommands ? (
+          <div className="space-y-4">
+            {/* Bash command (macOS / Linux / WSL) */}
+            <div className="rounded-lg border border-gray-700 bg-black/50 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-300">
+                  Bash (macOS / Linux / WSL)
+                </span>
+                <CopyButton
+                  text={installCommands.bash}
+                  variant="default"
+                  size="sm"
+                  showToast
+                  toastMessage="Bash command copied - paste in your terminal!"
+                />
+              </div>
+              <code className="block overflow-x-auto rounded-md bg-black p-3 font-mono text-xs text-gray-300">
+                {installCommands.bash}
               </code>
-              <CopyButton
-                text={installCommand}
-                variant="default"
-                size="lg"
-                showToast
-                toastMessage="Install command copied - paste in your terminal!"
-              />
+            </div>
+
+            {/* PowerShell command (Windows) */}
+            <div className="rounded-lg border border-gray-700 bg-black/50 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-300">
+                  PowerShell (Windows)
+                </span>
+                <CopyButton
+                  text={installCommands.powershell}
+                  variant="default"
+                  size="sm"
+                  showToast
+                  toastMessage="PowerShell command copied - paste in your terminal!"
+                />
+              </div>
+              <code className="block overflow-x-auto rounded-md bg-black p-3 font-mono text-xs text-gray-300">
+                {installCommands.powershell}
+              </code>
             </div>
 
             <div className="rounded-lg border border-green-800/50 bg-green-900/20 p-3">
               <p className="text-sm text-green-300">
-                This command includes all your credentials. Just paste it in
+                These commands include all your credentials. Just paste one in
                 your project&apos;s terminal - no additional setup needed.
               </p>
             </div>
