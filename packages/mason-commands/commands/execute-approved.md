@@ -103,6 +103,26 @@ Naming convention:
 - `mason/fix-login-validation`
 - `mason/refactor-api-error-handling`
 
+### Step 5.1: Mark Item In Progress (MANDATORY)
+
+**Before beginning implementation**, update the item status to `in_progress` via Supabase REST API. This enables real-time status updates in the dashboard.
+
+```bash
+# Read config
+SUPABASE_URL=$(jq -r '.supabaseUrl' mason.config.json)
+SUPABASE_KEY=$(jq -r '.supabaseAnonKey' mason.config.json)
+
+# Update status to in_progress
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  -d '{"status": "in_progress", "branch_name": "mason/<slug>", "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+```
+
+This update will appear **immediately** in the dashboard via real-time subscription. The item moves from "Approved" tab to "In Progress" tab.
+
 ### Step 6: Execute Waves
 
 Execute each wave using the Task tool:
@@ -180,6 +200,22 @@ Implements: PM-<item-id>
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
+
+### Step 8.1: Mark Item Completed (MANDATORY)
+
+**After successful commit**, update the item status to `completed` via Supabase REST API:
+
+```bash
+# Update status to completed
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  -d '{"status": "completed", "pr_url": "<pr_url_if_created>", "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+```
+
+This update will appear **immediately** in the dashboard. The item moves from "In Progress" tab to "Completed" tab.
 
 ### Step 9: Update Item Status
 
@@ -280,6 +316,22 @@ SET
   completed_at = now()
 WHERE id = $taskId;
 ```
+
+### Mark Item Failed (MANDATORY on Permanent Failure)
+
+When execution fails permanently (after max retry iterations or unrecoverable error), update the item status to `rejected` via Supabase REST API:
+
+```bash
+# Update status to rejected (failed)
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  -d '{"status": "rejected", "failure_reason": "<error_summary>", "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+```
+
+This update will appear **immediately** in the dashboard. The item moves to "Rejected" tab with the failure reason.
 
 ## Git Hygiene
 
