@@ -152,20 +152,29 @@ export function ItemDetailModal({
 
   const handleApproveAndGeneratePrd = async () => {
     setIsUpdating(true);
-    setIsGenerating(true);
     setError(null);
+    const hasPrd = !!item.prd_content;
+    if (!hasPrd) {
+      setIsGenerating(true);
+    }
     try {
       await onUpdateStatus(item.id, 'approved');
-      await onGeneratePrd(item.id);
-      setViewMode('prd');
-      setSuccessMessage('Approved & PRD Generated!');
+      if (!hasPrd) {
+        await onGeneratePrd(item.id);
+        setViewMode('prd');
+        setSuccessMessage('Approved & PRD Generated!');
+      } else {
+        setSuccessMessage('Approved!');
+      }
       setShowSuccess(true);
     } catch (err) {
       console.error('Approve & PRD generation error:', err);
       setError(
         err instanceof Error
           ? err.message
-          : 'Failed to approve or generate PRD. Please try again.',
+          : hasPrd
+            ? 'Failed to approve. Please try again.'
+            : 'Failed to approve or generate PRD. Please try again.',
       );
     } finally {
       setIsUpdating(false);
@@ -661,7 +670,9 @@ export function ItemDetailModal({
                       <Sparkles className="w-4 h-4" />
                       {isUpdating || isGenerating
                         ? 'Working...'
-                        : 'Approve & Generate PRD'}
+                        : item.prd_content
+                          ? 'Approve'
+                          : 'Approve & Generate PRD'}
                     </button>
                   </div>
                 )}
