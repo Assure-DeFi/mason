@@ -94,6 +94,9 @@ function BacklogPageContent() {
 
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
+  const [selectedItemViewMode, setSelectedItemViewMode] = useState<
+    'details' | 'prd' | 'timeline'
+  >('details');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeStatus, setActiveStatus] = useState<TabStatus>('new');
   const [filteredCount, setFilteredCount] = useState(0);
@@ -585,6 +588,16 @@ function BacklogPageContent() {
       setSelectedItem(data);
     }
   };
+
+  const handleItemClick = useCallback((item: BacklogItem) => {
+    setSelectedItemViewMode('details');
+    setSelectedItem(item);
+  }, []);
+
+  const handlePrdClick = useCallback((item: BacklogItem) => {
+    setSelectedItemViewMode('prd');
+    setSelectedItem(item);
+  }, []);
 
   const handleSelectItem = useCallback(
     (id: string, event?: React.MouseEvent) => {
@@ -1121,7 +1134,8 @@ function BacklogPageContent() {
             selectedIds={selectedIds}
             onSelectItem={handleSelectItem}
             onSelectAll={handleSelectAll}
-            onItemClick={setSelectedItem}
+            onItemClick={handleItemClick}
+            onPrdClick={handlePrdClick}
             sort={sort}
             onSortChange={handleSortChange}
           />
