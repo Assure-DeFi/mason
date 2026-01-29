@@ -1,14 +1,25 @@
 'use client';
 
 import { signOut, useSession } from 'next-auth/react';
-import { LogOut, Settings, User, Key, Database, Sparkles } from 'lucide-react';
+import {
+  LogOut,
+  Settings,
+  User,
+  Key,
+  Database,
+  Sparkles,
+  BookOpen,
+  HelpCircle,
+} from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { SignInButton } from './sign-in-button';
+import { InstructionsModal } from '@/components/ui/InstructionsModal';
 
 export function UserMenu() {
   const { data: session, status } = useSession();
   const [isOpen, setIsOpen] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,6 +77,28 @@ export function UserMenu() {
               )}
             </div>
 
+            <button
+              onClick={() => {
+                setShowInstructions(true);
+                setIsOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gold hover:bg-gray-900"
+            >
+              <BookOpen className="h-4 w-4" />
+              Instructions
+            </button>
+
+            <Link
+              href="/faq"
+              className="flex items-center gap-2 px-4 py-2 text-sm text-gold hover:bg-gray-900"
+              onClick={() => setIsOpen(false)}
+            >
+              <HelpCircle className="h-4 w-4" />
+              FAQ
+            </Link>
+
+            <div className="my-1 border-t border-gray-800" />
+
             <Link
               href="/settings/github"
               className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-900"
@@ -114,6 +147,11 @@ export function UserMenu() {
           </div>
         </div>
       )}
+
+      <InstructionsModal
+        isOpen={showInstructions}
+        onClose={() => setShowInstructions(false)}
+      />
     </div>
   );
 }

@@ -146,16 +146,22 @@ export default function Home() {
           </ol>
         </div>
 
-        <div className="mt-12 text-center text-sm text-gray-400">
-          Powered by{' '}
-          <a
-            href="https://assuredefi.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gold hover:underline"
-          >
-            Assure DeFi®
-          </a>
+        <div className="mt-12 flex items-center justify-center gap-4 text-center text-sm text-gray-400">
+          <Link href="/faq" className="text-gold hover:underline">
+            FAQ
+          </Link>
+          <span className="text-gray-600">|</span>
+          <span>
+            Powered by{' '}
+            <a
+              href="https://assuredefi.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gold hover:underline"
+            >
+              Assure DeFi®
+            </a>
+          </span>
         </div>
       </div>
     </main>
