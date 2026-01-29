@@ -17,18 +17,27 @@ export function PriorityDots({
   const normalizedValue = Math.round((value / 10) * max);
   const filled = Math.min(Math.max(normalizedValue, 0), max);
 
-  const getColor = () => {
-    if (variant === 'effort') {
-      return filled >= 4 ? 'bg-orange-400' : 'bg-gray-600';
-    }
+  // Get color based on variant and current dot position
+  const getFilledColor = (dotIndex: number) => {
     if (variant === 'complexity') {
-      return filled >= 4 ? 'bg-yellow-400' : 'bg-gray-600';
+      // Graduated colors: green (low) -> yellow (med) -> red (high)
+      if (dotIndex < 2) return 'bg-emerald-500';
+      if (dotIndex < 3) return 'bg-yellow-500';
+      if (dotIndex < 4) return 'bg-orange-500';
+      return 'bg-red-500';
     }
-    // priority - higher is better, use red for critical
-    return filled >= 4 ? 'bg-red-400' : 'bg-gray-600';
+    if (variant === 'effort') {
+      // Similar gradient for effort
+      if (dotIndex < 2) return 'bg-emerald-500';
+      if (dotIndex < 3) return 'bg-yellow-500';
+      if (dotIndex < 4) return 'bg-orange-500';
+      return 'bg-red-500';
+    }
+    // priority - higher is better, use gold accent for high priority
+    if (dotIndex >= 4) return 'bg-red-400';
+    if (dotIndex >= 3) return 'bg-orange-400';
+    return 'bg-blue-400';
   };
-
-  const filledColor = getColor();
 
   const getLabel = () => {
     if (variant === 'effort') {
@@ -50,7 +59,7 @@ export function PriorityDots({
         <div
           key={i}
           className={`w-2 h-2 rounded-full ${
-            i < filled ? filledColor : 'bg-gray-700'
+            i < filled ? getFilledColor(i) : 'bg-gray-700/50'
           }`}
         />
       ))}
