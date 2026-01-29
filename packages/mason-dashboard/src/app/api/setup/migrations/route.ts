@@ -1,6 +1,8 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
 
+import { authOptions } from '@/lib/auth/auth-options';
 import { runMigrations } from '@/lib/supabase/pg-migrate';
 
 /**
@@ -389,6 +391,12 @@ async function runMigrationsViaManagementApi(
 
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication before processing any migration request
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
       supabaseUrl,
