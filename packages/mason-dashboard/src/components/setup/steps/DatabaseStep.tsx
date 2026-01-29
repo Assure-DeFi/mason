@@ -28,6 +28,7 @@ interface MigrationState {
   status: 'idle' | 'checking' | 'needed' | 'running' | 'success' | 'error';
   message?: string;
   missingTables?: string[];
+  errorType?: 'connection' | 'auth' | 'unknown';
 }
 
 interface ValidationState {
@@ -100,6 +101,8 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
   const [migration, setMigration] = useState<MigrationState>({
     status: 'idle',
   });
+  const [connectionString, setConnectionString] = useState('');
+  const [showConnectionFallback, setShowConnectionFallback] = useState(false);
 
   // Real-time validation with debounce
   const [urlValidation, setUrlValidation] = useState<ValidationState>({
@@ -176,7 +179,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
           // For new users, missing tables is expected - auto-run migrations if we have the password
           if (databasePassword) {
             // Auto-run migrations
-            handleRunMigrations();
+            handleRunMigrations(false);
           } else {
             setMigration({
               status: 'needed',
@@ -194,8 +197,18 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
     }
   };
 
-  const handleRunMigrations = async () => {
-    if (!databasePassword) {
+  const handleRunMigrations = async (useConnectionString = false) => {
+    // If using connection string fallback, require connection string
+    if (useConnectionString && !connectionString) {
+      setMigration({
+        status: 'error',
+        message: 'Please enter a connection string',
+      });
+      return;
+    }
+
+    // If not using connection string, require password
+    if (!useConnectionString && !databasePassword) {
       setMigration({
         status: 'error',
         message: 'Database Password is required for migrations',
@@ -206,23 +219,35 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
     setMigration({ status: 'running', message: 'Running migrations...' });
 
     try {
+      const body = useConnectionString
+        ? { connectionString }
+        : { supabaseUrl: projectUrl, databasePassword };
+
       const response = await fetch('/api/setup/migrations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supabaseUrl: projectUrl,
-          databasePassword: databasePassword,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
         const data = await response.json();
+        // Check if this is a connection error that should trigger fallback
+        if (data.errorType === 'connection' && !useConnectionString) {
+          setShowConnectionFallback(true);
+          setMigration({
+            status: 'error',
+            message: data.error || 'Connection failed',
+            errorType: 'connection',
+          });
+          return;
+        }
         throw new Error(data.error || 'Migration failed');
       }
 
       // Privacy: Credentials stay in localStorage only, never sent to central server
       // CLI reads from mason.config.json (which user exports from browser)
       setMigration({ status: 'success', message: 'Migrations completed' });
+      setShowConnectionFallback(false);
     } catch (err) {
       setMigration({
         status: 'error',
@@ -582,13 +607,99 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
               )}
 
               <button
-                onClick={handleRunMigrations}
+                onClick={() => handleRunMigrations(false)}
                 disabled={!databasePassword}
                 className="w-full rounded-md bg-gold px-4 py-2 font-medium text-navy transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Set Up Tables
               </button>
             </>
+          )}
+
+          {showConnectionFallback && migration.status === 'error' && (
+            <div className="space-y-4 rounded-lg border border-gray-700 bg-gray-900/50 p-4">
+              <div>
+                <h4 className="font-medium text-white">
+                  Connection Troubleshooting
+                </h4>
+                <p className="mt-1 text-sm text-gray-400">
+                  Your network may be blocking direct PostgreSQL connections.
+                  This is common on corporate networks or with certain ISPs. You
+                  can use a connection string from Supabase instead.
+                </p>
+              </div>
+
+              <ol className="space-y-2 text-sm text-gray-300">
+                <li className="flex gap-2">
+                  <span className="font-medium text-gold">1.</span>
+                  <span>
+                    Go to{' '}
+                    <a
+                      href="https://supabase.com/dashboard"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-gold hover:underline"
+                    >
+                      Supabase Dashboard
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-medium text-gold">2.</span>
+                  <span>
+                    Go to <strong>Settings</strong> {'>'}{' '}
+                    <strong>Database</strong>
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-medium text-gold">3.</span>
+                  <span>
+                    Under <strong>Connection string</strong>, select{' '}
+                    <strong>URI</strong> tab
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-medium text-gold">4.</span>
+                  <span>
+                    Choose <strong>Session</strong> mode (not Transaction)
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-medium text-gold">5.</span>
+                  <span>Copy the connection string and paste it below</span>
+                </li>
+              </ol>
+
+              <div>
+                <label
+                  htmlFor="connectionString"
+                  className="mb-2 block text-sm font-medium text-white"
+                >
+                  Connection String
+                </label>
+                <input
+                  id="connectionString"
+                  type="password"
+                  value={connectionString}
+                  onChange={(e) => setConnectionString(e.target.value)}
+                  placeholder="postgresql://postgres.xxx:[YOUR-PASSWORD]@..."
+                  className="w-full rounded-md border border-gray-700 bg-black px-4 py-2 text-white placeholder-gray-500 focus:border-gold focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Make sure to replace [YOUR-PASSWORD] with your actual database
+                  password.
+                </p>
+              </div>
+
+              <button
+                onClick={() => handleRunMigrations(true)}
+                disabled={!connectionString}
+                className="w-full rounded-md bg-gold px-4 py-2 font-medium text-navy transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Retry with Connection String
+              </button>
+            </div>
           )}
 
           {migration.status === 'running' && (

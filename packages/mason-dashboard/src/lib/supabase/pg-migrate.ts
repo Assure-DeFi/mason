@@ -3,6 +3,7 @@ import { Client } from 'pg';
 interface MigrationResult {
   success: boolean;
   error?: string;
+  errorType?: 'connection' | 'auth' | 'unknown';
 }
 
 /**
@@ -32,20 +33,47 @@ function buildConnectionString(
 }
 
 /**
+ * Check if an error is a connection-related error (vs auth error)
+ * Connection errors should trigger the fallback UI
+ */
+function isConnectionError(errorMessage: string): boolean {
+  const connectionErrorPatterns = [
+    'ETIMEDOUT',
+    'ECONNREFUSED',
+    'ENETUNREACH',
+    'ENOTFOUND',
+    'timeout',
+    'Tenant or user not found',
+    'getaddrinfo',
+    'connect EHOSTUNREACH',
+  ];
+  return connectionErrorPatterns.some((pattern) =>
+    errorMessage.includes(pattern),
+  );
+}
+
+/**
  * Run migrations directly against PostgreSQL database
  *
  * This bypasses the Supabase REST API (PostgREST) which cannot execute DDL statements.
  * Instead, we connect directly to the PostgreSQL database using the pg package.
+ *
+ * @param supabaseUrl - The Supabase project URL
+ * @param databasePassword - The database password
+ * @param migrationSql - The SQL to run
+ * @param connectionString - Optional: direct connection string (bypasses URL construction)
  */
 export async function runMigrations(
   supabaseUrl: string,
   databasePassword: string,
   migrationSql: string,
+  connectionString?: string,
 ): Promise<MigrationResult> {
-  const connectionString = buildConnectionString(supabaseUrl, databasePassword);
+  const connStr =
+    connectionString || buildConnectionString(supabaseUrl, databasePassword);
 
   const client = new Client({
-    connectionString,
+    connectionString: connStr,
     ssl: { rejectUnauthorized: false },
     connectionTimeoutMillis: 10000,
   });
@@ -68,38 +96,24 @@ export async function runMigrations(
         success: false,
         error:
           'Database password is incorrect. Check your password in Supabase Dashboard > Settings > Database.',
+        errorType: 'auth',
       };
     }
 
-    if (errorMessage.includes('Tenant or user not found')) {
+    // Check for connection-related errors that should trigger fallback UI
+    if (isConnectionError(errorMessage)) {
       return {
         success: false,
         error:
-          'Could not find your Supabase project. Please verify your Project URL is correct in Supabase Dashboard > Settings > API.',
-      };
-    }
-
-    if (
-      errorMessage.includes('ENOTFOUND') ||
-      errorMessage.includes('ECONNREFUSED')
-    ) {
-      return {
-        success: false,
-        error:
-          'Could not connect to database. Check your Supabase URL and ensure your project is active.',
-      };
-    }
-
-    if (errorMessage.includes('timeout')) {
-      return {
-        success: false,
-        error: 'Connection timed out. Please try again.',
+          'Could not connect to database. Your network may be blocking direct PostgreSQL connections (port 5432). Try using a connection string from Supabase Dashboard.',
+        errorType: 'connection',
       };
     }
 
     return {
       success: false,
       error: errorMessage,
+      errorType: 'unknown',
     };
   } finally {
     await client.end();

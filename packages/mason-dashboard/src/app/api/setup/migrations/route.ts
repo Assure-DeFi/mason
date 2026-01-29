@@ -164,9 +164,11 @@ END $$;
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabaseUrl, databasePassword } = await request.json();
+    const { supabaseUrl, databasePassword, connectionString } =
+      await request.json();
 
-    if (!supabaseUrl || !databasePassword) {
+    // connectionString is optional - if provided, it bypasses URL construction
+    if (!connectionString && (!supabaseUrl || !databasePassword)) {
       return NextResponse.json(
         { error: 'Missing Supabase URL or Database Password' },
         { status: 400 },
@@ -174,13 +176,17 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await runMigrations(
-      supabaseUrl,
-      databasePassword,
+      supabaseUrl || '',
+      databasePassword || '',
       MIGRATION_SQL,
+      connectionString,
     );
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500 });
+      return NextResponse.json(
+        { error: result.error, errorType: result.errorType },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ success: true });
