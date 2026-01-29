@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   Database,
@@ -13,6 +13,7 @@ import {
   Shield,
   Info,
   Zap,
+  ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
@@ -21,7 +22,11 @@ import {
   getOAuthSession,
   hasValidOAuthSession,
   getAccessToken,
+  saveOAuthSession,
+  setSelectedProject,
+  type SupabaseOAuthTokens,
 } from '@/lib/supabase/oauth';
+import { listProjects } from '@/lib/supabase/management-api';
 
 type MigrationStatus = 'idle' | 'running' | 'success' | 'error';
 
@@ -30,16 +35,39 @@ interface MigrationState {
   message?: string;
 }
 
+// Loading fallback for Suspense
+function DatabaseSettingsLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-navy">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+    </div>
+  );
+}
+
+// Main page wrapper with Suspense for useSearchParams
 export default function DatabaseSettingsPage() {
+  return (
+    <Suspense fallback={<DatabaseSettingsLoading />}>
+      <DatabaseSettingsContent />
+    </Suspense>
+  );
+}
+
+function DatabaseSettingsContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { config, isConfigured, isLoading: isDbLoading } = useUserDatabase();
 
   const [databasePassword, setDatabasePassword] = useState('');
-  const [migration, setMigration] = useState<MigrationState>({ status: 'idle' });
+  const [migration, setMigration] = useState<MigrationState>({
+    status: 'idle',
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [hasOAuth, setHasOAuth] = useState(false);
   const [showManualFallback, setShowManualFallback] = useState(false);
+  const [oauthConnecting, setOauthConnecting] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -51,6 +79,85 @@ export default function DatabaseSettingsPage() {
   useEffect(() => {
     setHasOAuth(hasValidOAuthSession());
   }, []);
+
+  // Handle OAuth callback from Supabase
+  useEffect(() => {
+    const handleOAuthCallback = async () => {
+      const oauthSuccess = searchParams.get('oauth_success');
+      const oauthErrorParam = searchParams.get('oauth_error');
+
+      if (oauthErrorParam) {
+        setOauthError(decodeURIComponent(oauthErrorParam));
+        // Clean up URL
+        router.replace('/settings/database');
+        return;
+      }
+
+      if (oauthSuccess === 'true') {
+        // Read tokens from cookie (set by callback)
+        const tokenCookie = document.cookie
+          .split('; ')
+          .find((row) => row.startsWith('supabase_oauth_tokens='));
+
+        if (tokenCookie) {
+          try {
+            const tokenData = JSON.parse(
+              decodeURIComponent(tokenCookie.split('=')[1]),
+            ) as SupabaseOAuthTokens;
+
+            // Save to localStorage
+            saveOAuthSession({ tokens: tokenData });
+
+            // Clear the cookie
+            document.cookie =
+              'supabase_oauth_tokens=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+
+            // Fetch projects to find the matching one based on existing config
+            if (config?.supabaseUrl) {
+              const projects = await listProjects(tokenData.accessToken);
+              // Extract project ref from URL (e.g., https://xyz.supabase.co -> xyz)
+              const urlMatch = config.supabaseUrl.match(
+                /https:\/\/([^.]+)\.supabase\.co/,
+              );
+              if (urlMatch) {
+                const projectRef = urlMatch[1];
+                const matchingProject = projects.find(
+                  (p) => p.id === projectRef,
+                );
+                if (matchingProject) {
+                  setSelectedProject(matchingProject.id, matchingProject.name);
+                }
+              }
+            }
+
+            setHasOAuth(true);
+            setOauthError(null);
+            setMigration({
+              status: 'success',
+              message:
+                'Connected to Supabase OAuth! You can now use one-click updates.',
+            });
+          } catch (err) {
+            console.error('Failed to parse OAuth tokens:', err);
+            setOauthError('Failed to process OAuth response');
+          }
+        }
+
+        // Clean up URL
+        router.replace('/settings/database');
+      }
+    };
+
+    handleOAuthCallback();
+  }, [searchParams, router, config?.supabaseUrl]);
+
+  const handleConnectOAuth = () => {
+    setOauthConnecting(true);
+    setOauthError(null);
+    // Redirect to OAuth login with return_to pointing back here
+    window.location.href =
+      '/api/auth/supabase/login?return_to=/settings/database';
+  };
 
   const handleRunMigrationsOAuth = async () => {
     const oauthSession = getOAuthSession();
@@ -84,7 +191,8 @@ export default function DatabaseSettingsPage() {
 
       setMigration({
         status: 'success',
-        message: 'Migrations completed successfully! Your database is up to date.',
+        message:
+          'Migrations completed successfully! Your database is up to date.',
       });
     } catch (err) {
       setMigration({
@@ -131,7 +239,8 @@ export default function DatabaseSettingsPage() {
 
       setMigration({
         status: 'success',
-        message: 'Migrations completed successfully! Your database is up to date.',
+        message:
+          'Migrations completed successfully! Your database is up to date.',
       });
       setDatabasePassword('');
     } catch (err) {
@@ -313,6 +422,50 @@ export default function DatabaseSettingsPage() {
                         </p>
                       )}
 
+                      {/* OAuth Connect Option - for users without OAuth session */}
+                      {!hasOAuth && !showManualFallback && (
+                        <div className="mb-6">
+                          <p className="mb-3 text-sm text-gray-400">
+                            Connect with Supabase OAuth for one-click schema
+                            updates:
+                          </p>
+                          <button
+                            onClick={handleConnectOAuth}
+                            disabled={oauthConnecting}
+                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-3 font-medium text-navy transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {oauthConnecting ? (
+                              <>
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                Connecting...
+                              </>
+                            ) : (
+                              <>
+                                <Database className="h-5 w-5" />
+                                Connect with Supabase
+                                <ExternalLink className="h-4 w-4" />
+                              </>
+                            )}
+                          </button>
+                          {oauthError && (
+                            <div className="mt-3 flex items-center gap-2 text-sm text-red-400">
+                              <AlertCircle className="h-4 w-4" />
+                              {oauthError}
+                            </div>
+                          )}
+                          <div className="relative my-6">
+                            <div className="absolute inset-0 flex items-center">
+                              <div className="w-full border-t border-gray-700" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                              <span className="bg-black/50 px-2 text-gray-500">
+                                Or use manual method
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Password Input */}
                       <div>
                         <label
@@ -326,7 +479,9 @@ export default function DatabaseSettingsPage() {
                             id="db-password"
                             type={showPassword ? 'text' : 'password'}
                             value={databasePassword}
-                            onChange={(e) => setDatabasePassword(e.target.value)}
+                            onChange={(e) =>
+                              setDatabasePassword(e.target.value)
+                            }
                             placeholder="Enter your Supabase database password"
                             className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                             disabled={migration.status === 'running'}
@@ -340,8 +495,8 @@ export default function DatabaseSettingsPage() {
                           </button>
                         </div>
                         <p className="mt-1 text-xs text-gray-500">
-                          Found in Supabase → Project Settings → Database → Database
-                          password
+                          Found in Supabase → Project Settings → Database →
+                          Database password
                         </p>
                       </div>
 
@@ -349,8 +504,8 @@ export default function DatabaseSettingsPage() {
                       <div className="mt-4 flex items-start gap-2 text-xs text-gray-500">
                         <Shield className="mt-0.5 h-4 w-4 flex-shrink-0" />
                         <span>
-                          Your password is sent directly to your Supabase instance
-                          and is never stored.
+                          Your password is sent directly to your Supabase
+                          instance and is never stored.
                         </span>
                       </div>
 

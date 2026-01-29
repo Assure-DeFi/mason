@@ -35,26 +35,35 @@ export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
   const storedState = cookieStore.get(OAUTH_COOKIES.STATE)?.value;
   const codeVerifier = cookieStore.get(OAUTH_COOKIES.CODE_VERIFIER)?.value;
+  const returnTo =
+    cookieStore.get('supabase_oauth_return_to')?.value || '/setup';
+
+  // Helper to build redirect URL based on returnTo
+  const buildRedirectUrl = (path: string, params: Record<string, string>) => {
+    const url = new URL(path, request.nextUrl.origin);
+    // Only add step=2 for setup wizard
+    if (path === '/setup') {
+      url.searchParams.set('step', '2');
+    }
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
+    return url;
+  };
 
   // Validate state for CSRF protection
   if (!state || state !== storedState) {
-    const errorUrl = new URL('/setup', request.nextUrl.origin);
-    errorUrl.searchParams.set('step', '2');
-    errorUrl.searchParams.set(
-      'oauth_error',
-      'Invalid state parameter - possible CSRF attack',
-    );
+    const errorUrl = buildRedirectUrl(returnTo, {
+      oauth_error: 'Invalid state parameter - possible CSRF attack',
+    });
     return NextResponse.redirect(errorUrl);
   }
 
   // Validate code verifier exists
   if (!codeVerifier) {
-    const errorUrl = new URL('/setup', request.nextUrl.origin);
-    errorUrl.searchParams.set('step', '2');
-    errorUrl.searchParams.set(
-      'oauth_error',
-      'Session expired - please try again',
-    );
+    const errorUrl = buildRedirectUrl(returnTo, {
+      oauth_error: 'Session expired - please try again',
+    });
     return NextResponse.redirect(errorUrl);
   }
 
@@ -64,9 +73,9 @@ export async function GET(request: NextRequest) {
   const redirectUri = process.env.NEXT_PUBLIC_SUPABASE_OAUTH_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !redirectUri) {
-    const errorUrl = new URL('/setup', request.nextUrl.origin);
-    errorUrl.searchParams.set('step', '2');
-    errorUrl.searchParams.set('oauth_error', 'OAuth not configured on server');
+    const errorUrl = buildRedirectUrl(returnTo, {
+      oauth_error: 'OAuth not configured on server',
+    });
     return NextResponse.redirect(errorUrl);
   }
 
@@ -80,15 +89,14 @@ export async function GET(request: NextRequest) {
       redirectUri,
     });
 
-    // Clear the PKCE cookies
+    // Clear the PKCE cookies and return_to
     cookieStore.delete(OAUTH_COOKIES.CODE_VERIFIER);
     cookieStore.delete(OAUTH_COOKIES.STATE);
+    cookieStore.delete('supabase_oauth_return_to');
 
-    // Redirect to setup wizard with tokens in fragment (client-side only)
-    // We use a fragment (#) so tokens never hit the server logs
-    const successUrl = new URL('/setup', request.nextUrl.origin);
-    successUrl.searchParams.set('step', '2');
-    successUrl.searchParams.set('oauth_success', 'true');
+    // Redirect to the return URL with success flag
+    // Tokens are passed via cookie for security (not in URL)
+    const successUrl = buildRedirectUrl(returnTo, { oauth_success: 'true' });
 
     // Pass tokens via encrypted cookie instead of URL for security
     // Tokens will be stored in localStorage by the client
@@ -111,12 +119,9 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('OAuth token exchange failed:', err);
 
-    const errorUrl = new URL('/setup', request.nextUrl.origin);
-    errorUrl.searchParams.set('step', '2');
-    errorUrl.searchParams.set(
-      'oauth_error',
-      err instanceof Error ? err.message : 'Token exchange failed',
-    );
+    const errorUrl = buildRedirectUrl(returnTo, {
+      oauth_error: err instanceof Error ? err.message : 'Token exchange failed',
+    });
     return NextResponse.redirect(errorUrl);
   }
 }

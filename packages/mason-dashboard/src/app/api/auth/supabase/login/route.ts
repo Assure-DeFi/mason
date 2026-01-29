@@ -14,10 +14,17 @@ import {
  * Initiates Supabase OAuth flow with PKCE.
  * Generates code verifier/challenge, stores verifier in cookie,
  * and redirects to Supabase authorization endpoint.
+ *
+ * Optional query parameters:
+ * - return_to: URL path to redirect to after OAuth callback (default: /setup)
  */
-export async function GET() {
+export async function GET(request: Request) {
   const clientId = process.env.SUPABASE_OAUTH_CLIENT_ID;
   const redirectUri = process.env.NEXT_PUBLIC_SUPABASE_OAUTH_REDIRECT_URI;
+
+  // Get optional return_to parameter (defaults to /setup)
+  const url = new URL(request.url);
+  const returnTo = url.searchParams.get('return_to') || '/setup';
 
   if (!clientId || !redirectUri) {
     return NextResponse.json(
@@ -49,6 +56,15 @@ export async function GET() {
 
   // State cookie - for CSRF protection
   cookieStore.set(OAUTH_COOKIES.STATE, state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 10, // 10 minutes
+    path: '/',
+  });
+
+  // Store return_to path for callback redirect
+  cookieStore.set('supabase_oauth_return_to', returnTo, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
