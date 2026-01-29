@@ -50,12 +50,24 @@ export interface ExecutionOptions {
   accessToken: string;
 }
 
+export interface ItemResult {
+  itemId: string;
+  title: string;
+  success: boolean;
+  error?: string;
+  filesChanged?: number;
+}
+
 export interface ExecutionResult {
   runId: string;
   success: boolean;
+  partialSuccess?: boolean;
   prUrl?: string;
   prNumber?: number;
   error?: string;
+  itemResults?: ItemResult[];
+  successCount?: number;
+  failureCount?: number;
 }
 
 // Log to database for real-time streaming
@@ -263,10 +275,13 @@ export async function executeRemotely(
     await log(runId, 'info', 'Analyzing repository structure');
     const repoContext = await getRepositoryContext(accessToken, repository);
 
-    // Generate code changes for each item
+    // Generate code changes for each item with partial success support
     const allFileChanges: FileChange[] = [];
     const summaries: string[] = [];
     const commitMessages: string[] = [];
+    const itemResults: ItemResult[] = [];
+    const successfulItems: BacklogItem[] = [];
+    const failedItems: Array<{ item: BacklogItem; error: string }> = [];
 
     for (const item of backlogItems) {
       await log(runId, 'info', `Generating code for: ${item.title}`);
@@ -281,8 +296,16 @@ export async function executeRemotely(
           });
         }
 
-        summaries.push(`- ${item.title}: ${changes.summary}`);
+        summaries.push(`- ✅ ${item.title}: ${changes.summary}`);
         commitMessages.push(changes.commitMessage);
+        successfulItems.push(item);
+
+        itemResults.push({
+          itemId: item.id,
+          title: item.title,
+          success: true,
+          filesChanged: changes.files.length,
+        });
 
         await log(
           runId,
@@ -290,26 +313,90 @@ export async function executeRemotely(
           `Generated ${changes.files.length} file changes for: ${item.title}`,
         );
       } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
         await log(
           runId,
           'error',
           `Failed to generate code for: ${item.title}`,
           {
-            error: String(error),
+            error: errorMessage,
           },
         );
-        throw error;
+
+        failedItems.push({ item, error: errorMessage });
+        summaries.push(`- ❌ ${item.title}: Failed - ${errorMessage}`);
+
+        itemResults.push({
+          itemId: item.id,
+          title: item.title,
+          success: false,
+          error: errorMessage,
+        });
+
+        // Continue processing remaining items instead of throwing
+        await log(
+          runId,
+          'warn',
+          `Continuing with remaining items after failure on: ${item.title}`,
+        );
       }
     }
 
-    // Batch update all item statuses in a single query (fixes N+1 loop)
+    // Check if we have any successful items to commit
+    if (successfulItems.length === 0) {
+      const errorMessage = `All ${failedItems.length} items failed code generation`;
+      await log(runId, 'error', errorMessage);
+
+      // Mark all items as rejected (failed)
+      await supabase
+        .from('mason_pm_backlog_items')
+        .update({ status: 'rejected' })
+        .in(
+          'id',
+          failedItems.map((f) => f.item.id),
+        );
+
+      // Update run status to failed
+      await supabase
+        .from('mason_remote_execution_runs')
+        .update({
+          status: 'failed',
+          error_message: errorMessage,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', runId);
+
+      return {
+        runId,
+        success: false,
+        error: errorMessage,
+        itemResults,
+        successCount: 0,
+        failureCount: failedItems.length,
+      };
+    }
+
+    // Update successful items to in_progress
     await supabase
       .from('mason_pm_backlog_items')
       .update({ status: 'in_progress', branch_name: branchName })
       .in(
         'id',
-        backlogItems.map((item) => item.id),
+        successfulItems.map((item) => item.id),
       );
+
+    // Mark failed items as rejected
+    if (failedItems.length > 0) {
+      await supabase
+        .from('mason_pm_backlog_items')
+        .update({ status: 'rejected' })
+        .in(
+          'id',
+          failedItems.map((f) => f.item.id),
+        );
+    }
 
     if (allFileChanges.length === 0) {
       throw new Error('No file changes generated');
@@ -335,13 +422,25 @@ export async function executeRemotely(
     // Create pull request
     await log(runId, 'info', 'Creating pull request');
 
+    const isPartialSuccess = failedItems.length > 0;
+    const statusLine = isPartialSuccess
+      ? `⚠️ **Partial Success**: ${successfulItems.length} succeeded, ${failedItems.length} failed`
+      : `✅ **All ${successfulItems.length} items implemented successfully**`;
+
+    const failedSection =
+      failedItems.length > 0
+        ? `\n## ❌ Failed Items\nThe following items could not be implemented:\n${failedItems.map((f) => `- **${f.item.title}**: ${f.error}`).join('\n')}\n`
+        : '';
+
     const prBody = `## Summary
-This PR implements the following improvements:
+${statusLine}
 
+### Implemented Changes
 ${summaries.join('\n')}
-
+${failedSection}
 ## Changes
 - ${allFileChanges.length} files modified/created
+- ${successfulItems.length} backlog items implemented
 
 ## Generated by Mason
 This pull request was automatically generated by Mason based on approved backlog items.
@@ -349,43 +448,61 @@ This pull request was automatically generated by Mason based on approved backlog
 ---
 *Please review the changes carefully before merging.*`;
 
+    // PR title reflects partial success if applicable
+    const prTitle = isPartialSuccess
+      ? `[Mason] ${successfulItems.map((i) => i.title).join(', ')} (${failedItems.length} failed)`
+      : `[Mason] ${successfulItems.map((i) => i.title).join(', ')}`;
+
     const pr = await createPullRequest(octokit, {
       owner: repository.github_owner,
       repo: repository.github_name,
-      title: `[Mason] ${backlogItems.map((i) => i.title).join(', ')}`,
+      title: prTitle,
       body: prBody,
       head: branchName,
       base: repository.github_default_branch,
     });
 
+    // Determine final status
+    const finalStatus = isPartialSuccess ? 'success' : 'success'; // Both are success since PR was created
+
     // Update execution run with PR info
     await supabase
       .from('mason_remote_execution_runs')
       .update({
-        status: 'success',
+        status: finalStatus,
         pr_url: pr.html_url,
         pr_number: pr.number,
         files_changed: allFileChanges.length,
         completed_at: new Date().toISOString(),
+        error_message: isPartialSuccess
+          ? `Partial success: ${failedItems.length} of ${backlogItems.length} items failed`
+          : null,
       })
       .eq('id', runId);
 
-    // Batch update all backlog items with PR URL in a single query (fixes N+1 loop)
+    // Update only successful items with PR URL
     await supabase
       .from('mason_pm_backlog_items')
       .update({ pr_url: pr.html_url })
       .in(
         'id',
-        backlogItems.map((item) => item.id),
+        successfulItems.map((item) => item.id),
       );
 
-    await log(runId, 'info', `Pull request created: ${pr.html_url}`);
+    const logMessage = isPartialSuccess
+      ? `Pull request created with partial success: ${pr.html_url}`
+      : `Pull request created: ${pr.html_url}`;
+    await log(runId, 'info', logMessage);
 
     return {
       runId,
       success: true,
+      partialSuccess: isPartialSuccess,
       prUrl: pr.html_url,
       prNumber: pr.number,
+      itemResults,
+      successCount: successfulItems.length,
+      failureCount: failedItems.length,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
