@@ -29,13 +29,20 @@ import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
-
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
-import { RepositorySelector } from '@/components/execution/repository-selector';
+import {
+  MasonMark,
+  MasonLoader,
+  MasonEmptyState,
+  MasonErrorState,
+} from '@/components/brand';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
+import { RepositorySelector } from '@/components/execution/repository-selector';
+import { PMReviewModal } from '@/components/pm-review/PMReviewModal';
+import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { SkeletonTable } from '@/components/ui/Skeleton';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { useGitHubToken } from '@/hooks/useGitHubToken';
+import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { API_ROUTES } from '@/lib/constants';
 import type {
   BacklogItem,
@@ -47,14 +54,7 @@ import type {
   SortDirection,
 } from '@/types/backlog';
 import { getComplexityValue } from '@/types/backlog';
-import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
-import { PMReviewModal } from '@/components/pm-review/PMReviewModal';
-import {
-  MasonMark,
-  MasonLoader,
-  MasonEmptyState,
-  MasonErrorState,
-} from '@/components/brand';
+
 import { FilteredItemsTab } from './components/filtered-items-tab';
 
 interface UndoState {
@@ -207,7 +207,6 @@ function BacklogPageContent() {
       setActiveStatus(urlStatus as TabStatus);
     }
     // Note: activeStatus intentionally excluded to prevent race condition with URL sync effect
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const fetchFilteredCount = useCallback(async () => {

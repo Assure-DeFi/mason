@@ -29,6 +29,7 @@ export async function listRepositories(
   let page = 1;
   const perPage = 100;
 
+  // eslint-disable-next-line no-constant-condition -- pagination loop that breaks when done
   while (true) {
     const { data } = await octokit.repos.listForAuthenticatedUser({
       visibility: 'all',

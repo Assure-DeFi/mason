@@ -53,6 +53,7 @@ export async function listUserRepositories(): Promise<{
     let page = 1;
     const perPage = 100;
 
+    // eslint-disable-next-line no-constant-condition -- pagination loop that breaks when done
     while (true) {
       const response = await fetch(
         `https://api.github.com/user/repos?visibility=all&sort=updated&direction=desc&per_page=${perPage}&page=${page}`,
