@@ -1014,7 +1014,11 @@ function BacklogPageContent() {
       {!isEmpty && (
         <>
           {/* Stats Bar */}
-          <StatsBar counts={counts} />
+          <StatsBar
+            counts={counts}
+            activeStatus={activeStatus}
+            onStatClick={setActiveStatus}
+          />
 
           {/* Filters & Search Bar */}
           <div className="border-b border-gray-800/50 bg-black/10">
