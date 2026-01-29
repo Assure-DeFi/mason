@@ -16,6 +16,7 @@ interface StatusTabsProps {
 }
 
 const TABS: Array<{ status: TabStatus; label: string }> = [
+  { status: null, label: 'All Items' },
   { status: 'new', label: 'New' },
   { status: 'approved', label: 'Approved' },
   { status: 'in_progress', label: 'In Progress' },
