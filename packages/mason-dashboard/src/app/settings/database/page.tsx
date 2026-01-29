@@ -12,10 +12,16 @@ import {
   Loader2,
   Shield,
   Info,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
+import {
+  getOAuthSession,
+  hasValidOAuthSession,
+  getAccessToken,
+} from '@/lib/supabase/oauth';
 
 type MigrationStatus = 'idle' | 'running' | 'success' | 'error';
 
@@ -32,6 +38,8 @@ export default function DatabaseSettingsPage() {
   const [databasePassword, setDatabasePassword] = useState('');
   const [migration, setMigration] = useState<MigrationState>({ status: 'idle' });
   const [showPassword, setShowPassword] = useState(false);
+  const [hasOAuth, setHasOAuth] = useState(false);
+  const [showManualFallback, setShowManualFallback] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -39,7 +47,55 @@ export default function DatabaseSettingsPage() {
     }
   }, [status, router]);
 
-  const handleRunMigrations = async () => {
+  // Check for OAuth session on mount
+  useEffect(() => {
+    setHasOAuth(hasValidOAuthSession());
+  }, []);
+
+  const handleRunMigrationsOAuth = async () => {
+    const oauthSession = getOAuthSession();
+    const accessToken = getAccessToken();
+
+    if (!oauthSession?.selectedProjectRef || !accessToken) {
+      setMigration({
+        status: 'error',
+        message: 'OAuth session expired. Please use the manual method below.',
+      });
+      setShowManualFallback(true);
+      return;
+    }
+
+    setMigration({ status: 'running', message: 'Running migrations...' });
+
+    try {
+      const response = await fetch('/api/setup/migrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectRef: oauthSession.selectedProjectRef,
+          accessToken,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Migration failed');
+      }
+
+      setMigration({
+        status: 'success',
+        message: 'Migrations completed successfully! Your database is up to date.',
+      });
+    } catch (err) {
+      setMigration({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Migration failed',
+      });
+      setShowManualFallback(true);
+    }
+  };
+
+  const handleRunMigrationsManual = async () => {
     if (!databasePassword) {
       setMigration({
         status: 'error',
@@ -132,6 +188,11 @@ export default function DatabaseSettingsPage() {
                     <div className="flex items-center gap-2 text-sm">
                       <CheckCircle className="h-4 w-4 text-green-500" />
                       <span className="text-gray-300">Connected</span>
+                      {hasOAuth && (
+                        <span className="rounded bg-gold/20 px-2 py-0.5 text-xs text-gold">
+                          OAuth
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-500 font-mono break-all">
                       {config?.supabaseUrl}
@@ -177,55 +238,35 @@ export default function DatabaseSettingsPage() {
                           This will apply any missing tables, indexes, and
                           policies to your database. Existing data is preserved.
                         </p>
-                        <p className="mt-2">
-                          You&apos;ll need your{' '}
-                          <span className="text-white">database password</span>{' '}
-                          from your Supabase project settings.
-                        </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Password Input */}
-                  <div className="mt-4">
-                    <label
-                      htmlFor="db-password"
-                      className="block text-sm font-medium text-gray-300"
-                    >
-                      Database Password
-                    </label>
-                    <div className="relative mt-1">
-                      <input
-                        id="db-password"
-                        type={showPassword ? 'text' : 'password'}
-                        value={databasePassword}
-                        onChange={(e) => setDatabasePassword(e.target.value)}
-                        placeholder="Enter your Supabase database password"
-                        className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-                        disabled={migration.status === 'running'}
-                      />
+                  {/* OAuth One-Click Button */}
+                  {hasOAuth && !showManualFallback && (
+                    <div className="mt-4">
                       <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                        onClick={handleRunMigrationsOAuth}
+                        disabled={migration.status === 'running'}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-3 font-medium text-navy transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {showPassword ? 'Hide' : 'Show'}
+                        {migration.status === 'running' ? (
+                          <>
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            Running Migrations...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="h-5 w-5" />
+                            Update Database Schema (One-Click)
+                          </>
+                        )}
                       </button>
+                      <p className="mt-2 text-center text-xs text-gray-500">
+                        Using your connected Supabase OAuth session
+                      </p>
                     </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Found in Supabase → Project Settings → Database → Database
-                      password
-                    </p>
-                  </div>
-
-                  {/* Security Notice */}
-                  <div className="mt-4 flex items-start gap-2 text-xs text-gray-500">
-                    <Shield className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                    <span>
-                      Your password is sent directly to your Supabase instance
-                      and is never stored.
-                    </span>
-                  </div>
+                  )}
 
                   {/* Migration Status */}
                   {migration.status !== 'idle' && (
@@ -263,26 +304,78 @@ export default function DatabaseSettingsPage() {
                     </div>
                   )}
 
-                  {/* Run Button */}
-                  <button
-                    onClick={handleRunMigrations}
-                    disabled={
-                      !databasePassword || migration.status === 'running'
-                    }
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-3 font-medium text-navy transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {migration.status === 'running' ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        Running Migrations...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-5 w-5" />
-                        Update Database Schema
-                      </>
-                    )}
-                  </button>
+                  {/* Manual Fallback Section */}
+                  {(!hasOAuth || showManualFallback) && (
+                    <div className="mt-6 border-t border-gray-800 pt-6">
+                      {hasOAuth && showManualFallback && (
+                        <p className="mb-4 text-sm text-yellow-400">
+                          OAuth method failed. Try the manual method below:
+                        </p>
+                      )}
+
+                      {/* Password Input */}
+                      <div>
+                        <label
+                          htmlFor="db-password"
+                          className="block text-sm font-medium text-gray-300"
+                        >
+                          Database Password
+                        </label>
+                        <div className="relative mt-1">
+                          <input
+                            id="db-password"
+                            type={showPassword ? 'text' : 'password'}
+                            value={databasePassword}
+                            onChange={(e) => setDatabasePassword(e.target.value)}
+                            placeholder="Enter your Supabase database password"
+                            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                            disabled={migration.status === 'running'}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                          >
+                            {showPassword ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Found in Supabase → Project Settings → Database → Database
+                          password
+                        </p>
+                      </div>
+
+                      {/* Security Notice */}
+                      <div className="mt-4 flex items-start gap-2 text-xs text-gray-500">
+                        <Shield className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                        <span>
+                          Your password is sent directly to your Supabase instance
+                          and is never stored.
+                        </span>
+                      </div>
+
+                      {/* Run Button */}
+                      <button
+                        onClick={handleRunMigrationsManual}
+                        disabled={
+                          !databasePassword || migration.status === 'running'
+                        }
+                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 font-medium text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {migration.status === 'running' ? (
+                          <>
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            Running Migrations...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-5 w-5" />
+                            Update Database Schema
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

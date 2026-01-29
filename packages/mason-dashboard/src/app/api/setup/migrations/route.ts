@@ -292,12 +292,71 @@ DO $$ BEGIN
 END $$;
 `;
 
+const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
+
+/**
+ * Run migrations via Supabase Management API (for OAuth users)
+ */
+async function runMigrationsViaManagementApi(
+  projectRef: string,
+  accessToken: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${MANAGEMENT_API_BASE}/projects/${projectRef}/database/query`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: MIGRATION_SQL,
+          read_only: false,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error:
+          errorData.message ||
+          errorData.error ||
+          `Management API error: ${response.status}`,
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Migration failed',
+    };
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { supabaseUrl, databasePassword, connectionString } =
-      await request.json();
+    const body = await request.json();
+    const { supabaseUrl, databasePassword, connectionString, projectRef, accessToken } = body;
 
-    // connectionString is optional - if provided, it bypasses URL construction
+    // Method 1: OAuth-based migrations (preferred for OAuth users)
+    if (projectRef && accessToken) {
+      const result = await runMigrationsViaManagementApi(projectRef, accessToken);
+
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.error },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Method 2: Direct PostgreSQL connection (fallback)
     if (!connectionString && (!supabaseUrl || !databasePassword)) {
       return NextResponse.json(
         { error: 'Missing Supabase URL or Database Password' },
