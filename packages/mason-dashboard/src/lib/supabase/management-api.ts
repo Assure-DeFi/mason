@@ -3,9 +3,12 @@
  *
  * Provides authenticated access to Supabase Management API endpoints
  * using OAuth tokens for database setup and API key retrieval.
+ *
+ * Note: All calls go through local API routes to avoid CORS issues.
+ * The browser cannot call api.supabase.com directly.
  */
 
-const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
+const API_PROXY_BASE = '/api/supabase';
 
 // =============================================================================
 // Types
@@ -45,7 +48,7 @@ export interface ManagementApiError {
 export async function listProjects(
   accessToken: string,
 ): Promise<SupabaseProject[]> {
-  const response = await fetch(`${MANAGEMENT_API_BASE}/projects`, {
+  const response = await fetch(`${API_PROXY_BASE}/projects`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
@@ -67,15 +70,12 @@ export async function getProject(
   accessToken: string,
   projectRef: string,
 ): Promise<SupabaseProject> {
-  const response = await fetch(
-    `${MANAGEMENT_API_BASE}/projects/${projectRef}`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+  const response = await fetch(`${API_PROXY_BASE}/projects/${projectRef}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
     },
-  );
+  });
 
   if (!response.ok) {
     const error = await parseError(response);
@@ -100,7 +100,7 @@ export async function runDatabaseQuery(
   readOnly = false,
 ): Promise<DatabaseQueryResult> {
   const response = await fetch(
-    `${MANAGEMENT_API_BASE}/projects/${projectRef}/database/query`,
+    `${API_PROXY_BASE}/projects/${projectRef}/query`,
     {
       method: 'POST',
       headers: {
@@ -198,7 +198,7 @@ export async function getApiKeys(
   projectRef: string,
 ): Promise<{ anonKey: string; serviceRoleKey: string }> {
   const response = await fetch(
-    `${MANAGEMENT_API_BASE}/projects/${projectRef}/api-keys`,
+    `${API_PROXY_BASE}/projects/${projectRef}/api-keys`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
