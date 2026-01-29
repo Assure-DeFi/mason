@@ -10,6 +10,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { UserMenu } from '@/components/auth/user-menu';
+import { MasonMark, MasonLogo } from '@/components/brand';
 
 interface FAQItem {
   question: string;
@@ -253,30 +254,41 @@ export default function FAQPage() {
 
   return (
     <main className="min-h-screen bg-navy">
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-gray-400 transition-colors hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Link>
+      {/* Header with Mason branding */}
+      <div className="border-b border-gray-800/50 bg-black/20">
+        <div className="mx-auto max-w-4xl px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link
+                href="/"
+                className="group flex items-center gap-3 transition-opacity hover:opacity-80"
+              >
+                <MasonMark
+                  size="sm"
+                  className="transition-transform group-hover:scale-105"
+                />
+                <span className="mason-wordmark text-lg font-bold tracking-wider text-white">
+                  MASON
+                </span>
+              </Link>
+            </div>
+            <UserMenu />
           </div>
-          <UserMenu />
         </div>
+      </div>
 
+      <div className="mx-auto max-w-4xl px-4 py-8">
         {/* Title */}
-        <div className="mb-8 text-center">
+        <div className="mason-entrance mb-8 text-center">
           <div className="mb-4 flex items-center justify-center gap-3">
-            <HelpCircle className="h-10 w-10 text-gold" />
-            <h1 className="text-4xl font-bold text-white">
-              Frequently Asked Questions
-            </h1>
+            <div className="rounded-lg bg-gold/10 p-2">
+              <HelpCircle className="h-8 w-8 text-gold" />
+            </div>
           </div>
-          <p className="text-gray-400">
+          <h1 className="text-3xl font-bold text-white">
+            Frequently Asked Questions
+          </h1>
+          <p className="mt-2 text-gray-400">
             Find answers to common questions about Mason
           </p>
         </div>

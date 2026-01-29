@@ -4,6 +4,7 @@ import { signIn } from 'next-auth/react';
 import { Github } from 'lucide-react';
 import { useState } from 'react';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
+import { MasonAvatar, MasonLogo, MasonLoader } from '@/components/brand';
 
 export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,41 +20,80 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-navy">
-      <div className="w-full max-w-md space-y-8 px-4">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-white">Mason</h1>
-          <p className="mt-2 text-gray-400">
-            Sign in to manage your product backlog
-          </p>
-        </div>
+    <div className="flex min-h-screen flex-col bg-navy">
+      {/* Main Content */}
+      <div className="flex flex-1 flex-col items-center justify-center px-4">
+        <div className="w-full max-w-md space-y-8">
+          {/* Mason Character & Logo */}
+          <div className="mason-entrance text-center">
+            <div className="mb-6 flex justify-center">
+              <MasonAvatar size="xl" variant="detailed" priority />
+            </div>
+            <MasonLogo
+              variant="wordmark"
+              size="lg"
+              className="mb-2 justify-center"
+            />
+            <p className="text-gray-400">
+              Sign in to manage your product backlog
+            </p>
+          </div>
 
-        <div className="mt-8 rounded-lg bg-black p-8">
-          <button
-            onClick={handleSignIn}
-            disabled={isLoading}
-            className="flex w-full items-center justify-center gap-3 rounded-md bg-gold px-4 py-3 font-medium text-navy transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          {/* Sign In Card */}
+          <div
+            className="mason-entrance rounded-xl border border-gray-800 bg-black/50 p-8 backdrop-blur"
+            style={{ animationDelay: '0.15s' }}
           >
-            {isLoading ? (
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-navy border-t-transparent" />
-            ) : (
-              <Github className="h-5 w-5" />
-            )}
-            <span>{isLoading ? 'Signing in...' : 'Sign in with GitHub'}</span>
-          </button>
+            <button
+              onClick={handleSignIn}
+              disabled={isLoading}
+              className="flex w-full items-center justify-center gap-3 rounded-lg bg-gold px-4 py-4 font-semibold text-navy transition-all hover:shadow-lg hover:shadow-gold/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isLoading ? (
+                <MasonLoader size="sm" variant="pulse" />
+              ) : (
+                <>
+                  <Github className="h-5 w-5" />
+                  <span>Sign in with GitHub</span>
+                </>
+              )}
+            </button>
 
-          <p className="mt-4 text-center text-sm text-gray-500">
-            You&apos;ll be redirected to GitHub to authorize access
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center gap-3 text-sm text-gray-400">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gold/10">
+                  <span className="text-xs text-gold">1</span>
+                </div>
+                <span>Authorize GitHub access</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-gray-400">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gold/10">
+                  <span className="text-xs text-gold">2</span>
+                </div>
+                <span>Connect your own database</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-gray-400">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gold/10">
+                  <span className="text-xs text-gold">3</span>
+                </div>
+                <span>Start improving your codebase</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Privacy Note */}
+          <p
+            className="mason-entrance text-center text-sm text-gray-500"
+            style={{ animationDelay: '0.3s' }}
+          >
+            Your data stays in YOUR database. We never see your code or
+            improvements.
           </p>
         </div>
+      </div>
 
-        <div className="text-center text-sm text-gray-500">
-          <p>
-            By signing in, you grant Mason access to your repositories for
-            executing approved improvements.
-          </p>
-        </div>
-
+      {/* Footer */}
+      <div className="py-6">
         <PoweredByFooter className="justify-center" />
       </div>
     </div>
