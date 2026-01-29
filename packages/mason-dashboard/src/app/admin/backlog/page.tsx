@@ -1149,6 +1149,7 @@ function BacklogPageContent() {
           onClose={() => setSelectedItem(null)}
           onUpdateStatus={handleUpdateStatus}
           onGeneratePrd={handleGeneratePrd}
+          initialViewMode={selectedItemViewMode}
         />
       )}
 
