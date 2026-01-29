@@ -3,6 +3,7 @@
 import { formatDistanceToNow } from 'date-fns';
 import { FileText } from 'lucide-react';
 
+import type { ColumnWidths } from '@/hooks/useColumnResize';
 import { getComplexityValue } from '@/types/backlog';
 import type { BacklogItem, BacklogStatus } from '@/types/backlog';
 
@@ -34,6 +35,7 @@ interface ItemRowProps {
   onSelect: (id: string, event?: React.MouseEvent) => void;
   onClick: (item: BacklogItem) => void;
   onPrdClick?: (item: BacklogItem) => void;
+  columnWidths: ColumnWidths;
 }
 
 export function ItemRow({
@@ -42,6 +44,7 @@ export function ItemRow({
   onSelect,
   onClick,
   onPrdClick,
+  columnWidths,
 }: ItemRowProps) {
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -54,7 +57,11 @@ export function ItemRow({
       onClick={() => onClick(item)}
     >
       {/* Checkbox */}
-      <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+      <td
+        className="py-3 px-3"
+        style={{ width: `${columnWidths.checkbox}px` }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <input
           type="checkbox"
           checked={selected}
@@ -65,14 +72,14 @@ export function ItemRow({
       </td>
 
       {/* Title */}
-      <td className="py-3 px-3">
+      <td className="py-3 px-3" style={{ width: `${columnWidths.title}px` }}>
         <div className="flex items-center gap-2">
           <div className="flex-1 min-w-0">
             <div className="font-medium text-white group-hover:text-gold transition-colors truncate">
               {item.title}
             </div>
             <div className="text-xs text-gray-500 mt-1 truncate">
-              {item.problem.substring(0, 60)}...
+              {item.problem.substring(0, 80)}...
             </div>
           </div>
           <QuickWinBadge
@@ -83,12 +90,12 @@ export function ItemRow({
       </td>
 
       {/* Type */}
-      <td className="py-3 px-3">
+      <td className="py-3 px-3" style={{ width: `${columnWidths.type}px` }}>
         <TypeBadge type={item.type} />
       </td>
 
       {/* Priority */}
-      <td className="py-3 px-3">
+      <td className="py-3 px-3" style={{ width: `${columnWidths.priority}px` }}>
         <div className="flex flex-col gap-1">
           <PriorityDots value={item.impact_score} variant="priority" />
           <span className="text-xs text-gray-500 font-medium">
@@ -98,7 +105,10 @@ export function ItemRow({
       </td>
 
       {/* Complexity */}
-      <td className="py-3 px-3">
+      <td
+        className="py-3 px-3"
+        style={{ width: `${columnWidths.complexity}px` }}
+      >
         <div className="flex flex-col gap-1">
           <PriorityDots
             value={getComplexityValue(item.complexity) * 2}
@@ -112,14 +122,14 @@ export function ItemRow({
       </td>
 
       {/* Area */}
-      <td className="py-3 px-3">
+      <td className="py-3 px-3" style={{ width: `${columnWidths.area}px` }}>
         <span className="px-2 py-1 text-xs font-medium bg-black/30 text-gray-400 border border-gray-700">
           {item.area === 'frontend' ? 'Frontend' : 'Backend'}
         </span>
       </td>
 
       {/* Status */}
-      <td className="py-3 px-3">
+      <td className="py-3 px-3" style={{ width: `${columnWidths.status}px` }}>
         <span
           className={`px-2 py-1 text-xs font-medium ${STATUS_COLORS[item.status].bg} ${STATUS_COLORS[item.status].text} border border-current/20`}
         >
@@ -130,6 +140,7 @@ export function ItemRow({
       {/* PRD Status */}
       <td
         className="py-3 px-3 text-center"
+        style={{ width: `${columnWidths.prd}px` }}
         onClick={(e) => e.stopPropagation()}
       >
         {item.prd_content ? (
@@ -151,7 +162,10 @@ export function ItemRow({
       </td>
 
       {/* Last edited */}
-      <td className="py-3 px-3 text-gray-500 text-xs whitespace-nowrap">
+      <td
+        className="py-3 px-3 text-gray-500 text-xs whitespace-nowrap"
+        style={{ width: `${columnWidths.updated}px` }}
+      >
         {formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}
       </td>
     </tr>
