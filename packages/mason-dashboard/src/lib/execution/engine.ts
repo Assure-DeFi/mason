@@ -127,6 +127,54 @@ async function getRepositoryContext(
   return `Repository structure:\n${relevantFiles.map((f) => `- ${f.path}`).join('\n')}`;
 }
 
+// Retry configuration for API calls
+const RETRY_CONFIG = {
+  maxAttempts: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 10000,
+  retryableStatusCodes: [429, 500, 502, 503, 504],
+};
+
+// Helper: Retry with exponential backoff
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  context: string,
+): Promise<T> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= RETRY_CONFIG.maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Check if error is retryable
+      const statusCode = (error as { status?: number }).status;
+      const isRetryable =
+        statusCode && RETRY_CONFIG.retryableStatusCodes.includes(statusCode);
+
+      if (!isRetryable || attempt === RETRY_CONFIG.maxAttempts) {
+        throw lastError;
+      }
+
+      // Calculate delay with exponential backoff and jitter
+      const delay = Math.min(
+        RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt - 1) +
+          Math.random() * 500,
+        RETRY_CONFIG.maxDelayMs,
+      );
+
+      console.warn(
+        `${context}: Attempt ${attempt} failed with status ${statusCode}, retrying in ${Math.round(delay)}ms...`,
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError ?? new Error(`${context}: All retry attempts failed`);
+}
+
 // Generate code changes using Claude
 async function generateCodeChanges(
   item: BacklogItem,
@@ -163,17 +211,21 @@ ${repoContext}
 
 Generate the code changes needed to implement this improvement. Follow existing patterns in the repository.`;
 
-  const message = await client.messages.create({
-    model: 'claude-3-5-sonnet-20241022',
-    max_tokens: 8192,
-    system: CODE_GENERATION_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: userPrompt,
-      },
-    ],
-  });
+  const message = await withRetry(
+    () =>
+      client.messages.create({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 8192,
+        system: CODE_GENERATION_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+      }),
+    `Claude API call for "${item.title}"`,
+  );
 
   const textContent = message.content.find((block) => block.type === 'text');
   if (!textContent || textContent.type !== 'text') {
