@@ -39,6 +39,9 @@ logs/
 # MCP configuration (contains secrets)
 .mcp.json
 
+# Mason local config (may contain credentials)
+mason.config.json
+
 # Lock files (kept in repo but sometimes ignored locally)
 # pnpm-lock.yaml
 packages/mason-dashboard/node_modules/

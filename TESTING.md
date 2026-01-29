@@ -23,16 +23,12 @@ pnpm exec playwright test e2e/mason-compound-learning.spec.ts
 ### Test Files
 
 ```
-/home/jeffl/projects/mason/
+mason/
 ├── e2e/
 │   └── mason-compound-learning.spec.ts    # Main E2E test suite
 ├── playwright.config.ts                    # Playwright configuration
-├── scripts/
-│   └── with_server.py                      # Server management helper
-├── test-results/
-│   └── screenshots/                        # Test screenshots
-├── E2E_TEST_REPORT.md                      # Detailed test report
-└── E2E_TEST_SUMMARY.md                     # Quick summary
+└── test-results/
+    └── screenshots/                        # Test screenshots (generated)
 ```
 
 ### Test Coverage
@@ -352,8 +348,6 @@ for i in {1..10}; do pnpm exec playwright test; done
 - [Playwright Documentation](https://playwright.dev/docs/intro)
 - [Playwright API Reference](https://playwright.dev/docs/api/class-playwright)
 - [Best Practices](https://playwright.dev/docs/best-practices)
-- [Test Reports](./E2E_TEST_REPORT.md)
-- [Test Summary](./E2E_TEST_SUMMARY.md)
 
 ## Support
 
@@ -364,8 +358,3 @@ For issues or questions:
 3. Run with debug: `DEBUG=pw:api pnpm exec playwright test`
 4. Check Playwright docs
 5. Open an issue on GitHub
-
----
-
-**Last Updated**: January 29, 2026
-**Maintained By**: Mason Development Team

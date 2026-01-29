@@ -1,105 +1,148 @@
-# Mason
+<p align="center">
+  <img src="brand/logos/svg/mason_icon.svg" alt="Mason Logo" width="120" />
+</p>
 
-**AI-powered continuous improvement for your codebase.**
+<h1 align="center">Mason</h1>
 
-Mason analyzes your repo, suggests prioritized improvements, and lets you review and execute them through a dashboard.
+<p align="center">
+  <strong>AI-powered continuous improvement for your codebase</strong>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg" alt="Node.js"></a>
+  <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5.3-blue.svg" alt="TypeScript"></a>
+  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14-black.svg" alt="Next.js"></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#features">Features</a> •
+  <a href="#how-it-works">How It Works</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#documentation">Documentation</a>
+</p>
 
 ---
 
-## Architecture
+Mason analyzes your repositories, suggests prioritized improvements, and lets you review and execute them through a dashboard. It creates pull requests automatically, turning your backlog into shipped code.
 
-Mason uses a **central instance** architecture - one Mason database manages improvements across all your projects:
+## Quick Start
+
+```bash
+# 1. Clone and install
+git clone https://github.com/Assure-DeFi/mason.git
+cd mason && pnpm install
+
+# 2. Set up environment
+cp packages/mason-dashboard/.env.example packages/mason-dashboard/.env.local
+# Edit .env.local with your credentials
+
+# 3. Run the dashboard
+cd packages/mason-dashboard && pnpm dev
+```
+
+Open http://localhost:3000, sign in with GitHub, and connect your first repository.
+
+## Features
+
+- **Codebase Analysis** - Scans repos for security, performance, UX, and code quality improvements
+- **Smart Prioritization** - Scores items by impact and effort to surface quick wins
+- **Dashboard Review** - Visual interface to approve, reject, and track improvements
+- **Automated Execution** - Creates branches and PRs automatically via GitHub API
+- **Cross-Project Visibility** - Manage multiple repositories from one dashboard
+- **Privacy-First** - All data stays in your own Supabase instance
+
+## How It Works
 
 ```
-┌─────────────────────────────────────────────────────┐
-│              Mason Dashboard + Database              │
-│                  (One per user/team)                 │
-├─────────────────────────────────────────────────────┤
-│  Connected Repositories:                             │
-│    ├── github.com/you/project-a                      │
-│    ├── github.com/you/project-b                      │
-│    └── github.com/org/project-c                      │
-│                                                      │
-│  Backlog Items:                                      │
-│    ├── "Add caching" → project-a                     │
-│    ├── "Fix auth bug" → project-a                    │
-│    └── "Improve UI" → project-b                      │
-└─────────────────────────────────────────────────────┘
-                        │
-                        │ GitHub API
-                        ▼
-         ┌──────────┐ ┌──────────┐ ┌──────────┐
-         │project-a │ │project-b │ │project-c │
-         │ (GitHub) │ │ (GitHub) │ │ (GitHub) │
-         └──────────┘ └──────────┘ └──────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  1. CONNECT                                                  │
+│     Sign in with GitHub and connect repositories             │
+├─────────────────────────────────────────────────────────────┤
+│  2. ANALYZE                                                  │
+│     Run /pm-review in Claude Code to scan your codebase      │
+├─────────────────────────────────────────────────────────────┤
+│  3. REVIEW                                                   │
+│     Approve or reject improvements in the dashboard          │
+├─────────────────────────────────────────────────────────────┤
+│  4. EXECUTE                                                  │
+│     Click Execute to create PRs automatically                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Architecture
+
+Mason uses a **central instance** architecture—one dashboard manages improvements across all your projects:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              Mason Dashboard + Your Supabase DB              │
+├─────────────────────────────────────────────────────────────┤
+│  Connected Repositories:                                     │
+│    ├── github.com/you/project-a                              │
+│    ├── github.com/you/project-b                              │
+│    └── github.com/org/project-c                              │
+└─────────────────────────────────────────────────────────────┘
+                          │ GitHub API
+                          ▼
+          ┌──────────┐ ┌──────────┐ ┌──────────┐
+          │project-a │ │project-b │ │project-c │
+          └──────────┘ └──────────┘ └──────────┘
 ```
 
 **Why this design?**
 
-- **Cross-project visibility** - See all improvements in one dashboard
-- **No coupling** - Target projects don't need Mason tables; they just receive PRs
-- **Single deployment** - One Mason instance per user/team
-- **GitHub-native** - Execution creates branches and PRs in your repos
-
----
-
-## Requirements
-
-Before you start, make sure you have:
-
-- **Node.js 18+** - [Download here](https://nodejs.org)
-- **Claude Code** with Pro Max subscription - [Get Claude Code](https://claude.com/claude-code)
-- **Supabase account** (free tier works) - [Create account](https://supabase.com)
-- **GitHub account** - For OAuth and repository access
-- **A git repository** - Mason works on any existing project
-
----
+- **Cross-project visibility** - See all improvements in one place
+- **No coupling** - Target projects just receive PRs, no Mason code required
+- **Single deployment** - One instance per user or team
+- **GitHub-native** - Standard branches and pull requests
 
 ## Installation
 
-### Step 1: Set Up Supabase Database
+### Prerequisites
 
-1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
-2. Create a new project (or use existing)
-3. Go to **SQL Editor** and run these migrations in order:
-   - `packages/mason-migrations/migrations/001_mason_schema.sql`
-   - `packages/mason-migrations/migrations/002_auth_and_github.sql`
+- [Node.js 18+](https://nodejs.org)
+- [Claude Code](https://claude.ai/code) with Pro subscription
+- [Supabase](https://supabase.com) account (free tier works)
+- GitHub account
+
+### Step 1: Set Up Supabase
+
+1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard)
+2. Go to **SQL Editor** and run the migrations from `packages/mason-migrations/migrations/`
 
 ### Step 2: Create GitHub OAuth App
 
-1. Go to GitHub **Settings** > **Developer Settings** > **OAuth Apps**
-2. Click **New OAuth App**
-3. Fill in:
-   - **Application name:** Mason
+1. Go to GitHub **Settings** → **Developer Settings** → **OAuth Apps**
+2. Click **New OAuth App** with:
    - **Homepage URL:** `http://localhost:3000`
-   - **Authorization callback URL:** `http://localhost:3000/api/auth/callback/github`
-4. Click **Register application**
-5. Copy the **Client ID**
-6. Generate and copy a **Client Secret**
+   - **Callback URL:** `http://localhost:3000/api/auth/callback/github`
+3. Copy the Client ID and generate a Client Secret
 
 ### Step 3: Configure Environment
 
 Create `packages/mason-dashboard/.env.local`:
 
 ```bash
-# Supabase (from Project Settings > API)
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...  # From Project Settings > API > service_role
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 # NextAuth
 NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=<generate with: openssl rand -base64 32>
+NEXTAUTH_SECRET=<openssl rand -base64 32>
 
-# GitHub OAuth (from Step 2)
+# GitHub OAuth
 GITHUB_CLIENT_ID=your-client-id
 GITHUB_CLIENT_SECRET=your-client-secret
 
-# Anthropic (for AI code generation)
+# AI Provider
 ANTHROPIC_API_KEY=your-api-key
 ```
 
-### Step 4: Install and Run Dashboard
+### Step 4: Run the Dashboard
 
 ```bash
 cd packages/mason-dashboard
@@ -107,272 +150,91 @@ pnpm install
 pnpm dev
 ```
 
-Open http://localhost:3000 and sign in with GitHub.
-
 ### Step 5: Install CLI Commands (Optional)
 
-To use Mason's analysis commands in your projects:
+Add Mason commands to your projects:
 
 ```bash
-cd /path/to/your/project
+# macOS/Linux
 curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.ps1 | iex
 ```
 
-> **Security Note:** Always review scripts before running them. You can inspect the script first:
->
-> ```bash
-> curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh
-> ```
+## Commands
 
-This creates `.claude/commands/` with Mason commands in your project.
+Run these in [Claude Code](https://claude.ai/code):
 
----
-
-## How It Works
-
-```
-+------------------------------------------------------------------+
-|  1. CONNECT                                                       |
-|     Sign in with GitHub at localhost:3000                         |
-|     - Authenticate via GitHub OAuth                               |
-|     - Connect your repositories                                   |
-|     - Manage repos in Settings                                    |
-+------------------------------------------------------------------+
-|  2. ANALYZE                                                       |
-|     Run /pm-review in Claude Code (in your project)               |
-|     - Scans codebase for improvements                             |
-|     - Scores by impact & effort                                   |
-|     - Stores in Supabase                                          |
-+------------------------------------------------------------------+
-|  3. REVIEW                                                        |
-|     Open Dashboard at localhost:3000/admin/backlog                |
-|     - See all improvements with stats                             |
-|     - Filter by status: New, Approved, In Progress, etc.          |
-|     - Click item to view details and benefits                     |
-|     - Approve or Reject improvements                              |
-+------------------------------------------------------------------+
-|  4. EXECUTE                                                       |
-|     Option A: Dashboard (Recommended)                             |
-|       - Select repository from dropdown                           |
-|       - Click "Execute" on Approved tab                           |
-|       - Watch real-time progress                                  |
-|       - PR created automatically on GitHub                        |
-|                                                                   |
-|     Option B: CLI                                                 |
-|       - Click "Copy CLI Command"                                  |
-|       - Paste into Claude Code                                    |
-|       - Claude implements locally                                 |
-+------------------------------------------------------------------+
-```
-
----
-
-## Usage
-
-### 1. Sign In and Connect Repositories
-
-1. Open http://localhost:3000
-2. Click **Sign in with GitHub**
-3. Go to **Settings** (user menu) > **Repository Settings**
-4. Click **Connect Repository** and select your repos
-
-### 2. Analyze Your Codebase
-
-Open Claude Code in your project directory:
-
-```bash
-cd /path/to/your/project
-claude
-```
-
-Run the analysis:
-
-```
-/pm-review
-```
-
-This scans your codebase and stores improvement suggestions in Supabase.
-
-### 3. Review in Dashboard
-
-Open http://localhost:3000/admin/backlog
-
-**Dashboard Features:**
-
-- **Stats Bar** - See counts for each status
-- **Status Tabs** - Filter by New, Approved, In Progress, etc.
-- **Repository Selector** - Choose target repo for execution
-- **Table View** - See all improvements with type, priority, complexity
-- **Detail Modal** - View full problem, solution, and benefits
-- **Approve/Reject** - Change item status with one click
-
-### 4. Execute Approved Items
-
-**Option A: Remote Execution (Recommended)**
-
-1. Select your repository from the dropdown
-2. Click the **Approved** tab
-3. Click **Execute** button
-4. Watch real-time progress in the modal
-5. PR is created automatically on GitHub
-
-**Option B: Local CLI Execution**
-
-1. Click the **Approved** tab
-2. Click **Copy CLI Command**
-3. Paste into Claude Code in your project directory
-
----
-
-## Commands Reference
-
-Run these commands inside Claude Code:
-
-| Command                    | What It Does                           |
+| Command                    | Description                            |
 | -------------------------- | -------------------------------------- |
 | `/pm-review`               | Analyze codebase and find improvements |
 | `/pm-review quick`         | Find 5-7 quick wins only               |
 | `/pm-review area:security` | Focus on security improvements         |
 | `/execute-approved`        | Implement all approved items           |
 
----
-
-## Project Structure After Setup
+## Project Structure
 
 ```
-your-project/
-├── mason.config.json              # Mason configuration
-├── .claude/
-│   ├── commands/
-│   │   ├── pm-review.md           # Analysis command
-│   │   └── execute-approved.md    # Execution command
-│   └── skills/
-│       └── pm-domain-knowledge/
-│           └── SKILL.md           # Customize for your project
-└── supabase/
-    └── migrations/
-        └── 001_mason_schema.sql   # Database schema
+mason/
+├── packages/
+│   ├── mason-dashboard/     # Next.js web application
+│   ├── mason-commands/      # Claude Code command templates
+│   └── mason-migrations/    # Supabase SQL migrations
+├── e2e/                     # Playwright E2E tests
+├── brand/                   # Brand assets
+└── .claude/                 # Claude Code configuration
 ```
 
----
+## Documentation
 
-## Customization
-
-### Add Your Domain Knowledge
-
-Customize what Mason knows about your project by editing:
-
-```
-.claude/skills/pm-domain-knowledge/SKILL.md
-```
-
-Add information about:
-
-- Your business goals
-- Technical constraints
-- Areas to focus on or avoid
-- User personas
-
-### Configure Analysis Domains
-
-Edit `mason.config.json` to enable/disable analysis areas:
-
-```json
-{
-  "domains": [
-    { "name": "frontend-ux", "enabled": true, "weight": 1 },
-    { "name": "api-backend", "enabled": true, "weight": 1 },
-    { "name": "reliability", "enabled": true, "weight": 1 },
-    { "name": "security", "enabled": true, "weight": 1.2 },
-    { "name": "code-quality", "enabled": false, "weight": 0.8 }
-  ]
-}
-```
-
-Higher weights = higher priority for that domain.
-
----
+| Document                                 | Description         |
+| ---------------------------------------- | ------------------- |
+| [CONTRIBUTING.md](CONTRIBUTING.md)       | How to contribute   |
+| [SECURITY.md](SECURITY.md)               | Security policy     |
+| [TESTING.md](TESTING.md)                 | E2E testing guide   |
+| [CHANGELOG.md](CHANGELOG.md)             | Version history     |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community standards |
 
 ## Security
 
-### GitHub OAuth Permissions
+Mason is designed with privacy first:
 
-Mason requests the following GitHub OAuth scopes:
+- **Your data stays yours** - All data stored in your own Supabase instance
+- **Minimal permissions** - Only requests necessary GitHub scopes
+- **No external servers** - Runs entirely on your infrastructure
+- **Encrypted at rest** - Supabase handles encryption
 
-| Scope        | Purpose                                     |
-| ------------ | ------------------------------------------- |
-| `read:user`  | Access your GitHub profile information      |
-| `user:email` | Access your email for notifications         |
-| `repo`       | Create branches, commits, and pull requests |
-
-**Why `repo` scope?** Mason needs full repository access to implement improvements in your codebase. This includes creating feature branches, committing code changes, and opening pull requests. Mason only accesses repositories you explicitly connect through the dashboard.
-
-### Data Storage
-
-- **Supabase:** All data is stored in your own Supabase project
-- **GitHub tokens:** Stored encrypted at rest by Supabase
-- **No external servers:** Mason runs entirely on your infrastructure
-
-For security issues, see [SECURITY.md](SECURITY.md).
-
----
+See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Troubleshooting
 
-### Common Issues
+| Problem                  | Solution                                                   |
+| ------------------------ | ---------------------------------------------------------- |
+| GitHub sign-in fails     | Check `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`        |
+| "Unauthorized" errors    | Verify `NEXTAUTH_SECRET` is set                            |
+| Can't connect repository | Check GitHub OAuth callback URL                            |
+| Execution fails          | Verify `ANTHROPIC_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` |
+| `/pm-review` not found   | Run the installer in your project directory                |
 
-| Problem                  | Solution                                                            |
-| ------------------------ | ------------------------------------------------------------------- |
-| GitHub sign-in fails     | Check `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in `.env.local` |
-| "Unauthorized" errors    | Make sure `NEXTAUTH_SECRET` is set                                  |
-| Can't connect repository | Verify GitHub OAuth app has correct callback URL                    |
-| Execution fails          | Check `ANTHROPIC_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY`           |
-| "Not a git repository"   | Run the installer from your project root (where `.git` is)          |
-| `/pm-review` not found   | Make sure `.claude/commands/pm-review.md` exists in your project    |
-| No items in dashboard    | Run `/pm-review` first to generate improvement items                |
-| Dashboard won't start    | Run `pnpm install` in the dashboard directory                       |
+## Contributing
 
-### Verify Environment
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ```bash
-# Check all required env vars are set
-cd packages/mason-dashboard
-cat .env.local | grep -E "^[A-Z]" | cut -d= -f1
+# Development setup
+git clone https://github.com/Assure-DeFi/mason.git
+cd mason
+pnpm install
+pnpm dev
 ```
-
-Required variables:
-
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `NEXTAUTH_URL`
-- `NEXTAUTH_SECRET`
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
-- `ANTHROPIC_API_KEY`
-
----
-
-## Uninstall
-
-To remove Mason from your project:
-
-```bash
-rm -rf .claude/commands/pm-review.md
-rm -rf .claude/commands/execute-approved.md
-rm -rf .claude/skills/pm-domain-knowledge
-rm -rf supabase/migrations/001_mason_schema.sql
-rm mason.config.json
-```
-
----
-
-## Support
-
-- **Issues:** https://github.com/Assure-DeFi/mason/issues
-
----
 
 ## License
 
-MIT
+[MIT](LICENSE) - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<p align="center">
+  Built by <a href="https://github.com/Assure-DeFi">Assure DeFi</a>
+</p>
