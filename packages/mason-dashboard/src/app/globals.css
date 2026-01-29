@@ -6,7 +6,11 @@
   --foreground: #ffffff;
   --background: #0a0724;
   --gold: #e2d243;
+  --gold-dim: #b8a936;
   --light-grey: #f2f2f2;
+  --navy: #0a0724;
+  --navy-light: #1a1744;
+  --navy-dark: #050412;
 }
 
 body {
@@ -118,6 +122,197 @@ body {
   animation: fade-in 0.2s ease-out forwards;
 }
 
+/* ============================================
+   MASON BRAND ANIMATIONS
+   Premium motion system for the Mason brand
+   ============================================ */
+
+/* Mason Loader - Glow Effect */
+@keyframes mason-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px var(--gold))
+      drop-shadow(0 0 20px rgba(226, 210, 67, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px var(--gold))
+      drop-shadow(0 0 40px rgba(226, 210, 67, 0.5));
+  }
+}
+
+/* Mason Loader - Breathe/Scale Effect */
+@keyframes mason-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Mason Loader - Pulse Effect */
+@keyframes mason-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Mason Loader - Spin Effect */
+@keyframes mason-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Mason Glow Ring */
+@keyframes mason-glow-ring {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.1;
+  }
+}
+
+/* Mason Shield Shimmer */
+@keyframes mason-shield-shimmer {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 100;
+  }
+}
+
+/* Mason Star Twinkle */
+@keyframes mason-star-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+}
+
+/* Mason Figure Float */
+@keyframes mason-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Mason Face Glow (eyes) */
+@keyframes mason-eyes-glow {
+  0%,
+  100% {
+    fill: #ffffff;
+  }
+  50% {
+    fill: var(--gold);
+  }
+}
+
+/* Mason Entrance Animation */
+@keyframes mason-entrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Mason Loader Classes */
+.mason-loader-glow {
+  animation: mason-glow 2s ease-in-out infinite;
+}
+
+.mason-loader-breathe {
+  animation: mason-breathe 2s ease-in-out infinite;
+}
+
+.mason-loader-pulse {
+  animation: mason-pulse 1.5s ease-in-out infinite;
+}
+
+.mason-loader-spin {
+  animation: mason-spin 3s linear infinite;
+}
+
+/* Mason Glow Ring */
+.mason-glow-ring {
+  background: radial-gradient(circle, var(--gold) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: mason-glow-ring 2s ease-in-out infinite;
+  filter: blur(12px);
+}
+
+/* Mason Mark Animated Parts */
+.mason-mark-animated .mason-star {
+  animation: mason-star-twinkle 2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.mason-mark-animated .mason-face {
+  animation: mason-eyes-glow 3s ease-in-out infinite;
+}
+
+.mason-mark-animated .mason-shield-outer {
+  stroke-dasharray: 20;
+  animation: mason-shield-shimmer 4s linear infinite;
+}
+
+/* Mason Wordmark Styling */
+.mason-wordmark {
+  font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+  letter-spacing: 0.15em;
+}
+
+/* Mason Avatar Hero Glow */
+.mason-avatar-hero::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: radial-gradient(
+    circle,
+    rgba(226, 210, 67, 0.15) 0%,
+    transparent 60%
+  );
+  z-index: -1;
+  animation: mason-glow-ring 3s ease-in-out infinite;
+}
+
+/* Mason Entrance Animation Class */
+.mason-entrance {
+  animation: mason-entrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Mason Hover Micro-interaction */
+.mason-mark:hover {
+  filter: drop-shadow(0 0 8px var(--gold));
+  transition: filter 0.3s ease;
+}
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   .animate-success-scale,
@@ -125,9 +320,24 @@ body {
   .animate-success-fade-in,
   .animate-success-fade-in-delayed,
   .animate-confetti,
-  .animate-fade-in {
+  .animate-fade-in,
+  .mason-loader-glow,
+  .mason-loader-breathe,
+  .mason-loader-pulse,
+  .mason-loader-spin,
+  .mason-glow-ring,
+  .mason-mark-animated .mason-star,
+  .mason-mark-animated .mason-face,
+  .mason-mark-animated .mason-shield-outer,
+  .mason-avatar-hero::after,
+  .mason-entrance {
     animation: none;
     opacity: 1;
     transform: none;
+  }
+
+  /* Static glow for loaders when motion reduced */
+  .mason-loader-glow {
+    filter: drop-shadow(0 0 8px var(--gold));
   }
 }
