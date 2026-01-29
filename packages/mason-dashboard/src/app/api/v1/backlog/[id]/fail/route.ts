@@ -69,14 +69,17 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const supabase = createServiceClient();
 
-    // First, verify the item exists and is in 'in_progress' status
+    // First, verify the item exists, belongs to the user, and is in 'in_progress' status
+    // Security: Include user_id filter to prevent IDOR vulnerability
     const { data: existingItem, error: fetchError } = await supabase
       .from('mason_pm_backlog_items')
-      .select('id, status, title, branch_name')
+      .select('id, status, title, branch_name, user_id')
       .eq('id', itemId)
+      .eq('user_id', user.id)
       .single();
 
     if (fetchError || !existingItem) {
+      // Return 404 for both not found and unauthorized to prevent user enumeration
       return NextResponse.json(
         { error: 'Backlog item not found' },
         { status: 404 },
@@ -111,10 +114,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       updateData.solution = `[EXECUTION FAILED: ${error_message}]\n\n${existingItem.title}`;
     }
 
+    // Security: Include user_id filter to ensure only owner can modify
     const { data: updatedItem, error: updateError } = await supabase
       .from('mason_pm_backlog_items')
       .update(updateData)
       .eq('id', itemId)
+      .eq('user_id', user.id)
       .select()
       .single();
 
