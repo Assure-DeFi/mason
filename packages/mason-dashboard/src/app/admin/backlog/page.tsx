@@ -14,7 +14,6 @@ import {
 } from 'react';
 
 import { UserMenu } from '@/components/auth/user-menu';
-import { AutoPilotButton } from '@/components/backlog/AutoPilotButton';
 import { BacklogFilters } from '@/components/backlog/backlog-filters';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
@@ -1033,7 +1032,9 @@ function BacklogPageContent() {
                 onClick={fetchItems}
                 disabled={isLoading}
                 aria-busy={isLoading}
-                aria-label={isLoading ? 'Refreshing backlog' : 'Refresh backlog'}
+                aria-label={
+                  isLoading ? 'Refreshing backlog' : 'Refresh backlog'
+                }
                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-700 text-gray-300 hover:bg-white/5 hover:border-gray-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw
@@ -1131,7 +1132,6 @@ function BacklogPageContent() {
 
               {session && counts.approved > 0 && (
                 <div className="px-8 py-3 flex items-center gap-3">
-                  <AutoPilotButton approvedCount={counts.approved} />
                   <UnifiedExecuteButton
                     itemIds={approvedItemIds}
                     repositoryId={selectedRepoId}
