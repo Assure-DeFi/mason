@@ -386,7 +386,7 @@ function WarningStep({
           </li>
           <li className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-            Connected repositories
+            Repository connections (repos themselves are not affected)
           </li>
           <li className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
