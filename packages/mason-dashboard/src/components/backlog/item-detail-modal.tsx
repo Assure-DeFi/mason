@@ -52,17 +52,17 @@ export function ItemDetailModal({
           break;
         case 'g':
           if (!isGenerating && !item.prd_content) {
-            handleGeneratePrd();
+            void handleGeneratePrd();
           }
           break;
         case 'a':
           if (item.status === 'new' && !isUpdating) {
-            handleStatusChange('approved');
+            void handleStatusChange('approved');
           }
           break;
         case 'x':
           if (item.status === 'new' && !isUpdating) {
-            handleStatusChange('rejected');
+            void handleStatusChange('rejected');
           }
           break;
       }
@@ -115,9 +115,15 @@ export function ItemDetailModal({
 
   // Get priority label based on score
   const getPriorityLabel = () => {
-    if (item.impact_score >= 9) return 'Critical Priority';
-    if (item.impact_score >= 7) return 'High Priority';
-    if (item.impact_score >= 5) return 'Medium Priority';
+    if (item.impact_score >= 9) {
+      return 'Critical Priority';
+    }
+    if (item.impact_score >= 7) {
+      return 'High Priority';
+    }
+    if (item.impact_score >= 5) {
+      return 'Medium Priority';
+    }
     return 'Low Priority';
   };
 

@@ -84,7 +84,9 @@ export function NextStepBanner({
   };
 
   const handleCopy = async () => {
-    if (!config.cta) return;
+    if (!config.cta) {
+      return;
+    }
     try {
       await navigator.clipboard.writeText(config.cta);
       setCopied(true);
@@ -94,7 +96,9 @@ export function NextStepBanner({
     }
   };
 
-  if (!isVisible) return null;
+  if (!isVisible) {
+    return null;
+  }
 
   return (
     <div

@@ -1,8 +1,5 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import {
   Key,
   Terminal,
@@ -14,7 +11,11 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { useState, useEffect, useCallback } from 'react';
 
+import { MasonTagline } from '@/components/brand';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { saveMasonConfig, getMasonConfig } from '@/lib/supabase/user-client';
@@ -24,7 +25,12 @@ import type { WizardStepProps } from '../SetupWizard';
 export function CompleteStep({ onBack }: WizardStepProps) {
   const router = useRouter();
   const { data: session } = useSession();
-  const { client, isConfigured, config, refresh } = useUserDatabase();
+  const {
+    client,
+    isConfigured: _isConfigured,
+    config: _config,
+    refresh,
+  } = useUserDatabase();
 
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -41,14 +47,15 @@ export function CompleteStep({ onBack }: WizardStepProps) {
         await navigator.clipboard.writeText(installCommand);
         setAutoCopied(true);
         setTimeout(() => setAutoCopied(false), 3000);
-      } catch (err) {
-        // Clipboard might not be available, that's okay
-        console.debug('Auto-copy failed:', err);
+      } catch {
+        // Clipboard might not be available, that's okay - silently ignore
       }
     };
 
     // Small delay to ensure the step is visible
-    const timer = setTimeout(autoCopyInstallCommand, 500);
+    const timer = setTimeout(() => {
+      void autoCopyInstallCommand();
+    }, 500);
     return () => clearTimeout(timer);
   }, [installCommand]);
 
@@ -122,7 +129,9 @@ export function CompleteStep({ onBack }: WizardStepProps) {
   // Generate config file content
   const generateConfigContent = useCallback(() => {
     const currentConfig = getMasonConfig();
-    if (!currentConfig || !apiKey) return null;
+    if (!currentConfig || !apiKey) {
+      return null;
+    }
 
     return JSON.stringify(
       {
@@ -138,7 +147,9 @@ export function CompleteStep({ onBack }: WizardStepProps) {
   // Download config file
   const handleDownloadConfig = useCallback(() => {
     const configContent = generateConfigContent();
-    if (!configContent) return;
+    if (!configContent) {
+      return;
+    }
 
     const blob = new Blob([configContent], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -159,7 +170,8 @@ export function CompleteStep({ onBack }: WizardStepProps) {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-white">Setup Complete</h2>
-        <p className="mt-1 text-gray-400">
+        <MasonTagline size="sm" variant="accent" className="mt-1" />
+        <p className="mt-2 text-gray-400">
           Generate an API key and install the CLI to start analyzing your
           codebase
         </p>

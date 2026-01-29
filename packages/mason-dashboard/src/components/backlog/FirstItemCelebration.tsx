@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { X, Sparkles, MousePointer, Check, Play } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
+import { MasonTagline } from '@/components/brand';
 
 interface FirstItemCelebrationProps {
   itemCount: number;
@@ -30,7 +32,9 @@ export function FirstItemCelebration({
     onDismiss();
   };
 
-  if (!isVisible) return null;
+  if (!isVisible) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
@@ -108,6 +112,9 @@ export function FirstItemCelebration({
             </div>
           </div>
         </div>
+
+        {/* Tagline */}
+        <MasonTagline size="sm" variant="muted" className="mb-4 text-center" />
 
         {/* CTA */}
         <button

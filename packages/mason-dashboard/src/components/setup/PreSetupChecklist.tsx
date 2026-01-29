@@ -112,7 +112,9 @@ export function PreSetupChecklist({ onReady }: PreSetupChecklistProps) {
 
   const allChecked = CHECKLIST_ITEMS.every((item) => checkedItems.has(item.id));
 
-  if (!isVisible) return null;
+  if (!isVisible) {
+    return null;
+  }
 
   return (
     <>

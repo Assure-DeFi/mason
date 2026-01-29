@@ -1,7 +1,5 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
 import {
   ChevronDown,
   ChevronUp,
@@ -15,7 +13,11 @@ import {
   Wrench,
   AlertTriangle,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useState, useMemo } from 'react';
+
 import { UserMenu } from '@/components/auth/user-menu';
+import { MasonTagline } from '@/components/brand';
 
 interface FAQItem {
   question: string;
@@ -355,7 +357,9 @@ export default function FAQPage() {
 
   // Filter categories and items based on search
   const filteredCategories = useMemo(() => {
-    if (!searchQuery.trim()) return FAQ_DATA;
+    if (!searchQuery.trim()) {
+      return FAQ_DATA;
+    }
 
     const query = searchQuery.toLowerCase();
     return FAQ_DATA.map((category) => ({
@@ -403,6 +407,7 @@ export default function FAQPage() {
                 <h1 className="text-2xl font-bold text-white">
                   Frequently Asked Questions
                 </h1>
+                <MasonTagline size="sm" variant="muted" className="mt-1" />
                 <p className="text-gray-400 text-sm mt-1">
                   {totalQuestions} questions across {FAQ_DATA.length} categories
                 </p>

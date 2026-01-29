@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
 import { clsx } from 'clsx';
 import {
   Check,
   Circle,
-  X,
   User,
   Database,
   Search,
   Play,
   ChevronRight,
 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+
 import type { StatusCounts } from '@/types/backlog';
 
 interface OnboardingProgressProps {
@@ -98,7 +98,9 @@ export function OnboardingProgress({
   };
 
   // Don't show if dismissed or all complete
-  if (isDismissed || isAllComplete) return null;
+  if (isDismissed || isAllComplete) {
+    return null;
+  }
 
   // Find next incomplete step
   const nextStep = steps.find((s) => !s.isComplete);

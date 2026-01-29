@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
+import { RefreshCw, Database, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+
+import { UserMenu } from '@/components/auth/user-menu';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
@@ -10,7 +13,6 @@ import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
-import { UserMenu } from '@/components/auth/user-menu';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { JourneyMap } from '@/components/ui/JourneyMap';
@@ -19,8 +21,13 @@ import { OnboardingProgress } from '@/components/ui/OnboardingProgress';
 import { QuickStartFAB } from '@/components/ui/QuickStartFAB';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
-import type { BacklogItem, BacklogStatus, StatusCounts, SortField, SortDirection } from '@/types/backlog';
-import { RefreshCw, Database, ArrowRight } from 'lucide-react';
+import type {
+  BacklogItem,
+  BacklogStatus,
+  StatusCounts,
+  SortField,
+  SortDirection,
+} from '@/types/backlog';
 
 export default function BacklogPage() {
   const { data: session } = useSession();
@@ -36,14 +43,15 @@ export default function BacklogPage() {
   const [executionRunId, setExecutionRunId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [sort, setSort] = useState<{ field: SortField; direction: SortDirection } | null>(null);
+  const [sort, setSort] = useState<{
+    field: SortField;
+    direction: SortDirection;
+  } | null>(null);
 
   const handleSortChange = useCallback((field: SortField) => {
     setSort((prev) => {
       if (prev?.field === field) {
-        return prev.direction === 'asc'
-          ? { field, direction: 'desc' }
-          : null;
+        return prev.direction === 'asc' ? { field, direction: 'desc' } : null;
       }
       return { field, direction: 'asc' };
     });
@@ -91,7 +99,7 @@ export default function BacklogPage() {
 
   useEffect(() => {
     if (isConfigured && !isDbLoading) {
-      fetchItems();
+      void fetchItems();
     } else if (!isDbLoading && !isConfigured) {
       setIsLoading(false);
     }
@@ -128,7 +136,9 @@ export default function BacklogPage() {
 
   // Filter items by active status
   const filteredItems = useMemo(() => {
-    if (!activeStatus) return items;
+    if (!activeStatus) {
+      return items;
+    }
     return items.filter((item) => item.status === activeStatus);
   }, [items, activeStatus]);
 
@@ -141,9 +151,15 @@ export default function BacklogPage() {
 
   // Determine the contextual next step
   const nextStepContext = useMemo(() => {
-    if (items.length === 0) return 'empty-backlog';
-    if (counts.approved > 0) return 'has-approved';
-    if (counts.new > 0) return 'has-new-items';
+    if (items.length === 0) {
+      return 'empty-backlog';
+    }
+    if (counts.approved > 0) {
+      return 'has-approved';
+    }
+    if (counts.new > 0) {
+      return 'has-new-items';
+    }
     if (counts.completed > 0 && counts.new === 0 && counts.approved === 0) {
       return 'all-complete';
     }
@@ -222,7 +238,7 @@ export default function BacklogPage() {
     }
   };
 
-  const handleRemoteExecute = (itemIds: string[]) => {
+  const _handleRemoteExecute = (_itemIds: string[]) => {
     // Start remote execution - handled by the UnifiedExecuteButton modal
     // This would integrate with the existing RemoteExecuteButton logic
     setExecutionRunId('starting'); // Placeholder - would get actual run ID
@@ -416,7 +432,7 @@ export default function BacklogPage() {
           runId={executionRunId}
           onClose={() => {
             setExecutionRunId(null);
-            fetchItems(); // Refresh to show updated statuses
+            void fetchItems(); // Refresh to show updated statuses
           }}
         />
       )}

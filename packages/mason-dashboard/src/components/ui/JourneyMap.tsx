@@ -2,6 +2,7 @@
 
 import { clsx } from 'clsx';
 import { Terminal, Eye, Play, Check } from 'lucide-react';
+
 import type { StatusCounts } from '@/types/backlog';
 
 interface JourneyMapProps {
