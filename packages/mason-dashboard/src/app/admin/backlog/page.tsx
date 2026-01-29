@@ -206,6 +206,12 @@ function BacklogPageContent() {
     // Note: activeStatus intentionally excluded to prevent race condition with URL sync effect
   }, [searchParams]);
 
+  // Clear selection when switching tabs to prevent accidental bulk actions on invisible items
+  useEffect(() => {
+    setSelectedIds([]);
+    setLastSelectedId(null);
+  }, [activeStatus]);
+
   const fetchFilteredCount = useCallback(async () => {
     if (!client) {
       return;
