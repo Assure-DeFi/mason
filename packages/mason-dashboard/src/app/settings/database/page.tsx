@@ -11,12 +11,14 @@ import {
   Info,
   Zap,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, Suspense } from 'react';
 
+import { DeleteAccountModal } from '@/components/account/delete-account-modal';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import {
@@ -78,6 +80,7 @@ function DatabaseSettingsContent() {
   const [projects, setProjects] = useState<SupabaseProject[]>([]);
   const [showProjectSelector, setShowProjectSelector] = useState(false);
   const [fetchingProjects, setFetchingProjects] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -124,7 +127,9 @@ function DatabaseSettingsContent() {
         return;
       }
 
-      if (oauthSuccess !== 'true') {return;}
+      if (oauthSuccess !== 'true') {
+        return;
+      }
 
       // Read tokens from cookie
       const tokenCookie = document.cookie
@@ -223,7 +228,9 @@ function DatabaseSettingsContent() {
             `Selected project: ${project.name} (${project.id})\n\n` +
             `This will change where Mason stores your data. Continue?`,
         );
-        if (!confirmSwitch) {return;}
+        if (!confirmSwitch) {
+          return;
+        }
 
         // If switching projects, warn about data access
         const confirmDataLoss = window.confirm(
@@ -232,7 +239,9 @@ function DatabaseSettingsContent() {
             `The old data remains in ${existingRef}, but Mason will now use ${project.id}.\n\n` +
             `Are you sure you want to switch?`,
         );
-        if (!confirmDataLoss) {return;}
+        if (!confirmDataLoss) {
+          return;
+        }
       }
     }
 
@@ -812,10 +821,41 @@ function DatabaseSettingsContent() {
               </Link>
             </div>
           </div>
+
+          {/* Danger Zone */}
+          <div className="mt-8 rounded-lg border border-red-900/50 bg-red-950/20 p-6">
+            <div className="flex items-start gap-4">
+              <div className="rounded-lg bg-red-900/30 p-3">
+                <Trash2 className="h-6 w-6 text-red-400" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-red-400">
+                  Danger Zone
+                </h2>
+                <p className="mt-2 text-sm text-gray-400">
+                  Permanently delete your Mason account and all associated data.
+                  This action cannot be undone.
+                </p>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="mt-4 flex items-center gap-2 rounded-lg border border-red-800 bg-red-900/30 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-900/50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete My Account
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <PoweredByFooter />
+
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 }
