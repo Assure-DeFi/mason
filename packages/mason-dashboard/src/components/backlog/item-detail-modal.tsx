@@ -410,6 +410,7 @@ export function ItemDetailModal({
                     onClick={handleClose}
                     className="p-2 text-gray-400 hover:text-white hover:bg-white/10 transition-all"
                     title="Close (Esc)"
+                    aria-label="Close modal"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -484,9 +485,15 @@ export function ItemDetailModal({
 
               {/* View Mode Tabs */}
               <div className="px-8 pb-4">
-                <div className="flex items-center gap-2 border-b border-gray-800">
+                <div
+                  className="flex items-center gap-2 border-b border-gray-800"
+                  role="tablist"
+                  aria-label="Item view options"
+                >
                   <button
                     onClick={() => handleTabChange('details')}
+                    role="tab"
+                    aria-selected={viewMode === 'details'}
                     className={clsx(
                       'px-4 py-3 text-sm font-medium transition-all relative',
                       viewMode === 'details'
@@ -502,6 +509,9 @@ export function ItemDetailModal({
                   <button
                     onClick={() => handleTabChange('prd')}
                     disabled={!item.prd_content}
+                    role="tab"
+                    aria-selected={viewMode === 'prd'}
+                    aria-disabled={!item.prd_content}
                     className={clsx(
                       'px-4 py-3 text-sm font-medium transition-all relative flex items-center gap-2',
                       viewMode === 'prd'
@@ -518,6 +528,8 @@ export function ItemDetailModal({
                   </button>
                   <button
                     onClick={() => handleTabChange('timeline')}
+                    role="tab"
+                    aria-selected={viewMode === 'timeline'}
                     className={clsx(
                       'px-4 py-3 text-sm font-medium transition-all relative flex items-center gap-2',
                       viewMode === 'timeline'

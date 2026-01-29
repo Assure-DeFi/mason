@@ -46,9 +46,10 @@ export function ItemRow({
   onPrdClick,
   columnWidths,
 }: ItemRowProps) {
-  const handleCheckboxClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onSelect(item.id, e);
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Extract shiftKey from the native event for range selection
+    const nativeEvent = e.nativeEvent as MouseEvent;
+    onSelect(item.id, nativeEvent);
   };
 
   return (
@@ -65,8 +66,8 @@ export function ItemRow({
         <input
           type="checkbox"
           checked={selected}
-          onChange={() => {}}
-          onClick={handleCheckboxClick}
+          onChange={handleCheckboxChange}
+          aria-label={`Select ${item.title}`}
           className="w-4 h-4 rounded border-gray-600 bg-black/50 text-gold focus:ring-gold focus:ring-offset-0 cursor-pointer"
         />
       </td>
@@ -148,6 +149,7 @@ export function ItemRow({
             onClick={() => onPrdClick?.(item)}
             className="inline-flex items-center justify-center hover:scale-110 transition-transform"
             title="View PRD"
+            aria-label={`View PRD for ${item.title}`}
           >
             <FileText className="w-5 h-5 text-gold fill-gold" />
           </button>
@@ -155,6 +157,7 @@ export function ItemRow({
           <div
             className="inline-flex items-center justify-center"
             title="No PRD (legacy item)"
+            aria-label="No PRD available"
           >
             <FileText className="w-5 h-5 text-gray-600" />
           </div>
