@@ -206,9 +206,11 @@ function BacklogPageContent() {
         .select('*', { count: 'exact', head: true })
         .eq('override_status', 'filtered');
 
-      // Filter by repository if selected
+      // Filter by repository if selected (include items with no repo for backwards compatibility)
       if (selectedRepoId) {
-        query = query.eq('repository_id', selectedRepoId);
+        query = query.or(
+          `repository_id.eq.${selectedRepoId},repository_id.is.null`,
+        );
       }
 
       const { count, error: countError } = await query;
@@ -247,10 +249,11 @@ function BacklogPageContent() {
     setError(null);
 
     try {
+      // Fetch items that match the selected repo OR have no repo assigned (legacy items)
       const { data, error: fetchError } = await client
         .from('mason_pm_backlog_items')
         .select('*')
-        .eq('repository_id', selectedRepoId)
+        .or(`repository_id.eq.${selectedRepoId},repository_id.is.null`)
         .order('priority_score', { ascending: false });
 
       if (fetchError) {
@@ -281,9 +284,13 @@ function BacklogPageContent() {
     }
   }, [fetchItems, isConfigured, isDbLoading]);
 
-  // Real-time subscription - filters by selected repository
+  // Real-time subscription - filters by selected repository (includes legacy items with null repo)
   useEffect(() => {
     if (!client || !isConfigured || !selectedRepoId) return;
+
+    // Helper to check if item belongs to current view (matches repo OR has no repo)
+    const itemBelongsToCurrentView = (repoId: string | null) =>
+      repoId === selectedRepoId || repoId === null;
 
     const channel = client
       .channel(`mason_pm_backlog_changes_${selectedRepoId}`)
@@ -293,14 +300,13 @@ function BacklogPageContent() {
           event: '*',
           schema: 'public',
           table: 'mason_pm_backlog_items',
-          filter: `repository_id=eq.${selectedRepoId}`,
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
             setItems((prev) => {
               const newItem = payload.new as BacklogItem;
-              // Only add if it matches the current repository
-              if (newItem.repository_id !== selectedRepoId) return prev;
+              // Only add if it matches current repo OR has no repo assigned
+              if (!itemBelongsToCurrentView(newItem.repository_id)) return prev;
               const updated = [...prev, newItem].sort(
                 (a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0),
               );
@@ -308,8 +314,8 @@ function BacklogPageContent() {
             });
           } else if (payload.eventType === 'UPDATE') {
             const updatedItem = payload.new as BacklogItem;
-            // If repository changed and no longer matches, remove from list
-            if (updatedItem.repository_id !== selectedRepoId) {
+            // If repository changed and no longer belongs to current view, remove from list
+            if (!itemBelongsToCurrentView(updatedItem.repository_id)) {
               setItems((prev) =>
                 prev.filter((item) => item.id !== updatedItem.id),
               );
