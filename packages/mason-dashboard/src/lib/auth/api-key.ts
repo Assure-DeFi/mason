@@ -20,7 +20,8 @@ export function generateApiKey(): {
   hash: string;
   prefix: string;
 } {
-  const randomPart = randomBytes(24).toString('base64url');
+  const rawRandom = randomBytes(24).toString('base64url');
+  const randomPart = rawRandom.replace(/^[-_]+/, ''); // Strip leading - or _ to avoid mason__ or mason_-
   const key = `${API_KEY_PREFIX}${randomPart}`;
   const hash = hashApiKey(key);
   const prefix = key.substring(0, 12); // "mason_" + first 6 chars

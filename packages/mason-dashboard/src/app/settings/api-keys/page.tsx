@@ -111,9 +111,10 @@ export default function ApiKeysPage() {
       const keyBytes = new Uint8Array(24);
       crypto.getRandomValues(keyBytes);
       const keyBytesArray = Array.from(keyBytes);
-      const fullKey = `mason_${btoa(
-        String.fromCharCode(...keyBytesArray),
-      ).replace(/[+/=]/g, (c) => (c === '+' ? '-' : c === '/' ? '_' : ''))}`;
+      const base64url = btoa(String.fromCharCode(...keyBytesArray))
+        .replace(/[+/=]/g, (c) => (c === '+' ? '-' : c === '/' ? '_' : ''))
+        .replace(/^[-_]+/, ''); // Strip leading - or _ to avoid mason__ or mason_-
+      const fullKey = `mason_${base64url}`;
 
       const keyPrefix = fullKey.substring(0, 12);
       const encoder = new TextEncoder();
