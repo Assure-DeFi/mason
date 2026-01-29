@@ -127,12 +127,12 @@ export function UserMenu() {
             </Link>
 
             <Link
-              href="/setup"
+              href="/settings/database"
               className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-900"
               onClick={() => setIsOpen(false)}
             >
               <Database className="h-4 w-4" />
-              Database Setup
+              Database Settings
             </Link>
 
             <div className="my-1 border-t border-gray-800" />
