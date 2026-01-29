@@ -6,24 +6,15 @@ interface MigrationResult {
 }
 
 /**
- * Extract region from Supabase project URL
- * This is a best-effort guess - defaults to us-east-1 if unknown
- */
-function guessRegion(_projectRef: string): string {
-  // Supabase pooler endpoints use aws-0-{region}.pooler.supabase.com
-  // Common regions: us-east-1, us-west-1, eu-west-1, ap-southeast-1
-  // Default to us-east-1 as it's the most common
-  return 'us-east-1';
-}
-
-/**
  * Build PostgreSQL connection string from Supabase credentials
  *
  * Supabase connection format:
  * - Direct: postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
- * - Pooler: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
+ * - Pooler: postgresql://postgres.[project-ref]:[password]@[pooler-host]:6543/postgres
  *
- * We use the pooler endpoint as it's more reliable for one-off connections
+ * We use the DIRECT connection because the pooler hostname varies (aws-0, aws-1, etc.)
+ * and using the wrong pooler server causes "Tenant or user not found" errors.
+ * The direct connection (db.project-ref.supabase.co) is consistent across all projects.
  */
 function buildConnectionString(
   supabaseUrl: string,
@@ -35,10 +26,9 @@ function buildConnectionString(
     .replace('.supabase.co', '')
     .replace(/\/$/, '');
 
-  const region = guessRegion(projectRef);
-
-  // Use pooler endpoint for better connection handling
-  return `postgresql://postgres.${projectRef}:${encodeURIComponent(databasePassword)}@aws-0-${region}.pooler.supabase.com:6543/postgres`;
+  // Use direct database connection (not pooler) to avoid "Tenant or user not found" errors
+  // that occur when the pooler hostname doesn't match the project's assigned server
+  return `postgresql://postgres:${encodeURIComponent(databasePassword)}@db.${projectRef}.supabase.co:5432/postgres`;
 }
 
 /**
@@ -78,6 +68,14 @@ export async function runMigrations(
         success: false,
         error:
           'Database password is incorrect. Check your password in Supabase Dashboard > Settings > Database.',
+      };
+    }
+
+    if (errorMessage.includes('Tenant or user not found')) {
+      return {
+        success: false,
+        error:
+          'Could not find your Supabase project. Please verify your Project URL is correct in Supabase Dashboard > Settings > API.',
       };
     }
 
@@ -136,6 +134,14 @@ export async function testDatabaseConnection(
         success: false,
         error:
           'Database password is incorrect. Check your password in Supabase Dashboard > Settings > Database.',
+      };
+    }
+
+    if (errorMessage.includes('Tenant or user not found')) {
+      return {
+        success: false,
+        error:
+          'Could not find your Supabase project. Please verify your Project URL is correct in Supabase Dashboard > Settings > API.',
       };
     }
 
