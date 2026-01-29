@@ -45,8 +45,10 @@ import {
   Search,
   Loader2,
   Undo2,
+  Sparkles,
 } from 'lucide-react';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
+import { PMReviewModal } from '@/components/pm-review/PMReviewModal';
 
 interface UndoState {
   items: { id: string; previousStatus: BacklogStatus }[];
@@ -95,6 +97,10 @@ function BacklogPageContent() {
   const [executionRunId, setExecutionRunId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [isStartingExecution, setIsStartingExecution] = useState(false);
+
+  // PM Review modal state
+  const [showPMReviewModal, setShowPMReviewModal] = useState(false);
+  const [pmReviewCopiedToast, setPmReviewCopiedToast] = useState(false);
 
   // Bulk action loading states
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
@@ -874,6 +880,14 @@ function BacklogPageContent() {
             </div>
 
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowPMReviewModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-[#E2D243] text-[#0A0724] font-semibold hover:opacity-90 transition-opacity"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Generate Improvement Ideas</span>
+              </button>
+
               {session && (
                 <RepositorySelector
                   value={selectedRepoId}
@@ -1048,6 +1062,17 @@ function BacklogPageContent() {
         />
       )}
 
+      {/* PM Review Modal */}
+      <PMReviewModal
+        isOpen={showPMReviewModal}
+        onClose={() => setShowPMReviewModal(false)}
+        onCopyCommand={() => {
+          setPmReviewCopiedToast(true);
+          setTimeout(() => setPmReviewCopiedToast(false), 3000);
+        }}
+        repositoryId={selectedRepoId}
+      />
+
       {/* Bulk Actions Bar */}
       <BulkActionsBar
         selectedItems={selectedItems}
@@ -1098,6 +1123,13 @@ function BacklogPageContent() {
       {copiedToast && (
         <div className="fixed bottom-8 right-8 px-6 py-4 bg-green-600 text-white font-medium shadow-2xl animate-fade-in">
           Command copied! Paste into Claude Code to execute.
+        </div>
+      )}
+
+      {/* PM Review Toast */}
+      {pmReviewCopiedToast && (
+        <div className="fixed bottom-8 right-8 px-6 py-4 bg-green-600 text-white font-medium shadow-2xl animate-fade-in">
+          Command copied! Paste into Claude Code to run.
         </div>
       )}
 

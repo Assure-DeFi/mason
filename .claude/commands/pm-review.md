@@ -20,6 +20,56 @@ Examples:
 - `/pm-review area:frontend-ux` - Focus on frontend improvements
 - `/pm-review quick` - Quick wins only
 
+## Context Instructions
+
+The command may include additional context after the mode parameter. This context tells the agent WHERE to focus the analysis within the codebase.
+
+**Format:**
+
+```
+/pm-review [mode]
+
+Focus on: <context>
+```
+
+**Examples:**
+
+```
+/pm-review area:frontend-ux
+
+Focus on: Authentication flow, specifically the login page and session management
+```
+
+```
+/pm-review quick
+
+Focus on: Dashboard components in src/components/dashboard/
+```
+
+**How to Use Focus Context:**
+
+1. **Parse the context**: Extract the text after "Focus on:"
+2. **Narrow file exploration**: Prioritize files/directories mentioned in the context
+3. **Filter suggestions**: Only generate improvements relevant to the focused area
+4. **Interpret intent**: Understand semantic descriptions like "authentication flow" and map to relevant files (auth/, login, session, etc.)
+
+**Context Interpretation Rules:**
+
+| Context Pattern                   | Files/Dirs to Prioritize                     |
+| --------------------------------- | -------------------------------------------- |
+| "authentication", "auth", "login" | `**/auth/**`, `**/login/**`, `**/session/**` |
+| "dashboard", "admin panel"        | `**/dashboard/**`, `**/admin/**`             |
+| "API", "endpoints", "routes"      | `**/api/**`, `**/routes/**`                  |
+| "database", "queries", "supabase" | `**/lib/supabase/**`, `**/db/**`, `**/*.sql` |
+| "components", "UI"                | `**/components/**`                           |
+| Specific path mentioned           | That exact path and subdirectories           |
+
+**Important:** When focus context is provided:
+
+- Reduce total suggestions (5-10 instead of 10-20) but make them highly targeted
+- Every suggestion MUST relate to the focused area
+- Include file paths in suggestions that match the focus
+
 ## Process
 
 ### Step 1: Load Domain Knowledge
@@ -32,6 +82,8 @@ First, load any domain-specific knowledge from `.claude/skills/pm-domain-knowled
 - Known pain points
 
 ### Step 2: Analyze Codebase
+
+**If focus context is provided:** Before exploring all domains, first identify the relevant files/directories based on the "Focus on:" context. Limit your initial exploration to these areas. Only generate improvements that directly relate to the focused area.
 
 Explore the codebase systematically across these domains:
 
