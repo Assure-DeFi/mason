@@ -1,0 +1,7 @@
+# Mason Pattern Learning Dependencies
+# These are the Python packages required for the pattern learning hooks.
+#
+# Note: The scripts use only Python standard library modules for maximum
+# portability. No external dependencies are required.
+
+# Currently no external dependencies required

@@ -1,0 +1,11 @@
+{
+  "name": "mason-learning",
+  "version": "1.0.0",
+  "description": "Pattern learning plugin for Mason. Detects retry patterns during Claude sessions and automatically updates system instructions to prevent repeated mistakes.",
+  "hooks": "../hooks/hooks.json",
+  "author": "Mason",
+  "license": "MIT",
+  "requirements": {
+    "python": ">=3.9"
+  }
+}

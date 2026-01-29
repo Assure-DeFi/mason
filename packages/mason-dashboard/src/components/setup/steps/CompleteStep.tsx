@@ -11,11 +11,14 @@ import {
   ExternalLink,
   Check,
   Copy,
+  Monitor,
 } from 'lucide-react';
 import type { WizardStepProps } from '../SetupWizard';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { saveMasonConfig, getMasonConfig } from '@/lib/supabase/user-client';
 import { CopyButton } from '@/components/ui/CopyButton';
+
+type Platform = 'macos' | 'windows' | 'linux';
 
 export function CompleteStep({ onBack }: WizardStepProps) {
   const router = useRouter();
@@ -26,6 +29,19 @@ export function CompleteStep({ onBack }: WizardStepProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoCopied, setAutoCopied] = useState(false);
+  const [platform, setPlatform] = useState<Platform>('macos');
+
+  // Auto-detect platform on mount
+  useEffect(() => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    if (userAgent.includes('win')) {
+      setPlatform('windows');
+    } else if (userAgent.includes('linux')) {
+      setPlatform('linux');
+    } else {
+      setPlatform('macos');
+    }
+  }, []);
 
   // Generate the full install command with credentials embedded
   const installCommand = useMemo(() => {
@@ -34,9 +50,14 @@ export function CompleteStep({ onBack }: WizardStepProps) {
       return null;
     }
 
-    // Single command with all credentials - no prompts needed
+    // Platform-specific install commands
+    if (platform === 'windows') {
+      return `$env:MASON_SUPABASE_URL="${currentConfig.supabaseUrl}"; $env:MASON_SUPABASE_ANON_KEY="${currentConfig.supabaseAnonKey}"; $env:MASON_API_KEY="${apiKey}"; iwr -useb https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.ps1 | iex`;
+    }
+
+    // macOS/Linux command
     return `MASON_SUPABASE_URL="${currentConfig.supabaseUrl}" MASON_SUPABASE_ANON_KEY="${currentConfig.supabaseAnonKey}" MASON_API_KEY="${apiKey}" bash <(curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh)`;
-  }, [apiKey]);
+  }, [apiKey, platform]);
 
   // Auto-copy install command when API key is generated
   useEffect(() => {
@@ -136,6 +157,31 @@ export function CompleteStep({ onBack }: WizardStepProps) {
         <p className="mt-1 text-gray-400">
           Generate your install command - one copy-paste to set everything up
         </p>
+      </div>
+
+      {/* Platform Selection */}
+      <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <Monitor className="h-4 w-4 text-gray-400" />
+          <span className="text-sm font-medium text-gray-300">
+            Select your operating system
+          </span>
+        </div>
+        <div className="flex gap-2">
+          {(['macos', 'windows', 'linux'] as Platform[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPlatform(p)}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                platform === p
+                  ? 'bg-gold text-navy'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              {p === 'macos' ? 'macOS' : p === 'windows' ? 'Windows' : 'Linux'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Step 1: Generate API Key */}

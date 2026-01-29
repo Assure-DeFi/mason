@@ -18,6 +18,7 @@ import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
+import { AutoPilotButton } from '@/components/backlog/AutoPilotButton';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
 import { UserMenu } from '@/components/auth/user-menu';
@@ -1075,7 +1076,8 @@ function BacklogPageContent() {
               />
 
               {session && counts.approved > 0 && (
-                <div className="px-8 py-3">
+                <div className="px-8 py-3 flex items-center gap-3">
+                  <AutoPilotButton approvedCount={counts.approved} />
                   <UnifiedExecuteButton
                     itemIds={approvedItemIds}
                     repositoryId={selectedRepoId}
