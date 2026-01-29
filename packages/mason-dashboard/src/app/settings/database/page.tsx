@@ -478,9 +478,32 @@ function DatabaseSettingsContent() {
                   {(!hasOAuth || showManualFallback) && (
                     <div className="mt-6 border-t border-gray-800 pt-6">
                       {hasOAuth && showManualFallback && (
-                        <p className="mb-4 text-sm text-yellow-400">
-                          OAuth method failed. Try the manual method below:
-                        </p>
+                        <div className="mb-4">
+                          <p className="text-sm text-yellow-400">
+                            OAuth method failed. Try the manual method below:
+                          </p>
+                          <button
+                            onClick={() => {
+                              setShowManualFallback(false);
+                              setMigration({ status: 'idle' });
+                              handleConnectOAuth();
+                            }}
+                            disabled={oauthConnecting}
+                            className="mt-3 flex items-center gap-2 text-sm text-gold hover:underline"
+                          >
+                            {oauthConnecting ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Reconnecting...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="h-4 w-4" />
+                                Retry OAuth Connection
+                              </>
+                            )}
+                          </button>
+                        </div>
                       )}
 
                       {/* OAuth Connect Option - for users without OAuth session */}
