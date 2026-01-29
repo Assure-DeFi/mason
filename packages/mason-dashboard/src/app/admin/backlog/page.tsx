@@ -56,6 +56,9 @@ interface UndoState {
   expiresAt: number;
 }
 
+// Pagination configuration
+const PAGE_SIZE = 100;
+
 // Wrapper component that provides Suspense boundary
 export default function BacklogPage() {
   return (
@@ -81,6 +84,8 @@ function BacklogPageContent() {
   const searchParams = useSearchParams();
 
   const [items, setItems] = useState<BacklogItem[]>([]);
+  const [hasMoreItems, setHasMoreItems] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
   const [selectedItemViewMode, setSelectedItemViewMode] = useState<
     'details' | 'prd' | 'timeline'
@@ -119,6 +124,12 @@ function BacklogPageContent() {
 
   // Last selected item for shift+click range selection
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+
+  // Ref to track current items count for pagination (avoids dependency array issues)
+  const itemsCountRef = useRef(0);
+  useEffect(() => {
+    itemsCountRef.current = items.length;
+  }, [items.length]);
 
   // Sort state
   const [sort, setSort] = useState<{
@@ -239,7 +250,7 @@ function BacklogPageContent() {
     }
   }, [client, selectedRepoId]);
 
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (loadMore = false) => {
     if (!client) {
       if (!isDbLoading) {
         setError('Database not configured. Please complete setup.');
@@ -257,27 +268,38 @@ function BacklogPageContent() {
     // Wait for repository selection before fetching
     if (!selectedRepoId) {
       setItems([]);
+      setHasMoreItems(false);
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    if (loadMore) {
+      setIsLoadingMore(true);
+    } else {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
+      // Calculate offset for pagination
+      const offset = loadMore ? itemsCountRef.current : 0;
+
       // Fetch items that match the selected repo OR have no repo assigned (legacy items)
       // Using two queries and merging results for better compatibility
+      // Fetch PAGE_SIZE + 1 to detect if there are more items
       const [repoItems, legacyItems] = await Promise.all([
         client
           .from('mason_pm_backlog_items')
           .select('*')
           .eq('repository_id', selectedRepoId)
-          .order('priority_score', { ascending: false }),
+          .order('priority_score', { ascending: false })
+          .range(offset, offset + PAGE_SIZE),
         client
           .from('mason_pm_backlog_items')
           .select('*')
           .is('repository_id', null)
-          .order('priority_score', { ascending: false }),
+          .order('priority_score', { ascending: false })
+          .range(offset, offset + PAGE_SIZE),
       ]);
 
       if (repoItems.error) {
@@ -293,7 +315,23 @@ function BacklogPageContent() {
         new Map(allItems.map((item) => [item.id, item])).values(),
       ).sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0));
 
-      setItems(uniqueItems);
+      // Check if there are more items (either query returned a full page)
+      const hasMore = (repoItems.data?.length ?? 0) >= PAGE_SIZE ||
+                      (legacyItems.data?.length ?? 0) >= PAGE_SIZE;
+      setHasMoreItems(hasMore);
+
+      if (loadMore) {
+        // Append new items, avoiding duplicates
+        setItems((prev) => {
+          const existingIds = new Set(prev.map((item) => item.id));
+          const newItems = uniqueItems.filter((item) => !existingIds.has(item.id));
+          return [...prev, ...newItems].sort(
+            (a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0),
+          );
+        });
+      } else {
+        setItems(uniqueItems);
+      }
 
       // Also fetch filtered count
       void fetchFilteredCount();
@@ -306,8 +344,13 @@ function BacklogPageContent() {
       );
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   }, [client, session, isDbLoading, selectedRepoId, fetchFilteredCount]);
+
+  const handleLoadMore = useCallback(() => {
+    void fetchItems(true);
+  }, [fetchItems]);
 
   useEffect(() => {
     if (isConfigured && !isDbLoading) {
@@ -1029,7 +1072,7 @@ function BacklogPageContent() {
               )}
 
               <button
-                onClick={fetchItems}
+                onClick={() => fetchItems()}
                 disabled={isLoading}
                 aria-busy={isLoading}
                 aria-label={
@@ -1173,16 +1216,37 @@ function BacklogPageContent() {
             </button>
           </div>
         ) : (
-          <ImprovementsTable
-            items={filteredItems}
-            selectedIds={selectedIds}
-            onSelectItem={handleSelectItem}
-            onSelectAll={handleSelectAll}
-            onItemClick={handleItemClick}
-            onPrdClick={handlePrdClick}
-            sort={sort}
-            onSortChange={handleSortChange}
-          />
+          <>
+            <ImprovementsTable
+              items={filteredItems}
+              selectedIds={selectedIds}
+              onSelectItem={handleSelectItem}
+              onSelectAll={handleSelectAll}
+              onItemClick={handleItemClick}
+              onPrdClick={handlePrdClick}
+              sort={sort}
+              onSortChange={handleSortChange}
+            />
+            {/* Load More Button */}
+            {hasMoreItems && !hasActiveFilters && (
+              <div className="flex justify-center py-8 border-t border-gray-800/50">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>Load More Items</>
+                  )}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
