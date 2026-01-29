@@ -27,16 +27,48 @@ Examples:
 
 ## Process
 
+### Step 0: Identify Current Repository
+
+**CRITICAL: The command MUST automatically detect and filter by the current repository.**
+
+1. Get the git remote URL:
+
+```bash
+git remote get-url origin
+```
+
+2. Query Supabase for the repository ID:
+
+```sql
+SELECT id FROM mason_github_repositories
+WHERE github_clone_url = $remoteUrl
+   OR github_html_url = $remoteUrl;
+```
+
+3. If no matching repository is found:
+   - Display error: "This repository is not connected to Mason"
+   - Instruct user to connect the repository via the Mason dashboard
+   - Exit the command
+
+4. Store the `repository_id` for all subsequent queries
+
 ### Step 1: Fetch Approved Items
 
-Query Supabase for approved items:
+Query Supabase for approved items **filtered by the current repository**:
 
 ```sql
 SELECT * FROM pm_backlog_items
 WHERE status = 'approved'
+  AND repository_id = $repositoryId  -- REQUIRED: Filter by current repo
 ORDER BY priority_score DESC
 LIMIT $limit;
 ```
+
+**IMPORTANT**: Never fetch items from other repositories. This ensures:
+
+- Users only see and execute items for the codebase they're working in
+- No accidental modifications to unrelated projects
+- Clear separation between repository backlogs
 
 ### Step 2: Verify PRDs Exist
 

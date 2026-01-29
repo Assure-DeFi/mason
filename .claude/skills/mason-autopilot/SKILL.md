@@ -73,19 +73,50 @@ Read `mason.config.json` from the project root:
 }
 ```
 
-### Step 2: Fetch Approved Items
+### Step 2: Identify Current Repository
 
-Call the Mason API to get approved items:
+**CRITICAL: Auto-pilot MUST automatically detect and filter by the current repository.**
+
+1. Get the git remote URL:
 
 ```bash
-python .claude/skills/mason-autopilot/scripts/fetch_next_item.py
+GIT_REMOTE=$(git remote get-url origin)
 ```
 
-This returns items sorted by priority_score (highest first).
+2. Query Supabase for the repository ID (uses credentials from mason.config.json):
 
-### Step 3: For Each Item
+```bash
+# Extract Supabase URL and key from config
+SUPABASE_URL=$(jq -r '.supabaseUrl' mason.config.json)
+SUPABASE_KEY=$(jq -r '.supabaseAnonKey' mason.config.json)
 
-#### 3.1 Mark as In Progress
+# Query for repository by clone URL
+REPO_ID=$(curl -s "${SUPABASE_URL}/rest/v1/mason_github_repositories?select=id&github_clone_url=eq.${GIT_REMOTE}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" | jq -r '.[0].id // empty')
+```
+
+3. If no matching repository is found:
+   - Display error: "This repository is not connected to Mason"
+   - Instruct user to connect the repository via the Mason dashboard
+   - Exit the command
+
+### Step 3: Fetch Approved Items
+
+Call the Mason API to get approved items **for the current repository only**:
+
+```bash
+python .claude/skills/mason-autopilot/scripts/fetch_next_item.py --repo $REPO_ID
+```
+
+This returns items:
+
+- Filtered to the current repository (prevents cross-repo execution)
+- Sorted by priority_score (highest first)
+
+### Step 4: For Each Item
+
+#### 4.1 Mark as In Progress
 
 Call the start API:
 
@@ -93,7 +124,7 @@ Call the start API:
 python .claude/skills/mason-autopilot/scripts/lib/mason_api.py start <item_id> <branch_name>
 ```
 
-#### 3.2 Create Feature Branch
+#### 4.2 Create Feature Branch
 
 ```bash
 git checkout main
@@ -107,7 +138,7 @@ Branch naming convention:
 - `work/mason-fix-login-error` (fix)
 - `work/mason-refactor-api-calls` (refactor)
 
-#### 3.3 Generate Implementation Tasks
+#### 4.3 Generate Implementation Tasks
 
 Read the item's PRD or generate tasks from the problem/solution:
 
@@ -121,7 +152,7 @@ If no PRD:
 - Generate tasks inline from problem/solution
 - Use the standard wave pattern (Explore → Implement → Review)
 
-#### 3.4 Execute Tasks
+#### 4.4 Execute Tasks
 
 Use the Task tool with appropriate subagent types:
 
@@ -138,7 +169,7 @@ Wave 3: Review
 - code-reviewer: Review all changes
 ```
 
-#### 3.5 Run Quality Checks
+#### 4.5 Run Quality Checks
 
 Execute all quality checks from config:
 
@@ -155,7 +186,7 @@ npm run build     # Should pass
 3. Re-run quality checks
 4. If still failing after 5 attempts, mark item as failed
 
-#### 3.6 Commit Changes
+#### 4.6 Commit Changes
 
 ```bash
 git add .
@@ -168,7 +199,7 @@ Implements: MASON-<item-id>
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
-#### 3.7 Push and Create PR
+#### 4.7 Push and Create PR
 
 ```bash
 git push origin HEAD
@@ -204,13 +235,13 @@ Generated with [Claude Code](https://claude.com/code)
 Implements: MASON-<item-id>
 ```
 
-#### 3.8 Mark as Completed
+#### 4.8 Mark as Completed
 
 ```bash
 python .claude/skills/mason-autopilot/scripts/lib/mason_api.py complete <item_id> <pr_url>
 ```
 
-### Step 4: Summary
+### Step 5: Summary
 
 After all items are processed, output a summary:
 
