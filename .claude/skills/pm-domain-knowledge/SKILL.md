@@ -11,48 +11,51 @@ This file provides domain-specific context for the PM agent when analyzing this 
 
 ## Project Overview [AUTO]
 
-[PROJECT_NAME] is a [type of application] that helps [target users] to [main value proposition].
+**Mason** is a developer productivity suite that helps solo developers and full-stack developers ship better code faster through AI-assisted workflows.
 
 ## User Personas [AUTO]
 
 ### Primary User
 
-- **Role**: [e.g., Developer, Admin, End User]
-- **Goals**: [What they want to achieve]
-- **Pain Points**: [Current frustrations]
+- **Role**: Solo developer / Full-stack developer
+- **Goals**: Ship quality code quickly, stay focused on high-value work
+- **Pain Points**:
+  - Manual code review is slow and blocks shipping
+  - Hard to prioritize what to work on next
 
 ## Domain Priorities [AUTO]
 
 <!-- Weights for different improvement domains -->
 
-| Domain       | Priority | Notes                      |
-| ------------ | -------- | -------------------------- |
-| frontend-ux  | High     | [Based on user priorities] |
-| api-backend  | Medium   | [Based on user priorities] |
-| reliability  | High     | [Based on user priorities] |
-| security     | Medium   | [Based on user priorities] |
-| code-quality | Medium   | [Based on user priorities] |
+| Domain       | Priority | Notes                                            |
+| ------------ | -------- | ------------------------------------------------ |
+| frontend-ux  | High     | UX polish is critical for developer adoption     |
+| api-backend  | Medium   | Backend stability supports the CLI and dashboard |
+| reliability  | High     | Must be dependable for daily developer workflows |
+| security     | Medium   | Important but not the primary differentiator     |
+| code-quality | Medium   | Maintains long-term maintainability              |
 
 ## Off-Limits Areas [AUTO]
 
 <!-- Areas that should NOT receive improvement suggestions -->
 
-- None specified
+- None specified (PM can suggest improvements anywhere)
 
 ---
 
 ## Technical Constraints [USER-EDITABLE]
 
-<!-- Optional: Add any technical limitations the PM should consider -->
+<!-- Technical limitations the PM should consider -->
 
-- [e.g., "Must maintain backwards compatibility with v1 API"]
-- [e.g., "Cannot add new runtime dependencies"]
+- **Backwards compatibility**: Must maintain compatibility with existing CLI and API users
+- **Privacy-first architecture**: User data stays client-side or in their own DB, never in central DB
+- **Minimize dependencies**: Avoid adding new runtime dependencies unless absolutely necessary
 
 ## Known Technical Debt [AUTO]
 
 <!-- Auto-detected from TODO/FIXME comments -->
 
-Approximately [X] TODO/FIXME comments found in codebase.
+Minimal technical debt - approximately 1 TODO comment found in application code.
 
 ## Improvement Guidelines
 
