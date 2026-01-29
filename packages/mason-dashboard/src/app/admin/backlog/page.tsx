@@ -49,6 +49,12 @@ import {
 } from 'lucide-react';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { PMReviewModal } from '@/components/pm-review/PMReviewModal';
+import {
+  MasonMark,
+  MasonLoader,
+  MasonEmptyState,
+  MasonErrorState,
+} from '@/components/brand';
 
 interface UndoState {
   items: { id: string; previousStatus: BacklogStatus }[];
@@ -67,8 +73,8 @@ export default function BacklogPage() {
     <Suspense
       fallback={
         <main className="min-h-screen bg-navy">
-          <div className="p-8">
-            <SkeletonTable rows={5} columns={5} />
+          <div className="flex min-h-[60vh] items-center justify-center">
+            <MasonLoader size="lg" label="Loading backlog..." variant="glow" />
           </div>
         </main>
       }
@@ -189,13 +195,15 @@ function BacklogPageContent() {
     router,
   ]);
 
-  // Initialize status from URL
+  // Initialize status from URL (only when URL changes externally, not from local state changes)
   useEffect(() => {
     const urlStatus = searchParams.get('status');
-    if (urlStatus && urlStatus !== activeStatus) {
+    if (urlStatus) {
       setActiveStatus(urlStatus as TabStatus);
     }
-  }, [searchParams, activeStatus]);
+    // Note: activeStatus intentionally excluded to prevent race condition with URL sync effect
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const fetchFilteredCount = useCallback(async () => {
     if (!client) return;
@@ -843,16 +851,29 @@ function BacklogPageContent() {
   if (!isDbLoading && !isConfigured) {
     return (
       <main className="min-h-screen bg-navy">
-        <div className="border-b border-gray-800">
-          <div className="mx-auto max-w-7xl px-6 py-6">
+        {/* Header with Mason branding */}
+        <div className="border-b border-gray-800/50 bg-black/20">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8 py-6">
             <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-white">
-                  System Improvements
-                </h1>
-                <p className="mt-1 text-sm text-gray-400">
-                  Manage and track improvement ideas from PM reviews
-                </p>
+              <div className="flex items-center gap-4">
+                <Link href="/" className="group flex items-center gap-3">
+                  <MasonMark
+                    size="md"
+                    className="transition-transform group-hover:scale-105"
+                  />
+                  <span className="mason-wordmark text-xl font-bold tracking-wider text-white">
+                    MASON
+                  </span>
+                </Link>
+                <div className="h-8 w-px bg-gray-700" />
+                <div>
+                  <h1 className="text-2xl font-bold text-white">
+                    System Improvements
+                  </h1>
+                  <p className="mt-1 text-sm text-gray-400">
+                    Manage and track improvement ideas
+                  </p>
+                </div>
               </div>
               <UserMenu />
             </div>
@@ -860,24 +881,19 @@ function BacklogPageContent() {
         </div>
 
         <div className="mx-auto max-w-2xl px-6 py-16">
-          <div className="rounded-lg border border-gray-800 bg-black/50 p-8 text-center">
-            <Database className="mx-auto mb-4 h-16 w-16 text-gray-600" />
-            <h2 className="mb-2 text-xl font-semibold text-white">
-              Database Not Configured
-            </h2>
-            <p className="mb-6 text-gray-400">
-              Mason stores all your data in your own Supabase database. Complete
-              the setup wizard to connect your database and start analyzing your
-              codebase.
-            </p>
+          <MasonEmptyState
+            title="Database Not Configured"
+            description="Mason stores all your data in your own Supabase database. Complete the setup wizard to connect your database and start analyzing your codebase."
+            variant="character"
+          >
             <Link
               href="/setup"
-              className="inline-flex items-center gap-2 bg-gold px-6 py-3 font-semibold text-navy transition-opacity hover:opacity-90"
+              className="inline-flex items-center gap-2 rounded-lg bg-gold px-6 py-3 font-semibold text-navy transition-all hover:shadow-lg hover:shadow-gold/20"
             >
               Complete Setup
               <ArrowRight className="h-4 w-4" />
             </Link>
-          </div>
+          </MasonEmptyState>
         </div>
       </main>
     );
@@ -886,25 +902,30 @@ function BacklogPageContent() {
   if (error && !isLoading) {
     return (
       <main className="min-h-screen bg-navy">
-        <div className="mx-auto max-w-7xl p-8">
-          <div className="border border-red-800 bg-red-900/20 p-8 text-center">
-            <h2 className="mb-2 text-xl font-semibold text-red-400">Error</h2>
-            <p className="mb-4 text-gray-300">{error}</p>
-            <button
-              onClick={fetchItems}
-              disabled={isLoading}
-              className="inline-flex items-center gap-2 bg-red-600 px-4 py-2 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Retrying...
-                </>
-              ) : (
-                'Try Again'
-              )}
-            </button>
+        {/* Header with Mason branding */}
+        <div className="border-b border-gray-800/50 bg-black/20">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8 py-6">
+            <div className="flex items-center gap-4">
+              <Link href="/" className="group flex items-center gap-3">
+                <MasonMark
+                  size="md"
+                  className="transition-transform group-hover:scale-105"
+                />
+                <span className="mason-wordmark text-xl font-bold tracking-wider text-white">
+                  MASON
+                </span>
+              </Link>
+            </div>
           </div>
+        </div>
+
+        <div className="mx-auto max-w-2xl px-6 py-16">
+          <MasonErrorState
+            title="Error Loading Backlog"
+            description={error}
+            onRetry={fetchItems}
+            isRetrying={isLoading}
+          />
         </div>
       </main>
     );
@@ -914,26 +935,42 @@ function BacklogPageContent() {
 
   return (
     <main className="min-h-screen bg-navy">
-      {/* Header */}
+      {/* Header with Mason branding */}
       <div className="border-b border-gray-800/50 bg-black/20">
-        <div className="max-w-7xl mx-auto px-8 py-6">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white tracking-tight">
-                System Improvements
-              </h1>
-              <p className="text-gray-400 text-sm mt-2">
-                Manage and track improvement ideas from PM reviews
-              </p>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/"
+                className="group flex items-center gap-3 transition-opacity hover:opacity-80"
+              >
+                <MasonMark
+                  size="md"
+                  className="transition-transform group-hover:scale-105"
+                  animated
+                />
+                <span className="mason-wordmark text-xl font-bold tracking-wider text-white hidden sm:block">
+                  MASON
+                </span>
+              </Link>
+              <div className="h-8 w-px bg-gray-700 hidden sm:block" />
+              <div>
+                <h1 className="text-2xl font-bold text-white tracking-tight">
+                  System Improvements
+                </h1>
+                <p className="text-gray-400 text-sm mt-1 hidden sm:block">
+                  Manage and track improvement ideas
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowPMReviewModal(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-[#E2D243] text-[#0A0724] font-semibold hover:opacity-90 transition-opacity"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gold text-navy font-semibold hover:shadow-lg hover:shadow-gold/20 transition-all"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>Generate Improvement Ideas</span>
+                <span className="hidden sm:inline">Generate Ideas</span>
               </button>
 
               {session && (
@@ -946,12 +983,12 @@ function BacklogPageContent() {
               <button
                 onClick={fetchItems}
                 disabled={isLoading}
-                className="flex items-center gap-2 px-4 py-2.5 border border-gray-700 text-gray-300 hover:bg-white/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-700 text-gray-300 hover:bg-white/5 hover:border-gray-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
                 />
-                <span className="font-medium">Refresh</span>
+                <span className="font-medium hidden sm:inline">Refresh</span>
               </button>
 
               <UserMenu />

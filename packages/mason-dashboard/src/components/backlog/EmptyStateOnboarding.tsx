@@ -10,6 +10,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { MasonAvatar } from '@/components/brand';
 
 interface EmptyStateOnboardingProps {
   onRefresh?: () => void;
@@ -54,10 +55,10 @@ export function EmptyStateOnboarding({ onRefresh }: EmptyStateOnboardingProps) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4">
-      {/* Icon */}
-      <div className="mb-6 rounded-2xl bg-gold/10 p-4">
-        <Sparkles className="h-12 w-12 text-gold" />
+    <div className="mason-entrance flex flex-col items-center justify-center py-16 px-4">
+      {/* Mason Character */}
+      <div className="mb-6 opacity-80">
+        <MasonAvatar size="xl" variant="minimal" />
       </div>
 
       {/* Heading */}
