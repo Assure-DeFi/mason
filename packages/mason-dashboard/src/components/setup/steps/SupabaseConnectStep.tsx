@@ -298,6 +298,43 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
     }
   };
 
+  const handleVerifyConnection = async () => {
+    const previousMessage = connection.message;
+    setConnection({ status: 'setting_up', message: 'Verifying connection...' });
+
+    try {
+      if (!client) {
+        throw new Error('Database client not available');
+      }
+
+      const { error } = await client.from('mason_users').select('id').limit(1);
+
+      if (error) {
+        throw error;
+      }
+
+      setConnection({
+        status: 'success',
+        message: previousMessage || 'Connection verified',
+      });
+    } catch (err) {
+      console.error('Connection verification failed:', err);
+      setConnection({
+        status: 'error',
+        message: 'Connection failed. Please reconnect.',
+      });
+    }
+  };
+
+  const handleUseDifferentProject = () => {
+    clearOAuthSession();
+    // Also clear Mason config to prevent stale state
+    localStorage.removeItem('mason-config');
+    setSelectedProjectRef(null);
+    setConnection({ status: 'idle' });
+    refresh();
+  };
+
   const isStepComplete = connection.status === 'success' && selectedProjectRef;
 
   return (
@@ -401,17 +438,21 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
             <Check className="h-5 w-5" />
             <span>{connection.message}</span>
           </div>
-          <button
-            onClick={() => {
-              clearOAuthSession();
-              setSelectedProjectRef(null);
-              setConnection({ status: 'idle' });
-            }}
-            className="flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-300"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Use Different Project
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleVerifyConnection}
+              className="flex items-center gap-2 rounded-md border border-gray-700 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:bg-gray-900"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Verify Connection
+            </button>
+            <button
+              onClick={handleUseDifferentProject}
+              className="flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-300"
+            >
+              Use Different Project
+            </button>
+          </div>
         </div>
       )}
 

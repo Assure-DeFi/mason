@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { WizardProgress } from './WizardProgress';
 import { SupabaseConnectStep } from './steps/SupabaseConnectStep';
 import { DatabaseStep } from './steps/DatabaseStep';
@@ -9,6 +10,7 @@ import { GitHubStep } from './steps/GitHubStep';
 import { RepoStep } from './steps/RepoStep';
 import { CompleteStep } from './steps/CompleteStep';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { STORAGE_KEYS } from '@/lib/constants';
 
 // Streamlined setup flow: GitHub -> Supabase -> Repo -> Done
 const WIZARD_STEPS = [
@@ -71,6 +73,19 @@ export function SetupWizard() {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   }, []);
 
+  const handleStartOver = useCallback(() => {
+    // Clear all stored state
+    localStorage.removeItem('mason-config');
+    localStorage.removeItem(STORAGE_KEYS.CONFIG);
+    localStorage.removeItem(STORAGE_KEYS.GITHUB_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.SUPABASE_OAUTH_SESSION);
+    // Sign out and reload
+    signOut({ redirect: false }).then(() => {
+      setCurrentStep(1);
+      window.location.reload();
+    });
+  }, []);
+
   const renderStep = () => {
     if (useLegacyFlow) {
       // Legacy flow: GitHub -> Manual DB -> Repo -> Complete
@@ -105,35 +120,44 @@ export function SetupWizard() {
 
   return (
     <div className="min-h-screen bg-navy px-4 py-8">
-        <div className="mx-auto max-w-3xl">
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-white">Mason Setup</h1>
-            <p className="mt-1 text-gray-400">
-              Configure Mason for your private codebase analysis
-            </p>
-          </div>
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-white">Mason Setup</h1>
+          <p className="mt-1 text-gray-400">
+            Configure Mason for your private codebase analysis
+          </p>
+        </div>
 
-          <div className="mb-12">
-            <WizardProgress steps={currentSteps} currentStep={currentStep} />
-          </div>
+        <div className="mb-12">
+          <WizardProgress steps={currentSteps} currentStep={currentStep} />
+        </div>
 
-          <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
-            {renderStep()}
-          </div>
+        <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
+          {renderStep()}
+        </div>
 
-          <div className="mt-8 text-center text-sm text-gray-500">
-            Powered by{' '}
-            <a
-              href="https://assuredefi.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gold hover:underline"
-            >
-              Assure DeFi®
-            </a>
-          </div>
+        <div className="mt-8 text-center text-sm text-gray-500">
+          Powered by{' '}
+          <a
+            href="https://assuredefi.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gold hover:underline"
+          >
+            Assure DeFi®
+          </a>
+        </div>
+
+        <div className="mt-4 text-center">
+          <button
+            onClick={handleStartOver}
+            className="text-xs text-gray-500 underline hover:text-gray-400"
+          >
+            Having trouble? Start over
+          </button>
         </div>
       </div>
+    </div>
   );
 }
 

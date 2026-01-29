@@ -47,6 +47,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
   const userRecordCreatedRef = useRef(false);
 
   // Ensure user record exists (fallback in case SupabaseConnectStep didn't create it)
@@ -129,30 +130,71 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
 
   useEffect(() => {
     async function fetchConnectedRepos() {
-      if (!client || !isConfigured || !session?.user) {
+      // Clear any previous DB errors when dependencies change
+      setDbError(null);
+
+      if (!isConfigured) {
+        setDbError(
+          'Database not configured. Please go back to step 2 to connect Supabase.',
+        );
+        return;
+      }
+
+      if (!client) {
+        setDbError(
+          'Database connection not ready. Please go back to step 2 and verify your connection.',
+        );
+        return;
+      }
+
+      if (!session?.user) {
         return;
       }
 
       try {
-        const { data: userData } = await client
+        const { data: userData, error: userError } = await client
           .from('mason_users')
           .select('id')
           .eq('github_id', session.user.github_id)
           .single();
 
-        if (!userData) return;
+        if (userError) {
+          console.error('Error fetching user:', userError);
+          setDbError(
+            'Could not connect to database. Please go back to step 2 and reconnect.',
+          );
+          return;
+        }
 
-        const { data: connected } = await client
+        if (!userData) {
+          setDbError(
+            'User record not found. Please go back to step 2 and reconnect.',
+          );
+          return;
+        }
+
+        const { data: connected, error: repoError } = await client
           .from('mason_github_repositories')
           .select('id, github_repo_id, github_full_name')
           .eq('user_id', userData.id)
           .eq('is_active', true);
+
+        if (repoError) {
+          console.error('Error fetching connected repos:', repoError);
+          setDbError(
+            'Database connection error. Please go back to step 2 and verify your Supabase connection.',
+          );
+          return;
+        }
 
         if (connected) {
           setConnectedRepos(connected);
         }
       } catch (err) {
         console.error('Error fetching connected repos:', err);
+        setDbError(
+          'Database connection error. Please go back to step 2 and verify your Supabase connection.',
+        );
       }
     }
 
@@ -172,6 +214,9 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
 
   const handleConnect = async (repo: GitHubRepo) => {
     if (!client || !session?.user) {
+      setDbError(
+        'Database not configured. Please go back to step 2 to connect Supabase.',
+      );
       return;
     }
 
@@ -179,14 +224,17 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
     setError(null);
 
     try {
-      const { data: userData } = await client
+      const { data: userData, error: userError } = await client
         .from('mason_users')
         .select('id')
         .eq('github_id', session.user.github_id)
         .single();
 
-      if (!userData) {
-        throw new Error('User not found in database');
+      if (userError || !userData) {
+        setDbError(
+          'User not found in database. Please go back to step 2 and reconnect.',
+        );
+        return;
       }
 
       const { data: existingRepo } = await client
@@ -263,6 +311,23 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
         <div className="flex items-center gap-2 rounded-lg border border-red-800 bg-red-900/20 p-4 text-red-400">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           {error}
+        </div>
+      )}
+
+      {dbError && (
+        <div className="rounded-lg border border-red-800 bg-red-900/20 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-400" />
+            <div>
+              <p className="font-medium text-red-400">{dbError}</p>
+              <button
+                onClick={onBack}
+                className="mt-2 text-sm text-gold underline hover:no-underline"
+              >
+                Go back to fix Supabase connection
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

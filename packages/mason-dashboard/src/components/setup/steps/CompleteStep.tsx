@@ -28,6 +28,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
   const [autoCopied, setAutoCopied] = useState(false);
   const [platform, setPlatform] = useState<Platform>('macos');
 
@@ -42,6 +43,22 @@ export function CompleteStep({ onBack }: WizardStepProps) {
       setPlatform('macos');
     }
   }, []);
+
+  // Validate config on mount and when dependencies change
+  useEffect(() => {
+    const currentConfig = getMasonConfig();
+    if (!currentConfig?.supabaseUrl || !currentConfig?.supabaseAnonKey) {
+      setConfigError(
+        'Database configuration missing. Please go back to step 2 to connect Supabase.',
+      );
+    } else if (!isConfigured || !client) {
+      setConfigError(
+        'Database connection not ready. Please wait or go back to step 2.',
+      );
+    } else {
+      setConfigError(null);
+    }
+  }, [isConfigured, client]);
 
   // Generate the full install command with credentials embedded
   const installCommand = useMemo(() => {
@@ -159,6 +176,24 @@ export function CompleteStep({ onBack }: WizardStepProps) {
         </p>
       </div>
 
+      {/* Config Error */}
+      {configError && (
+        <div className="rounded-lg border border-yellow-800 bg-yellow-900/20 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 flex-shrink-0 text-yellow-500" />
+            <div>
+              <p className="text-yellow-300">{configError}</p>
+              <button
+                onClick={onBack}
+                className="mt-2 text-sm text-gold underline hover:no-underline"
+              >
+                Go back to fix
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Platform Selection */}
       <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
         <div className="flex items-center gap-3 mb-3">
@@ -226,8 +261,16 @@ export function CompleteStep({ onBack }: WizardStepProps) {
         )}
 
         {error && (
-          <div className="mt-4 rounded-lg bg-red-900/20 p-3 text-red-400">
-            {error}
+          <div className="mt-4 space-y-2">
+            <div className="rounded-lg bg-red-900/20 p-3 text-red-400">
+              {error}
+            </div>
+            <button
+              onClick={generateApiKey}
+              className="text-sm text-gold underline hover:no-underline"
+            >
+              Try Again
+            </button>
           </div>
         )}
       </div>
