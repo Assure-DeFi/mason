@@ -3,22 +3,27 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { WizardProgress } from './WizardProgress';
-import { WelcomeStep } from './steps/WelcomeStep';
+import { SupabaseConnectStep } from './steps/SupabaseConnectStep';
 import { DatabaseStep } from './steps/DatabaseStep';
 import { GitHubStep } from './steps/GitHubStep';
 import { RepoStep } from './steps/RepoStep';
-import { AIProviderStep } from './steps/AIProviderStep';
 import { CompleteStep } from './steps/CompleteStep';
-import { PreSetupChecklist } from './PreSetupChecklist';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 
+// Streamlined setup flow: GitHub -> Supabase -> Repo -> Done
 const WIZARD_STEPS = [
-  { id: 1, name: 'Welcome', description: 'Get started with Mason' },
-  { id: 2, name: 'Database', description: 'Connect your Supabase' },
-  { id: 3, name: 'GitHub', description: 'Sign in with GitHub' },
-  { id: 4, name: 'Repository', description: 'Select a repo' },
-  { id: 5, name: 'AI Provider', description: 'Configure AI (optional)' },
-  { id: 6, name: 'Complete', description: 'Install the CLI' },
+  { id: 1, name: 'GitHub', description: 'Connect your account' },
+  { id: 2, name: 'Supabase', description: 'Connect your database' },
+  { id: 3, name: 'Repository', description: 'Select a repo' },
+  { id: 4, name: 'Complete', description: 'Install the CLI' },
+];
+
+// Legacy steps for manual setup flow (fallback when OAuth not available)
+const LEGACY_WIZARD_STEPS = [
+  { id: 1, name: 'GitHub', description: 'Connect your account' },
+  { id: 2, name: 'Database', description: 'Enter credentials' },
+  { id: 3, name: 'Repository', description: 'Select a repo' },
+  { id: 4, name: 'Complete', description: 'Install the CLI' },
 ];
 
 export interface WizardStepProps {
@@ -29,43 +34,69 @@ export interface WizardStepProps {
 export function SetupWizard() {
   const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState(1);
-  const [showChecklist, setShowChecklist] = useState(true);
+  const [useLegacyFlow, setUseLegacyFlow] = useState(false);
   const { saveConfig, config } = useUserDatabase();
+
+  // Get current steps based on flow type
+  const currentSteps = useLegacyFlow ? LEGACY_WIZARD_STEPS : WIZARD_STEPS;
+
+  // Listen for legacy setup event from SupabaseConnectStep
+  useEffect(() => {
+    const handleLegacySetup = () => {
+      setUseLegacyFlow(true);
+    };
+
+    window.addEventListener('use-legacy-db-setup', handleLegacySetup);
+    return () => {
+      window.removeEventListener('use-legacy-db-setup', handleLegacySetup);
+    };
+  }, []);
 
   // Read step from URL on mount (for OAuth callback)
   useEffect(() => {
     const stepParam = searchParams.get('step');
     if (stepParam) {
       const step = parseInt(stepParam, 10);
-      if (step >= 1 && step <= WIZARD_STEPS.length) {
+      if (step >= 1 && step <= currentSteps.length) {
         setCurrentStep(step);
-        // Skip checklist if returning from OAuth
-        setShowChecklist(false);
       }
     }
-  }, [searchParams]);
+  }, [searchParams, currentSteps.length]);
 
   const handleNext = useCallback(() => {
-    setCurrentStep((prev) => Math.min(prev + 1, WIZARD_STEPS.length));
-  }, []);
+    setCurrentStep((prev) => Math.min(prev + 1, currentSteps.length));
+  }, [currentSteps.length]);
 
   const handleBack = useCallback(() => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   }, []);
 
   const renderStep = () => {
+    if (useLegacyFlow) {
+      // Legacy flow: GitHub -> Manual DB -> Repo -> Complete
+      switch (currentStep) {
+        case 1:
+          return <GitHubStep onNext={handleNext} />;
+        case 2:
+          return <DatabaseStep onNext={handleNext} onBack={handleBack} />;
+        case 3:
+          return <RepoStep onNext={handleNext} onBack={handleBack} />;
+        case 4:
+          return <CompleteStep onNext={handleNext} onBack={handleBack} />;
+        default:
+          return null;
+      }
+    }
+
+    // Streamlined OAuth flow: GitHub -> Supabase (OAuth + auto-setup) -> Repo -> Complete
     switch (currentStep) {
       case 1:
-        return <WelcomeStep onNext={handleNext} />;
+        return <GitHubStep onNext={handleNext} />;
       case 2:
-        return <DatabaseStep onNext={handleNext} onBack={handleBack} />;
+        return <SupabaseConnectStep onNext={handleNext} onBack={handleBack} />;
       case 3:
-        return <GitHubStep onNext={handleNext} onBack={handleBack} />;
-      case 4:
         return <RepoStep onNext={handleNext} onBack={handleBack} />;
-      case 5:
-        return <AIProviderStep onNext={handleNext} onBack={handleBack} />;
-      case 6:
+      case 4:
         return <CompleteStep onNext={handleNext} onBack={handleBack} />;
       default:
         return null;
@@ -73,13 +104,7 @@ export function SetupWizard() {
   };
 
   return (
-    <>
-      {/* Pre-Setup Checklist Modal */}
-      {showChecklist && (
-        <PreSetupChecklist onReady={() => setShowChecklist(false)} />
-      )}
-
-      <div className="min-h-screen bg-navy px-4 py-8">
+    <div className="min-h-screen bg-navy px-4 py-8">
         <div className="mx-auto max-w-3xl">
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-white">Mason Setup</h1>
@@ -89,7 +114,7 @@ export function SetupWizard() {
           </div>
 
           <div className="mb-12">
-            <WizardProgress steps={WIZARD_STEPS} currentStep={currentStep} />
+            <WizardProgress steps={currentSteps} currentStep={currentStep} />
           </div>
 
           <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
@@ -109,7 +134,6 @@ export function SetupWizard() {
           </div>
         </div>
       </div>
-    </>
   );
 }
 

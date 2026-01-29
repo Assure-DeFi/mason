@@ -25,14 +25,21 @@ import {
 } from '@/lib/supabase/oauth';
 import {
   listProjects,
+  checkMasonTablesExist,
+  runMasonMigrations,
+  getApiKeys,
+  buildProjectUrl,
   type SupabaseProject,
 } from '@/lib/supabase/management-api';
+import { saveMasonConfig } from '@/lib/supabase/user-client';
+import { useUserDatabase } from '@/hooks/useUserDatabase';
 
 type ConnectionStatus =
   | 'idle'
   | 'connecting'
   | 'fetching_projects'
   | 'selecting'
+  | 'setting_up'
   | 'success'
   | 'error';
 
@@ -44,6 +51,7 @@ interface ConnectionState {
 
 export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
   const searchParams = useSearchParams();
+  const { refresh } = useUserDatabase();
   const [connection, setConnection] = useState<ConnectionState>({
     status: 'idle',
   });
@@ -52,6 +60,7 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
   );
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [oauthConfigured, setOauthConfigured] = useState(true);
+  const [setupProgress, setSetupProgress] = useState<string | null>(null);
 
   // Check if OAuth is configured
   useEffect(() => {
@@ -182,16 +191,71 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
   };
 
   const handleSelectProject = useCallback(
-    (project: SupabaseProject) => {
+    async (project: SupabaseProject) => {
       setSelectedProjectRef(project.id);
       setSelectedProject(project.id, project.name);
       setConnection({
-        status: 'success',
-        message: `Connected to ${project.name}`,
+        status: 'setting_up',
+        message: `Setting up ${project.name}...`,
         projects: connection.projects,
       });
+
+      // Get access token
+      const accessToken = getAccessToken();
+      if (!accessToken) {
+        setConnection({
+          status: 'error',
+          message: 'Session expired. Please reconnect.',
+        });
+        return;
+      }
+
+      try {
+        // Step 1: Check if tables exist
+        setSetupProgress('Checking database...');
+        const tableCheck = await checkMasonTablesExist(accessToken, project.id);
+
+        // Step 2: Run migrations if needed
+        if (!tableCheck.exists) {
+          setSetupProgress('Creating tables...');
+          const migrationResult = await runMasonMigrations(
+            accessToken,
+            project.id,
+          );
+          if (!migrationResult.success) {
+            throw new Error(migrationResult.error || 'Migration failed');
+          }
+        }
+
+        // Step 3: Fetch API keys
+        setSetupProgress('Fetching credentials...');
+        const keys = await getApiKeys(accessToken, project.id);
+        const projectUrl = buildProjectUrl(project.id);
+
+        // Step 4: Save Mason config
+        saveMasonConfig({
+          supabaseUrl: projectUrl,
+          supabaseAnonKey: keys.anonKey,
+          setupComplete: false, // Will be set true after full wizard completion
+        });
+        refresh();
+
+        setSetupProgress(null);
+        setConnection({
+          status: 'success',
+          message: `Connected to ${project.name}`,
+          projects: connection.projects,
+        });
+      } catch (err) {
+        console.error('Setup failed:', err);
+        setSetupProgress(null);
+        setConnection({
+          status: 'error',
+          message: err instanceof Error ? err.message : 'Setup failed',
+        });
+      }
     },
-    [connection.projects],
+    [connection.projects, refresh],
   );
 
   const handleRefreshToken = async () => {
@@ -281,6 +345,19 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
         <div className="flex items-center justify-center gap-2 rounded-lg bg-gray-900/50 p-6 text-gray-400">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>Fetching your projects...</span>
+        </div>
+      )}
+
+      {/* Setting Up Database State */}
+      {connection.status === 'setting_up' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-center gap-2 rounded-lg bg-gray-900/50 p-6 text-gray-400">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span>{setupProgress || 'Setting up database...'}</span>
+          </div>
+          <p className="text-center text-sm text-gray-500">
+            This usually takes 5-10 seconds
+          </p>
         </div>
       )}
 

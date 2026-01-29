@@ -8,10 +8,15 @@
  * - Mason UI is hosted by Assure DeFi
  * - All user data stays in the user's own Supabase database
  * - Assure DeFi has zero access to user data
+ *
+ * Supports both:
+ * 1. OAuth flow (new) - credentials obtained automatically via Supabase OAuth
+ * 2. Manual entry (legacy) - credentials entered manually by user
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { STORAGE_KEYS, TABLES } from '@/lib/constants';
+import { clearOAuthSession } from './oauth';
 
 export interface MasonConfig {
   supabaseUrl: string;
@@ -64,6 +69,7 @@ export function saveMasonConfig(config: MasonConfig): void {
 
 /**
  * Clear the Mason config from localStorage
+ * Also clears OAuth session for complete cleanup
  */
 export function clearMasonConfig(): void {
   if (typeof window === 'undefined') {
@@ -71,6 +77,7 @@ export function clearMasonConfig(): void {
   }
 
   localStorage.removeItem(STORAGE_KEYS.CONFIG);
+  clearOAuthSession();
   _cachedConfig = null;
   _userClient = null;
   _userServiceClient = null;
