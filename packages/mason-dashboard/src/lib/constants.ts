@@ -17,6 +17,8 @@ export const STORAGE_KEYS = {
   EXECUTE_PREFERENCE: 'mason_execute_preference',
   /** GitHub access token for API calls */
   GITHUB_TOKEN: 'mason_github_token',
+  /** Supabase OAuth session data (PKCE state/verifier) */
+  SUPABASE_OAUTH_SESSION: 'mason_supabase_oauth_session',
 } as const;
 
 /**
