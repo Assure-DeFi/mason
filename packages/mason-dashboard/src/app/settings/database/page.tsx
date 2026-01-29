@@ -29,7 +29,10 @@ import {
   clearOAuthSession,
   type SupabaseOAuthTokens,
 } from '@/lib/supabase/oauth';
-import { listProjects } from '@/lib/supabase/management-api';
+import {
+  listProjects,
+  type SupabaseProject,
+} from '@/lib/supabase/management-api';
 
 type MigrationStatus = 'idle' | 'running' | 'success' | 'error';
 
@@ -71,6 +74,9 @@ function DatabaseSettingsContent() {
   const [showManualFallback, setShowManualFallback] = useState(false);
   const [oauthConnecting, setOauthConnecting] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  const [projects, setProjects] = useState<SupabaseProject[]>([]);
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
+  const [fetchingProjects, setFetchingProjects] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -83,6 +89,28 @@ function DatabaseSettingsContent() {
     setHasOAuth(hasValidOAuthSession());
   }, []);
 
+  // Fetch projects for the project selector
+  const fetchProjectsForSelector = async (accessToken: string) => {
+    setFetchingProjects(true);
+    try {
+      const projectList = await listProjects(accessToken);
+      const activeProjects = projectList.filter(
+        (p) => p.status === 'ACTIVE_HEALTHY' || p.status === 'ACTIVE_UNHEALTHY',
+      );
+      setProjects(activeProjects);
+      if (activeProjects.length > 0) {
+        setShowProjectSelector(true);
+      } else {
+        setOauthError('No active Supabase projects found');
+      }
+    } catch (err) {
+      console.error('Failed to fetch projects:', err);
+      setOauthError('Failed to fetch Supabase projects');
+    } finally {
+      setFetchingProjects(false);
+    }
+  };
+
   // Handle OAuth callback from Supabase
   useEffect(() => {
     const handleOAuthCallback = async () => {
@@ -91,64 +119,83 @@ function DatabaseSettingsContent() {
 
       if (oauthErrorParam) {
         setOauthError(decodeURIComponent(oauthErrorParam));
-        // Clean up URL
         router.replace('/settings/database');
         return;
       }
 
-      if (oauthSuccess === 'true') {
-        // Read tokens from cookie (set by callback)
-        const tokenCookie = document.cookie
-          .split('; ')
-          .find((row) => row.startsWith('supabase_oauth_tokens='));
+      if (oauthSuccess !== 'true') return;
 
-        if (tokenCookie) {
-          try {
-            const tokenData = JSON.parse(
-              decodeURIComponent(tokenCookie.split('=')[1]),
-            ) as SupabaseOAuthTokens;
+      // Read tokens from cookie
+      const tokenCookie = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('supabase_oauth_tokens='));
 
-            // Save to localStorage
-            saveOAuthSession({ tokens: tokenData });
+      if (!tokenCookie) {
+        router.replace('/settings/database');
+        return;
+      }
 
-            // Clear the cookie
-            document.cookie =
-              'supabase_oauth_tokens=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+      try {
+        const tokenData = JSON.parse(
+          decodeURIComponent(tokenCookie.split('=')[1]),
+        ) as SupabaseOAuthTokens;
 
-            // Fetch projects to find the matching one based on existing config
-            if (config?.supabaseUrl) {
-              const projects = await listProjects(tokenData.accessToken);
-              // Extract project ref from URL (e.g., https://xyz.supabase.co -> xyz)
-              const urlMatch = config.supabaseUrl.match(
-                /https:\/\/([^.]+)\.supabase\.co/,
-              );
-              if (urlMatch) {
-                const projectRef = urlMatch[1];
-                const matchingProject = projects.find(
-                  (p) => p.id === projectRef,
-                );
-                if (matchingProject) {
-                  setSelectedProject(matchingProject.id, matchingProject.name);
-                }
-              }
-            }
+        // Clear the cookie immediately
+        document.cookie =
+          'supabase_oauth_tokens=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
 
-            setHasOAuth(true);
-            setOauthError(null);
-            setMigration({
-              status: 'success',
-              message:
-                'Connected to Supabase OAuth! You can now use one-click updates.',
-            });
-          } catch (err) {
-            console.error('Failed to parse OAuth tokens:', err);
-            setOauthError('Failed to process OAuth response');
+        // Save OAuth tokens
+        saveOAuthSession({ tokens: tokenData });
+
+        // Always fetch projects to ensure we have the current list
+        const projectList = await listProjects(tokenData.accessToken);
+        const activeProjects = projectList.filter(
+          (p) =>
+            p.status === 'ACTIVE_HEALTHY' || p.status === 'ACTIVE_UNHEALTHY',
+        );
+
+        if (activeProjects.length === 0) {
+          setOauthError('No active Supabase projects found in your account');
+          router.replace('/settings/database');
+          return;
+        }
+
+        // Try to auto-detect current project from config
+        let matchedProject: SupabaseProject | undefined;
+        if (config?.supabaseUrl) {
+          const urlMatch = config.supabaseUrl.match(
+            /https:\/\/([^.]+)\.supabase\.co/,
+          );
+          if (urlMatch) {
+            const configProjectRef = urlMatch[1];
+            matchedProject = activeProjects.find(
+              (p) => p.id === configProjectRef,
+            );
           }
         }
 
-        // Clean up URL
-        router.replace('/settings/database');
+        if (matchedProject) {
+          // Auto-detected successfully - set and continue
+          setSelectedProject(matchedProject.id, matchedProject.name);
+          setHasOAuth(true);
+          setOauthError(null);
+          setMigration({
+            status: 'success',
+            message: `Connected to ${matchedProject.name}! You can now use one-click updates.`,
+          });
+        } else {
+          // Auto-detection failed - show project selector
+          setProjects(activeProjects);
+          setShowProjectSelector(true);
+          setHasOAuth(true); // We have valid OAuth, just need project selection
+          setOauthError(null);
+        }
+      } catch (err) {
+        console.error('Failed to process OAuth callback:', err);
+        setOauthError('Failed to process OAuth response');
       }
+
+      router.replace('/settings/database');
     };
 
     handleOAuthCallback();
@@ -162,18 +209,74 @@ function DatabaseSettingsContent() {
       '/api/auth/supabase/login?return_to=/settings/database';
   };
 
+  const handleSelectProject = (project: SupabaseProject) => {
+    // Check if user is selecting a different project than configured
+    if (config?.supabaseUrl) {
+      const existingRef = config.supabaseUrl.match(
+        /https:\/\/([^.]+)\.supabase\.co/,
+      )?.[1];
+      if (existingRef && existingRef !== project.id) {
+        const confirmSwitch = window.confirm(
+          `Warning: You're selecting a different project than currently configured.\n\n` +
+            `Current project: ${existingRef}\n` +
+            `Selected project: ${project.name} (${project.id})\n\n` +
+            `This will change where Mason stores your data. Continue?`,
+        );
+        if (!confirmSwitch) return;
+
+        // If switching projects, warn about data access
+        const confirmDataLoss = window.confirm(
+          `IMPORTANT: Switching projects means your existing Mason data ` +
+            `(backlog items, analysis runs, etc.) will not be accessible.\n\n` +
+            `The old data remains in ${existingRef}, but Mason will now use ${project.id}.\n\n` +
+            `Are you sure you want to switch?`,
+        );
+        if (!confirmDataLoss) return;
+      }
+    }
+
+    // Update OAuth session with selected project
+    setSelectedProject(project.id, project.name);
+    setShowProjectSelector(false);
+    setMigration({
+      status: 'success',
+      message: `Connected to ${project.name}! You can now use one-click updates.`,
+    });
+  };
+
   const handleRunMigrationsOAuth = async () => {
     const oauthSession = getOAuthSession();
     let accessToken = getAccessToken();
 
-    // If no project selected, show error
+    // If no project selected, try to help user select one
     if (!oauthSession?.selectedProjectRef) {
-      setMigration({
-        status: 'error',
-        message: 'No Supabase project selected. Please reconnect with OAuth.',
-      });
-      setShowManualFallback(true);
-      return;
+      if (accessToken) {
+        // We have OAuth tokens but no project selected - show selector
+        await fetchProjectsForSelector(accessToken);
+        return;
+      } else {
+        setMigration({
+          status: 'error',
+          message: 'No Supabase project selected. Please reconnect with OAuth.',
+        });
+        setShowManualFallback(true);
+        return;
+      }
+    }
+
+    // Validate consistency before making request
+    if (config?.supabaseUrl) {
+      const configRef = config.supabaseUrl.match(
+        /https:\/\/([^.]+)\.supabase\.co/,
+      )?.[1];
+      if (configRef && configRef !== oauthSession.selectedProjectRef) {
+        setMigration({
+          status: 'error',
+          message: `Configuration mismatch: OAuth session points to project "${oauthSession.selectedProjectRef}" but config points to "${configRef}". Please reconnect with OAuth.`,
+        });
+        setShowManualFallback(true);
+        return;
+      }
     }
 
     // If access token expired, try to refresh it
@@ -242,6 +345,7 @@ function DatabaseSettingsContent() {
         body: JSON.stringify({
           projectRef: oauthSession.selectedProjectRef,
           accessToken,
+          supabaseUrl: config?.supabaseUrl, // Include for server-side validation
         }),
       });
 
@@ -412,31 +516,34 @@ function DatabaseSettingsContent() {
                     </div>
                   </div>
 
-                  {/* OAuth One-Click Button */}
-                  {hasOAuth && !showManualFallback && (
-                    <div className="mt-4">
-                      <button
-                        onClick={handleRunMigrationsOAuth}
-                        disabled={migration.status === 'running'}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-3 font-medium text-navy transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {migration.status === 'running' ? (
-                          <>
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            Running Migrations...
-                          </>
-                        ) : (
-                          <>
-                            <Zap className="h-5 w-5" />
-                            Update Database Schema (One-Click)
-                          </>
-                        )}
-                      </button>
-                      <p className="mt-2 text-center text-xs text-gray-500">
-                        Using your connected Supabase OAuth session
-                      </p>
-                    </div>
-                  )}
+                  {/* OAuth One-Click Button - hide when showing project selector */}
+                  {hasOAuth &&
+                    !showManualFallback &&
+                    !showProjectSelector &&
+                    !fetchingProjects && (
+                      <div className="mt-4">
+                        <button
+                          onClick={handleRunMigrationsOAuth}
+                          disabled={migration.status === 'running'}
+                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-3 font-medium text-navy transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {migration.status === 'running' ? (
+                            <>
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                              Running Migrations...
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="h-5 w-5" />
+                              Update Database Schema (One-Click)
+                            </>
+                          )}
+                        </button>
+                        <p className="mt-2 text-center text-xs text-gray-500">
+                          Using your connected Supabase OAuth session
+                        </p>
+                      </div>
+                    )}
 
                   {/* Migration Status */}
                   {migration.status !== 'idle' && (
@@ -471,6 +578,64 @@ function DatabaseSettingsContent() {
                           {migration.message}
                         </span>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Project Selection UI */}
+                  {showProjectSelector && projects.length > 0 && (
+                    <div className="mt-4 space-y-3 rounded-lg border border-gray-700 bg-gray-900/50 p-4">
+                      <div>
+                        <h4 className="text-sm font-medium text-white">
+                          Select Your Supabase Project
+                        </h4>
+                        <p className="mt-1 text-xs text-gray-400">
+                          Choose the project where Mason should store your data.
+                          {config?.supabaseUrl && (
+                            <span className="text-gold">
+                              {' '}
+                              Your current project is highlighted.
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="grid gap-2 max-h-64 overflow-y-auto">
+                        {projects.map((project) => {
+                          const isCurrentProject =
+                            config?.supabaseUrl?.includes(project.id);
+                          return (
+                            <button
+                              key={project.id}
+                              onClick={() => handleSelectProject(project)}
+                              className={`flex items-center justify-between rounded-lg border p-3 text-left transition-colors ${
+                                isCurrentProject
+                                  ? 'border-gold bg-gold/10'
+                                  : 'border-gray-700 hover:border-gray-600 hover:bg-gray-900/50'
+                              }`}
+                            >
+                              <div>
+                                <p className="text-sm font-medium text-white">
+                                  {project.name}
+                                  {isCurrentProject && (
+                                    <span className="ml-2 rounded bg-gold/20 px-1.5 py-0.5 text-xs text-gold">
+                                      Current
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  {project.region} &bull; {project.id}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {fetchingProjects && (
+                    <div className="mt-4 flex items-center gap-2 text-sm text-gray-400">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Loading your Supabase projects...</span>
                     </div>
                   )}
 

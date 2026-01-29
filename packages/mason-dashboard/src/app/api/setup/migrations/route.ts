@@ -325,6 +325,15 @@ END $$;
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
 
 /**
+ * Extract project reference from Supabase URL
+ * e.g., https://xyz.supabase.co -> xyz
+ */
+function extractProjectRefFromUrl(url: string): string | null {
+  const match = url.match(/https:\/\/([^.]+)\.supabase\.co/);
+  return match ? match[1] : null;
+}
+
+/**
  * Run migrations via Supabase Management API (for OAuth users)
  */
 async function runMigrationsViaManagementApi(
@@ -370,17 +379,39 @@ async function runMigrationsViaManagementApi(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { supabaseUrl, databasePassword, connectionString, projectRef, accessToken } = body;
+    const {
+      supabaseUrl,
+      databasePassword,
+      connectionString,
+      projectRef,
+      accessToken,
+    } = body;
 
     // Method 1: OAuth-based migrations (preferred for OAuth users)
     if (projectRef && accessToken) {
-      const result = await runMigrationsViaManagementApi(projectRef, accessToken);
+      // Validate projectRef matches configured supabaseUrl (if provided)
+      const requestSupabaseUrl = body.supabaseUrl as string | undefined;
+      if (requestSupabaseUrl) {
+        const expectedRef = extractProjectRefFromUrl(requestSupabaseUrl);
+        if (expectedRef && expectedRef !== projectRef) {
+          return NextResponse.json(
+            {
+              error:
+                'Security validation failed: Project reference does not match your configured Supabase URL. This may indicate a configuration issue.',
+              code: 'PROJECT_MISMATCH',
+            },
+            { status: 400 },
+          );
+        }
+      }
+
+      const result = await runMigrationsViaManagementApi(
+        projectRef,
+        accessToken,
+      );
 
       if (!result.success) {
-        return NextResponse.json(
-          { error: result.error },
-          { status: 500 },
-        );
+        return NextResponse.json({ error: result.error }, { status: 500 });
       }
 
       return NextResponse.json({ success: true });
