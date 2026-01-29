@@ -35,7 +35,11 @@ export function StatusTabs({
   filteredCount = 0,
 }: StatusTabsProps) {
   return (
-    <div className="flex items-center gap-2 px-8 py-4">
+    <div
+      className="flex items-center gap-2 px-8 py-4"
+      role="tablist"
+      aria-label="Backlog status filters"
+    >
       {TABS.map(({ status, label }) => {
         const isFiltered = status === 'filtered';
 
@@ -43,6 +47,8 @@ export function StatusTabs({
           <button
             key={status ?? 'all'}
             onClick={() => onStatusChange(status)}
+            role="tab"
+            aria-selected={activeStatus === status}
             className={clsx(
               'px-5 py-2.5 text-sm font-semibold transition-all relative flex items-center gap-2',
               activeStatus === status
