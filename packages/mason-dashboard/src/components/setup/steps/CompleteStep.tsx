@@ -11,11 +11,15 @@ import {
   ExternalLink,
   Download,
   Check,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
-import type { WizardStepProps } from '../SetupWizard';
+
+import { CopyButton } from '@/components/ui/CopyButton';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { saveMasonConfig, getMasonConfig } from '@/lib/supabase/user-client';
-import { CopyButton } from '@/components/ui/CopyButton';
+
+import type { WizardStepProps } from '../SetupWizard';
 
 export function CompleteStep({ onBack }: WizardStepProps) {
   const router = useRouter();
@@ -26,6 +30,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoCopied, setAutoCopied] = useState(false);
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
 
   const installCommand = `curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash`;
 
@@ -273,6 +278,56 @@ export function CompleteStep({ onBack }: WizardStepProps) {
             credentials. All data is stored in YOUR database - the CLI connects
             directly to your Supabase.
           </p>
+
+          {/* Troubleshooting Section */}
+          <div className="pt-2 border-t border-gray-800">
+            <button
+              onClick={() => setShowTroubleshooting(!showTroubleshooting)}
+              className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              {showTroubleshooting ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+              Command not working?
+            </button>
+
+            {showTroubleshooting && (
+              <div className="mt-3 p-3 bg-black/30 border border-gray-800 rounded-lg text-sm text-gray-400 space-y-2">
+                <div className="flex items-start gap-2">
+                  <Terminal className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
+                  <span>
+                    Make sure you&apos;re running this in a terminal inside your
+                    project directory
+                  </span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Terminal className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
+                  <span>
+                    Ensure{' '}
+                    <code className="px-1 bg-black rounded text-gold">
+                      curl
+                    </code>{' '}
+                    is installed on your system
+                  </span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Terminal className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
+                  <span>
+                    After installation, verify{' '}
+                    <code className="px-1 bg-black rounded text-gold">
+                      mason.config.json
+                    </code>{' '}
+                    exists in your project root
+                  </span>
+                </div>
+                <a href="/faq" className="block mt-2 text-gold hover:underline">
+                  See full troubleshooting guide &rarr;
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

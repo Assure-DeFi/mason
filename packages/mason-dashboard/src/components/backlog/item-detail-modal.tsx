@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import type { BacklogItem, BacklogStatus } from '@/types/backlog';
-import { X, FileText, Check, Sparkles, Clock } from 'lucide-react';
 import { clsx } from 'clsx';
-import { TypeBadge } from './type-badge';
-import { PriorityDots } from './priority-dots';
-import { BenefitsGrid } from './benefits-grid';
-import { QuickWinBadge } from './QuickWinBadge';
-import { ItemTimeline } from './ItemTimeline';
+import { X, FileText, Check, Sparkles, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SuccessAnimation } from '@/components/ui/SuccessAnimation';
+import type { BacklogItem, BacklogStatus } from '@/types/backlog';
+
+import { BenefitsGrid } from './benefits-grid';
+import { ItemTimeline } from './ItemTimeline';
+import { PriorityDots } from './priority-dots';
+import { QuickWinBadge } from './QuickWinBadge';
+import { TypeBadge } from './type-badge';
 
 interface ItemDetailModalProps {
   item: BacklogItem;
@@ -17,36 +20,6 @@ interface ItemDetailModalProps {
   onUpdateStatus: (id: string, status: BacklogStatus) => Promise<void>;
   onGeneratePrd: (id: string) => Promise<void>;
 }
-
-const STATUS_CONFIG: Record<
-  BacklogStatus,
-  { label: string; className: string }
-> = {
-  new: {
-    label: 'New',
-    className: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
-  },
-  approved: {
-    label: 'Approved',
-    className: 'bg-green-500/20 text-green-300 border-green-500/30',
-  },
-  in_progress: {
-    label: 'In Progress',
-    className: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-  },
-  completed: {
-    label: 'Completed',
-    className: 'bg-green-500/20 text-green-300 border-green-500/30',
-  },
-  deferred: {
-    label: 'Deferred',
-    className: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
-  },
-  rejected: {
-    label: 'Rejected',
-    className: 'bg-red-500/20 text-red-300 border-red-500/30',
-  },
-};
 
 type ViewMode = 'details' | 'prd' | 'timeline';
 
@@ -139,8 +112,6 @@ export function ItemDetailModal({
       setIsGenerating(false);
     }
   };
-
-  const statusConfig = STATUS_CONFIG[item.status];
 
   // Get priority label based on score
   const getPriorityLabel = () => {
@@ -273,14 +244,7 @@ export function ItemDetailModal({
             <div className="flex-1">
               {/* Status and Priority */}
               <div className="flex items-center gap-3 mb-3">
-                <span
-                  className={clsx(
-                    'px-2 py-1 text-xs border',
-                    statusConfig.className,
-                  )}
-                >
-                  {statusConfig.label}
-                </span>
+                <StatusBadge status={item.status} showTooltip={true} />
                 <div className="flex items-center gap-2">
                   <PriorityDots value={item.impact_score} variant="priority" />
                   <span className="text-sm text-gray-400">

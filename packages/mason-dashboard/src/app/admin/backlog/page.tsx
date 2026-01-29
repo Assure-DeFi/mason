@@ -3,15 +3,20 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { StatsBar } from '@/components/backlog/stats-bar';
-import { StatusTabs } from '@/components/backlog/status-tabs';
+import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
+import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
-import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
+import { StatsBar } from '@/components/backlog/stats-bar';
+import { StatusTabs } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
 import { UserMenu } from '@/components/auth/user-menu';
-import { RepositorySelector } from '@/components/execution/repository-selector';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
+import { RepositorySelector } from '@/components/execution/repository-selector';
+import { JourneyMap } from '@/components/ui/JourneyMap';
+import { NextStepBanner } from '@/components/ui/NextStepBanner';
+import { OnboardingProgress } from '@/components/ui/OnboardingProgress';
+import { QuickStartFAB } from '@/components/ui/QuickStartFAB';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import type { BacklogItem, BacklogStatus, StatusCounts } from '@/types/backlog';
@@ -30,6 +35,7 @@ export default function BacklogPage() {
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [executionRunId, setExecutionRunId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   const fetchItems = useCallback(async () => {
     if (!client || !session?.user) {
@@ -79,6 +85,16 @@ export default function BacklogPage() {
     }
   }, [fetchItems, isConfigured, isDbLoading]);
 
+  // Show celebration when items first load
+  useEffect(() => {
+    if (!isLoading && items.length > 0) {
+      const hasSeen = localStorage.getItem('mason_has_seen_first_items');
+      if (!hasSeen) {
+        setShowCelebration(true);
+      }
+    }
+  }, [isLoading, items.length]);
+
   // Calculate counts for stats bar
   const counts: StatusCounts = useMemo(() => {
     const result: StatusCounts = {
@@ -110,6 +126,22 @@ export default function BacklogPage() {
       .filter((item) => item.status === 'approved')
       .map((item) => item.id);
   }, [items]);
+
+  // Determine the contextual next step
+  const nextStepContext = useMemo(() => {
+    if (items.length === 0) return 'empty-backlog';
+    if (counts.approved > 0) return 'has-approved';
+    if (counts.new > 0) return 'has-new-items';
+    if (counts.completed > 0 && counts.new === 0 && counts.approved === 0) {
+      return 'all-complete';
+    }
+    return null;
+  }, [items.length, counts]) as
+    | 'empty-backlog'
+    | 'has-new-items'
+    | 'has-approved'
+    | 'all-complete'
+    | null;
 
   const handleUpdateStatus = async (id: string, status: BacklogStatus) => {
     if (!client) {
@@ -289,6 +321,14 @@ export default function BacklogPage() {
         </div>
       </div>
 
+      {/* Journey Map - shows workflow progress */}
+      <JourneyMap counts={counts} />
+
+      {/* Smart Next Step Banner */}
+      {!isLoading && nextStepContext && (
+        <NextStepBanner context={nextStepContext} />
+      )}
+
       {/* Show stats and tabs only when not empty */}
       {!isEmpty && (
         <>
@@ -307,21 +347,22 @@ export default function BacklogPage() {
 
               {session && counts.approved > 0 && (
                 <div className="px-6 py-3">
-                  <UnifiedExecuteButton
-                    itemIds={approvedItemIds}
-                    repositoryId={selectedRepoId}
-                    onRemoteExecute={(ids) => {
-                      // Trigger remote execution through existing flow
-                      setExecutionRunId('starting');
-                    }}
-                    remoteAvailable={!!selectedRepoId}
-                  />
+                  <UnifiedExecuteButton itemIds={approvedItemIds} />
                 </div>
               )}
             </div>
           </div>
         </>
       )}
+
+      {/* Onboarding Progress Checklist */}
+      <div className="max-w-7xl mx-auto px-6 pt-4">
+        <OnboardingProgress
+          isConfigured={isConfigured}
+          counts={counts}
+          hasSession={!!session}
+        />
+      </div>
 
       {/* Content Area */}
       <div className="max-w-7xl mx-auto">
@@ -384,6 +425,17 @@ export default function BacklogPage() {
             Dismiss
           </button>
         </div>
+      )}
+
+      {/* Quick Start FAB */}
+      <QuickStartFAB />
+
+      {/* First Item Celebration Modal */}
+      {showCelebration && items.length > 0 && (
+        <FirstItemCelebration
+          itemCount={items.length}
+          onDismiss={() => setShowCelebration(false)}
+        />
       )}
     </main>
   );
