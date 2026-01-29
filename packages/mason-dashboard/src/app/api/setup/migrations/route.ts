@@ -128,6 +128,28 @@ CREATE TABLE IF NOT EXISTS mason_ai_provider_keys (
   UNIQUE(user_id, provider)
 );
 
+-- Mason PM Filtered Items table (items filtered out during analysis)
+CREATE TABLE IF NOT EXISTS mason_pm_filtered_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  title TEXT NOT NULL,
+  problem TEXT NOT NULL,
+  solution TEXT NOT NULL,
+  type TEXT NOT NULL,
+  area TEXT NOT NULL,
+  impact_score INTEGER NOT NULL,
+  effort_score INTEGER NOT NULL,
+  complexity INTEGER DEFAULT 2,
+  benefits JSONB DEFAULT '[]'::jsonb,
+  filter_reason TEXT NOT NULL,
+  filter_tier TEXT NOT NULL CHECK (filter_tier IN ('tier1', 'tier2', 'tier3')),
+  filter_confidence DECIMAL(3,2) NOT NULL,
+  evidence TEXT,
+  analysis_run_id UUID REFERENCES mason_pm_analysis_runs(id) ON DELETE CASCADE,
+  override_status TEXT DEFAULT 'filtered',
+  repository_id UUID REFERENCES mason_github_repositories(id) ON DELETE SET NULL
+);
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_user_id ON mason_api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_key_hash ON mason_api_keys(key_hash);
@@ -139,6 +161,7 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_analysis_runs_user_id ON mason_pm_analys
 CREATE INDEX IF NOT EXISTS idx_mason_remote_execution_runs_user_id ON mason_remote_execution_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_execution_run_id ON mason_execution_logs(execution_run_id);
 CREATE INDEX IF NOT EXISTS idx_mason_ai_provider_keys_user_id ON mason_ai_provider_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_filtered_items_repository_id ON mason_pm_filtered_items(repository_id);
 
 -- Enable Row Level Security
 ALTER TABLE mason_users ENABLE ROW LEVEL SECURITY;
@@ -149,14 +172,25 @@ ALTER TABLE mason_pm_backlog_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_remote_execution_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_execution_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_ai_provider_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_pm_filtered_items ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for AI Provider Keys (BYOD model - users own their database)
+-- RLS Policies (BYOD model - users own their database)
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'mason_ai_provider_keys' AND policyname = 'Allow all operations on ai_provider_keys'
   ) THEN
     CREATE POLICY "Allow all operations on ai_provider_keys" ON mason_ai_provider_keys
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_filtered_items' AND policyname = 'Allow all operations on filtered_items'
+  ) THEN
+    CREATE POLICY "Allow all operations on filtered_items" ON mason_pm_filtered_items
       FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;

@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/client';
+import { getServerSession } from 'next-auth';
+import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/client';
+import { authOptions } from '@/lib/auth/auth-options';
 import { generatePrd, type AIProvider } from '@/lib/prd/generate-prd';
 import { TABLES } from '@/lib/constants';
 import type { BacklogItem } from '@/types/backlog';
@@ -11,6 +14,26 @@ import {
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+/**
+ * Get a Supabase client connected to the user's database.
+ * Looks up user credentials from the central database using their GitHub ID.
+ */
+async function getUserDatabaseClient(githubId: string) {
+  const centralClient = createServiceClient();
+
+  const { data: user, error } = await centralClient
+    .from('mason_users')
+    .select('supabase_url, supabase_anon_key')
+    .eq('github_id', githubId)
+    .single();
+
+  if (error || !user?.supabase_url || !user?.supabase_anon_key) {
+    return null;
+  }
+
+  return createClient(user.supabase_url, user.supabase_anon_key);
 }
 
 export async function POST(request: Request, { params }: RouteParams) {
@@ -27,7 +50,25 @@ export async function POST(request: Request, { params }: RouteParams) {
       return createRateLimitResponse(rateLimitResult);
     }
 
-    const supabase = createServerClient();
+    // Get user session to identify which database to connect to
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.github_id) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
+    // Connect to USER's database (not central DB)
+    const supabase = await getUserDatabaseClient(session.user.github_id);
+
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'User database not configured. Please complete setup.' },
+        { status: 400 },
+      );
+    }
 
     // Fetch the item
     const { data: item, error: fetchError } = await supabase
