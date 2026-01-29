@@ -1,7 +1,5 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
 import {
   ChevronDown,
   GitBranch,
@@ -12,8 +10,11 @@ import {
   Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { GitHubRepository } from '@/types/auth';
+import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef } from 'react';
+
 import { STORAGE_KEYS, API_ROUTES } from '@/lib/constants';
+import type { GitHubRepository } from '@/types/auth';
 
 interface RepositorySelectorProps {
   value: string | null;
@@ -26,7 +27,7 @@ interface RepositorySelectorProps {
  * Get last used repository from localStorage
  */
 function getLastUsedRepository(): string | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') {return null;}
   try {
     return localStorage.getItem(STORAGE_KEYS.LAST_REPOSITORY);
   } catch {
@@ -38,7 +39,7 @@ function getLastUsedRepository(): string | null {
  * Save last used repository to localStorage
  */
 function saveLastUsedRepository(repoId: string): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {return;}
   try {
     localStorage.setItem(STORAGE_KEYS.LAST_REPOSITORY, repoId);
   } catch {
@@ -103,7 +104,7 @@ export function RepositorySelector({
 
   // Re-fetch when refreshTrigger changes (e.g., after setup wizard completion)
   useEffect(() => {
-    fetchRepositories();
+    void fetchRepositories();
   }, [refreshTrigger]);
 
   const fetchRepositories = async () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { FileText, Check, X, Loader2, Download, RotateCcw } from 'lucide-react';
+
 import type { BacklogItem } from '@/types/backlog';
 
 interface BulkProgress {
@@ -49,7 +50,7 @@ export function BulkActionsBar({
     isGenerating || isApproving || isRejecting || isRestoring;
 
   const handleExportPrds = () => {
-    if (itemsWithPrd.length === 0) return;
+    if (itemsWithPrd.length === 0) {return;}
 
     const markdown = itemsWithPrd
       .map((item) => {
@@ -84,7 +85,7 @@ ${item.prd_content}
     URL.revokeObjectURL(url);
   };
 
-  if (count === 0) return null;
+  if (count === 0) {return null;}
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">

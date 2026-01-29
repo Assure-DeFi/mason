@@ -15,7 +15,9 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
 import { STORAGE_KEYS, TABLES } from '@/lib/constants';
+
 import { clearOAuthSession } from './oauth';
 
 export interface MasonConfig {

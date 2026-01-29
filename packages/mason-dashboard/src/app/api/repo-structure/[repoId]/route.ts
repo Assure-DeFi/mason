@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest} from 'next/server';
+import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+
 import { authOptions } from '@/lib/auth/auth-options';
-import { createServiceClient } from '@/lib/supabase/client';
 import { createGitHubClient } from '@/lib/github/client';
+import { createServiceClient } from '@/lib/supabase/client';
 
 interface AreaSuggestion {
   label: string;

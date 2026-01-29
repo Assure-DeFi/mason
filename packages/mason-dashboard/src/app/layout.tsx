@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+
 import { SessionProvider } from '@/components/auth/session-provider';
 import './globals.css';
 

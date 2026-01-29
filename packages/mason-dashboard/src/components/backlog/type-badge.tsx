@@ -1,7 +1,8 @@
 'use client';
 
-import type { BacklogType } from '@/types/backlog';
 import { clsx } from 'clsx';
+
+import type { BacklogType } from '@/types/backlog';
 
 interface TypeBadgeProps {
   type: BacklogType;

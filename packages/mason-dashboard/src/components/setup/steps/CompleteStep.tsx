@@ -1,29 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import {
   Key,
-  Terminal,
   AlertCircle,
   Loader2,
   ExternalLink,
   Check,
-  Copy,
   Monitor,
 } from 'lucide-react';
-import type { WizardStepProps } from '../SetupWizard';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { useState, useEffect, useMemo } from 'react';
+
+import { CopyButton } from '@/components/ui/CopyButton';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { saveMasonConfig, getMasonConfig } from '@/lib/supabase/user-client';
-import { CopyButton } from '@/components/ui/CopyButton';
+
+import type { WizardStepProps } from '../SetupWizard';
 
 type Platform = 'macos' | 'windows' | 'linux';
 
 export function CompleteStep({ onBack }: WizardStepProps) {
   const router = useRouter();
   const { data: session } = useSession();
-  const { client, isConfigured, config, refresh } = useUserDatabase();
+  const { client, isConfigured, config: _config, refresh } = useUserDatabase();
 
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -78,7 +78,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
 
   // Auto-copy install command when API key is generated
   useEffect(() => {
-    if (!installCommand) return;
+    if (!installCommand) {return;}
 
     const autoCopyInstallCommand = async () => {
       try {
@@ -90,7 +90,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
       }
     };
 
-    const timer = setTimeout(autoCopyInstallCommand, 300);
+    const timer = setTimeout(() => void autoCopyInstallCommand(), 300);
     return () => clearTimeout(timer);
   }, [installCommand]);
 

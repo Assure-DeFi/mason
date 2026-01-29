@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, GitBranch, Terminal } from 'lucide-react';
 import Link from 'next/link';
-import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
-import { RepositoryList } from '@/components/github/repository-list';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+
 import { ConnectRepoModal } from '@/components/github/connect-repo-modal';
 import { InstallMasonModal } from '@/components/github/install-mason-modal';
+import { RepositoryList } from '@/components/github/repository-list';
+import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { getGitHubToken } from '@/lib/supabase/user-client';
 import type { GitHubRepository } from '@/types/auth';
 
@@ -27,7 +28,7 @@ export default function GitHubSettingsPage() {
   }, [status, router]);
 
   useEffect(() => {
-    fetchConnectedRepoIds();
+    void fetchConnectedRepoIds();
   }, [refreshKey]);
 
   const fetchConnectedRepoIds = async () => {

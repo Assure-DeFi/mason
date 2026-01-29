@@ -1,7 +1,5 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
 import {
   X,
   Terminal,
@@ -12,6 +10,9 @@ import {
   Loader2,
   FolderGit2,
 } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { getMasonConfig } from '@/lib/supabase/user-client';
 
@@ -68,7 +69,7 @@ export function InstallMasonModal({
       }
     };
 
-    checkExistingKeys();
+    void checkExistingKeys();
   }, [isOpen, client, session]);
 
   // Generate the full install command with credentials embedded
@@ -142,7 +143,7 @@ export function InstallMasonModal({
   }, [client, session, repoName]);
 
   const handleCopy = async () => {
-    if (!installCommand) return;
+    if (!installCommand) {return;}
 
     try {
       await navigator.clipboard.writeText(installCommand);
@@ -160,7 +161,7 @@ export function InstallMasonModal({
     onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">

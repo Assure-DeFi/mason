@@ -1,16 +1,16 @@
 'use client';
 
-import { useState } from 'react';
 import {
-  Sparkles,
   Terminal,
   ArrowRight,
   Check,
   Copy,
   AlertCircle,
 } from 'lucide-react';
-import { CopyButton } from '@/components/ui/CopyButton';
+import { useState } from 'react';
+
 import { MasonAvatar } from '@/components/brand';
+import { CopyButton } from '@/components/ui/CopyButton';
 
 interface EmptyStateOnboardingProps {
   onRefresh?: () => void;

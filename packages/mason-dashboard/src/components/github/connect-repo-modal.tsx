@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { X, Search, Lock, Unlock, GitBranch, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
 import {
   listUserRepositories,
   type GitHubRepo,
 } from '@/lib/github/client-side';
+
 import { InstallMasonModal } from './install-mason-modal';
 
 interface ConnectRepoModalProps {
@@ -34,7 +36,7 @@ export function ConnectRepoModal({
 
   useEffect(() => {
     if (isOpen) {
-      fetchRepos();
+      void fetchRepos();
     }
   }, [isOpen]);
 
@@ -94,7 +96,7 @@ export function ConnectRepoModal({
     onClose();
   };
 
-  if (!isOpen && !showInstallModal) return null;
+  if (!isOpen && !showInstallModal) {return null;}
 
   // Show install modal if active
   if (showInstallModal) {

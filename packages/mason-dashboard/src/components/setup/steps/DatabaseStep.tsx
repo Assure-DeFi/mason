@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
 import {
   ExternalLink,
   Check,
@@ -10,14 +9,18 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import type { WizardStepProps } from '../SetupWizard';
+import { useState, useEffect, useMemo } from 'react';
+
+import { HelpTooltip } from '@/components/ui/HelpTooltip';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import {
   testUserConnection,
   checkTablesExist,
   saveMasonConfig,
 } from '@/lib/supabase/user-client';
-import { HelpTooltip } from '@/components/ui/HelpTooltip';
+
+import type { WizardStepProps } from '../SetupWizard';
+
 
 interface ConnectionState {
   status: 'idle' | 'testing' | 'success' | 'error';
@@ -38,7 +41,7 @@ interface ValidationState {
 
 // Validation functions
 function validateSupabaseUrl(url: string): ValidationState {
-  if (!url) return { isValid: false };
+  if (!url) {return { isValid: false };}
 
   // Check for basic URL format
   const urlPattern = /^https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/?$/;
@@ -53,7 +56,7 @@ function validateSupabaseUrl(url: string): ValidationState {
 }
 
 function validateJwtKey(key: string): ValidationState {
-  if (!key) return { isValid: false };
+  if (!key) {return { isValid: false };}
 
   // JWT keys start with eyJ
   if (!key.startsWith('eyJ')) {
@@ -179,7 +182,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
           // For new users, missing tables is expected - auto-run migrations if we have the password
           if (databasePassword) {
             // Auto-run migrations
-            handleRunMigrations(false);
+            void handleRunMigrations(false);
           } else {
             setMigration({
               status: 'needed',
@@ -268,7 +271,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
     validation: ValidationState;
     value: string;
   }) => {
-    if (!value) return null;
+    if (!value) {return null;}
 
     return (
       <div className="absolute right-3 top-1/2 -translate-y-1/2">

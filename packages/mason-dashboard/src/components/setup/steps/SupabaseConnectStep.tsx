@@ -1,8 +1,5 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import {
   Database,
   Loader2,
@@ -11,7 +8,20 @@ import {
   ExternalLink,
   RefreshCw,
 } from 'lucide-react';
-import type { WizardStepProps } from '../SetupWizard';
+import { useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { useState, useEffect, useCallback } from 'react';
+
+
+import { useUserDatabase } from '@/hooks/useUserDatabase';
+import {
+  listProjects,
+  checkMasonTablesExist,
+  runMasonMigrations,
+  getApiKeys,
+  buildProjectUrl,
+  type SupabaseProject,
+} from '@/lib/supabase/management-api';
 import {
   getOAuthSession,
   saveOAuthSession,
@@ -23,17 +33,10 @@ import {
   clearOAuthSession,
   type SupabaseOAuthTokens,
 } from '@/lib/supabase/oauth';
-import {
-  listProjects,
-  checkMasonTablesExist,
-  runMasonMigrations,
-  getApiKeys,
-  buildProjectUrl,
-  type SupabaseProject,
-} from '@/lib/supabase/management-api';
 import { saveMasonConfig } from '@/lib/supabase/user-client';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { createMasonUserRecord } from '@/lib/supabase/user-record';
+
+import type { WizardStepProps } from '../SetupWizard';
 
 type ConnectionStatus =
   | 'idle'
@@ -53,7 +56,7 @@ interface ConnectionState {
 export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const { refresh, client, isConfigured } = useUserDatabase();
+  const { refresh, client, isConfigured: _isConfigured } = useUserDatabase();
   const [connection, setConnection] = useState<ConnectionState>({
     status: 'idle',
   });
@@ -108,7 +111,7 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
       }
     };
 
-    handleOAuthCallback();
+    void handleOAuthCallback();
   }, [searchParams]);
 
   // Check for existing session on mount
@@ -124,7 +127,7 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
           message: `Connected to ${selectedProject.name}`,
         });
       } else if (accessToken) {
-        fetchProjects(accessToken);
+        void fetchProjects(accessToken);
       }
     }
   }, []);
@@ -261,7 +264,7 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
     [connection.projects, refresh, session],
   );
 
-  const handleRefreshToken = async () => {
+  const _handleRefreshToken = async () => {
     const refreshToken = getRefreshToken();
     if (!refreshToken) {
       setConnection({

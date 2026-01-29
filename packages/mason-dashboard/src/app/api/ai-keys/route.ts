@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/client';
+
 import { TABLES } from '@/lib/constants';
+import { createServerClient } from '@/lib/supabase/client';
 
 export async function GET() {
   try {

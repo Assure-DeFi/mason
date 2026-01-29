@@ -21,33 +21,33 @@ export function PriorityDots({
   const getFilledColor = (dotIndex: number) => {
     if (variant === 'complexity') {
       // Graduated colors: green (low) -> yellow (med) -> red (high)
-      if (dotIndex < 2) return 'bg-emerald-500';
-      if (dotIndex < 3) return 'bg-yellow-500';
-      if (dotIndex < 4) return 'bg-orange-500';
+      if (dotIndex < 2) {return 'bg-emerald-500';}
+      if (dotIndex < 3) {return 'bg-yellow-500';}
+      if (dotIndex < 4) {return 'bg-orange-500';}
       return 'bg-red-500';
     }
     if (variant === 'effort') {
       // Similar gradient for effort
-      if (dotIndex < 2) return 'bg-emerald-500';
-      if (dotIndex < 3) return 'bg-yellow-500';
-      if (dotIndex < 4) return 'bg-orange-500';
+      if (dotIndex < 2) {return 'bg-emerald-500';}
+      if (dotIndex < 3) {return 'bg-yellow-500';}
+      if (dotIndex < 4) {return 'bg-orange-500';}
       return 'bg-red-500';
     }
     // priority - higher is better, use gold accent for high priority
-    if (dotIndex >= 4) return 'bg-red-400';
-    if (dotIndex >= 3) return 'bg-orange-400';
+    if (dotIndex >= 4) {return 'bg-red-400';}
+    if (dotIndex >= 3) {return 'bg-orange-400';}
     return 'bg-blue-400';
   };
 
   const getLabel = () => {
     if (variant === 'effort') {
-      if (value <= 3) return 'Low';
-      if (value <= 6) return 'Med';
+      if (value <= 3) {return 'Low';}
+      if (value <= 6) {return 'Med';}
       return 'High';
     }
     if (variant === 'complexity') {
-      if (value <= 2) return 'Low';
-      if (value <= 3) return 'Med';
+      if (value <= 2) {return 'Low';}
+      if (value <= 3) {return 'Med';}
       return 'High';
     }
     return '';

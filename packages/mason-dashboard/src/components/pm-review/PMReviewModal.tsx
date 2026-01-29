@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { clsx } from 'clsx';
 import {
   X,
   Sparkles,
@@ -11,7 +11,7 @@ import {
   Check,
   Loader2,
 } from 'lucide-react';
-import { clsx } from 'clsx';
+import { useState, useEffect, useCallback } from 'react';
 
 type DomainFocus =
   | 'frontend-ux'
@@ -124,7 +124,7 @@ export function PMReviewModal({
   // Fetch suggestions when repository changes
   useEffect(() => {
     if (repositoryId && isOpen) {
-      fetchSuggestions(repositoryId);
+      void fetchSuggestions(repositoryId);
     }
   }, [repositoryId, isOpen]);
 
@@ -145,7 +145,7 @@ export function PMReviewModal({
 
   // Handle keyboard navigation
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {return;}
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -207,7 +207,7 @@ export function PMReviewModal({
     setHasCopied(false);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   return (
     <div

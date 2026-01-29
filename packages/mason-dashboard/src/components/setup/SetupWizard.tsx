@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { WizardProgress } from './WizardProgress';
-import { SupabaseConnectStep } from './steps/SupabaseConnectStep';
+import { useState, useCallback, useEffect } from 'react';
+
+import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { STORAGE_KEYS } from '@/lib/constants';
+
+import { CompleteStep } from './steps/CompleteStep';
 import { DatabaseStep } from './steps/DatabaseStep';
 import { GitHubStep } from './steps/GitHubStep';
 import { RepoStep } from './steps/RepoStep';
-import { CompleteStep } from './steps/CompleteStep';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
-import { STORAGE_KEYS } from '@/lib/constants';
+import { SupabaseConnectStep } from './steps/SupabaseConnectStep';
+import { WizardProgress } from './WizardProgress';
 
 // Streamlined setup flow: GitHub -> Supabase -> Repo -> Done
 const WIZARD_STEPS = [
@@ -37,7 +39,7 @@ export function SetupWizard() {
   const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState(1);
   const [useLegacyFlow, setUseLegacyFlow] = useState(false);
-  const { saveConfig, config } = useUserDatabase();
+  const { saveConfig: _saveConfig, config: _config } = useUserDatabase();
 
   // Get current steps based on flow type
   const currentSteps = useLegacyFlow ? LEGACY_WIZARD_STEPS : WIZARD_STEPS;
@@ -80,7 +82,7 @@ export function SetupWizard() {
     localStorage.removeItem(STORAGE_KEYS.GITHUB_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.SUPABASE_OAUTH_SESSION);
     // Sign out and reload
-    signOut({ redirect: false }).then(() => {
+    void signOut({ redirect: false }).then(() => {
       setCurrentStep(1);
       window.location.reload();
     });

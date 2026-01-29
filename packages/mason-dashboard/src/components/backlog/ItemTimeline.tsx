@@ -1,8 +1,9 @@
 'use client';
 
-import { formatDistanceToNow, format } from 'date-fns';
-import { Check, Clock, ArrowRight, Circle } from 'lucide-react';
 import { clsx } from 'clsx';
+import { formatDistanceToNow, format } from 'date-fns';
+import { Check, Clock, Circle } from 'lucide-react';
+
 import type { BacklogStatus } from '@/types/backlog';
 
 interface TimelineEvent {

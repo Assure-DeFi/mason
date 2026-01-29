@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
 import { clsx } from 'clsx';
+import { Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface SuccessAnimationProps {
   /** Show the animation */
@@ -59,7 +59,7 @@ export function SuccessAnimation({
     }
   }, [show, duration, onComplete]);
 
-  if (!isVisible) return null;
+  if (!isVisible) {return null;}
 
   const sizeClasses = {
     sm: { container: 'w-12 h-12', icon: 'w-6 h-6', text: 'text-sm' },
@@ -201,7 +201,7 @@ export function InlineSuccess({
     }
   }, [show]);
 
-  if (!isVisible) return null;
+  if (!isVisible) {return null;}
 
   return (
     <span

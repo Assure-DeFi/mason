@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Copy, Check, AlertCircle } from 'lucide-react';
 import { clsx } from 'clsx';
+import { Copy, Check, AlertCircle } from 'lucide-react';
+import { useState, useCallback } from 'react';
 
 interface CopyButtonProps {
   /** Text to copy to clipboard */
@@ -44,7 +44,7 @@ export function CopyButton({
   const [showToastState, setShowToastState] = useState(false);
 
   const handleCopy = useCallback(async () => {
-    if (disabled) return;
+    if (disabled) {return;}
 
     try {
       await navigator.clipboard.writeText(text);

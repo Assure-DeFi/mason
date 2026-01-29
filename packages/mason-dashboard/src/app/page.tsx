@@ -1,8 +1,9 @@
 'use client';
 
+import { Shield, Database, Github, ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { Shield, Database, Github, ArrowRight, Sparkles } from 'lucide-react';
+
 import { SignInButton } from '@/components/auth/sign-in-button';
 import {
   MasonLogo,

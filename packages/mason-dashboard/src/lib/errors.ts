@@ -151,7 +151,7 @@ const ERROR_CONFIGS: Record<ErrorCode, ErrorConfig> = {
  * Map an error to a known error code
  */
 export function getErrorCode(error: unknown): ErrorCode {
-  if (!error) return 'UNKNOWN';
+  if (!error) {return 'UNKNOWN';}
 
   const errorMessage =
     error instanceof Error

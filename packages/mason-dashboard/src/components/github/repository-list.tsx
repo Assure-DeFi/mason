@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import {
   GitBranch,
   Lock,
@@ -9,6 +8,8 @@ import {
   ExternalLink,
   RefreshCw,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
 import type { GitHubRepository } from '@/types/auth';
 
 interface RepositoryListProps {
@@ -43,7 +44,7 @@ export function RepositoryList({ onDisconnect }: RepositoryListProps) {
   };
 
   useEffect(() => {
-    fetchRepositories();
+    void fetchRepositories();
   }, []);
 
   const handleDisconnect = async (repository: GitHubRepository) => {

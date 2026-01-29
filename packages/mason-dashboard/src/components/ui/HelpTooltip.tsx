@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { HelpCircle } from 'lucide-react';
 import { clsx } from 'clsx';
+import { HelpCircle } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 
 interface HelpTooltipProps {
   /** The help content to display */
@@ -31,7 +31,7 @@ export function HelpTooltip({
 
   // Adjust position if tooltip would overflow viewport
   useEffect(() => {
-    if (!isOpen || !triggerRef.current || !tooltipRef.current) return;
+    if (!isOpen || !triggerRef.current || !tooltipRef.current) {return;}
 
     const triggerRect = triggerRef.current.getBoundingClientRect();
     const tooltipRect = tooltipRef.current.getBoundingClientRect();

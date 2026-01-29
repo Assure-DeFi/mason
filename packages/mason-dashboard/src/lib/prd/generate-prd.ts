@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
+
 import type { BacklogItem } from '@/types/backlog';
 
 export type AIProvider = 'anthropic' | 'openai';
@@ -171,8 +172,8 @@ export function parsePrdWaves(prdContent: string): Array<{
   }> = [];
 
   // Parse wave sections from PRD content
-  const waveRegex = /###\s*Wave\s*(\d+):\s*([^\n]+)/gi;
-  const taskRegex = /\|\s*(\d+(?:\.\d+)?)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|/g;
+  const _waveRegex = /###\s*Wave\s*(\d+):\s*([^\n]+)/gi;
+  const _taskRegex = /\|\s*(\d+(?:\.\d+)?)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|/g;
 
   let waveMatch: RegExpExecArray | null;
   let currentWave: {
@@ -209,7 +210,7 @@ export function parsePrdWaves(prdContent: string): Array<{
       if (taskMatch) {
         const [, taskNum, subagent, description] = taskMatch;
         // Skip header rows
-        if (subagent.trim().toLowerCase() === 'subagent') continue;
+        if (subagent.trim().toLowerCase() === 'subagent') {continue;}
 
         currentWave.tasks.push({
           taskNumber: parseFloat(taskNum),

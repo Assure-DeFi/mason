@@ -1,7 +1,7 @@
 'use client';
 
-import Image from 'next/image';
 import { clsx } from 'clsx';
+import Image from 'next/image';
 
 interface MasonAvatarProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'hero';

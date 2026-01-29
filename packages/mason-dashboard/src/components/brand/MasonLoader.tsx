@@ -1,6 +1,7 @@
 'use client';
 
 import { clsx } from 'clsx';
+
 import { MasonMark } from './MasonMark';
 
 interface MasonLoaderProps {

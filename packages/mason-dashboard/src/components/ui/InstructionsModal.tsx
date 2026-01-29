@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
 import {
   X,
   BookOpen,
@@ -21,6 +20,7 @@ import {
   MousePointer,
   Keyboard,
 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface InstructionsModalProps {
   isOpen: boolean;
@@ -93,7 +93,7 @@ export function InstructionsModal({ isOpen, onClose }: InstructionsModalProps) {
     }
   }, [isOpen, handleKeyDown]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   const renderContent = () => {
     switch (activeSection) {

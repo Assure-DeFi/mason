@@ -1,10 +1,14 @@
 'use client';
 
-import { useSession, signIn, signOut } from 'next-auth/react';
 import { Github, Check, Loader2, User, RefreshCw } from 'lucide-react';
-import type { WizardStepProps } from '../SetupWizard';
-import { useGitHubToken } from '@/hooks/useGitHubToken';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+
+import { useGitHubToken } from '@/hooks/useGitHubToken';
+
+import type { WizardStepProps } from '../SetupWizard';
+
+
 
 export function GitHubStep({ onNext, onBack }: WizardStepProps) {
   const { data: session, status } = useSession();

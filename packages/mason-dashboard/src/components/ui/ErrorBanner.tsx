@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { clsx } from 'clsx';
 import {
   AlertCircle,
   X,
@@ -9,7 +9,8 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
-import { clsx } from 'clsx';
+import { useState, useEffect } from 'react';
+
 import { getErrorConfig, type ErrorCode } from '@/lib/errors';
 
 interface ErrorBannerProps {
@@ -29,7 +30,7 @@ interface ErrorBannerProps {
 
 export function ErrorBanner({
   error,
-  errorCode,
+  errorCode: _errorCode,
   onRetry,
   onDismiss,
   dismissible = true,
@@ -39,7 +40,7 @@ export function ErrorBanner({
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
 
-  if (isDismissed) return null;
+  if (isDismissed) {return null;}
 
   const config = getErrorConfig(error);
 
@@ -215,7 +216,7 @@ export function ErrorToast({
     return () => clearTimeout(timer);
   }, [duration, onDismiss]);
 
-  if (!isVisible) return null;
+  if (!isVisible) {return null;}
 
   return (
     <div className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-red-600 text-white shadow-lg rounded flex items-center gap-3">

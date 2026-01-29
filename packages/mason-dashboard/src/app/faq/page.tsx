@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
 import {
   Search,
   ChevronDown,
   ChevronUp,
-  ArrowLeft,
   HelpCircle,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useState, useMemo } from 'react';
+
 import { UserMenu } from '@/components/auth/user-menu';
-import { MasonMark, MasonLogo } from '@/components/brand';
+import { MasonMark } from '@/components/brand';
 
 interface FAQItem {
   question: string;

@@ -1,8 +1,5 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   Database,
@@ -16,8 +13,16 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { useState, useEffect, Suspense } from 'react';
+
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
+import { useUserDatabase } from '@/hooks/useUserDatabase';
+import {
+  listProjects,
+  type SupabaseProject,
+} from '@/lib/supabase/management-api';
 import {
   getOAuthSession,
   hasValidOAuthSession,
@@ -29,10 +34,6 @@ import {
   clearOAuthSession,
   type SupabaseOAuthTokens,
 } from '@/lib/supabase/oauth';
-import {
-  listProjects,
-  type SupabaseProject,
-} from '@/lib/supabase/management-api';
 
 type MigrationStatus = 'idle' | 'running' | 'success' | 'error';
 
@@ -123,7 +124,7 @@ function DatabaseSettingsContent() {
         return;
       }
 
-      if (oauthSuccess !== 'true') return;
+      if (oauthSuccess !== 'true') {return;}
 
       // Read tokens from cookie
       const tokenCookie = document.cookie
@@ -198,7 +199,7 @@ function DatabaseSettingsContent() {
       router.replace('/settings/database');
     };
 
-    handleOAuthCallback();
+    void handleOAuthCallback();
   }, [searchParams, router, config?.supabaseUrl]);
 
   const handleConnectOAuth = () => {
@@ -222,7 +223,7 @@ function DatabaseSettingsContent() {
             `Selected project: ${project.name} (${project.id})\n\n` +
             `This will change where Mason stores your data. Continue?`,
         );
-        if (!confirmSwitch) return;
+        if (!confirmSwitch) {return;}
 
         // If switching projects, warn about data access
         const confirmDataLoss = window.confirm(
@@ -231,7 +232,7 @@ function DatabaseSettingsContent() {
             `The old data remains in ${existingRef}, but Mason will now use ${project.id}.\n\n` +
             `Are you sure you want to switch?`,
         );
-        if (!confirmDataLoss) return;
+        if (!confirmDataLoss) {return;}
       }
     }
 

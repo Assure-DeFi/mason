@@ -78,7 +78,7 @@ export async function listUserRepositories(): Promise<{
 
       const data = await response.json();
 
-      if (data.length === 0) break;
+      if (data.length === 0) {break;}
 
       repos.push(
         ...data.map((repo: Record<string, unknown>) => ({
@@ -92,7 +92,7 @@ export async function listUserRepositories(): Promise<{
         })),
       );
 
-      if (data.length < perPage) break;
+      if (data.length < perPage) {break;}
       page++;
     }
 

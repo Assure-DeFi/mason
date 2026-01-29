@@ -1,7 +1,7 @@
 'use client';
 
+import { Rocket, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
-import { Rocket, Copy, Check, ExternalLink } from 'lucide-react';
 
 interface AutoPilotButtonProps {
   approvedCount: number;

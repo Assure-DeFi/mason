@@ -1,7 +1,7 @@
 'use client';
 
-import { Zap, TrendingUp, Leaf } from 'lucide-react';
 import { clsx } from 'clsx';
+import { Zap, TrendingUp, Leaf } from 'lucide-react';
 
 interface QuickWinBadgeProps {
   /** Impact score (1-10) */

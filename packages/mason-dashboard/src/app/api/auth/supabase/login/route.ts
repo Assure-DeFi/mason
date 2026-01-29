@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+
 import {
   generateCodeVerifier,
   generateCodeChallenge,
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
   const state = generateState();
 
   // Store code verifier and state in secure httpOnly cookies
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
 
   // Code verifier cookie - needed for token exchange
   cookieStore.set(OAUTH_COOKIES.CODE_VERIFIER, codeVerifier, {

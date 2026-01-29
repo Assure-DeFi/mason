@@ -1,4 +1,3 @@
-import { supabase } from './client';
 import type {
   BacklogItem,
   BacklogFilters,
@@ -6,6 +5,8 @@ import type {
   BacklogStatus,
 } from '@/types/backlog';
 import type { ExecutionRun, ExecutionTask } from '@/types/execution';
+
+import { supabase } from './client';
 
 /**
  * Fetch backlog items with optional filters and sorting

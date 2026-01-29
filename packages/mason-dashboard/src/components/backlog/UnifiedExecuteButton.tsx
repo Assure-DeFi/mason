@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { clsx } from 'clsx';
 import {
   Play,
   Terminal,
   Cloud,
   X,
   Check,
-  Copy,
   AlertCircle,
 } from 'lucide-react';
-import { clsx } from 'clsx';
+import { useState, useEffect } from 'react';
+
 import { STORAGE_KEYS } from '@/lib/constants';
 
 interface UnifiedExecuteButtonProps {
@@ -61,7 +61,7 @@ export function UnifiedExecuteButton({
   const handleClick = () => {
     // If user has a preference, use it directly
     if (preferredMethod === 'cli') {
-      handleCopyCommand();
+      void handleCopyCommand();
     } else if (
       preferredMethod === 'remote' &&
       remoteAvailable &&
@@ -101,7 +101,7 @@ export function UnifiedExecuteButton({
     }
 
     if (method === 'cli') {
-      handleCopyCommand();
+      void handleCopyCommand();
     } else {
       handleRemoteExecute();
     }

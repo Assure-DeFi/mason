@@ -41,7 +41,7 @@ export function ConfirmationDialog({
     }
   }, [isOpen, isLoading, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   const variantClasses = {
     approve:

@@ -1,8 +1,5 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Plus,
@@ -15,8 +12,12 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { useState, useEffect, useCallback } from 'react';
+
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
+import { useUserDatabase } from '@/hooks/useUserDatabase';
 
 interface ApiKeyInfo {
   id: string;
@@ -82,7 +83,7 @@ export default function ApiKeysPage() {
 
   useEffect(() => {
     if (session && isConfigured && !isDbLoading) {
-      fetchKeys();
+      void fetchKeys();
     } else if (!isDbLoading && !isConfigured) {
       setIsLoading(false);
     }
@@ -197,7 +198,7 @@ export default function ApiKeysPage() {
   };
 
   const formatRelativeTime = (dateString: string | null) => {
-    if (!dateString) return 'Never';
+    if (!dateString) {return 'Never';}
 
     const date = new Date(dateString);
     const now = new Date();
@@ -206,10 +207,10 @@ export default function ApiKeysPage() {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) {return 'Just now';}
+    if (diffMins < 60) {return `${diffMins}m ago`;}
+    if (diffHours < 24) {return `${diffHours}h ago`;}
+    if (diffDays < 7) {return `${diffDays}d ago`;}
     return formatDate(dateString);
   };
 

@@ -1,8 +1,9 @@
 'use client';
 
 import { Suspense } from 'react';
-import { SetupWizard } from '@/components/setup/SetupWizard';
+
 import { MasonLoader } from '@/components/brand';
+import { SetupWizard } from '@/components/setup/SetupWizard';
 
 function LoadingSpinner() {
   return (

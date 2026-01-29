@@ -1,6 +1,16 @@
 'use client';
 
 import {
+  RefreshCw,
+  ArrowRight,
+  Search,
+  Undo2,
+  Sparkles,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import {
   Suspense,
   useState,
   useEffect,
@@ -8,24 +18,22 @@ import {
   useMemo,
   useRef,
 } from 'react';
-import { useSession } from 'next-auth/react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { StatsBar } from '@/components/backlog/stats-bar';
-import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
-import { FilteredItemsTab } from './components/filtered-items-tab';
-import { ImprovementsTable } from '@/components/backlog/improvements-table';
-import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
-import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
-import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
+
+import { UserMenu } from '@/components/auth/user-menu';
 import { AutoPilotButton } from '@/components/backlog/AutoPilotButton';
+import { BacklogFilters } from '@/components/backlog/backlog-filters';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
-import { UserMenu } from '@/components/auth/user-menu';
+import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
+import { ImprovementsTable } from '@/components/backlog/improvements-table';
+import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
+import { StatsBar } from '@/components/backlog/stats-bar';
+import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
+
+import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
 import { SkeletonTable } from '@/components/ui/Skeleton';
-import { BacklogFilters } from '@/components/backlog/backlog-filters';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { useGitHubToken } from '@/hooks/useGitHubToken';
 import { API_ROUTES } from '@/lib/constants';
@@ -39,15 +47,6 @@ import type {
   SortDirection,
 } from '@/types/backlog';
 import { getComplexityValue } from '@/types/backlog';
-import {
-  RefreshCw,
-  Database,
-  ArrowRight,
-  Search,
-  Loader2,
-  Undo2,
-  Sparkles,
-} from 'lucide-react';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { PMReviewModal } from '@/components/pm-review/PMReviewModal';
 import {
@@ -56,6 +55,7 @@ import {
   MasonEmptyState,
   MasonErrorState,
 } from '@/components/brand';
+import { FilteredItemsTab } from './components/filtered-items-tab';
 
 interface UndoState {
   items: { id: string; previousStatus: BacklogStatus }[];
@@ -171,19 +171,19 @@ function BacklogPageContent() {
   useEffect(() => {
     const params = new URLSearchParams();
 
-    if (searchQuery) params.set('search', searchQuery);
-    if (selectedAreas.length > 0) params.set('areas', selectedAreas.join(','));
-    if (selectedTypes.length > 0) params.set('types', selectedTypes.join(','));
+    if (searchQuery) {params.set('search', searchQuery);}
+    if (selectedAreas.length > 0) {params.set('areas', selectedAreas.join(','));}
+    if (selectedTypes.length > 0) {params.set('types', selectedTypes.join(','));}
     if (complexityRange[0] !== 1)
-      params.set('complexityMin', complexityRange[0].toString());
+      {params.set('complexityMin', complexityRange[0].toString());}
     if (complexityRange[1] !== 5)
-      params.set('complexityMax', complexityRange[1].toString());
+      {params.set('complexityMax', complexityRange[1].toString());}
     if (effortRange[0] !== 1)
-      params.set('effortMin', effortRange[0].toString());
+      {params.set('effortMin', effortRange[0].toString());}
     if (effortRange[1] !== 10)
-      params.set('effortMax', effortRange[1].toString());
+      {params.set('effortMax', effortRange[1].toString());}
     if (activeStatus && activeStatus !== 'new')
-      params.set('status', activeStatus);
+      {params.set('status', activeStatus);}
 
     const newUrl = params.toString()
       ? `${window.location.pathname}?${params.toString()}`
@@ -211,7 +211,7 @@ function BacklogPageContent() {
   }, [searchParams]);
 
   const fetchFilteredCount = useCallback(async () => {
-    if (!client) return;
+    if (!client) {return;}
 
     try {
       let query = client
@@ -277,8 +277,8 @@ function BacklogPageContent() {
           .order('priority_score', { ascending: false }),
       ]);
 
-      if (repoItems.error) throw repoItems.error;
-      if (legacyItems.error) throw legacyItems.error;
+      if (repoItems.error) {throw repoItems.error;}
+      if (legacyItems.error) {throw legacyItems.error;}
 
       // Merge and dedupe results, sort by priority
       const allItems = [...(repoItems.data || []), ...(legacyItems.data || [])];
@@ -289,7 +289,7 @@ function BacklogPageContent() {
       setItems(uniqueItems);
 
       // Also fetch filtered count
-      fetchFilteredCount();
+      void fetchFilteredCount();
     } catch (err) {
       console.error('Error fetching backlog:', err);
       setError(
@@ -304,7 +304,7 @@ function BacklogPageContent() {
 
   useEffect(() => {
     if (isConfigured && !isDbLoading) {
-      fetchItems();
+      void fetchItems();
     } else if (!isDbLoading && !isConfigured) {
       setIsLoading(false);
     }
@@ -312,7 +312,7 @@ function BacklogPageContent() {
 
   // Real-time subscription - filters by selected repository (includes legacy items with null repo)
   useEffect(() => {
-    if (!client || !isConfigured || !selectedRepoId) return;
+    if (!client || !isConfigured || !selectedRepoId) {return;}
 
     // Helper to check if item belongs to current view (matches repo OR has no repo)
     const itemBelongsToCurrentView = (repoId: string | null) =>
@@ -332,7 +332,7 @@ function BacklogPageContent() {
             setItems((prev) => {
               const newItem = payload.new as BacklogItem;
               // Only add if it matches current repo OR has no repo assigned
-              if (!itemBelongsToCurrentView(newItem.repository_id)) return prev;
+              if (!itemBelongsToCurrentView(newItem.repository_id)) {return prev;}
               const updated = [...prev, newItem].sort(
                 (a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0),
               );
@@ -373,7 +373,7 @@ function BacklogPageContent() {
       .subscribe();
 
     return () => {
-      client.removeChannel(channel);
+      void client.removeChannel(channel);
     };
   }, [client, isConfigured, selectedRepoId, selectedItem?.id]);
 
@@ -492,8 +492,8 @@ function BacklogPageContent() {
             return 0;
         }
 
-        if (aVal < bVal) return sort.direction === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sort.direction === 'asc' ? 1 : -1;
+        if (aVal < bVal) {return sort.direction === 'asc' ? -1 : 1;}
+        if (aVal > bVal) {return sort.direction === 'asc' ? 1 : -1;}
         return 0;
       });
     }
@@ -534,8 +534,8 @@ function BacklogPageContent() {
   }, [items, selectedIds]);
 
   const handleRestoreComplete = useCallback(() => {
-    fetchItems();
-    fetchFilteredCount();
+    void fetchItems();
+    void fetchFilteredCount();
   }, [fetchItems, fetchFilteredCount]);
 
   const handleUpdateStatus = async (id: string, status: BacklogStatus) => {
@@ -666,7 +666,7 @@ function BacklogPageContent() {
   };
 
   const handleBulkGeneratePrds = async (ids: string[]) => {
-    if (ids.length === 0) return;
+    if (ids.length === 0) {return;}
 
     setIsBulkGenerating(true);
     setGenerationProgress({ current: 0, total: ids.length });
@@ -700,7 +700,7 @@ function BacklogPageContent() {
   };
 
   const handleBulkApproveRequest = (ids: string[]) => {
-    if (ids.length === 0) return;
+    if (ids.length === 0) {return;}
     const titles = items
       .filter((item) => ids.includes(item.id))
       .map((item) => item.title);
@@ -708,7 +708,7 @@ function BacklogPageContent() {
   };
 
   const handleBulkRejectRequest = (ids: string[]) => {
-    if (ids.length === 0) return;
+    if (ids.length === 0) {return;}
     const titles = items
       .filter((item) => ids.includes(item.id))
       .map((item) => item.title);
@@ -716,7 +716,7 @@ function BacklogPageContent() {
   };
 
   const handleBulkRestoreRequest = (ids: string[]) => {
-    if (ids.length === 0) return;
+    if (ids.length === 0) {return;}
     const titles = items
       .filter((item) => ids.includes(item.id))
       .map((item) => item.title);
@@ -724,7 +724,7 @@ function BacklogPageContent() {
   };
 
   const handleConfirmBulkAction = async () => {
-    if (!client) return;
+    if (!client) {return;}
 
     const { action, ids } = confirmDialog;
     const newStatus =
@@ -795,7 +795,7 @@ function BacklogPageContent() {
   };
 
   const handleUndo = async () => {
-    if (!client || !undoState) return;
+    if (!client || !undoState) {return;}
 
     try {
       // Restore each item to its previous status
@@ -810,7 +810,7 @@ function BacklogPageContent() {
       }
 
       // Refresh items
-      fetchItems();
+      void fetchItems();
 
       // Clear undo state
       if (undoTimeoutRef.current) {
@@ -1207,7 +1207,7 @@ function BacklogPageContent() {
           runId={executionRunId}
           onClose={() => {
             setExecutionRunId(null);
-            fetchItems();
+            void fetchItems();
           }}
         />
       )}

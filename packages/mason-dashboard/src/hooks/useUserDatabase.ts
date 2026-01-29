@@ -9,8 +9,11 @@
  * Auto-loads credentials from central database on login if not in localStorage.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { useSession } from 'next-auth/react';
+import { useState, useEffect, useCallback } from 'react';
+
+import { getSupabase } from '@/lib/supabase/client';
 import {
   type MasonConfig,
   getMasonConfig,
@@ -23,8 +26,7 @@ import {
   checkTablesExist,
   clearUserClients,
 } from '@/lib/supabase/user-client';
-import { getSupabase } from '@/lib/supabase/client';
-import type { SupabaseClient } from '@supabase/supabase-js';
+
 
 export interface UseUserDatabaseReturn {
   isConfigured: boolean;
@@ -115,7 +117,7 @@ export function useUserDatabase(): UseUserDatabaseReturn {
       }
     }
 
-    fetchCredentialsFromCentral();
+    void fetchCredentialsFromCentral();
   }, [session, sessionStatus, hasFetchedFromCentral, loadConfig]);
 
   const saveConfigHandler = useCallback(

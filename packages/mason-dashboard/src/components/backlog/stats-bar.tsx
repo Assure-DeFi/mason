@@ -1,6 +1,7 @@
 'use client';
 
 import type { StatusCounts } from '@/types/backlog';
+
 import type { TabStatus } from './status-tabs';
 
 interface StatsBarProps {

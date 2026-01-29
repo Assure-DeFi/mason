@@ -1,9 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { clsx } from 'clsx';
+import Link from 'next/link';
+
 import { MasonMark } from './MasonMark';
-import { MasonLogo } from './MasonLogo';
 
 interface MasonHeaderProps {
   title?: string;

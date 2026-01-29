@@ -1,6 +1,5 @@
 'use client';
 
-import { signOut, useSession } from 'next-auth/react';
 import {
   LogOut,
   Settings,
@@ -11,10 +10,13 @@ import {
   BookOpen,
   HelpCircle,
 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { SignInButton } from './sign-in-button';
+import { signOut, useSession } from 'next-auth/react';
+import { useState, useRef, useEffect } from 'react';
+
 import { InstructionsModal } from '@/components/ui/InstructionsModal';
+
+import { SignInButton } from './sign-in-button';
 
 export function UserMenu() {
   const { data: session, status } = useSession();

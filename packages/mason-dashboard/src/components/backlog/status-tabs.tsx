@@ -1,8 +1,9 @@
 'use client';
 
-import type { BacklogStatus } from '@/types/backlog';
 import { clsx } from 'clsx';
 import { EyeOff } from 'lucide-react';
+
+import type { BacklogStatus } from '@/types/backlog';
 
 // Extended tab type that includes 'filtered' special tab
 export type TabStatus = BacklogStatus | 'filtered' | null;

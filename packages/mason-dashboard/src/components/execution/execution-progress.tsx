@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
 import { X, CheckCircle, XCircle, Loader2, ExternalLink } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+
 import type { RemoteExecutionStatus } from '@/types/auth';
 
 interface ExecutionLog {

@@ -1,8 +1,5 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Sparkles,
@@ -16,8 +13,12 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { useState, useEffect, useCallback } from 'react';
+
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
+import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { TABLES } from '@/lib/constants';
 
 type AIProvider = 'anthropic' | 'openai';
@@ -35,7 +36,7 @@ interface ValidationState {
 }
 
 function validateAnthropicKey(key: string): ValidationState {
-  if (!key) return { isValid: false };
+  if (!key) {return { isValid: false };}
 
   if (!key.startsWith('sk-ant-api03-')) {
     return {
@@ -55,7 +56,7 @@ function validateAnthropicKey(key: string): ValidationState {
 }
 
 function validateOpenAIKey(key: string): ValidationState {
-  if (!key) return { isValid: false };
+  if (!key) {return { isValid: false };}
 
   if (!key.startsWith('sk-')) {
     return {
@@ -155,14 +156,14 @@ export default function AIProvidersPage() {
 
   useEffect(() => {
     if (session && isConfigured && !isDbLoading) {
-      fetchKeys();
+      void fetchKeys();
     } else if (!isDbLoading && !isConfigured) {
       setIsLoading(false);
     }
   }, [session, fetchKeys, isConfigured, isDbLoading]);
 
   const handleTestAndSave = async () => {
-    if (!client || !keyValidation.isValid || !session?.user) return;
+    if (!client || !keyValidation.isValid || !session?.user) {return;}
 
     setIsTesting(true);
     setError(null);
@@ -216,7 +217,7 @@ export default function AIProvidersPage() {
       setSaveSuccess(true);
       setApiKey('');
       setKeyValidation({ isValid: false });
-      fetchKeys();
+      void fetchKeys();
     } catch (err) {
       console.error('Error saving AI key:', err);
       setError(err instanceof Error ? err.message : 'Failed to save API key');
@@ -227,7 +228,7 @@ export default function AIProvidersPage() {
   };
 
   const handleDeleteKey = async (provider: AIProvider) => {
-    if (!client) return;
+    if (!client) {return;}
 
     setDeletingProvider(provider);
 

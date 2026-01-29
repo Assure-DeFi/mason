@@ -38,7 +38,7 @@ export function useKeyboardShortcuts({
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      if (!enabled) return;
+      if (!enabled) {return;}
 
       // Don't handle shortcuts when typing in inputs
       const target = event.target as HTMLElement;
@@ -59,7 +59,7 @@ export function useKeyboardShortcuts({
 
       // Check each shortcut
       for (const shortcut of shortcuts) {
-        if (shortcut.enabled === false) continue;
+        if (shortcut.enabled === false) {continue;}
 
         const modifiers = shortcut.modifiers || {};
         const keyMatches = event.key.toLowerCase() === shortcut.key.toLowerCase();
@@ -184,7 +184,7 @@ export function KeyboardShortcutsHelp({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [show, onClose]);
 
-  if (!show) return null;
+  if (!show) {return null;}
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">

@@ -1,7 +1,8 @@
 import { type NextAuthOptions } from 'next-auth';
 import GitHubProvider from 'next-auth/providers/github';
+
 import { createServiceClient } from '@/lib/supabase/client';
-import type { SessionUser, User } from '@/types/auth';
+import type { SessionUser } from '@/types/auth';
 
 declare module 'next-auth' {
   interface Session {
@@ -69,7 +70,7 @@ export const authOptions: NextAuthOptions = {
         const githubUsername = githubProfile?.login ?? user.name ?? 'unknown';
         const githubEmail = user.email ?? null;
         const githubAvatarUrl = user.image ?? null;
-        const accessToken = account.access_token ?? '';
+        const _accessToken = account.access_token ?? '';
 
         // Upsert user in database (identity only - NO access token stored)
         // Privacy: GitHub access token is stored client-side only

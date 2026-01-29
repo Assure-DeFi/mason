@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Check, ExternalLink, Github, Database } from 'lucide-react';
 import { clsx } from 'clsx';
+import { Check, ExternalLink, Github, Database } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface PreSetupChecklistProps {
   onReady: () => void;
@@ -73,7 +73,7 @@ export function PreSetupChecklist({ onReady }: PreSetupChecklistProps) {
 
   const allChecked = CHECKLIST_ITEMS.every((item) => checkedItems.has(item.id));
 
-  if (!isVisible) return null;
+  if (!isVisible) {return null;}
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">

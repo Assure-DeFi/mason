@@ -1,7 +1,5 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
 import {
   Check,
   X,
@@ -10,10 +8,15 @@ import {
   ExternalLink,
   AlertCircle,
 } from 'lucide-react';
-import type { WizardStepProps } from '../SetupWizard';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { useSession } from 'next-auth/react';
+import { useState, useEffect, useMemo } from 'react';
+
+
 import { HelpTooltip } from '@/components/ui/HelpTooltip';
+import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { TABLES } from '@/lib/constants';
+
+import type { WizardStepProps } from '../SetupWizard';
 
 type AIProvider = 'anthropic' | 'openai';
 
@@ -23,7 +26,7 @@ interface ValidationState {
 }
 
 function validateAnthropicKey(key: string): ValidationState {
-  if (!key) return { isValid: false };
+  if (!key) {return { isValid: false };}
 
   if (!key.startsWith('sk-ant-api03-')) {
     return {
@@ -43,7 +46,7 @@ function validateAnthropicKey(key: string): ValidationState {
 }
 
 function validateOpenAIKey(key: string): ValidationState {
-  if (!key) return { isValid: false };
+  if (!key) {return { isValid: false };}
 
   if (!key.startsWith('sk-')) {
     return {
@@ -109,7 +112,7 @@ export function AIProviderStep({ onNext, onBack }: WizardStepProps) {
   }, [keyValidation.isValid, isSaving, isTesting]);
 
   const handleSaveKey = async () => {
-    if (!client || !canSave || !session?.user) return;
+    if (!client || !canSave || !session?.user) {return;}
 
     setIsSaving(true);
     setErrorMessage(null);
@@ -158,7 +161,7 @@ export function AIProviderStep({ onNext, onBack }: WizardStepProps) {
   };
 
   const handleTestConnection = async () => {
-    if (!canSave) return;
+    if (!canSave) {return;}
 
     setIsTesting(true);
     setErrorMessage(null);
@@ -202,7 +205,7 @@ export function AIProviderStep({ onNext, onBack }: WizardStepProps) {
     validation: ValidationState;
     value: string;
   }) => {
-    if (!value) return null;
+    if (!value) {return null;}
 
     return (
       <div className="absolute right-3 top-1/2 -translate-y-1/2">

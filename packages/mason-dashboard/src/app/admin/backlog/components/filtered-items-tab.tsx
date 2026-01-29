@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
-import type { FilteredItem, FilterTier } from '@/types/backlog';
+import { clsx } from 'clsx';
 import {
   AlertTriangle,
   RotateCcw,
@@ -11,7 +9,10 @@ import {
   ChevronUp,
   Loader2,
 } from 'lucide-react';
-import { clsx } from 'clsx';
+import { useState, useEffect, useCallback } from 'react';
+
+import { useUserDatabase } from '@/hooks/useUserDatabase';
+import type { FilteredItem, FilterTier } from '@/types/backlog';
 
 interface FilteredItemsTabProps {
   onRestoreComplete?: () => void;
@@ -64,11 +65,11 @@ export function FilteredItemsTab({ onRestoreComplete }: FilteredItemsTabProps) {
   }, [client]);
 
   useEffect(() => {
-    fetchFilteredItems();
+    void fetchFilteredItems();
   }, [fetchFilteredItems]);
 
   const handleRestore = async (item: FilteredItem) => {
-    if (!client) return;
+    if (!client) {return;}
 
     setRestoringId(item.id);
 

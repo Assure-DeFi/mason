@@ -1,7 +1,8 @@
 'use client';
 
-import type { Benefit } from '@/types/backlog';
 import { User, Users, Settings, BarChart3, Wrench } from 'lucide-react';
+
+import type { Benefit } from '@/types/backlog';
 
 interface BenefitsGridProps {
   benefits: Benefit[];

@@ -1,8 +1,10 @@
 'use client';
 
 import { Shield, Database, Github, Key, ArrowRight } from 'lucide-react';
-import type { WizardStepProps } from '../SetupWizard';
+
 import { MasonAvatar, MasonLogo } from '@/components/brand';
+
+import type { WizardStepProps } from '../SetupWizard';
 
 export function WelcomeStep({ onNext }: WizardStepProps) {
   return (

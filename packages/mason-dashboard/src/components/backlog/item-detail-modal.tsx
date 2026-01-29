@@ -1,12 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import type { BacklogItem, BacklogStatus } from '@/types/backlog';
+import { clsx } from 'clsx';
 import {
   X,
   FileText,
   Check,
-  Sparkles,
   Clock,
   ChevronRight,
   TrendingUp,
@@ -17,13 +15,17 @@ import {
   Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { clsx } from 'clsx';
-import { TypeBadge } from './type-badge';
-import { PriorityDots } from './priority-dots';
-import { BenefitsGrid } from './benefits-grid';
-import { QuickWinBadge } from './QuickWinBadge';
-import { ItemTimeline } from './ItemTimeline';
+import { useState, useEffect } from 'react';
+
 import { SuccessAnimation } from '@/components/ui/SuccessAnimation';
+import type { BacklogItem, BacklogStatus } from '@/types/backlog';
+
+import { BenefitsGrid } from './benefits-grid';
+import { ItemTimeline } from './ItemTimeline';
+import { PriorityDots } from './priority-dots';
+import { QuickWinBadge } from './QuickWinBadge';
+import { TypeBadge } from './type-badge';
+
 
 interface ItemDetailModalProps {
   item: BacklogItem;
@@ -117,19 +119,19 @@ export function ItemDetailModal({
   };
 
   const handleCancelEdit = () => {
-    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) return;
+    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {return;}
     setIsEditingPrd(false);
     setEditedPrdContent('');
   };
 
   const handleClose = () => {
-    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) return;
+    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {return;}
     setIsEditingPrd(false);
     onClose();
   };
 
   const handleTabChange = (newMode: ViewMode) => {
-    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) return;
+    if (isPrdDirty && !window.confirm('Discard unsaved changes?')) {return;}
     setIsEditingPrd(false);
     setViewMode(newMode);
   };
@@ -141,7 +143,7 @@ export function ItemDetailModal({
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         if (isEditingPrd && isPrdDirty) {
           e.preventDefault();
-          handleSavePrd();
+          void handleSavePrd();
         }
         return;
       }
@@ -159,17 +161,17 @@ export function ItemDetailModal({
           break;
         case 'g':
           if (!isGenerating && !item.prd_content) {
-            handleGeneratePrd();
+            void handleGeneratePrd();
           }
           break;
         case 'a':
           if (item.status === 'new' && !isUpdating) {
-            handleStatusChange('approved');
+            void handleStatusChange('approved');
           }
           break;
         case 'x':
           if (item.status === 'new' && !isUpdating) {
-            handleStatusChange('rejected');
+            void handleStatusChange('rejected');
           }
           break;
         case 'e':
@@ -217,7 +219,7 @@ export function ItemDetailModal({
     }
   };
 
-  const handleApproveAndGeneratePrd = async () => {
+  const _handleApproveAndGeneratePrd = async () => {
     setIsUpdating(true);
     setError(null);
     const hasPrd = !!item.prd_content;
@@ -252,9 +254,9 @@ export function ItemDetailModal({
   const statusConfig = STATUS_CONFIG[item.status];
 
   const getPriorityLabel = () => {
-    if (item.impact_score >= 9) return 'Critical Priority';
-    if (item.impact_score >= 7) return 'High Priority';
-    if (item.impact_score >= 5) return 'Medium Priority';
+    if (item.impact_score >= 9) {return 'Critical Priority';}
+    if (item.impact_score >= 7) {return 'High Priority';}
+    if (item.impact_score >= 5) {return 'Medium Priority';}
     return 'Low Priority';
   };
 

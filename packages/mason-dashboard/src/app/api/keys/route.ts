@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth/auth-options';
+
 import { createApiKey, listApiKeys } from '@/lib/auth/api-key';
+import { authOptions } from '@/lib/auth/auth-options';
 
 /**
  * GET /api/keys - List all API keys for the authenticated user

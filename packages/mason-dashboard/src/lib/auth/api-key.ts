@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'crypto';
+
 import { createServiceClient } from '@/lib/supabase/client';
 import type { User } from '@/types/auth';
 
@@ -85,7 +86,7 @@ export async function validateApiKey(key: string): Promise<User | null> {
   }
 
   // Update last_used_at asynchronously (fire and forget - don't block validation)
-  supabase
+  void supabase
     .from('mason_api_keys')
     .update({ last_used_at: new Date().toISOString() })
     .eq('id', joined.id)

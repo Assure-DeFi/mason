@@ -1,15 +1,21 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
 import {
   Database,
   Loader2,
   Check,
-  X,
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
-import type { WizardStepProps } from '../SetupWizard';
+import { useState, useEffect, useCallback } from 'react';
+
+import { useUserDatabase } from '@/hooks/useUserDatabase';
+import {
+  checkMasonTablesExist,
+  runMasonMigrations,
+  getApiKeys,
+  buildProjectUrl,
+} from '@/lib/supabase/management-api';
 import {
   getAccessToken,
   getSelectedProject,
@@ -18,14 +24,10 @@ import {
   saveOAuthSession,
   type SupabaseOAuthTokens,
 } from '@/lib/supabase/oauth';
-import {
-  checkMasonTablesExist,
-  runMasonMigrations,
-  getApiKeys,
-  buildProjectUrl,
-} from '@/lib/supabase/management-api';
 import { saveMasonConfig } from '@/lib/supabase/user-client';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
+
+import type { WizardStepProps } from '../SetupWizard';
+
 
 type SetupStatus =
   | 'checking'
@@ -102,7 +104,7 @@ export function DatabaseSetupStep({ onNext, onBack }: WizardStepProps) {
       }
 
       const accessToken = await ensureValidToken();
-      if (!accessToken) return;
+      if (!accessToken) {return;}
 
       try {
         const result = await checkMasonTablesExist(
@@ -131,7 +133,7 @@ export function DatabaseSetupStep({ onNext, onBack }: WizardStepProps) {
       }
     };
 
-    checkTables();
+    void checkTables();
   }, [ensureValidToken]);
 
   const fetchAndSaveCredentials = async (
@@ -173,7 +175,7 @@ export function DatabaseSetupStep({ onNext, onBack }: WizardStepProps) {
     }
 
     const accessToken = await ensureValidToken();
-    if (!accessToken) return;
+    if (!accessToken) {return;}
 
     setSetup({ status: 'running', message: 'Setting up database...' });
 
@@ -201,15 +203,15 @@ export function DatabaseSetupStep({ onNext, onBack }: WizardStepProps) {
     // Re-trigger the useEffect by changing state
     const selectedProject = getSelectedProject();
     if (selectedProject) {
-      ensureValidToken().then((token) => {
+      void ensureValidToken().then((token) => {
         if (token) {
-          checkMasonTablesExist(token, selectedProject.ref).then((result) => {
+          void checkMasonTablesExist(token, selectedProject.ref).then((result) => {
             if (result.exists) {
               setSetup({
                 status: 'tables_exist',
                 message: 'Database is ready!',
               });
-              fetchAndSaveCredentials(token, selectedProject.ref);
+              void fetchAndSaveCredentials(token, selectedProject.ref);
             } else {
               setSetup({
                 status: 'needs_setup',

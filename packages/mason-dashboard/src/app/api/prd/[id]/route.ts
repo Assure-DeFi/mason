@@ -1,16 +1,17 @@
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { createClient } from '@supabase/supabase-js';
-import { createServiceClient } from '@/lib/supabase/client';
+
 import { authOptions } from '@/lib/auth/auth-options';
-import { generatePrd, type AIProvider } from '@/lib/prd/generate-prd';
 import { TABLES } from '@/lib/constants';
-import type { BacklogItem } from '@/types/backlog';
+import { generatePrd, type AIProvider } from '@/lib/prd/generate-prd';
 import {
   checkRateLimit,
   createRateLimitResponse,
   addRateLimitHeaders,
 } from '@/lib/rate-limit/middleware';
+import { createServiceClient } from '@/lib/supabase/client';
+import type { BacklogItem } from '@/types/backlog';
 
 interface RouteParams {
   params: Promise<{ id: string }>;

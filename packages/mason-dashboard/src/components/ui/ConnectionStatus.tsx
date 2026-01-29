@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 
 interface ConnectionStatusProps {
@@ -48,11 +49,11 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
 
     // Check on mount
     if (!isLoading) {
-      checkConnection();
+      void checkConnection();
     }
 
     // Periodic check every 30 seconds
-    const interval = setInterval(checkConnection, 30000);
+    const interval = setInterval(() => void checkConnection(), 30000);
     return () => clearInterval(interval);
   }, [isConfigured, client, isLoading]);
 

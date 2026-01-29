@@ -1,20 +1,20 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { createServiceClient } from '@/lib/supabase/client';
+
 import {
   createGitHubClient,
   createBranch,
-  getFileContent,
   getRepositoryTree,
   commitMultipleFiles,
   createPullRequest,
   type FileChange,
 } from '@/lib/github/client';
-import type { BacklogItem } from '@/types/backlog';
+import { createServiceClient } from '@/lib/supabase/client';
 import type {
   GitHubRepository,
   RemoteExecutionRun,
   LogLevel,
 } from '@/types/auth';
+import type { BacklogItem } from '@/types/backlog';
 
 const CODE_GENERATION_SYSTEM_PROMPT = `You are an expert software engineer implementing code changes based on a PRD (Product Requirements Document).
 
@@ -101,7 +101,7 @@ async function getRepositoryContext(
   ];
   const relevantFiles = tree
     .filter((item) => {
-      const ext = item.path.split('.').pop();
+      const _ext = item.path.split('.').pop();
       return (
         item.type === 'blob' &&
         relevantExtensions.some((e) => item.path.endsWith(e)) &&

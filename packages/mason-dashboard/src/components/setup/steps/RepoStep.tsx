@@ -1,7 +1,5 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useSession } from 'next-auth/react';
 import {
   Search,
   Lock,
@@ -11,10 +9,15 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react';
-import type { WizardStepProps } from '../SetupWizard';
-import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { useSession } from 'next-auth/react';
+import { useState, useEffect, useRef } from 'react';
+
+
 import { useGitHubToken } from '@/hooks/useGitHubToken';
+import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { createMasonUserRecord } from '@/lib/supabase/user-record';
+
+import type { WizardStepProps } from '../SetupWizard';
 
 interface GitHubRepo {
   id: number;
@@ -83,7 +86,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
       }
     }
 
-    ensureUserRecord();
+    void ensureUserRecord();
   }, [isConfigured, client, session]);
 
   // Fetch repos using token from localStorage (not session)
@@ -125,7 +128,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
       }
     }
 
-    fetchRepos();
+    void fetchRepos();
   }, [hasToken, githubToken]);
 
   useEffect(() => {
@@ -198,7 +201,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
       }
     }
 
-    fetchConnectedRepos();
+    void fetchConnectedRepos();
   }, [client, isConfigured, session]);
 
   useEffect(() => {

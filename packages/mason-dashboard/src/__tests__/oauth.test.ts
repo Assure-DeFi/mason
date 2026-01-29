@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   generateCodeVerifier,
   generateCodeChallenge,
@@ -19,7 +19,6 @@ import {
   type SupabaseOAuthTokens,
   type SupabaseOAuthSession,
 } from '@/lib/supabase/oauth';
-import { STORAGE_KEYS } from '@/lib/constants';
 
 describe('OAuth PKCE Utilities', () => {
   describe('generateCodeVerifier', () => {

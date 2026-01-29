@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import type { NextRequest} from 'next/server';
+import { NextResponse } from 'next/server';
+
 import { exchangeCodeForTokens, OAUTH_COOKIES } from '@/lib/supabase/oauth';
 
 /**
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Get stored cookies
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
   const storedState = cookieStore.get(OAUTH_COOKIES.STATE)?.value;
   const codeVerifier = cookieStore.get(OAUTH_COOKIES.CODE_VERIFIER)?.value;
   const returnTo =

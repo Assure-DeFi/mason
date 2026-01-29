@@ -1,10 +1,11 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
 import { Github } from 'lucide-react';
+import { signIn } from 'next-auth/react';
 import { useState } from 'react';
-import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
+
 import { MasonAvatar, MasonLogo, MasonLoader } from '@/components/brand';
+import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 
 export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false);

@@ -90,7 +90,7 @@ function base64UrlEncode(array: Uint8Array): string {
  * Save Supabase OAuth session to localStorage
  */
 export function saveOAuthSession(session: SupabaseOAuthSession): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {return;}
   localStorage.setItem(
     STORAGE_KEYS.SUPABASE_OAUTH_SESSION,
     JSON.stringify(session),
@@ -101,11 +101,11 @@ export function saveOAuthSession(session: SupabaseOAuthSession): void {
  * Get Supabase OAuth session from localStorage
  */
 export function getOAuthSession(): SupabaseOAuthSession | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') {return null;}
 
   try {
     const stored = localStorage.getItem(STORAGE_KEYS.SUPABASE_OAUTH_SESSION);
-    if (!stored) return null;
+    if (!stored) {return null;}
     return JSON.parse(stored) as SupabaseOAuthSession;
   } catch {
     return null;
@@ -116,7 +116,7 @@ export function getOAuthSession(): SupabaseOAuthSession | null {
  * Clear Supabase OAuth session from localStorage
  */
 export function clearOAuthSession(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {return;}
   localStorage.removeItem(STORAGE_KEYS.SUPABASE_OAUTH_SESSION);
 }
 
@@ -125,7 +125,7 @@ export function clearOAuthSession(): void {
  */
 export function hasValidOAuthSession(): boolean {
   const session = getOAuthSession();
-  if (!session?.tokens) return false;
+  if (!session?.tokens) {return false;}
 
   // Check if token is expired (with 5 minute buffer)
   const bufferMs = 5 * 60 * 1000;
@@ -137,7 +137,7 @@ export function hasValidOAuthSession(): boolean {
  */
 export function getAccessToken(): string | null {
   const session = getOAuthSession();
-  if (!session?.tokens) return null;
+  if (!session?.tokens) {return null;}
 
   // Check if token is expired (with 1 minute buffer)
   const bufferMs = 60 * 1000;

@@ -16,11 +16,12 @@
 
 import { useSession } from 'next-auth/react';
 import { useEffect, useState, useCallback } from 'react';
+
 import {
   getGitHubToken,
   saveGitHubToken,
   clearGitHubToken,
-  hasGitHubToken,
+  hasGitHubToken as _hasGitHubToken,
 } from '@/lib/supabase/user-client';
 
 export interface UseGitHubTokenReturn {

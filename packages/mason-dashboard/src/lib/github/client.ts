@@ -38,7 +38,7 @@ export async function listRepositories(
       page,
     });
 
-    if (data.length === 0) break;
+    if (data.length === 0) {break;}
 
     repos.push(
       ...data.map((repo) => ({
@@ -55,7 +55,7 @@ export async function listRepositories(
       })),
     );
 
-    if (data.length < perPage) break;
+    if (data.length < perPage) {break;}
     page++;
   }
 
