@@ -102,5 +102,8 @@ module.exports = {
     'coverage',
     '*.js',
     '!.eslintrc.cjs',
+    'e2e', // Playwright tests have their own config
+    'playwright.config.ts', // Root config file
+    'vitest.config.ts', // Root config file
   ],
 };

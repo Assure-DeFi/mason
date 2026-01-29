@@ -1,9 +1,8 @@
 #!/bin/bash
 #
-# Mason Auto-Pilot & Pattern Learning Installer
+# Mason Pattern Learning Installer
 #
-# This script installs the Mason compound learning system:
-# - Auto-pilot skill for autonomous backlog execution
+# This script installs the Mason pattern learning system:
 # - Pattern learning plugin for continuous improvement
 #
 # Usage (from any project directory):
@@ -86,14 +85,6 @@ check_requirements() {
         exit 1
     fi
     print_success "Git found: $(git --version | awk '{print $3}')"
-
-    # Check for gh CLI (optional)
-    if command -v gh &> /dev/null; then
-        print_success "GitHub CLI found: $(gh --version | head -1)"
-    else
-        print_warning "GitHub CLI not found (optional, for auto PR creation)"
-        echo "  Install: https://cli.github.com/"
-    fi
 }
 
 # Detect platform
@@ -111,10 +102,6 @@ detect_platform() {
 # Create directory structure
 create_directories() {
     print_info "Creating directory structure..."
-
-    # Auto-pilot skill
-    mkdir -p .claude/skills/mason-autopilot/scripts/lib
-    mkdir -p .claude/skills/mason-autopilot/templates
 
     # Pattern learning plugin
     mkdir -p .claude/plugins/mason-learning/.claude-plugin
@@ -137,17 +124,13 @@ install_files() {
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
     # Check if we're running from the mason repo extras directory
-    if [[ -f "$SCRIPT_DIR/skills/mason-autopilot/SKILL.md" ]]; then
+    if [[ -f "$SCRIPT_DIR/plugins/mason-learning/.claude-plugin/plugin.json" ]]; then
         print_info "Installing from local repository..."
-
-        # Copy auto-pilot skill
-        cp -r "$SCRIPT_DIR/skills/mason-autopilot/"* .claude/skills/mason-autopilot/
 
         # Copy pattern learning plugin
         cp -r "$SCRIPT_DIR/plugins/mason-learning/"* .claude/plugins/mason-learning/
 
         # Copy commands
-        cp "$SCRIPT_DIR/commands/mason-autopilot.md" .claude/commands/
         cp "$SCRIPT_DIR/commands/mason-patterns.md" .claude/commands/
 
     else
@@ -155,15 +138,6 @@ install_files() {
 
         # GitHub raw URL base - files are in extras/compound-learning/
         GITHUB_RAW="https://raw.githubusercontent.com/Assure-DeFi/mason/main/extras/compound-learning"
-
-        # Download auto-pilot skill
-        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/SKILL.md" -o .claude/skills/mason-autopilot/SKILL.md
-        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/fetch_next_item.py" -o .claude/skills/mason-autopilot/scripts/fetch_next_item.py
-        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/create_pr.py" -o .claude/skills/mason-autopilot/scripts/create_pr.py
-        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/requirements.txt" -o .claude/skills/mason-autopilot/scripts/requirements.txt
-        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/lib/__init__.py" -o .claude/skills/mason-autopilot/scripts/lib/__init__.py
-        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/lib/mason_api.py" -o .claude/skills/mason-autopilot/scripts/lib/mason_api.py
-        curl -fsSL "$GITHUB_RAW/skills/mason-autopilot/scripts/lib/git_ops.py" -o .claude/skills/mason-autopilot/scripts/lib/git_ops.py
 
         # Download pattern learning plugin
         curl -fsSL "$GITHUB_RAW/plugins/mason-learning/.claude-plugin/plugin.json" -o .claude/plugins/mason-learning/.claude-plugin/plugin.json
@@ -177,7 +151,6 @@ install_files() {
         curl -fsSL "$GITHUB_RAW/plugins/mason-learning/scripts/lib/rules.py" -o .claude/plugins/mason-learning/scripts/lib/rules.py
 
         # Download commands
-        curl -fsSL "$GITHUB_RAW/commands/mason-autopilot.md" -o .claude/commands/mason-autopilot.md
         curl -fsSL "$GITHUB_RAW/commands/mason-patterns.md" -o .claude/commands/mason-patterns.md
     fi
 
@@ -213,11 +186,11 @@ update_config() {
         return
     fi
 
-    # Check if config already has autoPilot section
-    if grep -q '"autoPilot"' mason.config.json; then
-        print_info "autoPilot config already exists"
+    # Check if config already has patternLearning section
+    if grep -q '"patternLearning"' mason.config.json; then
+        print_info "patternLearning config already exists"
     else
-        # Add autoPilot and patternLearning sections
+        # Add patternLearning section
         # Using Python for reliable JSON manipulation
         $PYTHON_CMD << 'PYTHON_SCRIPT'
 import json
@@ -226,19 +199,6 @@ import sys
 try:
     with open('mason.config.json', 'r') as f:
         config = json.load(f)
-
-    # Update version
-    config['version'] = '3.0'
-
-    # Add autoPilot section if not exists
-    if 'autoPilot' not in config:
-        config['autoPilot'] = {
-            'enabled': True,
-            'maxItemsPerRun': 3,
-            'branchPrefix': 'work/mason-',
-            'qualityChecks': ['npm run typecheck', 'npm test'],
-            'autoCreatePr': True
-        }
 
     # Add patternLearning section if not exists
     if 'patternLearning' not in config:
@@ -264,7 +224,6 @@ PYTHON_SCRIPT
 make_executable() {
     print_info "Setting permissions..."
 
-    chmod +x .claude/skills/mason-autopilot/scripts/*.py 2>/dev/null || true
     chmod +x .claude/plugins/mason-learning/scripts/*.py 2>/dev/null || true
 
     print_success "Permissions set"
@@ -274,19 +233,16 @@ make_executable() {
 print_completion() {
     echo ""
     echo "========================================"
-    echo -e "${GREEN}Mason Auto-Pilot installed successfully!${NC}"
+    echo -e "${GREEN}Mason Pattern Learning installed successfully!${NC}"
     echo "========================================"
     echo ""
     echo "What's installed:"
-    echo "  - Auto-pilot skill for autonomous backlog execution"
     echo "  - Pattern learning plugin for continuous improvement"
-    echo "  - /mason auto-pilot command"
     echo "  - /mason patterns command"
     echo ""
     echo "Next steps:"
-    echo "  1. Test with: /mason auto-pilot --dry-run"
-    echo "  2. Execute one item: /mason auto-pilot --single"
-    echo "  3. View patterns: /mason patterns"
+    echo "  1. View patterns: /mason patterns"
+    echo "  2. Clear patterns: /mason patterns --clear"
     echo ""
     echo "Configuration:"
     echo "  - Settings: mason.config.json"
@@ -298,7 +254,7 @@ print_completion() {
 main() {
     echo ""
     echo "========================================"
-    echo "Mason Auto-Pilot & Pattern Learning"
+    echo "Mason Pattern Learning"
     echo "========================================"
     echo ""
 

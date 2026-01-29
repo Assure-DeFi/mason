@@ -42,7 +42,6 @@ The test suite covers:
    - POST /api/v1/backlog/[id]/fail
 
 2. **UI Components**
-   - AutoPilotButton
    - Platform Selector
    - Setup Wizard
    - Backlog Page
@@ -305,16 +304,11 @@ export class BacklogPage {
     await this.page.goto('/admin/backlog');
     await this.page.waitForLoadState('networkidle');
   }
-
-  async clickAutoPilot() {
-    await this.page.locator('[data-testid="auto-pilot"]').click();
-  }
 }
 
 // In test
 const backlog = new BacklogPage(page);
 await backlog.goto();
-await backlog.clickAutoPilot();
 ```
 
 ## Maintenance

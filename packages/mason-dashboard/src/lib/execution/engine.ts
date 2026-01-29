@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import AnthropicClient from '@anthropic-ai/sdk';
 
 import {
   createGitHubClient,
@@ -130,7 +130,7 @@ async function generateCodeChanges(
     throw new Error('ANTHROPIC_API_KEY environment variable is required');
   }
 
-  const client = new Anthropic({ apiKey });
+  const client = new AnthropicClient({ apiKey });
 
   const userPrompt = `Implement the following improvement:
 

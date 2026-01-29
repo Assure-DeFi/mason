@@ -1,5 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
-import OpenAI from 'openai';
+import AnthropicClient from '@anthropic-ai/sdk';
+import OpenAIClient from 'openai';
 
 import type { BacklogItem } from '@/types/backlog';
 
@@ -35,7 +35,7 @@ async function generateWithAnthropic(
   apiKey: string,
   userPrompt: string,
 ): Promise<string> {
-  const client = new Anthropic({ apiKey });
+  const client = new AnthropicClient({ apiKey });
 
   const message = await client.messages.create({
     model: 'claude-3-5-sonnet-20241022',
@@ -61,7 +61,7 @@ async function generateWithOpenAI(
   apiKey: string,
   userPrompt: string,
 ): Promise<string> {
-  const client = new OpenAI({ apiKey });
+  const client = new OpenAIClient({ apiKey });
 
   const completion = await client.chat.completions.create({
     model: 'gpt-4o',
@@ -210,7 +210,9 @@ export function parsePrdWaves(prdContent: string): Array<{
       if (taskMatch) {
         const [, taskNum, subagent, description] = taskMatch;
         // Skip header rows
-        if (subagent.trim().toLowerCase() === 'subagent') {continue;}
+        if (subagent.trim().toLowerCase() === 'subagent') {
+          continue;
+        }
 
         currentWave.tasks.push({
           taskNumber: parseFloat(taskNum),

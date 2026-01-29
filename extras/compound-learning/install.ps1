@@ -1,11 +1,10 @@
-# Mason Auto-Pilot & Pattern Learning Installer (Windows PowerShell)
+# Mason Pattern Learning Installer (Windows PowerShell)
 #
-# This script installs the Mason compound learning system:
-# - Auto-pilot skill for autonomous backlog execution
+# This script installs the Mason pattern learning system:
 # - Pattern learning plugin for continuous improvement
 #
 # Usage (from any project directory):
-#   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Assure-DeFi/mason/main/extras/compound-learning/install.ps1" -OutFile "install-autopilot.ps1"; .\install-autopilot.ps1
+#   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Assure-DeFi/mason/main/extras/compound-learning/install.ps1" -OutFile "install-patterns.ps1"; .\install-patterns.ps1
 #
 # Or if you have the mason repo cloned:
 #   .\path\to\mason\extras\compound-learning\install.ps1
@@ -54,24 +53,11 @@ function Test-Requirements {
         Write-Host "Download Git from: https://git-scm.com/downloads"
         exit 1
     }
-
-    # Check gh CLI (optional)
-    try {
-        $ghVersion = & gh --version 2>&1 | Select-Object -First 1
-        Write-Success "GitHub CLI found: $ghVersion"
-    } catch {
-        Write-Warn "GitHub CLI not found (optional, for auto PR creation)"
-        Write-Host "  Install: winget install --id GitHub.cli"
-    }
 }
 
 # Create directory structure
 function New-Directories {
     Write-Info "Creating directory structure..."
-
-    # Auto-pilot skill
-    New-Item -ItemType Directory -Force -Path ".claude/skills/mason-autopilot/scripts/lib" | Out-Null
-    New-Item -ItemType Directory -Force -Path ".claude/skills/mason-autopilot/templates" | Out-Null
 
     # Pattern learning plugin
     New-Item -ItemType Directory -Force -Path ".claude/plugins/mason-learning/.claude-plugin" | Out-Null
@@ -92,19 +78,15 @@ function Install-Files {
     Write-Info "Installing files..."
 
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-    $localSkillPath = Join-Path $scriptDir "skills/mason-autopilot/SKILL.md"
+    $localPluginPath = Join-Path $scriptDir "plugins/mason-learning/.claude-plugin/plugin.json"
 
-    if (Test-Path $localSkillPath) {
+    if (Test-Path $localPluginPath) {
         Write-Info "Installing from local repository..."
-
-        # Copy auto-pilot skill
-        Copy-Item -Path "$scriptDir/skills/mason-autopilot/*" -Destination ".claude/skills/mason-autopilot/" -Recurse -Force
 
         # Copy pattern learning plugin
         Copy-Item -Path "$scriptDir/plugins/mason-learning/*" -Destination ".claude/plugins/mason-learning/" -Recurse -Force
 
         # Copy commands
-        Copy-Item -Path "$scriptDir/commands/mason-autopilot.md" -Destination ".claude/commands/" -Force
         Copy-Item -Path "$scriptDir/commands/mason-patterns.md" -Destination ".claude/commands/" -Force
 
     } else {
@@ -112,15 +94,6 @@ function Install-Files {
 
         # GitHub raw URL base - files are in extras/compound-learning/
         $githubRaw = "https://raw.githubusercontent.com/Assure-DeFi/mason/main/extras/compound-learning"
-
-        # Download auto-pilot skill
-        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/SKILL.md" -OutFile ".claude/skills/mason-autopilot/SKILL.md"
-        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/fetch_next_item.py" -OutFile ".claude/skills/mason-autopilot/scripts/fetch_next_item.py"
-        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/create_pr.py" -OutFile ".claude/skills/mason-autopilot/scripts/create_pr.py"
-        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/requirements.txt" -OutFile ".claude/skills/mason-autopilot/scripts/requirements.txt"
-        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/lib/__init__.py" -OutFile ".claude/skills/mason-autopilot/scripts/lib/__init__.py"
-        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/lib/mason_api.py" -OutFile ".claude/skills/mason-autopilot/scripts/lib/mason_api.py"
-        Invoke-WebRequest -Uri "$githubRaw/skills/mason-autopilot/scripts/lib/git_ops.py" -OutFile ".claude/skills/mason-autopilot/scripts/lib/git_ops.py"
 
         # Download pattern learning plugin
         Invoke-WebRequest -Uri "$githubRaw/plugins/mason-learning/.claude-plugin/plugin.json" -OutFile ".claude/plugins/mason-learning/.claude-plugin/plugin.json"
@@ -134,7 +107,6 @@ function Install-Files {
         Invoke-WebRequest -Uri "$githubRaw/plugins/mason-learning/scripts/lib/rules.py" -OutFile ".claude/plugins/mason-learning/scripts/lib/rules.py"
 
         # Download commands
-        Invoke-WebRequest -Uri "$githubRaw/commands/mason-autopilot.md" -OutFile ".claude/commands/mason-autopilot.md"
         Invoke-WebRequest -Uri "$githubRaw/commands/mason-patterns.md" -OutFile ".claude/commands/mason-patterns.md"
     }
 
@@ -176,23 +148,10 @@ function Update-Config {
 
     $config = Get-Content "mason.config.json" | ConvertFrom-Json
 
-    # Check if autoPilot already exists
-    if ($config.autoPilot) {
-        Write-Info "autoPilot config already exists"
+    # Check if patternLearning already exists
+    if ($config.patternLearning) {
+        Write-Info "patternLearning config already exists"
     } else {
-        # Update version
-        $config | Add-Member -NotePropertyName "version" -NotePropertyValue "3.0" -Force
-
-        # Add autoPilot section
-        $autoPilot = @{
-            enabled = $true
-            maxItemsPerRun = 3
-            branchPrefix = "work/mason-"
-            qualityChecks = @("npm run typecheck", "npm test")
-            autoCreatePr = $true
-        }
-        $config | Add-Member -NotePropertyName "autoPilot" -NotePropertyValue $autoPilot -Force
-
         # Add patternLearning section
         $patternLearning = @{
             enabled = $true
@@ -212,19 +171,16 @@ function Update-Config {
 function Write-Completion {
     Write-Host ""
     Write-Host "========================================"
-    Write-Host "Mason Auto-Pilot installed successfully!" -ForegroundColor Green
+    Write-Host "Mason Pattern Learning installed successfully!" -ForegroundColor Green
     Write-Host "========================================"
     Write-Host ""
     Write-Host "What's installed:"
-    Write-Host "  - Auto-pilot skill for autonomous backlog execution"
     Write-Host "  - Pattern learning plugin for continuous improvement"
-    Write-Host "  - /mason auto-pilot command"
     Write-Host "  - /mason patterns command"
     Write-Host ""
     Write-Host "Next steps:"
-    Write-Host "  1. Test with: /mason auto-pilot --dry-run"
-    Write-Host "  2. Execute one item: /mason auto-pilot --single"
-    Write-Host "  3. View patterns: /mason patterns"
+    Write-Host "  1. View patterns: /mason patterns"
+    Write-Host "  2. Clear patterns: /mason patterns --clear"
     Write-Host ""
     Write-Host "Configuration:"
     Write-Host "  - Settings: mason.config.json"
@@ -236,7 +192,7 @@ function Write-Completion {
 function Main {
     Write-Host ""
     Write-Host "========================================"
-    Write-Host "Mason Auto-Pilot & Pattern Learning"
+    Write-Host "Mason Pattern Learning"
     Write-Host "========================================"
     Write-Host ""
 

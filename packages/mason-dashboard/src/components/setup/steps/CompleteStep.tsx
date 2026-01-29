@@ -62,8 +62,8 @@ export function CompleteStep({ onBack }: WizardStepProps) {
         await navigator.clipboard.writeText(installCommands.bash);
         setAutoCopied(true);
         setTimeout(() => setAutoCopied(false), 3000);
-      } catch (err) {
-        console.debug('Auto-copy failed:', err);
+      } catch {
+        // Auto-copy is a nice-to-have, silently fail if not supported
       }
     };
 

@@ -68,5 +68,5 @@ You can manually edit `.claude/rules/learned-patterns.md` to:
 
 ## Related
 
-- `/mason auto-pilot` - Executes approved items (uses learned patterns)
+- `/execute-approved` - Executes approved items (uses learned patterns)
 - `/pm-review` - Generates improvement suggestions

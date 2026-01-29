@@ -48,8 +48,12 @@ export function ItemRow({
 }: ItemRowProps) {
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Extract shiftKey from the native event for range selection
-    const nativeEvent = e.nativeEvent as MouseEvent;
-    onSelect(item.id, nativeEvent);
+    // Create a partial MouseEvent with the shiftKey property
+    const syntheticEvent = {
+      shiftKey:
+        e.nativeEvent instanceof MouseEvent ? e.nativeEvent.shiftKey : false,
+    } as React.MouseEvent;
+    onSelect(item.id, syntheticEvent);
   };
 
   return (

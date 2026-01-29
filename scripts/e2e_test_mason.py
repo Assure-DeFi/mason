@@ -5,12 +5,11 @@ Comprehensive E2E test suite for Mason Compound Learning System.
 Tests:
 1. API Endpoints (with authentication)
 2. Dashboard UI Components
-3. AutoPilotButton rendering and functionality
-4. Platform selector in setup wizard
-5. Clipboard functionality
-6. Console error detection
-7. Responsive design
-8. Screenshots for verification
+3. Platform selector in setup wizard
+4. Clipboard functionality
+5. Console error detection
+6. Responsive design
+7. Screenshots for verification
 
 Usage:
   python3 scripts/with_server.py --server "cd packages/mason-dashboard && pnpm dev" --port 3000 \\
@@ -151,7 +150,7 @@ class MasonE2ETestSuite:
     # TEST: Backlog Page
     # =========================================================================
     def test_backlog_page(self):
-        """Test backlog page and AutoPilotButton."""
+        """Test backlog page."""
         print("\n🧪 Test: Backlog Page")
         try:
             self.console_messages.clear()
@@ -169,49 +168,6 @@ class MasonE2ETestSuite:
                 True,
                 "Backlog page loaded successfully"
             )
-
-            # Check for AutoPilotButton (may or may not be visible depending on data)
-            try:
-                auto_pilot_button = self.page.locator('button:has-text("Auto-Pilot")')
-                if auto_pilot_button.count() > 0:
-                    self.record_test_result(
-                        "Backlog Page - AutoPilotButton",
-                        True,
-                        "AutoPilotButton found on page"
-                    )
-
-                    # Try to click it and verify clipboard interaction
-                    auto_pilot_button.click()
-                    time.sleep(1)
-
-                    # Check for tooltip/success message
-                    tooltip = self.page.locator('text=/Copied|copied/i')
-                    if tooltip.count() > 0:
-                        self.record_test_result(
-                            "Backlog Page - AutoPilot Click",
-                            True,
-                            "AutoPilotButton clicked, copy feedback displayed"
-                        )
-                    else:
-                        self.record_test_result(
-                            "Backlog Page - AutoPilot Click",
-                            True,
-                            "AutoPilotButton clicked (no visual feedback detected)"
-                        )
-
-                    self.take_screenshot("02b_autopilot_clicked")
-                else:
-                    self.record_test_result(
-                        "Backlog Page - AutoPilotButton",
-                        True,
-                        "No AutoPilotButton (likely no approved items - this is OK)"
-                    )
-            except Exception as e:
-                self.record_test_result(
-                    "Backlog Page - AutoPilotButton",
-                    False,
-                    f"Error checking AutoPilotButton: {str(e)}"
-                )
 
             self.check_console_errors("Backlog Page")
 

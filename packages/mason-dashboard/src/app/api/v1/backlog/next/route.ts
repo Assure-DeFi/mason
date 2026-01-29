@@ -4,12 +4,12 @@ import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
 import { createServiceClient } from '@/lib/supabase/client';
 
 /**
- * GET /api/v1/backlog/next - Get the highest-priority approved backlog item
+ * GET /api/v1/backlog/next - Get the highest-priority approved backlog items
  * Authorization: Bearer mason_xxxxx
  *
  * Query params:
  * - repository_id (optional): Filter by specific repository
- * - limit (optional): Number of items to return (default: 1, max: 10)
+ * - limit (optional): Maximum number of items to return (no limit if omitted)
  *
  * Returns the approved item(s) with highest priority score, ready for execution.
  */
@@ -36,7 +36,10 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const repositoryId = url.searchParams.get('repository_id');
     const limitParam = url.searchParams.get('limit');
-    const limit = Math.min(Math.max(parseInt(limitParam || '1', 10), 1), 10);
+    // If no limit specified, fetch all approved items (no cap)
+    const limit = limitParam
+      ? Math.max(parseInt(limitParam, 10), 1)
+      : undefined;
 
     const supabase = createServiceClient();
 
@@ -67,8 +70,12 @@ export async function GET(request: Request) {
       `,
       )
       .eq('status', 'approved')
-      .order('priority_score', { ascending: false })
-      .limit(limit);
+      .order('priority_score', { ascending: false });
+
+    // Apply limit only if specified
+    if (limit) {
+      query = query.limit(limit);
+    }
 
     // Filter by repository if specified
     if (repositoryId) {

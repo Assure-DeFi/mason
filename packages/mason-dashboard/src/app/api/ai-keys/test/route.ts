@@ -1,7 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { getServerSession } from 'next-auth';
+import AnthropicClient from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { getServerSession } from 'next-auth';
+import OpenAIClient from 'openai';
 
 import { authOptions } from '@/lib/auth/auth-options';
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
     if (provider === 'anthropic') {
       // Test Anthropic connection with a minimal request
-      const client = new Anthropic({ apiKey });
+      const client = new AnthropicClient({ apiKey });
 
       try {
         await client.messages.create({
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       }
     } else if (provider === 'openai') {
       // Test OpenAI connection with a minimal request
-      const client = new OpenAI({ apiKey });
+      const client = new OpenAIClient({ apiKey });
 
       try {
         await client.chat.completions.create({

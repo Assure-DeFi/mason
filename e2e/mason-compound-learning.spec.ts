@@ -4,12 +4,11 @@
  * Tests:
  * 1. API Endpoints (with and without authentication)
  * 2. Dashboard UI Components
- * 3. AutoPilotButton rendering and functionality
- * 4. Platform selector in setup wizard
- * 5. Clipboard functionality
- * 6. Console error detection
- * 7. Responsive design
- * 8. Screenshots for verification
+ * 3. Platform selector in setup wizard
+ * 4. Clipboard functionality
+ * 5. Console error detection
+ * 6. Responsive design
+ * 7. Screenshots for verification
  */
 
 import { test, expect, Page } from '@playwright/test';
@@ -68,52 +67,6 @@ test.describe('Mason Compound Learning System - E2E Tests', () => {
 
     // Verify page loaded
     await expect(page.locator('body')).toBeVisible();
-  });
-
-  test('AutoPilotButton functionality', async ({ page, context }) => {
-    // Grant clipboard permissions
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-
-    await page.goto(`${BASE_URL}/admin/backlog`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-
-    // Check if AutoPilotButton exists
-    const autoPilotButton = page.locator('button:has-text("Auto-Pilot")');
-
-    const buttonCount = await autoPilotButton.count();
-
-    if (buttonCount > 0) {
-      console.log('✓ AutoPilotButton found on page');
-
-      // Click the button
-      await autoPilotButton.click();
-
-      // Wait for clipboard operation
-      await page.waitForTimeout(1000);
-
-      await takeScreenshot(page, '02b_autopilot_clicked');
-
-      // Check for success feedback (tooltip or check icon)
-      const successIndicator = page.locator('text=/Copied|copied/i');
-      const hasSuccessIndicator = (await successIndicator.count()) > 0;
-
-      if (hasSuccessIndicator) {
-        console.log('✓ Copy feedback displayed');
-      }
-
-      // Try to read clipboard content
-      const clipboardText = await page.evaluate(() => {
-        return navigator.clipboard.readText();
-      });
-
-      expect(clipboardText).toContain('/mason');
-      console.log(`✓ Clipboard contains: ${clipboardText}`);
-    } else {
-      console.log(
-        'ℹ No AutoPilotButton found (likely no approved items - this is OK)',
-      );
-    }
   });
 
   // =========================================================================

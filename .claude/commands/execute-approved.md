@@ -15,12 +15,12 @@ This command implements approved improvements from the backlog. It uses the Task
 Options:
 
 - `--item <id>`: Execute a specific item by ID
-- `--limit <n>`: Maximum number of items to execute (default: 5)
+- `--limit <n>`: Maximum number of items to execute (optional, no limit by default)
 - `--dry-run`: Show execution plan without making changes
 
 Examples:
 
-- `/execute-approved` - Execute up to 5 approved items
+- `/execute-approved` - Execute ALL approved items
 - `/execute-approved --item abc123` - Execute specific item
 - `/execute-approved --limit 3` - Execute top 3 approved items
 - `/execute-approved --dry-run` - Preview execution plan
