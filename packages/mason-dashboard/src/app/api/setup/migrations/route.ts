@@ -150,6 +150,37 @@ CREATE TABLE IF NOT EXISTS mason_pm_filtered_items (
   repository_id UUID REFERENCES mason_github_repositories(id) ON DELETE SET NULL
 );
 
+-- Mason PM Execution Runs table (tracks /execute-approved runs)
+CREATE TABLE IF NOT EXISTS mason_pm_execution_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  item_count INTEGER NOT NULL DEFAULT 0,
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'success', 'failed', 'cancelled')),
+  error_message TEXT,
+  tasks_completed INTEGER DEFAULT 0,
+  tasks_failed INTEGER DEFAULT 0,
+  total_tasks INTEGER DEFAULT 0
+);
+
+-- Mason PM Execution Tasks table (individual tasks within an execution run)
+CREATE TABLE IF NOT EXISTS mason_pm_execution_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  run_id UUID NOT NULL REFERENCES mason_pm_execution_runs(id) ON DELETE CASCADE,
+  item_id UUID NOT NULL REFERENCES mason_pm_backlog_items(id) ON DELETE CASCADE,
+  wave_number INTEGER NOT NULL,
+  task_number INTEGER NOT NULL,
+  description TEXT NOT NULL,
+  subagent_type TEXT NOT NULL CHECK (subagent_type IN ('Explore', 'general-purpose', 'Bash', 'code-reviewer', 'frontend-design', 'Plan')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'failed', 'skipped')),
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  error_message TEXT,
+  result_summary TEXT
+);
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_user_id ON mason_api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_key_hash ON mason_api_keys(key_hash);
@@ -162,6 +193,12 @@ CREATE INDEX IF NOT EXISTS idx_mason_remote_execution_runs_user_id ON mason_remo
 CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_execution_run_id ON mason_execution_logs(execution_run_id);
 CREATE INDEX IF NOT EXISTS idx_mason_ai_provider_keys_user_id ON mason_ai_provider_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_filtered_items_repository_id ON mason_pm_filtered_items(repository_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_runs_status ON mason_pm_execution_runs(status);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_runs_created_at ON mason_pm_execution_runs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_run_id ON mason_pm_execution_tasks(run_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_item_id ON mason_pm_execution_tasks(item_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_status ON mason_pm_execution_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_wave ON mason_pm_execution_tasks(run_id, wave_number);
 
 -- Enable Row Level Security
 ALTER TABLE mason_users ENABLE ROW LEVEL SECURITY;
@@ -173,25 +210,84 @@ ALTER TABLE mason_remote_execution_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_execution_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_ai_provider_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_filtered_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_pm_execution_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_pm_execution_tasks ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies (BYOD model - users own their database)
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'mason_ai_provider_keys' AND policyname = 'Allow all operations on ai_provider_keys'
-  ) THEN
-    CREATE POLICY "Allow all operations on ai_provider_keys" ON mason_ai_provider_keys
-      FOR ALL USING (true) WITH CHECK (true);
+-- RLS Policies (BYOD model - users own their database, allow all operations)
+-- Users table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_users' AND policyname = 'Allow all on users') THEN
+    CREATE POLICY "Allow all on users" ON mason_users FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_filtered_items' AND policyname = 'Allow all operations on filtered_items'
-  ) THEN
-    CREATE POLICY "Allow all operations on filtered_items" ON mason_pm_filtered_items
-      FOR ALL USING (true) WITH CHECK (true);
+-- API Keys table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_api_keys' AND policyname = 'Allow all on api_keys') THEN
+    CREATE POLICY "Allow all on api_keys" ON mason_api_keys FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- GitHub Repositories table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_github_repositories' AND policyname = 'Allow all on github_repositories') THEN
+    CREATE POLICY "Allow all on github_repositories" ON mason_github_repositories FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- PM Analysis Runs table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_analysis_runs' AND policyname = 'Allow all on pm_analysis_runs') THEN
+    CREATE POLICY "Allow all on pm_analysis_runs" ON mason_pm_analysis_runs FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- PM Backlog Items table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_backlog_items' AND policyname = 'Allow all on pm_backlog_items') THEN
+    CREATE POLICY "Allow all on pm_backlog_items" ON mason_pm_backlog_items FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Remote Execution Runs table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_remote_execution_runs' AND policyname = 'Allow all on remote_execution_runs') THEN
+    CREATE POLICY "Allow all on remote_execution_runs" ON mason_remote_execution_runs FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Execution Logs table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_execution_logs' AND policyname = 'Allow all on execution_logs') THEN
+    CREATE POLICY "Allow all on execution_logs" ON mason_execution_logs FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- AI Provider Keys table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_ai_provider_keys' AND policyname = 'Allow all on ai_provider_keys') THEN
+    CREATE POLICY "Allow all on ai_provider_keys" ON mason_ai_provider_keys FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- PM Filtered Items table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_filtered_items' AND policyname = 'Allow all on pm_filtered_items') THEN
+    CREATE POLICY "Allow all on pm_filtered_items" ON mason_pm_filtered_items FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- PM Execution Runs table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_execution_runs' AND policyname = 'Allow all on pm_execution_runs') THEN
+    CREATE POLICY "Allow all on pm_execution_runs" ON mason_pm_execution_runs FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- PM Execution Tasks table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_execution_tasks' AND policyname = 'Allow all on pm_execution_tasks') THEN
+    CREATE POLICY "Allow all on pm_execution_tasks" ON mason_pm_execution_tasks FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 `;
