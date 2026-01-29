@@ -12,7 +12,7 @@ interface ConfirmationDialogProps {
   itemCount: number;
   itemTitles?: string[];
   confirmLabel: string;
-  confirmVariant: 'approve' | 'reject' | 'danger';
+  confirmVariant: 'approve' | 'reject' | 'danger' | 'restore';
   isLoading?: boolean;
 }
 
@@ -48,6 +48,8 @@ export function ConfirmationDialog({
       'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20',
     reject: 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20',
     danger: 'bg-red-600 text-white hover:bg-red-700',
+    restore:
+      'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20',
   };
 
   return (

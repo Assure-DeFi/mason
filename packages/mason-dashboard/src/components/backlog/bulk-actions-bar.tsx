@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, Check, X, Loader2, Download } from 'lucide-react';
+import { FileText, Check, X, Loader2, Download, RotateCcw } from 'lucide-react';
 import type { BacklogItem } from '@/types/backlog';
 
 interface BulkProgress {
@@ -13,10 +13,12 @@ interface BulkActionsBarProps {
   onGeneratePrds: (ids: string[]) => Promise<void>;
   onApprove: (ids: string[]) => void;
   onReject: (ids: string[]) => void;
+  onRestore: (ids: string[]) => void;
   onClearSelection: () => void;
   isGenerating: boolean;
   isApproving: boolean;
   isRejecting: boolean;
+  isRestoring: boolean;
   generationProgress?: BulkProgress | null;
 }
 
@@ -25,10 +27,12 @@ export function BulkActionsBar({
   onGeneratePrds,
   onApprove,
   onReject,
+  onRestore,
   onClearSelection,
   isGenerating,
   isApproving,
   isRejecting,
+  isRestoring,
   generationProgress,
 }: BulkActionsBarProps) {
   const count = selectedItems.length;
@@ -37,8 +41,12 @@ export function BulkActionsBar({
   const itemsNeedingApproval = selectedItems.filter(
     (item) => item.status === 'new',
   );
+  const itemsNeedingRestore = selectedItems.filter(
+    (item) => item.status === 'rejected',
+  );
 
-  const isAnyLoading = isGenerating || isApproving || isRejecting;
+  const isAnyLoading =
+    isGenerating || isApproving || isRejecting || isRestoring;
 
   const handleExportPrds = () => {
     if (itemsWithPrd.length === 0) return;
@@ -181,6 +189,30 @@ ${item.prd_content}
           {itemsNeedingApproval.length > 0 && (
             <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-500/20 text-red-400">
               {itemsNeedingApproval.length}
+            </span>
+          )}
+        </button>
+
+        {/* Restore to New Button */}
+        <button
+          onClick={() => onRestore(itemsNeedingRestore.map((item) => item.id))}
+          disabled={isAnyLoading || itemsNeedingRestore.length === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-medium hover:bg-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          title={
+            itemsNeedingRestore.length === 0
+              ? 'No rejected items to restore'
+              : `Restore ${itemsNeedingRestore.length} item${itemsNeedingRestore.length !== 1 ? 's' : ''} to New`
+          }
+        >
+          {isRestoring ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <RotateCcw className="w-4 h-4" />
+          )}
+          <span>Restore to New</span>
+          {itemsNeedingRestore.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-500/20 text-blue-400">
+              {itemsNeedingRestore.length}
             </span>
           )}
         </button>

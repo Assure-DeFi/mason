@@ -59,7 +59,7 @@ import {
 
 interface UndoState {
   items: { id: string; previousStatus: BacklogStatus }[];
-  action: 'approve' | 'reject';
+  action: 'approve' | 'reject' | 'restore';
   expiresAt: number;
 }
 
@@ -116,13 +116,14 @@ function BacklogPageContent() {
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const [isBulkApproving, setIsBulkApproving] = useState(false);
   const [isBulkRejecting, setIsBulkRejecting] = useState(false);
+  const [isBulkRestoring, setIsBulkRestoring] = useState(false);
   const [generationProgress, setGenerationProgress] =
     useState<BulkProgress | null>(null);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
-    action: 'approve' | 'reject';
+    action: 'approve' | 'reject' | 'restore';
     ids: string[];
     titles: string[];
   }>({ isOpen: false, action: 'approve', ids: [], titles: [] });
@@ -688,11 +689,24 @@ function BacklogPageContent() {
     setConfirmDialog({ isOpen: true, action: 'reject', ids, titles });
   };
 
+  const handleBulkRestoreRequest = (ids: string[]) => {
+    if (ids.length === 0) return;
+    const titles = items
+      .filter((item) => ids.includes(item.id))
+      .map((item) => item.title);
+    setConfirmDialog({ isOpen: true, action: 'restore', ids, titles });
+  };
+
   const handleConfirmBulkAction = async () => {
     if (!client) return;
 
     const { action, ids } = confirmDialog;
-    const newStatus = action === 'approve' ? 'approved' : 'rejected';
+    const newStatus =
+      action === 'approve'
+        ? 'approved'
+        : action === 'reject'
+          ? 'rejected'
+          : 'new';
 
     // Store previous states for undo
     const previousStates = items
@@ -701,8 +715,10 @@ function BacklogPageContent() {
 
     if (action === 'approve') {
       setIsBulkApproving(true);
-    } else {
+    } else if (action === 'reject') {
       setIsBulkRejecting(true);
+    } else {
+      setIsBulkRestoring(true);
     }
 
     try {
@@ -748,6 +764,7 @@ function BacklogPageContent() {
     } finally {
       setIsBulkApproving(false);
       setIsBulkRejecting(false);
+      setIsBulkRestoring(false);
     }
   };
 
@@ -1185,10 +1202,12 @@ function BacklogPageContent() {
         onGeneratePrds={handleBulkGeneratePrds}
         onApprove={handleBulkApproveRequest}
         onReject={handleBulkRejectRequest}
+        onRestore={handleBulkRestoreRequest}
         onClearSelection={handleClearSelection}
         isGenerating={isBulkGenerating}
         isApproving={isBulkApproving}
         isRejecting={isBulkRejecting}
+        isRestoring={isBulkRestoring}
         generationProgress={generationProgress}
       />
 
@@ -1207,22 +1226,34 @@ function BacklogPageContent() {
         title={
           confirmDialog.action === 'approve'
             ? 'Confirm Bulk Approve'
-            : 'Confirm Bulk Reject'
+            : confirmDialog.action === 'reject'
+              ? 'Confirm Bulk Reject'
+              : 'Confirm Restore to New'
         }
         message={
           confirmDialog.action === 'approve'
             ? 'Are you sure you want to approve these items? They will be marked as ready for implementation.'
-            : 'Are you sure you want to reject these items? They will be removed from the active backlog.'
+            : confirmDialog.action === 'reject'
+              ? 'Are you sure you want to reject these items? They will be removed from the active backlog.'
+              : 'Are you sure you want to restore these items? They will be moved back to the New status for review.'
         }
         itemCount={confirmDialog.ids.length}
         itemTitles={confirmDialog.titles}
         confirmLabel={
-          confirmDialog.action === 'approve' ? 'Approve All' : 'Reject All'
+          confirmDialog.action === 'approve'
+            ? 'Approve All'
+            : confirmDialog.action === 'reject'
+              ? 'Reject All'
+              : 'Restore All'
         }
         confirmVariant={
-          confirmDialog.action === 'approve' ? 'approve' : 'reject'
+          confirmDialog.action === 'approve'
+            ? 'approve'
+            : confirmDialog.action === 'reject'
+              ? 'reject'
+              : 'restore'
         }
-        isLoading={isBulkApproving || isBulkRejecting}
+        isLoading={isBulkApproving || isBulkRejecting || isBulkRestoring}
       />
 
       {/* Toast Notifications */}
@@ -1245,7 +1276,11 @@ function BacklogPageContent() {
           <span>
             {undoState.items.length} item
             {undoState.items.length !== 1 ? 's' : ''}{' '}
-            {undoState.action === 'approve' ? 'approved' : 'rejected'}
+            {undoState.action === 'approve'
+              ? 'approved'
+              : undoState.action === 'reject'
+                ? 'rejected'
+                : 'restored to new'}
           </span>
           <button
             onClick={handleUndo}
