@@ -1,7 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runMigrations } from '@/lib/supabase/pg-migrate';
 
+/**
+ * Mason Database Migrations
+ *
+ * IMPORTANT: See /.claude/rules/database-migrations.md for maintenance rules.
+ *
+ * This SQL runs when users click "Update Database Schema" in Settings.
+ * It MUST be:
+ *   1. IDEMPOTENT - Safe to run multiple times (use IF NOT EXISTS)
+ *   2. NON-DESTRUCTIVE - NEVER delete user data (no DROP/DELETE/TRUNCATE)
+ *   3. COMPLETE - Include ALL tables referenced in /lib/constants.ts TABLES
+ *
+ * Tables included (must match TABLES constant):
+ *   - mason_users
+ *   - mason_api_keys
+ *   - mason_github_repositories
+ *   - mason_pm_analysis_runs
+ *   - mason_pm_backlog_items
+ *   - mason_pm_filtered_items
+ *   - mason_pm_execution_runs
+ *   - mason_pm_execution_tasks
+ *   - mason_remote_execution_runs
+ *   - mason_execution_logs
+ *   - mason_ai_provider_keys
+ */
 const MIGRATION_SQL = `
+--------------------------------------------------------------------------------
+-- MASON DATABASE SCHEMA
+-- This migration is idempotent and safe to run on any database state.
+-- It will create missing tables/indexes/policies without affecting existing data.
+--------------------------------------------------------------------------------
+
 -- Mason Users table (for user's own Supabase, NOT central DB)
 -- Privacy: github_access_token is NOT stored here - it stays in browser localStorage
 CREATE TABLE IF NOT EXISTS mason_users (
