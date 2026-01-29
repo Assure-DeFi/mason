@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, GitBranch } from 'lucide-react';
+import { ArrowLeft, Plus, GitBranch, Terminal } from 'lucide-react';
 import Link from 'next/link';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { RepositoryList } from '@/components/github/repository-list';
 import { ConnectRepoModal } from '@/components/github/connect-repo-modal';
+import { InstallMasonModal } from '@/components/github/install-mason-modal';
 import { getGitHubToken } from '@/lib/supabase/user-client';
 import type { GitHubRepository } from '@/types/auth';
 
@@ -15,6 +16,7 @@ export default function GitHubSettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [connectedRepoIds, setConnectedRepoIds] = useState<number[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -100,13 +102,22 @@ export default function GitHubSettingsPage() {
               </p>
             </div>
 
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 rounded-md bg-gold px-4 py-2 font-medium text-navy transition-opacity hover:opacity-90"
-            >
-              <Plus className="h-4 w-4" />
-              Connect Repository
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsInstallModalOpen(true)}
+                className="flex items-center gap-2 rounded-md border border-gray-700 bg-gray-900 px-4 py-2 font-medium text-white transition-colors hover:bg-gray-800"
+              >
+                <Terminal className="h-4 w-4" />
+                Install Mason
+              </button>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-2 rounded-md bg-gold px-4 py-2 font-medium text-navy transition-opacity hover:opacity-90"
+              >
+                <Plus className="h-4 w-4" />
+                Connect Repository
+              </button>
+            </div>
           </div>
         </div>
 
@@ -151,6 +162,11 @@ export default function GitHubSettingsPage() {
         onClose={() => setIsModalOpen(false)}
         onConnect={handleConnect}
         connectedRepoIds={connectedRepoIds}
+      />
+
+      <InstallMasonModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
       />
     </div>
   );

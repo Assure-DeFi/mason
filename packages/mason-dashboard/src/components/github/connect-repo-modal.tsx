@@ -6,6 +6,7 @@ import {
   listUserRepositories,
   type GitHubRepo,
 } from '@/lib/github/client-side';
+import { InstallMasonModal } from './install-mason-modal';
 
 interface ConnectRepoModalProps {
   isOpen: boolean;
@@ -26,6 +27,10 @@ export function ConnectRepoModal({
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [connectedRepoName, setConnectedRepoName] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -73,6 +78,9 @@ export function ConnectRepoModal({
 
     try {
       await onConnect(repo.owner, repo.name);
+      // Show install modal after successful connection
+      setConnectedRepoName(repo.full_name);
+      setShowInstallModal(true);
     } catch (err) {
       console.error('Error connecting repo:', err);
     } finally {
@@ -80,7 +88,24 @@ export function ConnectRepoModal({
     }
   };
 
-  if (!isOpen) return null;
+  const handleInstallModalClose = () => {
+    setShowInstallModal(false);
+    setConnectedRepoName(null);
+    onClose();
+  };
+
+  if (!isOpen && !showInstallModal) return null;
+
+  // Show install modal if active
+  if (showInstallModal) {
+    return (
+      <InstallMasonModal
+        isOpen={showInstallModal}
+        onClose={handleInstallModalClose}
+        repoName={connectedRepoName || undefined}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
