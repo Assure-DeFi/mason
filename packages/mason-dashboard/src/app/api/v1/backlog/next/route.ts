@@ -41,6 +41,7 @@ export async function GET(request: Request) {
     const supabase = createServiceClient();
 
     // Build query for approved items ordered by priority
+    // Security: Include user_id filter to only return user's own items
     let query = supabase
       .from('mason_pm_backlog_items')
       .select(
@@ -67,6 +68,7 @@ export async function GET(request: Request) {
       `,
       )
       .eq('status', 'approved')
+      .eq('user_id', user.id)
       .order('priority_score', { ascending: false })
       .limit(limit);
 
