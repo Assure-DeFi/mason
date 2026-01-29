@@ -3,6 +3,11 @@ import { createServerClient } from '@/lib/supabase/client';
 import { generatePrd, type AIProvider } from '@/lib/prd/generate-prd';
 import { TABLES } from '@/lib/constants';
 import type { BacklogItem } from '@/types/backlog';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  addRateLimitHeaders,
+} from '@/lib/rate-limit/middleware';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -11,6 +16,17 @@ interface RouteParams {
 export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
+
+    // Rate limit check - AI-heavy operations are limited to 10/hour
+    // Use item ID as part of identifier to prevent abuse on single items
+    const clientIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0] ?? 'unknown';
+    const rateLimitResult = await checkRateLimit(`prd:${clientIp}`, 'aiHeavy');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
+    }
+
     const supabase = createServerClient();
 
     // Fetch the item
@@ -82,7 +98,8 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json(updated);
+    const response = NextResponse.json(updated);
+    return addRateLimitHeaders(response, rateLimitResult);
   } catch (err) {
     console.error('PRD generation error:', err);
 

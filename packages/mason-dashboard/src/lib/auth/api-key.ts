@@ -31,6 +31,10 @@ export function generateApiKey(): {
 /**
  * Validate an API key and return the associated user
  * Updates last_used_at on successful validation
+ *
+ * Optimized to use JOIN query - reduces from 3 queries to 2:
+ * 1. SELECT with JOIN (api_key + user in one query)
+ * 2. UPDATE last_used_at (lightweight, non-blocking)
  */
 export async function validateApiKey(key: string): Promise<User | null> {
   if (!key || !key.startsWith(API_KEY_PREFIX)) {
@@ -40,35 +44,55 @@ export async function validateApiKey(key: string): Promise<User | null> {
   const hash = hashApiKey(key);
   const supabase = createServiceClient();
 
-  // Look up the key by its hash
-  const { data: apiKey, error: keyError } = await supabase
+  // Use JOIN to fetch api_key and user in a single query
+  const { data: joined, error: joinError } = await supabase
     .from('mason_api_keys')
-    .select('id, user_id')
+    .select(
+      `
+      id,
+      mason_users (
+        id,
+        created_at,
+        updated_at,
+        github_id,
+        github_username,
+        github_email,
+        github_avatar_url,
+        default_repository_id,
+        is_active
+      )
+    `,
+    )
     .eq('key_hash', hash)
     .single();
 
-  if (keyError || !apiKey) {
+  if (joinError || !joined) {
     return null;
   }
 
-  // Update last_used_at
-  await supabase
+  // Extract user from joined result
+  // Supabase returns nested relations as arrays for many-to-one, so we need to handle both cases
+  const usersData = joined.mason_users;
+  if (!usersData) {
+    return null;
+  }
+
+  // Handle both single object and array cases (Supabase behavior varies)
+  const userData = Array.isArray(usersData) ? usersData[0] : usersData;
+  if (!userData) {
+    return null;
+  }
+
+  // Update last_used_at asynchronously (fire and forget - don't block validation)
+  supabase
     .from('mason_api_keys')
     .update({ last_used_at: new Date().toISOString() })
-    .eq('id', apiKey.id);
+    .eq('id', joined.id)
+    .then(() => {
+      // Intentionally not awaited - best effort tracking
+    });
 
-  // Fetch the associated user
-  const { data: user, error: userError } = await supabase
-    .from('mason_users')
-    .select('*')
-    .eq('id', apiKey.user_id)
-    .single();
-
-  if (userError || !user) {
-    return null;
-  }
-
-  return user as User;
+  return userData as unknown as User;
 }
 
 /**
