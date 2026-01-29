@@ -1,6 +1,13 @@
 'use client';
 
-import { Check, X, Loader2, Download, RotateCcw } from 'lucide-react';
+import {
+  Check,
+  X,
+  Loader2,
+  Download,
+  RotateCcw,
+  CheckCircle2,
+} from 'lucide-react';
 
 import type { BacklogItem } from '@/types/backlog';
 
@@ -9,10 +16,12 @@ interface BulkActionsBarProps {
   onApprove: (ids: string[]) => void;
   onReject: (ids: string[]) => void;
   onRestore: (ids: string[]) => void;
+  onComplete: (ids: string[]) => void;
   onClearSelection: () => void;
   isApproving: boolean;
   isRejecting: boolean;
   isRestoring: boolean;
+  isCompleting: boolean;
 }
 
 export function BulkActionsBar({
@@ -20,10 +29,12 @@ export function BulkActionsBar({
   onApprove,
   onReject,
   onRestore,
+  onComplete,
   onClearSelection,
   isApproving,
   isRejecting,
   isRestoring,
+  isCompleting,
 }: BulkActionsBarProps) {
   const count = selectedItems.length;
   const itemsWithPrd = selectedItems.filter((item) => item.prd_content);
@@ -33,8 +44,13 @@ export function BulkActionsBar({
   const itemsNeedingRestore = selectedItems.filter(
     (item) => item.status === 'rejected',
   );
+  // Items that can be marked as completed (anything not already completed)
+  const itemsCanComplete = selectedItems.filter(
+    (item) => item.status !== 'completed',
+  );
 
-  const isAnyLoading = isApproving || isRejecting || isRestoring;
+  const isAnyLoading =
+    isApproving || isRejecting || isRestoring || isCompleting;
 
   const handleExportPrds = () => {
     if (itemsWithPrd.length === 0) {
@@ -177,6 +193,30 @@ ${item.prd_content}
           {itemsNeedingRestore.length > 0 && (
             <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-500/20 text-blue-400">
               {itemsNeedingRestore.length}
+            </span>
+          )}
+        </button>
+
+        {/* Mark Completed Button */}
+        <button
+          onClick={() => onComplete(itemsCanComplete.map((item) => item.id))}
+          disabled={isAnyLoading || itemsCanComplete.length === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium hover:bg-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          title={
+            itemsCanComplete.length === 0
+              ? 'All items already completed'
+              : `Mark ${itemsCanComplete.length} item${itemsCanComplete.length !== 1 ? 's' : ''} as completed`
+          }
+        >
+          {isCompleting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4" />
+          )}
+          <span>Mark Completed</span>
+          {itemsCanComplete.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 text-xs bg-emerald-500/20 text-emerald-400">
+              {itemsCanComplete.length}
             </span>
           )}
         </button>

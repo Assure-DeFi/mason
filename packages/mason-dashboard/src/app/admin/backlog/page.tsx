@@ -52,7 +52,7 @@ import { FilteredItemsTab } from './components/filtered-items-tab';
 
 interface UndoState {
   items: { id: string; previousStatus: BacklogStatus }[];
-  action: 'approve' | 'reject' | 'restore';
+  action: 'approve' | 'reject' | 'restore' | 'complete';
   expiresAt: number;
 }
 
@@ -109,11 +109,12 @@ function BacklogPageContent() {
   const [isBulkApproving, setIsBulkApproving] = useState(false);
   const [isBulkRejecting, setIsBulkRejecting] = useState(false);
   const [isBulkRestoring, setIsBulkRestoring] = useState(false);
+  const [isBulkCompleting, setIsBulkCompleting] = useState(false);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
-    action: 'approve' | 'reject' | 'restore';
+    action: 'approve' | 'reject' | 'restore' | 'complete';
     ids: string[];
     titles: string[];
   }>({ isOpen: false, action: 'approve', ids: [], titles: [] });
@@ -250,103 +251,112 @@ function BacklogPageContent() {
     }
   }, [client, selectedRepoId]);
 
-  const fetchItems = useCallback(async (loadMore = false) => {
-    if (!client) {
-      if (!isDbLoading) {
-        setError('Database not configured. Please complete setup.');
-      }
-      setIsLoading(false);
-      return;
-    }
-
-    if (!session?.user) {
-      setError('Please sign in to view your backlog.');
-      setIsLoading(false);
-      return;
-    }
-
-    // Wait for repository selection before fetching
-    if (!selectedRepoId) {
-      setItems([]);
-      setHasMoreItems(false);
-      setIsLoading(false);
-      return;
-    }
-
-    if (loadMore) {
-      setIsLoadingMore(true);
-    } else {
-      setIsLoading(true);
-    }
-    setError(null);
-
-    try {
-      // Calculate offset for pagination
-      const offset = loadMore ? itemsCountRef.current : 0;
-
-      // Fetch items that match the selected repo OR have no repo assigned (legacy items)
-      // Using two queries and merging results for better compatibility
-      // Fetch PAGE_SIZE + 1 to detect if there are more items
-      const [repoItems, legacyItems] = await Promise.all([
-        client
-          .from('mason_pm_backlog_items')
-          .select('*')
-          .eq('repository_id', selectedRepoId)
-          .order('priority_score', { ascending: false })
-          .range(offset, offset + PAGE_SIZE),
-        client
-          .from('mason_pm_backlog_items')
-          .select('*')
-          .is('repository_id', null)
-          .order('priority_score', { ascending: false })
-          .range(offset, offset + PAGE_SIZE),
-      ]);
-
-      if (repoItems.error) {
-        throw repoItems.error;
-      }
-      if (legacyItems.error) {
-        throw legacyItems.error;
+  const fetchItems = useCallback(
+    async (loadMore = false) => {
+      if (!client) {
+        if (!isDbLoading) {
+          setError('Database not configured. Please complete setup.');
+        }
+        setIsLoading(false);
+        return;
       }
 
-      // Merge and dedupe results, sort by priority
-      const allItems = [...(repoItems.data || []), ...(legacyItems.data || [])];
-      const uniqueItems = Array.from(
-        new Map(allItems.map((item) => [item.id, item])).values(),
-      ).sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0));
+      if (!session?.user) {
+        setError('Please sign in to view your backlog.');
+        setIsLoading(false);
+        return;
+      }
 
-      // Check if there are more items (either query returned a full page)
-      const hasMore = (repoItems.data?.length ?? 0) >= PAGE_SIZE ||
-                      (legacyItems.data?.length ?? 0) >= PAGE_SIZE;
-      setHasMoreItems(hasMore);
+      // Wait for repository selection before fetching
+      if (!selectedRepoId) {
+        setItems([]);
+        setHasMoreItems(false);
+        setIsLoading(false);
+        return;
+      }
 
       if (loadMore) {
-        // Append new items, avoiding duplicates
-        setItems((prev) => {
-          const existingIds = new Set(prev.map((item) => item.id));
-          const newItems = uniqueItems.filter((item) => !existingIds.has(item.id));
-          return [...prev, ...newItems].sort(
-            (a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0),
-          );
-        });
+        setIsLoadingMore(true);
       } else {
-        setItems(uniqueItems);
+        setIsLoading(true);
       }
+      setError(null);
 
-      // Also fetch filtered count
-      void fetchFilteredCount();
-    } catch (err) {
-      console.error('Error fetching backlog:', err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch data from database',
-      );
-    } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-    }
-  }, [client, session, isDbLoading, selectedRepoId, fetchFilteredCount]);
+      try {
+        // Calculate offset for pagination
+        const offset = loadMore ? itemsCountRef.current : 0;
+
+        // Fetch items that match the selected repo OR have no repo assigned (legacy items)
+        // Using two queries and merging results for better compatibility
+        // Fetch PAGE_SIZE + 1 to detect if there are more items
+        const [repoItems, legacyItems] = await Promise.all([
+          client
+            .from('mason_pm_backlog_items')
+            .select('*')
+            .eq('repository_id', selectedRepoId)
+            .order('priority_score', { ascending: false })
+            .range(offset, offset + PAGE_SIZE),
+          client
+            .from('mason_pm_backlog_items')
+            .select('*')
+            .is('repository_id', null)
+            .order('priority_score', { ascending: false })
+            .range(offset, offset + PAGE_SIZE),
+        ]);
+
+        if (repoItems.error) {
+          throw repoItems.error;
+        }
+        if (legacyItems.error) {
+          throw legacyItems.error;
+        }
+
+        // Merge and dedupe results, sort by priority
+        const allItems = [
+          ...(repoItems.data || []),
+          ...(legacyItems.data || []),
+        ];
+        const uniqueItems = Array.from(
+          new Map(allItems.map((item) => [item.id, item])).values(),
+        ).sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0));
+
+        // Check if there are more items (either query returned a full page)
+        const hasMore =
+          (repoItems.data?.length ?? 0) >= PAGE_SIZE ||
+          (legacyItems.data?.length ?? 0) >= PAGE_SIZE;
+        setHasMoreItems(hasMore);
+
+        if (loadMore) {
+          // Append new items, avoiding duplicates
+          setItems((prev) => {
+            const existingIds = new Set(prev.map((item) => item.id));
+            const newItems = uniqueItems.filter(
+              (item) => !existingIds.has(item.id),
+            );
+            return [...prev, ...newItems].sort(
+              (a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0),
+            );
+          });
+        } else {
+          setItems(uniqueItems);
+        }
+
+        // Also fetch filtered count
+        void fetchFilteredCount();
+      } catch (err) {
+        console.error('Error fetching backlog:', err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to fetch data from database',
+        );
+      } finally {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [client, session, isDbLoading, selectedRepoId, fetchFilteredCount],
+  );
 
   const handleLoadMore = useCallback(() => {
     void fetchItems(true);
@@ -753,6 +763,16 @@ function BacklogPageContent() {
     setConfirmDialog({ isOpen: true, action: 'restore', ids, titles });
   };
 
+  const handleBulkCompleteRequest = (ids: string[]) => {
+    if (ids.length === 0) {
+      return;
+    }
+    const titles = items
+      .filter((item) => ids.includes(item.id))
+      .map((item) => item.title);
+    setConfirmDialog({ isOpen: true, action: 'complete', ids, titles });
+  };
+
   const handleConfirmBulkAction = async () => {
     if (!client) {
       return;
@@ -764,7 +784,9 @@ function BacklogPageContent() {
         ? 'approved'
         : action === 'reject'
           ? 'rejected'
-          : 'new';
+          : action === 'complete'
+            ? 'completed'
+            : 'new';
 
     // Store previous states for undo
     const previousStates = items
@@ -775,6 +797,8 @@ function BacklogPageContent() {
       setIsBulkApproving(true);
     } else if (action === 'reject') {
       setIsBulkRejecting(true);
+    } else if (action === 'complete') {
+      setIsBulkCompleting(true);
     } else {
       setIsBulkRestoring(true);
     }
@@ -823,6 +847,7 @@ function BacklogPageContent() {
       setIsBulkApproving(false);
       setIsBulkRejecting(false);
       setIsBulkRestoring(false);
+      setIsBulkCompleting(false);
     }
   };
 
@@ -1290,10 +1315,12 @@ function BacklogPageContent() {
         onApprove={handleBulkApproveRequest}
         onReject={handleBulkRejectRequest}
         onRestore={handleBulkRestoreRequest}
+        onComplete={handleBulkCompleteRequest}
         onClearSelection={handleClearSelection}
         isApproving={isBulkApproving}
         isRejecting={isBulkRejecting}
         isRestoring={isBulkRestoring}
+        isCompleting={isBulkCompleting}
       />
 
       {/* Confirmation Dialog */}
@@ -1313,14 +1340,18 @@ function BacklogPageContent() {
             ? 'Confirm Bulk Approve'
             : confirmDialog.action === 'reject'
               ? 'Confirm Bulk Reject'
-              : 'Confirm Restore to New'
+              : confirmDialog.action === 'complete'
+                ? 'Confirm Mark as Completed'
+                : 'Confirm Restore to New'
         }
         message={
           confirmDialog.action === 'approve'
             ? 'Are you sure you want to approve these items? They will be marked as ready for implementation.'
             : confirmDialog.action === 'reject'
               ? 'Are you sure you want to reject these items? They will be removed from the active backlog.'
-              : 'Are you sure you want to restore these items? They will be moved back to the New status for review.'
+              : confirmDialog.action === 'complete'
+                ? 'Are you sure you want to mark these items as completed? Use this for items completed outside of Mason.'
+                : 'Are you sure you want to restore these items? They will be moved back to the New status for review.'
         }
         itemCount={confirmDialog.ids.length}
         itemTitles={confirmDialog.titles}
@@ -1329,16 +1360,25 @@ function BacklogPageContent() {
             ? 'Approve All'
             : confirmDialog.action === 'reject'
               ? 'Reject All'
-              : 'Restore All'
+              : confirmDialog.action === 'complete'
+                ? 'Mark All Completed'
+                : 'Restore All'
         }
         confirmVariant={
           confirmDialog.action === 'approve'
             ? 'approve'
             : confirmDialog.action === 'reject'
               ? 'reject'
-              : 'restore'
+              : confirmDialog.action === 'complete'
+                ? 'complete'
+                : 'restore'
         }
-        isLoading={isBulkApproving || isBulkRejecting || isBulkRestoring}
+        isLoading={
+          isBulkApproving ||
+          isBulkRejecting ||
+          isBulkRestoring ||
+          isBulkCompleting
+        }
       />
 
       {/* Toast Notifications */}
@@ -1365,7 +1405,9 @@ function BacklogPageContent() {
               ? 'approved'
               : undoState.action === 'reject'
                 ? 'rejected'
-                : 'restored to new'}
+                : undoState.action === 'complete'
+                  ? 'marked as completed'
+                  : 'restored to new'}
           </span>
           <button
             onClick={handleUndo}
