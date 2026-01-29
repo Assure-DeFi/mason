@@ -19,6 +19,8 @@ export const STORAGE_KEYS = {
   GITHUB_TOKEN: 'mason_github_token',
   /** Supabase OAuth session data (PKCE state/verifier) */
   SUPABASE_OAUTH_SESSION: 'mason_supabase_oauth_session',
+  /** Backlog table column width preferences */
+  COLUMN_WIDTHS: 'mason_backlog_column_widths',
 } as const;
 
 /**
