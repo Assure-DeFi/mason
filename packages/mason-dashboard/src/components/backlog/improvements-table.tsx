@@ -55,6 +55,7 @@ interface ImprovementsTableProps {
   onSelectItem: (id: string, event?: React.MouseEvent) => void;
   onSelectAll: () => void;
   onItemClick: (item: BacklogItem) => void;
+  onPrdClick?: (item: BacklogItem) => void;
   sort: { field: SortField; direction: SortDirection } | null;
   onSortChange: (field: SortField) => void;
 }
@@ -65,6 +66,7 @@ export function ImprovementsTable({
   onSelectItem,
   onSelectAll,
   onItemClick,
+  onPrdClick,
   sort,
   onSortChange,
 }: ImprovementsTableProps) {
@@ -137,6 +139,7 @@ export function ImprovementsTable({
               selected={selectedIds.includes(item.id)}
               onSelect={onSelectItem}
               onClick={onItemClick}
+              onPrdClick={onPrdClick}
             />
           ))}
         </tbody>

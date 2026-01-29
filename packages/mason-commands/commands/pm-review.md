@@ -8,7 +8,7 @@ This command performs a comprehensive analysis of the codebase to identify impro
 
 ## Modes
 
-- `full` (default): Generate 10-20 improvements + 3 PRDs for top items
+- `full` (default): Generate 10-20 improvements with PRDs for all items
 - `area:<name>`: Focus on specific area (frontend-ux, api-backend, reliability, security, code-quality)
 - `quick`: Generate 5-7 quick wins only (low effort, high impact)
 
@@ -377,51 +377,93 @@ Data stored in: YOUR Supabase (not central server)
 View in Dashboard: https://mason.assuredefi.com/admin/backlog
 ```
 
-### Step 7: Generate PRDs (Full Mode Only)
+### Step 7: Generate PRDs (All Items, All Modes)
 
-For the top 3 items by priority score, generate detailed PRDs following this structure:
+For EVERY backlog item generated, create a detailed PRD. This ensures all items arrive in the dashboard complete and ready for approval.
+
+**PRD Structure:**
 
 ```markdown
 # PRD: [Title]
 
 ## Problem Statement
 
-[Clear description of the problem]
+[From item.problem - expanded with context]
 
 ## Proposed Solution
 
-[Detailed solution description]
+[From item.solution - expanded with implementation details]
 
 ## Success Criteria
 
-- [ ] Criterion 1
-- [ ] Criterion 2
+- [ ] [Measurable criterion based on the problem being solved]
+- [ ] [User-observable improvement or metric]
+- [ ] [Technical validation criterion]
 
 ## Technical Approach
 
-### Wave 1: Foundation
+### Wave 1: Foundation (Explore subagent)
 
-[Tasks that can run in parallel, no dependencies]
+| #   | Subagent | Task                                        |
+| --- | -------- | ------------------------------------------- |
+| 1.1 | Explore  | Research existing patterns and dependencies |
+| 1.2 | Explore  | Identify affected components and files      |
 
-### Wave 2: Implementation
+### Wave 2: Implementation (general-purpose subagent)
 
-[Tasks blocked by Wave 1]
+| #   | Subagent        | Task                            |
+| --- | --------------- | ------------------------------- |
+| 2.1 | general-purpose | Implement core changes          |
+| 2.2 | general-purpose | Add tests for new functionality |
 
-### Wave 3: Validation
+### Wave 3: Validation (code-reviewer subagent)
 
-[Testing, review, polish]
+| #   | Subagent      | Task                                         |
+| --- | ------------- | -------------------------------------------- |
+| 3.1 | code-reviewer | Review all changes for quality and standards |
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-| ---- | ---------- |
+| Risk                        | Mitigation                     |
+| --------------------------- | ------------------------------ |
+| [Based on complexity score] | [Specific mitigation strategy] |
 
 ## Out of Scope
 
-- [Explicitly excluded items]
+- [Explicitly excluded items to prevent scope creep]
 ```
 
-Store the PRD content in the `prd_content` field and set `prd_generated_at`.
+**Include PRD in submission payload:**
+
+When submitting backlog items in Step 6c, include the PRD content:
+
+```json
+{
+  "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+  "repository_id": "${REPOSITORY_ID}",
+  "title": "...",
+  "problem": "...",
+  "solution": "...",
+  "type": "...",
+  "area": "...",
+  "impact_score": 8,
+  "effort_score": 3,
+  "complexity": 2,
+  "benefits": [...],
+  "status": "new",
+  "prd_content": "# PRD: [Title]\n\n## Problem Statement\n...",
+  "prd_generated_at": "'${TIMESTAMP}'"
+}
+```
+
+**PRD Quality Guidelines:**
+
+1. **Problem Statement**: Expand on `item.problem` with user impact and business context
+2. **Proposed Solution**: Expand on `item.solution` with specific implementation approach
+3. **Success Criteria**: 3-5 measurable criteria that indicate the problem is solved
+4. **Technical Approach**: Use wave-based parallel execution (per parallel-task-execution.md rules)
+5. **Risks**: Scale complexity based on item's `complexity` score (1-5)
+6. **Out of Scope**: Prevent scope creep by explicitly listing what won't be addressed
 
 ## Output Format
 
@@ -432,7 +474,7 @@ After analysis, provide a summary:
 
 **Mode**: [full/area:X/quick]
 **Items Found**: [count]
-**PRDs Generated**: [count]
+**PRDs Generated**: [count] (all items)
 
 ### Top Improvements by Priority
 

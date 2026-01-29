@@ -28,6 +28,7 @@ interface ItemDetailModalProps {
   onClose: () => void;
   onUpdateStatus: (id: string, status: BacklogStatus) => Promise<void>;
   onGeneratePrd: (id: string) => Promise<void>;
+  initialViewMode?: ViewMode;
 }
 
 const STATUS_CONFIG: Record<
@@ -73,10 +74,11 @@ export function ItemDetailModal({
   onClose,
   onUpdateStatus,
   onGeneratePrd,
+  initialViewMode = 'details',
 }: ItemDetailModalProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('details');
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -663,16 +665,12 @@ export function ItemDetailModal({
                     </button>
 
                     <button
-                      onClick={handleApproveAndGeneratePrd}
-                      disabled={isUpdating || isGenerating}
+                      onClick={() => handleStatusChange('approved')}
+                      disabled={isUpdating}
                       className="flex items-center gap-2 px-6 py-2.5 text-sm bg-gold text-navy font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-lg"
                     >
-                      <Sparkles className="w-4 h-4" />
-                      {isUpdating || isGenerating
-                        ? 'Working...'
-                        : item.prd_content
-                          ? 'Approve'
-                          : 'Approve & Generate PRD'}
+                      <Check className="w-4 h-4" />
+                      {isUpdating ? 'Approving...' : 'Approve'}
                     </button>
                   </div>
                 )}

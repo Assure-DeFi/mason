@@ -13,9 +13,16 @@ interface ItemRowProps {
   selected: boolean;
   onSelect: (id: string, event?: React.MouseEvent) => void;
   onClick: (item: BacklogItem) => void;
+  onPrdClick?: (item: BacklogItem) => void;
 }
 
-export function ItemRow({ item, selected, onSelect, onClick }: ItemRowProps) {
+export function ItemRow({
+  item,
+  selected,
+  onSelect,
+  onClick,
+  onPrdClick,
+}: ItemRowProps) {
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onSelect(item.id, e);
@@ -92,21 +99,26 @@ export function ItemRow({ item, selected, onSelect, onClick }: ItemRowProps) {
       </td>
 
       {/* PRD Status */}
-      <td className="py-4 px-6 text-center">
-        <div
-          className="inline-flex items-center justify-center"
-          title={
-            item.prd_content
-              ? 'PRD available - click to view'
-              : 'No PRD generated'
-          }
-        >
-          <FileText
-            className={`w-5 h-5 ${
-              item.prd_content ? 'text-gold fill-gold/20' : 'text-gray-600'
-            }`}
-          />
-        </div>
+      <td
+        className="py-4 px-6 text-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {item.prd_content ? (
+          <button
+            onClick={() => onPrdClick?.(item)}
+            className="inline-flex items-center justify-center hover:scale-110 transition-transform"
+            title="PRD available - click to view"
+          >
+            <FileText className="w-5 h-5 text-gold fill-gold" />
+          </button>
+        ) : (
+          <div
+            className="inline-flex items-center justify-center"
+            title="No PRD generated (legacy item)"
+          >
+            <FileText className="w-5 h-5 text-gray-600" />
+          </div>
+        )}
       </td>
 
       {/* Last edited */}
