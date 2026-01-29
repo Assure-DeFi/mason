@@ -7,7 +7,6 @@ import {
   X,
   Loader2,
   Database,
-  AlertCircle,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -172,13 +171,19 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
         setMigration({ status: 'checking' });
         const tableResult = await checkTablesExist(projectUrl, serviceKey);
         if (tableResult.exists) {
-          setMigration({ status: 'success', message: 'All tables exist' });
+          setMigration({ status: 'success', message: 'Database ready' });
         } else {
-          setMigration({
-            status: 'needed',
-            message: 'Some tables are missing',
-            missingTables: tableResult.missing,
-          });
+          // For new users, missing tables is expected - auto-run migrations if we have the password
+          if (databasePassword) {
+            // Auto-run migrations
+            handleRunMigrations();
+          } else {
+            setMigration({
+              status: 'needed',
+              message: 'Ready to set up your database',
+              missingTables: tableResult.missing,
+            });
+          }
         }
       }
     } else {
@@ -540,15 +545,13 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
                 : migration.status === 'error'
                   ? 'bg-red-900/20 text-red-400'
                   : migration.status === 'needed'
-                    ? 'bg-yellow-900/20 text-yellow-400'
+                    ? 'bg-gray-900/50 text-gray-300'
                     : 'bg-gray-900/50 text-gray-400'
             }`}
           >
             {migration.status === 'success' && <Check className="h-5 w-5" />}
             {migration.status === 'error' && <X className="h-5 w-5" />}
-            {migration.status === 'needed' && (
-              <AlertCircle className="h-5 w-5" />
-            )}
+            {migration.status === 'needed' && <Database className="h-5 w-5" />}
             {(migration.status === 'checking' ||
               migration.status === 'running') && (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -573,8 +576,8 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
               </div>
 
               {!databasePassword && (
-                <p className="text-sm text-yellow-400">
-                  Enter your Database Password above to run migrations.
+                <p className="text-sm text-gray-400">
+                  Enter your Database Password above to continue.
                 </p>
               )}
 
