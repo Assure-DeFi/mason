@@ -1,8 +1,10 @@
 'use client';
 
-import type { BacklogItem, SortField, SortDirection } from '@/types/backlog';
-import { ItemRow } from './item-row';
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+
+import type { BacklogItem, SortField, SortDirection } from '@/types/backlog';
+
+import { ItemRow } from './item-row';
 
 interface SortableHeaderProps {
   label: string;
@@ -24,7 +26,7 @@ function SortableHeader({
 
   return (
     <th
-      className={`py-4 px-6 font-semibold text-gray-400 uppercase tracking-wider text-xs cursor-pointer hover:text-white transition-colors select-none ${
+      className={`py-3 px-3 font-semibold text-gray-400 uppercase tracking-wider text-xs cursor-pointer hover:text-white transition-colors select-none ${
         align === 'center' ? 'text-center' : 'text-left'
       }`}
       onClick={() => onSort(field)}
@@ -75,16 +77,18 @@ export function ImprovementsTable({
     selectedIds.length > 0 && selectedIds.length < items.length;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div>
+      <table className="w-full text-sm table-fixed">
         <thead>
           <tr className="border-b border-gray-800/50 bg-black/10">
-            <th className="text-left py-4 px-6 w-12">
+            <th className="text-left py-3 px-3 w-12">
               <input
                 type="checkbox"
                 checked={allSelected}
                 ref={(el) => {
-                  if (el) el.indeterminate = someSelected;
+                  if (el) {
+                    el.indeterminate = someSelected;
+                  }
                 }}
                 onChange={onSelectAll}
                 className="w-4 h-4 rounded border-gray-600 bg-black/50 text-gold focus:ring-gold focus:ring-offset-0 cursor-pointer"
@@ -120,7 +124,13 @@ export function ImprovementsTable({
               currentSort={sort}
               onSort={onSortChange}
             />
-            <th className="text-center py-4 px-6 font-semibold text-gray-400 uppercase tracking-wider text-xs">
+            <SortableHeader
+              label="Status"
+              field="status"
+              currentSort={sort}
+              onSort={onSortChange}
+            />
+            <th className="text-center py-3 px-3 font-semibold text-gray-400 uppercase tracking-wider text-xs w-14">
               PRD
             </th>
             <SortableHeader

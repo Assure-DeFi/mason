@@ -9,7 +9,9 @@ export type BacklogComplexity = 'low' | 'medium' | 'high' | 'very_high';
  * Database stores complexity as text, UI expects numeric for display
  */
 export function getComplexityValue(complexity: string | number): number {
-  if (typeof complexity === 'number') return complexity;
+  if (typeof complexity === 'number') {
+    return complexity;
+  }
   const mapping: Record<string, number> = {
     low: 1,
     medium: 2,
@@ -153,6 +155,7 @@ export type SortField =
   | 'priority_score'
   | 'complexity'
   | 'area'
+  | 'status'
   | 'updated_at'
   | 'impact_score'
   | 'effort_score'
