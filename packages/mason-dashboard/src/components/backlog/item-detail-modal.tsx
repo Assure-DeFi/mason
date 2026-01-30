@@ -1,21 +1,28 @@
 'use client';
 
 import { clsx } from 'clsx';
-import { X, FileText, Check, Clock } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { X, FileText, Check, Clock, ShieldAlert } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SuccessAnimation } from '@/components/ui/SuccessAnimation';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import type { BacklogItem, BacklogStatus } from '@/types/backlog';
+import { STORAGE_KEYS } from '@/lib/constants';
+import type {
+  BacklogItem,
+  BacklogStatus,
+  DependencyAnalysis,
+} from '@/types/backlog';
 
 import { BenefitsGrid } from './benefits-grid';
 import { ItemTimeline } from './ItemTimeline';
 import { PriorityDots } from './priority-dots';
 import { QuickWinBadge } from './QuickWinBadge';
+import { RiskAnalysisView } from './RiskAnalysisView';
+import { RiskBadge } from './RiskBadge';
 import { TypeBadge } from './type-badge';
 
-export type ViewMode = 'details' | 'prd' | 'timeline';
+export type ViewMode = 'details' | 'prd' | 'timeline' | 'risk';
 
 interface ItemDetailModalProps {
   item: BacklogItem;
@@ -38,7 +45,75 @@ export function ItemDetailModal({
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Risk analysis state
+  const [riskAnalysis, setRiskAnalysis] = useState<DependencyAnalysis | null>(
+    null,
+  );
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
   const focusTrapRef = useFocusTrap(true);
+
+  // Fetch existing risk analysis on mount
+  useEffect(() => {
+    const fetchRiskAnalysis = async () => {
+      try {
+        const response = await fetch(`/api/backlog/${item.id}/risk-analysis`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.analysis) {
+            setRiskAnalysis(data.analysis);
+          }
+        }
+      } catch {
+        // Silent fail - analysis is optional
+      }
+    };
+
+    void fetchRiskAnalysis();
+  }, [item.id]);
+
+  // Handle triggering risk analysis
+  const handleAnalyzeRisk = useCallback(async () => {
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+
+    try {
+      // Get GitHub token from localStorage
+      const githubToken = localStorage.getItem(STORAGE_KEYS.GITHUB_TOKEN);
+
+      if (!githubToken) {
+        setAnalysisError(
+          'GitHub token not found. Please reconnect your GitHub account.',
+        );
+        return;
+      }
+
+      const response = await fetch(`/api/backlog/${item.id}/analyze-risk`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ githubToken }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to analyze risk');
+      }
+
+      const data = await response.json();
+      setRiskAnalysis(data.analysis);
+      setSuccessMessage('Risk Analysis Complete!');
+      setShowSuccess(true);
+    } catch (err) {
+      setAnalysisError(
+        err instanceof Error ? err.message : 'Failed to analyze risk',
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [item.id]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -272,6 +347,10 @@ export function ItemDetailModal({
                   impactScore={item.impact_score}
                   effortScore={item.effort_score}
                 />
+                {/* Risk Badge - shown if analysis exists */}
+                {item.risk_score !== null && (
+                  <RiskBadge score={item.risk_score} size="sm" />
+                )}
               </div>
 
               {/* Title */}
@@ -365,6 +444,18 @@ export function ItemDetailModal({
                   <Clock className="w-3 h-3" />
                   <span className="hidden sm:inline">History</span>
                 </button>
+                <button
+                  onClick={() => setViewMode('risk')}
+                  className={clsx(
+                    'px-2 sm:px-3 py-1 text-xs rounded transition-colors flex items-center gap-1',
+                    viewMode === 'risk'
+                      ? 'bg-gray-700 text-white'
+                      : 'text-gray-400 hover:text-white',
+                  )}
+                >
+                  <ShieldAlert className="w-3 h-3" />
+                  <span className="hidden sm:inline">Risk</span>
+                </button>
               </div>
             </div>
           </div>
@@ -382,8 +473,44 @@ export function ItemDetailModal({
                 currentStatus={item.status}
                 prdGeneratedAt={item.prd_content ? item.updated_at : undefined}
               />
+            ) : viewMode === 'risk' ? (
+              <>
+                {analysisError && (
+                  <div className="p-3 bg-red-400/10 border border-red-400/30 text-red-400 text-sm">
+                    {analysisError}
+                  </div>
+                )}
+                <RiskAnalysisView
+                  analysis={riskAnalysis}
+                  isLoading={isAnalyzing}
+                  onAnalyze={handleAnalyzeRisk}
+                  analyzedAt={item.risk_analyzed_at}
+                />
+              </>
             ) : (
               <>
+                {/* High Risk Warning - show in details view if risk is high */}
+                {item.risk_score !== null && item.risk_score >= 7 && (
+                  <div className="p-4 bg-orange-400/10 border border-orange-400/30 flex items-start gap-3">
+                    <ShieldAlert className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-orange-400 font-medium">
+                        High Risk Item
+                      </p>
+                      <p className="text-gray-400 text-sm mt-1">
+                        This item has a risk score of {item.risk_score}/10.
+                        Review the Risk tab before approving.
+                      </p>
+                      <button
+                        onClick={() => setViewMode('risk')}
+                        className="text-sm text-gold hover:underline mt-2"
+                      >
+                        View Risk Analysis
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Problem */}
                 <div>
                   <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">

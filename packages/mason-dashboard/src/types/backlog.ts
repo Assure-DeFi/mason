@@ -84,6 +84,13 @@ export interface BacklogItem {
 
   // Repository association (for multi-repo support)
   repository_id: string | null;
+
+  // Risk analysis summary fields (quick access)
+  risk_score: number | null;
+  risk_analyzed_at: string | null;
+  files_affected_count: number | null;
+  has_breaking_changes: boolean | null;
+  test_coverage_gaps: number | null;
 }
 
 export interface AnalysisRun {
@@ -190,4 +197,112 @@ export interface StatusCounts {
   completed: number;
   deferred: number;
   rejected: number;
+}
+
+/**
+ * Breaking change detected during dependency analysis
+ */
+export interface BreakingChange {
+  file: string;
+  type:
+    | 'export_removed'
+    | 'signature_changed'
+    | 'type_changed'
+    | 'api_endpoint_changed';
+  description: string;
+  severity: 'low' | 'medium' | 'high';
+}
+
+/**
+ * Detailed dependency analysis for a backlog item
+ */
+export interface DependencyAnalysis {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  item_id: string;
+
+  // Files identified in solution
+  target_files: string[];
+  // Files that import target files (cascade risk)
+  affected_files: string[];
+  // Files that target files import (upstream dependencies)
+  upstream_dependencies: string[];
+
+  // Risk score breakdown (1-10 each)
+  file_count_score: number;
+  dependency_depth_score: number;
+  test_coverage_score: number;
+  cascade_potential_score: number;
+  api_surface_score: number;
+
+  // Computed overall risk score
+  overall_risk_score: number;
+
+  // Breaking changes detection
+  breaking_changes: BreakingChange[];
+  has_breaking_changes: boolean;
+
+  // Test coverage gaps
+  files_without_tests: string[];
+
+  // Database/external API impact
+  migration_needed: boolean;
+  api_changes_detected: boolean;
+}
+
+/**
+ * Risk level categories based on score
+ */
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+/**
+ * Get risk level from numeric score
+ */
+export function getRiskLevel(score: number | null): RiskLevel {
+  if (score === null) {
+    return 'low';
+  }
+  if (score <= 3) {
+    return 'low';
+  }
+  if (score <= 5) {
+    return 'medium';
+  }
+  if (score <= 7) {
+    return 'high';
+  }
+  return 'critical';
+}
+
+/**
+ * Get display color for risk level
+ */
+export function getRiskColor(level: RiskLevel): string {
+  switch (level) {
+    case 'low':
+      return 'text-green-400';
+    case 'medium':
+      return 'text-yellow-400';
+    case 'high':
+      return 'text-orange-400';
+    case 'critical':
+      return 'text-red-400';
+  }
+}
+
+/**
+ * Get background color for risk level
+ */
+export function getRiskBgColor(level: RiskLevel): string {
+  switch (level) {
+    case 'low':
+      return 'bg-green-400/10 border-green-400/30';
+    case 'medium':
+      return 'bg-yellow-400/10 border-yellow-400/30';
+    case 'high':
+      return 'bg-orange-400/10 border-orange-400/30';
+    case 'critical':
+      return 'bg-red-400/10 border-red-400/30';
+  }
 }
