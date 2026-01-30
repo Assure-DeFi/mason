@@ -32,6 +32,7 @@ import {
 } from '@/hooks/useExecutionListener';
 import { useRealtimeBacklog } from '@/hooks/useRealtimeBacklog';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { ensureExecutionProgress } from '@/lib/execution/progress';
 import { createMasonUserRecord } from '@/lib/supabase/user-record';
 import type {
   BacklogItem,
@@ -247,15 +248,33 @@ export default function BacklogPage() {
     client,
     onItemUpdate: useCallback(
       (updatedItem: BacklogItem) => {
-        setItems((prev) =>
-          prev.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
-        );
+        setItems((prev) => {
+          // Find previous item to detect status change
+          const prevItem = prev.find((item) => item.id === updatedItem.id);
+
+          // If status changed TO in_progress, auto-create execution_progress
+          if (
+            client &&
+            prevItem?.status !== 'in_progress' &&
+            updatedItem.status === 'in_progress'
+          ) {
+            // Create execution_progress record for BuildingTheater
+            void ensureExecutionProgress(client, updatedItem.id, {
+              totalWaves: 4,
+              initialTask: `Starting: ${updatedItem.title}`,
+            });
+          }
+
+          return prev.map((item) =>
+            item.id === updatedItem.id ? updatedItem : item,
+          );
+        });
         // Also update selected item if it's the one that changed
         if (selectedItem?.id === updatedItem.id) {
           setSelectedItem(updatedItem);
         }
       },
-      [selectedItem],
+      [selectedItem, client],
     ),
     onItemInsert: useCallback((newItem: BacklogItem) => {
       setItems((prev) => [newItem, ...prev]);

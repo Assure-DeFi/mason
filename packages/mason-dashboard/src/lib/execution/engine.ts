@@ -1,5 +1,6 @@
 import AnthropicClient from '@anthropic-ai/sdk';
 
+import { ensureExecutionProgress } from '@/lib/execution/progress';
 import {
   createGitHubClient,
   createBranch,
@@ -668,6 +669,17 @@ export async function executeRemotely(
         'id',
         successfulItems.map((item) => item.id),
       );
+
+    // Create execution_progress records for BuildingTheater visualization
+    await Promise.all(
+      successfulItems.map((item) =>
+        ensureExecutionProgress(supabase, item.id, {
+          runId,
+          totalWaves: 4,
+          initialTask: `Starting execution for: ${item.title}`,
+        }),
+      ),
+    );
 
     // Mark failed items as rejected
     if (failedItems.length > 0) {
