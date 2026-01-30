@@ -3,12 +3,11 @@
 import { clsx } from 'clsx';
 import { X, FileText, Check, Clock, ShieldAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SuccessAnimation } from '@/components/ui/SuccessAnimation';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { STORAGE_KEYS } from '@/lib/constants';
 import type {
   BacklogItem,
   BacklogStatus,
@@ -95,16 +94,14 @@ export function ItemDetailModal({
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Risk analysis state
+  // Risk analysis state - now pre-populated by /pm-review
   const [riskAnalysis, setRiskAnalysis] = useState<DependencyAnalysis | null>(
     null,
   );
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const focusTrapRef = useFocusTrap(true);
 
-  // Fetch existing risk analysis on mount
+  // Fetch existing risk analysis on mount (now pre-populated by /pm-review)
   useEffect(() => {
     const fetchRiskAnalysis = async () => {
       try {
@@ -121,48 +118,6 @@ export function ItemDetailModal({
     };
 
     void fetchRiskAnalysis();
-  }, [item.id]);
-
-  // Handle triggering risk analysis
-  const handleAnalyzeRisk = useCallback(async () => {
-    setIsAnalyzing(true);
-    setAnalysisError(null);
-
-    try {
-      // Get GitHub token from localStorage
-      const githubToken = localStorage.getItem(STORAGE_KEYS.GITHUB_TOKEN);
-
-      if (!githubToken) {
-        setAnalysisError(
-          'GitHub token not found. Please reconnect your GitHub account.',
-        );
-        return;
-      }
-
-      const response = await fetch(`/api/backlog/${item.id}/analyze-risk`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ githubToken }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to analyze risk');
-      }
-
-      const data = await response.json();
-      setRiskAnalysis(data.analysis);
-      setSuccessMessage('Risk Analysis Complete!');
-      setShowSuccess(true);
-    } catch (err) {
-      setAnalysisError(
-        err instanceof Error ? err.message : 'Failed to analyze risk',
-      );
-    } finally {
-      setIsAnalyzing(false);
-    }
   }, [item.id]);
 
   // Keyboard navigation
@@ -511,19 +466,10 @@ export function ItemDetailModal({
                 prdGeneratedAt={item.prd_content ? item.updated_at : undefined}
               />
             ) : viewMode === 'risk' ? (
-              <>
-                {analysisError && (
-                  <div className="p-3 bg-red-400/10 border border-red-400/30 text-red-400 text-sm">
-                    {analysisError}
-                  </div>
-                )}
-                <RiskAnalysisView
-                  analysis={riskAnalysis}
-                  isLoading={isAnalyzing}
-                  onAnalyze={handleAnalyzeRisk}
-                  analyzedAt={item.risk_analyzed_at}
-                />
-              </>
+              <RiskAnalysisView
+                analysis={riskAnalysis}
+                analyzedAt={item.risk_analyzed_at}
+              />
             ) : (
               <>
                 {/* High Risk Warning - show in details view if risk is high */}

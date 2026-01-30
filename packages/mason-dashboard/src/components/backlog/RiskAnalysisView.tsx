@@ -8,7 +8,6 @@ import {
   Layers,
   Database,
   AlertTriangle,
-  RefreshCw,
   XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -21,17 +20,16 @@ import { RiskBadge } from './RiskBadge';
 interface RiskAnalysisViewProps {
   analysis: DependencyAnalysis | null;
   isLoading?: boolean;
-  onAnalyze?: () => void;
   analyzedAt?: string | null;
 }
 
 /**
  * Detailed view of dependency/risk analysis for a backlog item
+ * Risk analysis is now pre-populated during /pm-review - no manual trigger needed
  */
 export function RiskAnalysisView({
   analysis,
   isLoading = false,
-  onAnalyze,
   analyzedAt,
 }: RiskAnalysisViewProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -43,21 +41,15 @@ export function RiskAnalysisView({
           <TestTube className="w-8 h-8 text-gray-500" />
         </div>
         <h3 className="text-lg font-medium text-white mb-2">
-          No Risk Analysis Yet
+          Risk Analysis Pending
         </h3>
-        <p className="text-gray-400 mb-6 max-w-sm">
-          Analyze this item to understand code dependencies, test coverage gaps,
-          and potential breaking changes.
+        <p className="text-gray-400 max-w-sm">
+          Risk analysis is automatically generated when items are processed by{' '}
+          <code className="px-1 py-0.5 bg-black rounded text-gold font-mono text-sm">
+            /pm-review
+          </code>
+          . Re-run the review to populate this data.
         </p>
-        {onAnalyze && (
-          <button
-            onClick={onAnalyze}
-            className="flex items-center gap-2 px-4 py-2 bg-gold text-navy font-medium hover:opacity-90 transition-opacity"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Analyze Risk
-          </button>
-        )}
       </div>
     );
   }
@@ -65,11 +57,8 @@ export function RiskAnalysisView({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <RefreshCw className="w-8 h-8 text-gold animate-spin mb-4" />
-        <p className="text-gray-400">Analyzing dependencies...</p>
-        <p className="text-xs text-gray-500 mt-2">
-          This may take a moment for large codebases
-        </p>
+        <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-gray-400">Loading risk analysis...</p>
       </div>
     );
   }
@@ -150,18 +139,6 @@ export function RiskAnalysisView({
               )}
             </div>
           </div>
-          {onAnalyze && (
-            <button
-              onClick={onAnalyze}
-              disabled={isLoading}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-600 text-gray-300 hover:bg-white/5 disabled:opacity-50"
-            >
-              <RefreshCw
-                className={clsx('w-4 h-4', isLoading && 'animate-spin')}
-              />
-              Re-analyze
-            </button>
-          )}
         </div>
         {analyzedAt && (
           <p className="text-xs text-gray-500 mt-2">

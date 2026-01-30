@@ -33,21 +33,41 @@ Examples:
 
 ## Process
 
-### Pre-Check: Version Notification
+### Pre-Check: Version Enforcement (BLOCKING)
 
-Run this version check (silent on success, notification if update available):
+Run this version check **FIRST** before any other operation:
 
 ```bash
-LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/execute-approved.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+# === VERSION ENFORCEMENT (BLOCKING) ===
+COMMAND_NAME="execute-approved"
+LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/${COMMAND_NAME}.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
 REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
-REMOTE_VERSION=$(echo "$REMOTE" | jq -r '.commands."execute-approved".version // ""' 2>/dev/null)
+REMOTE_VERSION=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".version // \"\"" 2>/dev/null)
+REQUIRED_MIN=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".required_minimum // \"\"" 2>/dev/null)
+BREAKING_REASON=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".breaking_reason // \"\"" 2>/dev/null)
 
-if [ -n "$REMOTE_VERSION" ] && [ -n "$LOCAL_VERSION" ] && [ "$LOCAL_VERSION" != "$REMOTE_VERSION" ]; then
-  echo "📦 Update available: $LOCAL_VERSION → $REMOTE_VERSION. Run /mason-update to update."
+# Block if below required minimum
+if [ -n "$REQUIRED_MIN" ] && [ -n "$LOCAL_VERSION" ]; then
+  if [ "$(printf '%s\n' "$REQUIRED_MIN" "$LOCAL_VERSION" | sort -V | head -n1)" = "$LOCAL_VERSION" ] && \
+     [ "$LOCAL_VERSION" != "$REQUIRED_MIN" ]; then
+    echo "❌ REQUIRED UPDATE: Your ${COMMAND_NAME} v${LOCAL_VERSION} is below minimum required v${REQUIRED_MIN}"
+    [ -n "$BREAKING_REASON" ] && echo "   Reason: $BREAKING_REASON"
+    echo ""
+    echo "   Run: /mason-update"
+    echo ""
+    # STOP - do not continue with outdated version
+    return 1 2>/dev/null || exit 1
+  fi
 fi
+
+# Notify if optional update available (non-blocking)
+if [ -n "$REMOTE_VERSION" ] && [ -n "$LOCAL_VERSION" ] && [ "$LOCAL_VERSION" != "$REMOTE_VERSION" ]; then
+  echo "📦 Update available: v${LOCAL_VERSION} → v${REMOTE_VERSION}. Run /mason-update to update."
+fi
+# === END VERSION ENFORCEMENT ===
 ```
 
-Continue with the command regardless of version status.
+**If version check blocks execution, STOP and inform the user to run `/mason-update`.**
 
 ---
 

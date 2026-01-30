@@ -2,12 +2,16 @@
   "manifest_version": 2,
   "commands": {
     "pm-review": {
-      "version": "1.1.0",
-      "file_path": "commands/pm-review.md"
+      "version": "1.2.0",
+      "file_path": "commands/pm-review.md",
+      "required_minimum": "1.2.0",
+      "breaking_reason": "Risk analysis integration - data structure changes"
     },
     "execute-approved": {
       "version": "1.0.0",
-      "file_path": "commands/execute-approved.md"
+      "file_path": "commands/execute-approved.md",
+      "required_minimum": "1.0.0",
+      "breaking_reason": null
     },
     "mason-update": {
       "version": "1.0.0",

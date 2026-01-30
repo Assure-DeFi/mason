@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 1.1.0
+version: 1.2.0
 description: PM Review Command
 ---
 
@@ -97,21 +97,41 @@ Focus on: Dashboard components in src/components/dashboard/
 
 ## Process
 
-### Pre-Check: Version Notification
+### Pre-Check: Version Enforcement (BLOCKING)
 
-Run this version check (silent on success, notification if update available):
+Run this version check **FIRST** before any other operation:
 
 ```bash
-LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/pm-review.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+# === VERSION ENFORCEMENT (BLOCKING) ===
+COMMAND_NAME="pm-review"
+LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/${COMMAND_NAME}.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
 REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
-REMOTE_VERSION=$(echo "$REMOTE" | jq -r '.commands."pm-review".version // ""' 2>/dev/null)
+REMOTE_VERSION=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".version // \"\"" 2>/dev/null)
+REQUIRED_MIN=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".required_minimum // \"\"" 2>/dev/null)
+BREAKING_REASON=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".breaking_reason // \"\"" 2>/dev/null)
 
-if [ -n "$REMOTE_VERSION" ] && [ -n "$LOCAL_VERSION" ] && [ "$LOCAL_VERSION" != "$REMOTE_VERSION" ]; then
-  echo "📦 Update available: $LOCAL_VERSION → $REMOTE_VERSION. Run /mason-update to update."
+# Block if below required minimum
+if [ -n "$REQUIRED_MIN" ] && [ -n "$LOCAL_VERSION" ]; then
+  if [ "$(printf '%s\n' "$REQUIRED_MIN" "$LOCAL_VERSION" | sort -V | head -n1)" = "$LOCAL_VERSION" ] && \
+     [ "$LOCAL_VERSION" != "$REQUIRED_MIN" ]; then
+    echo "❌ REQUIRED UPDATE: Your ${COMMAND_NAME} v${LOCAL_VERSION} is below minimum required v${REQUIRED_MIN}"
+    [ -n "$BREAKING_REASON" ] && echo "   Reason: $BREAKING_REASON"
+    echo ""
+    echo "   Run: /mason-update"
+    echo ""
+    # STOP - do not continue with outdated version
+    return 1 2>/dev/null || exit 1
+  fi
 fi
+
+# Notify if optional update available (non-blocking)
+if [ -n "$REMOTE_VERSION" ] && [ -n "$LOCAL_VERSION" ] && [ "$LOCAL_VERSION" != "$REMOTE_VERSION" ]; then
+  echo "📦 Update available: v${LOCAL_VERSION} → v${REMOTE_VERSION}. Run /mason-update to update."
+fi
+# === END VERSION ENFORCEMENT ===
 ```
 
-Continue with the command regardless of version status.
+**If version check blocks execution, STOP and inform the user to run `/mason-update`.**
 
 ---
 
@@ -979,6 +999,104 @@ When submitting backlog items in Step 6c, include the PRD content:
 4. **Technical Approach**: Use wave-based parallel execution (per parallel-task-execution.md rules)
 5. **Risks**: Scale complexity based on item's `complexity` score (1-5)
 6. **Out of Scope**: Prevent scope creep by explicitly listing what won't be addressed
+
+### Step 7.5: Risk Analysis (MANDATORY)
+
+**After PRD generation, analyze risk for EVERY validated item.**
+
+This step pre-populates risk data so the dashboard displays it without manual triggering.
+
+For each item, invoke the risk-analyzer agent:
+
+```
+Task tool call:
+  subagent_type: "general-purpose"
+  prompt: |
+    Analyze risk for this improvement following .claude/agents/risk-analyzer.md:
+
+    Title: ${item.title}
+    Solution: ${item.solution}
+
+    1. Extract target files from solution text
+    2. Build import graph (upstream/downstream dependencies)
+    3. Check test coverage for each file
+    4. Detect breaking changes
+    5. Calculate 5 weighted scores → overall risk score
+
+    Return JSON:
+    {
+      "overall_risk_score": <1-10>,
+      "file_count_score": <1-10>,
+      "dependency_depth_score": <1-10>,
+      "test_coverage_score": <1-10>,
+      "cascade_potential_score": <1-10>,
+      "api_surface_score": <1-10>,
+      "target_files": [...],
+      "upstream_dependencies": [...],
+      "affected_files": [...],
+      "files_without_tests": [...],
+      "has_breaking_changes": <boolean>,
+      "breaking_changes": [...],
+      "migration_needed": <boolean>,
+      "api_changes_detected": <boolean>
+    }
+```
+
+**Include risk data in Step 6c submission payload:**
+
+```json
+{
+  "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+  "repository_id": "${REPOSITORY_ID}",
+  "title": "...",
+  "problem": "...",
+  "solution": "...",
+  "type": "...",
+  "area": "...",
+  "impact_score": 8,
+  "effort_score": 3,
+  "complexity": 2,
+  "benefits": [...],
+  "status": "new",
+  "prd_content": "...",
+  "prd_generated_at": "'${TIMESTAMP}'",
+  "risk_score": 6,
+  "risk_analyzed_at": "'${TIMESTAMP}'",
+  "files_affected_count": 12,
+  "has_breaking_changes": false,
+  "test_coverage_gaps": 3
+}
+```
+
+#### Step 6d: Submit Full Risk Analysis (Optional)
+
+For detailed risk tracking, also write to `mason_dependency_analysis` table:
+
+```bash
+curl -s -X POST "${supabaseUrl}/rest/v1/mason_dependency_analysis" \
+  -H "apikey: ${supabaseAnonKey}" \
+  -H "Authorization: Bearer ${supabaseAnonKey}" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  -d '{
+    "item_id": "'${ITEM_ID}'",
+    "overall_risk_score": 6,
+    "file_count_score": 4,
+    "dependency_depth_score": 5,
+    "test_coverage_score": 7,
+    "cascade_potential_score": 5,
+    "api_surface_score": 4,
+    "target_files": [...],
+    "upstream_dependencies": [...],
+    "affected_files": [...],
+    "files_without_tests": [...],
+    "has_breaking_changes": false,
+    "breaking_changes": [],
+    "migration_needed": false,
+    "api_changes_detected": false,
+    "analyzed_at": "'${TIMESTAMP}'"
+  }'
+```
 
 ## Output Format
 
