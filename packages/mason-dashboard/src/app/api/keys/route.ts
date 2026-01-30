@@ -1,13 +1,20 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import {
+  parsePaginationParams,
+  createPaginationMeta,
+  PAGINATION_LIMITS,
+} from '@/lib/api/pagination';
 import { createApiKey, listApiKeys } from '@/lib/auth/api-key';
 import { authOptions } from '@/lib/auth/auth-options';
 
 /**
  * GET /api/keys - List all API keys for the authenticated user
+ * Supports pagination: ?limit=20&offset=0
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -15,9 +22,28 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const keys = await listApiKeys(session.user.id);
+    const { searchParams } = new URL(request.url);
+    const { limit, offset } = parsePaginationParams(
+      searchParams,
+      PAGINATION_LIMITS.API_KEYS,
+      PAGINATION_LIMITS.API_KEYS,
+    );
 
-    return NextResponse.json({ keys });
+    const allKeys = await listApiKeys(session.user.id);
+
+    // Apply pagination manually since listApiKeys doesn't support it
+    const paginatedKeys = allKeys.slice(offset, offset + limit);
+    const meta = createPaginationMeta(
+      limit,
+      offset,
+      paginatedKeys.length,
+      allKeys.length,
+    );
+
+    return NextResponse.json({
+      keys: paginatedKeys,
+      pagination: meta,
+    });
   } catch (error) {
     console.error('Failed to list API keys:', error);
     return NextResponse.json(
