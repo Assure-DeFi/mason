@@ -2,7 +2,8 @@
 
 import { clsx } from 'clsx';
 import { X, FileText, Check, Clock, ShieldAlert } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import Markdown from 'react-markdown';
 
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SuccessAnimation } from '@/components/ui/SuccessAnimation';
@@ -23,6 +24,57 @@ import { RiskBadge } from './RiskBadge';
 import { TypeBadge } from './type-badge';
 
 export type ViewMode = 'details' | 'prd' | 'timeline' | 'risk';
+
+// Custom components for react-markdown to match existing styling
+const markdownComponents = {
+  h1: ({ children }: { children?: ReactNode }) => (
+    <h2 className="mt-6 mb-3 text-lg font-bold text-white">{children}</h2>
+  ),
+  h2: ({ children }: { children?: ReactNode }) => (
+    <h3 className="mt-5 mb-2 text-base font-semibold text-white">{children}</h3>
+  ),
+  h3: ({ children }: { children?: ReactNode }) => (
+    <h4 className="mt-4 mb-2 text-sm font-semibold text-white">{children}</h4>
+  ),
+  p: ({ children }: { children?: ReactNode }) => (
+    <p className="my-2 text-gray-300 leading-relaxed">{children}</p>
+  ),
+  ul: ({ children }: { children?: ReactNode }) => (
+    <ul className="ml-4 text-gray-300 list-disc">{children}</ul>
+  ),
+  ol: ({ children }: { children?: ReactNode }) => (
+    <ol className="ml-4 text-gray-300 list-decimal">{children}</ol>
+  ),
+  li: ({ children }: { children?: ReactNode }) => (
+    <li className="text-gray-300">{children}</li>
+  ),
+  strong: ({ children }: { children?: ReactNode }) => (
+    <strong className="font-semibold text-white">{children}</strong>
+  ),
+  code: ({ inline, children }: { inline?: boolean; children?: ReactNode }) =>
+    inline ? (
+      <code className="px-1 py-0.5 bg-black rounded text-gold font-mono text-sm">
+        {children}
+      </code>
+    ) : (
+      <code className="text-gray-300">{children}</code>
+    ),
+  pre: ({ children }: { children?: ReactNode }) => (
+    <pre className="my-3 p-3 bg-black rounded border border-gray-800 overflow-x-auto font-mono text-sm text-gray-300">
+      {children}
+    </pre>
+  ),
+  a: ({ href, children }: { href?: string; children?: ReactNode }) => (
+    <a
+      href={href}
+      className="text-gold hover:underline"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {children}
+    </a>
+  ),
+};
 
 interface ItemDetailModalProps {
   item: BacklogItem;
@@ -207,119 +259,6 @@ export function ItemDetailModal({
     return 'Low Priority';
   };
 
-  // Simple markdown-like rendering for PRD content
-  const renderPrdContent = (content: string) => {
-    // Split into lines and process
-    const lines = content.split('\n');
-    const elements: React.ReactNode[] = [];
-    let inCodeBlock = false;
-    let codeContent: string[] = [];
-
-    lines.forEach((line, index) => {
-      // Code block handling
-      if (line.startsWith('```')) {
-        if (inCodeBlock) {
-          elements.push(
-            <pre
-              key={`code-${index}`}
-              className="my-3 p-3 bg-black rounded border border-gray-800 overflow-x-auto font-mono text-sm text-gray-300"
-            >
-              {codeContent.join('\n')}
-            </pre>,
-          );
-          codeContent = [];
-          inCodeBlock = false;
-        } else {
-          inCodeBlock = true;
-        }
-        return;
-      }
-
-      if (inCodeBlock) {
-        codeContent.push(line);
-        return;
-      }
-
-      // Headers
-      if (line.startsWith('### ')) {
-        elements.push(
-          <h4
-            key={index}
-            className="mt-4 mb-2 text-sm font-semibold text-white"
-          >
-            {line.slice(4)}
-          </h4>,
-        );
-        return;
-      }
-      if (line.startsWith('## ')) {
-        elements.push(
-          <h3
-            key={index}
-            className="mt-5 mb-2 text-base font-semibold text-white"
-          >
-            {line.slice(3)}
-          </h3>,
-        );
-        return;
-      }
-      if (line.startsWith('# ')) {
-        elements.push(
-          <h2 key={index} className="mt-6 mb-3 text-lg font-bold text-white">
-            {line.slice(2)}
-          </h2>,
-        );
-        return;
-      }
-
-      // Lists
-      if (line.startsWith('- ') || line.startsWith('* ')) {
-        elements.push(
-          <li key={index} className="ml-4 text-gray-300">
-            {line.slice(2)}
-          </li>,
-        );
-        return;
-      }
-
-      // Numbered lists
-      const numberedMatch = line.match(/^(\d+)\.\s+(.+)$/);
-      if (numberedMatch) {
-        elements.push(
-          <li key={index} className="ml-4 text-gray-300 list-decimal">
-            {numberedMatch[2]}
-          </li>,
-        );
-        return;
-      }
-
-      // Bold text (basic)
-      let processedLine = line.replace(
-        /\*\*(.+?)\*\*/g,
-        '<strong class="font-semibold text-white">$1</strong>',
-      );
-      // Inline code
-      processedLine = processedLine.replace(
-        /`([^`]+)`/g,
-        '<code class="px-1 py-0.5 bg-black rounded text-gold font-mono text-sm">$1</code>',
-      );
-
-      // Regular paragraph
-      if (line.trim()) {
-        elements.push(
-          <p
-            key={index}
-            className="my-2 text-gray-300 leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: processedLine }}
-          />,
-        );
-      } else {
-        elements.push(<div key={index} className="h-2" />);
-      }
-    });
-
-    return elements;
-  };
 
   return (
     <>
@@ -464,7 +403,9 @@ export function ItemDetailModal({
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
             {viewMode === 'prd' && item.prd_content ? (
               <div className="prose prose-invert prose-sm max-w-none">
-                {renderPrdContent(item.prd_content)}
+                <Markdown components={markdownComponents}>
+                  {item.prd_content}
+                </Markdown>
               </div>
             ) : viewMode === 'timeline' ? (
               <ItemTimeline
