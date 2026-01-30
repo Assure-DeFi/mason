@@ -7,6 +7,11 @@ import {
   createPaginationMeta,
   PAGINATION_LIMITS,
 } from '@/lib/api/pagination';
+import {
+  validateQueryParams,
+  formatValidationErrors,
+  CommonSchemas,
+} from '@/lib/api/validation';
 import { authOptions } from '@/lib/auth/auth-options';
 import {
   formatDatabaseError,
@@ -159,15 +164,20 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const repositoryId = searchParams.get('id');
 
-    if (!repositoryId) {
+    // Validate query parameters with schema
+    const validation = validateQueryParams(searchParams, {
+      id: CommonSchemas.uuid(true),
+    });
+
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Missing repository ID' },
+        { error: formatValidationErrors(validation.errors) },
         { status: 400 },
       );
     }
 
+    const { id: repositoryId } = validation.data;
     const supabase = createServiceClient();
 
     // Soft delete by setting is_active to false
