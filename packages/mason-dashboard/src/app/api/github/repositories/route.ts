@@ -2,6 +2,11 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import {
+  parsePaginationParams,
+  createPaginationMeta,
+  PAGINATION_LIMITS,
+} from '@/lib/api/pagination';
 import { authOptions } from '@/lib/auth/auth-options';
 import {
   formatDatabaseError,
@@ -12,7 +17,7 @@ import { createServiceClient } from '@/lib/supabase/client';
 import type { GitHubRepository } from '@/types/auth';
 
 // GET /api/github/repositories - List connected repositories
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -21,13 +26,20 @@ export async function GET() {
     }
 
     const supabase = createServiceClient();
+    const { searchParams } = new URL(request.url);
+    const { limit, offset } = parsePaginationParams(
+      searchParams,
+      PAGINATION_LIMITS.REPOSITORIES,
+      PAGINATION_LIMITS.REPOSITORIES,
+    );
 
     const { data: repos, error } = await supabase
       .from('mason_github_repositories')
       .select('*')
       .eq('user_id', session.user.id)
       .eq('is_active', true)
-      .order('github_full_name', { ascending: true });
+      .order('github_full_name', { ascending: true })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error(formatDatabaseError('fetch repositories', error));
@@ -37,7 +49,12 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ repositories: repos as GitHubRepository[] });
+    const meta = createPaginationMeta(limit, offset, repos?.length ?? 0);
+
+    return NextResponse.json({
+      repositories: repos as GitHubRepository[],
+      pagination: meta,
+    });
   } catch (error) {
     console.error('Error fetching repositories:', error);
     return NextResponse.json(
