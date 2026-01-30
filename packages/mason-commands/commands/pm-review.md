@@ -74,18 +74,33 @@ Focus on: Dashboard components in src/components/dashboard/
 
 ## Process
 
-### Step 0: Initialize Domain Knowledge (if needed)
+> **IMPORTANT**: Domain knowledge questions are asked ONCE per repository during first run.
+> On subsequent runs, SKIP Step 0 entirely and go directly to Step 1.
+> The file `.claude/skills/pm-domain-knowledge/SKILL.md` persists your preferences.
 
-Before starting analysis, check if domain knowledge needs to be generated.
+### Step 0: Initialize Domain Knowledge (ONE-TIME ONLY)
 
-**Check if domain knowledge file is populated:**
+**CRITICAL: This step runs ONCE per repository. If already done, SKIP TO STEP 1.**
 
-1. Read `.claude/skills/pm-domain-knowledge/SKILL.md`
-2. If it contains template placeholders (`[PROJECT_NAME]`, `[Goal 1]`, `[type of application]`), the file needs initialization
-3. If the file doesn't exist or contains placeholders, proceed with initialization below
-4. If the file is already populated (no placeholders), skip to Step 1
+Before anything else, check if domain knowledge exists:
 
-**If initialization is needed:**
+```bash
+# Check if file exists and is populated
+if [ -f ".claude/skills/pm-domain-knowledge/SKILL.md" ]; then
+  # Check for template placeholders that indicate uninitialized file
+  if ! grep -q '\[PROJECT_NAME\]\|\[Goal 1\]\|\[type of application\]' ".claude/skills/pm-domain-knowledge/SKILL.md" 2>/dev/null; then
+    echo "Domain knowledge already initialized - skipping questions"
+    # SKIP TO STEP 1 - DO NOT ASK QUESTIONS
+  fi
+fi
+```
+
+**Decision logic:**
+
+- File exists AND has NO template placeholders → **SKIP TO STEP 1** (do NOT ask questions)
+- File missing OR has template placeholders → Initialize below (one-time setup)
+
+**If AND ONLY IF initialization is needed (first run only):**
 
 #### A. Ask 3 Quick Questions
 
@@ -227,10 +242,14 @@ Domain knowledge initialized for [Project Name]
   Users: [user selection]
   Saved to: .claude/skills/pm-domain-knowledge/SKILL.md
 
+This is a ONE-TIME setup. Future /pm-review runs will use these saved preferences.
+
 Continuing with PM review...
 ```
 
 Then proceed to Step 1.
+
+**END OF ONE-TIME INITIALIZATION** - Future runs skip directly to Step 1.
 
 ---
 
