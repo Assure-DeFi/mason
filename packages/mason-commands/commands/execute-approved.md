@@ -1,3 +1,9 @@
+---
+name: execute-approved
+version: 1.0.0
+description: Execute Approved Command
+---
+
 # Execute Approved Command
 
 Execute approved items from the PM backlog using wave-based parallel execution.
@@ -26,6 +32,24 @@ Examples:
 - `/execute-approved --dry-run` - Preview execution plan
 
 ## Process
+
+### Pre-Check: Version Notification
+
+Run this version check (silent on success, notification if update available):
+
+```bash
+LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/execute-approved.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
+REMOTE_VERSION=$(echo "$REMOTE" | jq -r '.commands."execute-approved".version // ""' 2>/dev/null)
+
+if [ -n "$REMOTE_VERSION" ] && [ -n "$LOCAL_VERSION" ] && [ "$LOCAL_VERSION" != "$REMOTE_VERSION" ]; then
+  echo "📦 Update available: $LOCAL_VERSION → $REMOTE_VERSION. Run /mason-update to update."
+fi
+```
+
+Continue with the command regardless of version status.
+
+---
 
 ### Step 1: Fetch Approved Items
 
@@ -152,6 +176,7 @@ curl -X POST "${SUPABASE_URL}/rest/v1/mason_execution_progress" \
 ```
 
 This update will appear **immediately** in the dashboard:
+
 - The item moves from "Approved" tab to "In Progress" tab
 - The BuildingTheater modal auto-appears showing the construction animation
 
@@ -199,13 +224,13 @@ update_progress "inspection" 3 "Running TypeScript check..." 0 4
 
 **Progress updates at each phase:**
 
-| Phase         | When to Update                       | wave_status Example                    |
-| ------------- | ------------------------------------ | -------------------------------------- |
-| `site_review` | Start of execution                   | "Analyzing PRD and dependencies..."    |
-| `foundation`  | Wave 1 starts (Explore tasks)        | "Exploring existing patterns..."       |
-| `building`    | Wave 2+ starts (Implementation)      | "Implementing feature components..."   |
-| `inspection`  | Validation phase starts              | "Running validation checks..."         |
-| `complete`    | All validations pass                 | "Build complete!"                      |
+| Phase         | When to Update                  | wave_status Example                  |
+| ------------- | ------------------------------- | ------------------------------------ |
+| `site_review` | Start of execution              | "Analyzing PRD and dependencies..."  |
+| `foundation`  | Wave 1 starts (Explore tasks)   | "Exploring existing patterns..."     |
+| `building`    | Wave 2+ starts (Implementation) | "Implementing feature components..." |
+| `inspection`  | Validation phase starts         | "Running validation checks..."       |
+| `complete`    | All validations pass            | "Build complete!"                    |
 
 **Update validation status during inspection phase:**
 
@@ -532,6 +557,7 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${ite
 ```
 
 This update will appear **immediately** in the dashboard:
+
 - The item moves from "In Progress" tab to "Completed" tab
 - The BuildingTheater shows completion animation with certificate
 

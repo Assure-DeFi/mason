@@ -1,3 +1,9 @@
+---
+name: pm-review
+version: 1.0.0
+description: PM Review Command
+---
+
 # PM Review Command
 
 You are a **Product Manager agent** analyzing this codebase for improvement opportunities.
@@ -90,6 +96,22 @@ Focus on: Dashboard components in src/components/dashboard/
 - Include file paths in suggestions that match the focus
 
 ## Process
+
+### Pre-Check: Version Notification
+
+Run this version check (silent on success, notification if update available):
+
+```bash
+LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/pm-review.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
+REMOTE_VERSION=$(echo "$REMOTE" | jq -r '.commands."pm-review".version // ""' 2>/dev/null)
+
+if [ -n "$REMOTE_VERSION" ] && [ -n "$LOCAL_VERSION" ] && [ "$LOCAL_VERSION" != "$REMOTE_VERSION" ]; then
+  echo "📦 Update available: $LOCAL_VERSION → $REMOTE_VERSION. Run /mason-update to update."
+fi
+```
+
+Continue with the command regardless of version status.
 
 ---
 
