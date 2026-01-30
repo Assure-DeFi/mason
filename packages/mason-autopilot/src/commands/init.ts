@@ -412,7 +412,6 @@ async function setupUserAndRepository(
 
   const { error: keyError } = await supabase.from('mason_api_keys').insert({
     user_id: userId,
-    repository_id: repositoryId,
     name: 'Autopilot CLI',
     key_hash: hash,
     key_prefix: prefix,

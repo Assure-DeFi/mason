@@ -197,11 +197,11 @@ async function fetchAutopilotConfig(): Promise<AutopilotDbConfig | null> {
     return null;
   }
 
-  // Validate API key and get repository_id
+  // Validate API key and get user_id
   const keyHash = hashApiKey(apiKey);
   const { data: apiKeyData, error: apiKeyError } = await supabase
     .from('mason_api_keys')
-    .select('user_id, repository_id')
+    .select('user_id')
     .eq('key_hash', keyHash)
     .single();
 
@@ -213,24 +213,58 @@ async function fetchAutopilotConfig(): Promise<AutopilotDbConfig | null> {
     return null;
   }
 
-  console.log('  Repository ID:', apiKeyData.repository_id);
+  // Get repository full name from git remote
+  let repoFullName = '';
+  try {
+    const { execSync } = await import('node:child_process');
+    const remoteUrl = execSync('git remote get-url origin', {
+      cwd: localConfig.repositoryPath,
+      encoding: 'utf-8',
+    }).trim();
+    const match = remoteUrl.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?$/);
+    if (match) {
+      repoFullName = match[1];
+    }
+  } catch {
+    console.error('  Could not determine repository from git remote.');
+    return null;
+  }
+
+  if (!repoFullName) {
+    console.error('  Could not parse repository name from git remote.');
+    return null;
+  }
+
+  // Look up repository by full name and user
+  const { data: repoData, error: repoError } = await supabase
+    .from('mason_github_repositories')
+    .select('id')
+    .eq('github_full_name', repoFullName)
+    .eq('user_id', apiKeyData.user_id)
+    .single();
+
+  if (repoError || !repoData) {
+    console.error('  Repository not found:', repoFullName);
+    console.error('  Run mason-autopilot init to register this repository.');
+    return null;
+  }
+
+  console.log('  Repository:', repoFullName);
 
   // Query autopilot config for this specific repository
   const { data, error } = await supabase
     .from('mason_autopilot_config')
     .select('*')
-    .eq('repository_id', apiKeyData.repository_id)
+    .eq('repository_id', repoData.id)
     .single();
 
   if (error || !data) {
     if (error?.code === 'PGRST116') {
       console.error(
         '  No autopilot config found for repository:',
-        apiKeyData.repository_id,
+        repoFullName,
       );
-      console.error(
-        '  Configure autopilot at: https://mason.assuredefi.com/settings/autopilot',
-      );
+      console.error('  Run mason-autopilot init to create default config.');
     } else {
       console.error('  Failed to fetch autopilot config:', error?.message);
     }
