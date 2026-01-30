@@ -1,7 +1,7 @@
 'use client';
 
 import { clsx } from 'clsx';
-import { X, FileText, Check, Sparkles, Clock } from 'lucide-react';
+import { X, FileText, Check, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -422,8 +422,8 @@ export function ItemDetailModal({
           </div>
 
           {/* Footer */}
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 p-3 sm:p-4 border-t border-gray-800 bg-black/20">
-            {/* View/Generate PRD Button */}
+          <div className="flex items-center justify-between gap-2 sm:gap-4 p-3 sm:p-4 border-t border-gray-800 bg-black/20">
+            {/* Left: View PRD Button */}
             <button
               onClick={
                 item.prd_content ? () => setViewMode('prd') : handleGeneratePrd
@@ -443,50 +443,36 @@ export function ItemDetailModal({
               <span className="sm:hidden">{isGenerating ? '...' : 'PRD'}</span>
             </button>
 
-            {/* Reject Button - only show for new items */}
+            {/* Right: Reject and Approve buttons */}
             {item.status === 'new' && (
-              <button
-                onClick={() => handleStatusChange('rejected')}
-                disabled={isUpdating}
-                className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm border border-red-600/50 text-red-400 hover:bg-red-600/10 disabled:opacity-50"
-                title="Press X to reject"
-              >
-                <X className="w-4 h-4" />
-                <span className="hidden sm:inline">Reject</span>
-              </button>
-            )}
-
-            {/* Approve Button - only show for new items */}
-            {item.status === 'new' && (
-              <>
-                {/* Simple Approve */}
+              <div className="flex items-center gap-2 sm:gap-4">
+                {/* Reject Button */}
                 <button
-                  onClick={() => handleStatusChange('approved')}
-                  disabled={isUpdating || isGenerating}
-                  className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm border border-green-600/50 text-green-400 hover:bg-green-600/10 disabled:opacity-50"
-                  title="Press A to approve"
+                  onClick={() => handleStatusChange('rejected')}
+                  disabled={isUpdating}
+                  className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm border border-red-600/50 text-red-400 hover:bg-red-600/10 disabled:opacity-50"
+                  title="Press X to reject"
                 >
-                  <Check className="w-4 h-4" />
-                  <span className="hidden sm:inline">Approve</span>
+                  <X className="w-4 h-4" />
+                  <span className="hidden sm:inline">Reject</span>
                 </button>
 
-                {/* Approve + Generate PRD Combo */}
+                {/* Approve Button */}
                 <button
                   onClick={handleApproveAndGeneratePrd}
                   disabled={isUpdating || isGenerating}
                   className="flex items-center gap-2 px-4 sm:px-6 py-2 text-sm bg-gold text-navy font-medium hover:opacity-90 disabled:opacity-50"
+                  title="Press A to approve"
                 >
-                  <Sparkles className="w-4 h-4" />
+                  <Check className="w-4 h-4" />
                   <span className="hidden sm:inline">
-                    {isUpdating || isGenerating
-                      ? 'Working...'
-                      : 'Approve & Generate PRD'}
+                    {isUpdating || isGenerating ? 'Working...' : 'Approve'}
                   </span>
                   <span className="sm:hidden">
-                    {isUpdating || isGenerating ? '...' : 'Approve+'}
+                    {isUpdating || isGenerating ? '...' : 'Approve'}
                   </span>
                 </button>
-              </>
+              </div>
             )}
           </div>
 
