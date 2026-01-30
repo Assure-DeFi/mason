@@ -275,6 +275,11 @@ ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS user_id UUID REFEREN
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_expires_at TIMESTAMPTZ;
 
+-- Add partial success tracking columns
+ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS item_results JSONB DEFAULT NULL;
+ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS success_count INTEGER DEFAULT NULL;
+ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS failure_count INTEGER DEFAULT NULL;
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_user_id ON mason_api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_key_hash ON mason_api_keys(key_hash);

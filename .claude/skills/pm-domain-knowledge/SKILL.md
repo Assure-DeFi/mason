@@ -11,27 +11,38 @@ This file provides domain-specific context for the PM agent when analyzing this 
 
 ## Project Overview [AUTO]
 
-[PROJECT_NAME] is a [type of application] that helps [target users] to [main value proposition].
+Mason is an agentic continuous-improvement system for web app repositories that helps developers automate code analysis, backlog management, and feature execution through AI-powered workflows.
+
+**Tech Stack:**
+
+- Next.js (React framework)
+- TypeScript
+- Supabase (database & auth)
+- Tailwind CSS (styling)
+- Framer Motion (animations)
+- Anthropic Claude SDK (AI)
+- OpenAI SDK (AI)
+- GitHub OAuth (authentication)
 
 ## User Personas [AUTO]
 
 ### Primary User
 
-- **Role**: [e.g., Developer, Admin, End User]
-- **Goals**: [What they want to achieve]
-- **Pain Points**: [Current frustrations]
+- **Role**: Developer/technical user
+- **Goals**: Automate code improvement discovery, manage technical backlog efficiently, execute approved improvements via CLI
+- **Pain Points**: Manual code reviews miss improvements, backlog management is tedious, lack of systematic improvement process
 
 ## Domain Priorities [AUTO]
 
 <!-- Weights for different improvement domains -->
 
-| Domain       | Priority | Notes                      |
-| ------------ | -------- | -------------------------- |
-| frontend-ux  | High     | [Based on user priorities] |
-| api-backend  | Medium   | [Based on user priorities] |
-| reliability  | High     | [Based on user priorities] |
-| security     | Medium   | [Based on user priorities] |
-| code-quality | Medium   | [Based on user priorities] |
+| Domain       | Priority | Notes                                         |
+| ------------ | -------- | --------------------------------------------- |
+| frontend-ux  | High     | UX polish important but secondary to features |
+| api-backend  | High     | Core functionality for feature delivery       |
+| reliability  | High     | User priority: stability/reliability          |
+| security     | Medium   | Important but not primary focus currently     |
+| code-quality | Medium   | Supports feature velocity and maintainability |
 
 ## Off-Limits Areas [AUTO]
 
@@ -45,14 +56,16 @@ This file provides domain-specific context for the PM agent when analyzing this 
 
 <!-- Optional: Add any technical limitations the PM should consider -->
 
-- [e.g., "Must maintain backwards compatibility with v1 API"]
-- [e.g., "Cannot add new runtime dependencies"]
+- Must use TABLES constant for all Supabase queries (tables prefixed with mason\_)
+- Dark mode only - no light mode
+- No emojis in UI unless explicitly requested
+- Privacy architecture: user data stays in user's Supabase, not central server
 
 ## Known Technical Debt [AUTO]
 
 <!-- Auto-detected from TODO/FIXME comments -->
 
-Approximately [X] TODO/FIXME comments found in codebase.
+Approximately 15571 TODO/FIXME comments found in codebase.
 
 ## Improvement Guidelines
 
@@ -60,8 +73,9 @@ Approximately [X] TODO/FIXME comments found in codebase.
 
 - Improvements aligned with domain priorities above
 - Changes that reduce user friction
-- Security hardening
+- Reliability improvements that prevent bugs
 - Performance optimizations for critical paths
+- Features that ship quickly
 
 ### Avoid
 
@@ -78,7 +92,7 @@ When analyzing this codebase:
 
 1. **Respect priorities**: Use the Domain Priorities table to weight suggestions
 2. **Honor off-limits**: Never suggest changes to Off-Limits Areas
-3. **User-first**: Prioritize improvements that benefit the primary user persona
+3. **User-first**: Prioritize improvements that benefit technical users
 4. **Pragmatic**: Suggest improvements achievable with current resources
 5. **Incremental**: Prefer small, safe changes over big-bang refactors
 
