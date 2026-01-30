@@ -336,6 +336,10 @@ ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS files_affected_count
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS has_breaking_changes BOOLEAN DEFAULT false;
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS test_coverage_gaps INTEGER DEFAULT 0;
 
+-- Add feature classification columns (for Features + Banger Idea feature)
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS is_new_feature BOOLEAN DEFAULT false;
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS is_banger_idea BOOLEAN DEFAULT false;
+
 -- Add idempotency_key column for request deduplication
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_expires_at TIMESTAMPTZ;
@@ -369,6 +373,7 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_tier ON mason_pm_restor
 CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_filtered_item ON mason_pm_restore_feedback(filtered_item_id);
 CREATE INDEX IF NOT EXISTS idx_mason_dependency_analysis_item ON mason_dependency_analysis(item_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_risk_score ON mason_pm_backlog_items(risk_score) WHERE risk_score IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_features ON mason_pm_backlog_items(is_new_feature, is_banger_idea) WHERE is_new_feature = true OR is_banger_idea = true;
 
 -- Enable Row Level Security
 ALTER TABLE mason_users ENABLE ROW LEVEL SECURITY;

@@ -1,6 +1,17 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import {
+  parsePaginationParams,
+  createPaginationMeta,
+  PAGINATION_LIMITS,
+} from '@/lib/api/pagination';
+import {
+  validateQueryParams,
+  formatValidationErrors,
+  CommonSchemas,
+} from '@/lib/api/validation';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import {
@@ -9,7 +20,7 @@ import {
 } from '@/lib/errors';
 import { createServerClient } from '@/lib/supabase/client';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Require authentication
     const session = await getServerSession(authOptions);
@@ -18,12 +29,19 @@ export async function GET() {
     }
 
     const supabase = createServerClient();
+    const { searchParams } = new URL(request.url);
+    const { limit, offset } = parsePaginationParams(
+      searchParams,
+      PAGINATION_LIMITS.AI_KEYS,
+      PAGINATION_LIMITS.AI_KEYS,
+    );
 
     const { data, error } = await supabase
       .from(TABLES.AI_PROVIDER_KEYS)
       .select('id, provider, created_at, updated_at')
       .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error(formatDatabaseError('fetch AI keys', error));
@@ -33,7 +51,12 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json(data);
+    const meta = createPaginationMeta(limit, offset, data?.length ?? 0);
+
+    return NextResponse.json({
+      data: data ?? [],
+      pagination: meta,
+    });
   } catch (err) {
     console.error('AI keys GET error:', err);
     return NextResponse.json(
@@ -128,16 +151,22 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createServerClient();
     const { searchParams } = new URL(request.url);
-    const provider = searchParams.get('provider');
 
-    if (!provider) {
+    // Validate query parameters with schema
+    const validation = validateQueryParams(searchParams, {
+      provider: CommonSchemas.aiProvider(true),
+    });
+
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Provider is required' },
+        { error: formatValidationErrors(validation.errors) },
         { status: 400 },
       );
     }
+
+    const { provider } = validation.data;
+    const supabase = createServerClient();
 
     const { error } = await supabase
       .from(TABLES.AI_PROVIDER_KEYS)

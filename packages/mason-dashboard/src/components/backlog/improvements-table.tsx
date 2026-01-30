@@ -5,7 +5,10 @@ import {
   ChevronDown,
   ChevronsUpDown,
   RotateCcw,
+  Keyboard,
+  X,
 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 import {
   useColumnResize,
@@ -15,6 +18,72 @@ import type { BacklogItem, SortField, SortDirection } from '@/types/backlog';
 
 import { ItemRow } from './item-row';
 import { ResizeHandle } from './resize-handle';
+
+const KEYBOARD_HINTS_HIDDEN_KEY = 'mason_keyboard_hints_hidden';
+
+function KeyboardHintBar() {
+  const [isHidden, setIsHidden] = useState(true);
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    const hidden = localStorage.getItem(KEYBOARD_HINTS_HIDDEN_KEY) === 'true';
+    setIsHidden(hidden);
+    setIsMac(navigator.platform.toUpperCase().indexOf('MAC') >= 0);
+  }, []);
+
+  const handleHide = () => {
+    localStorage.setItem(KEYBOARD_HINTS_HIDDEN_KEY, 'true');
+    setIsHidden(true);
+  };
+
+  if (isHidden) {
+    return null;
+  }
+
+  const modKey = isMac ? '⌘' : 'Ctrl';
+
+  return (
+    <div className="mt-4 px-4 py-2 bg-black/30 border border-gray-800/50 flex items-center justify-between text-xs text-gray-500">
+      <div className="flex items-center gap-1">
+        <Keyboard className="w-3.5 h-3.5 mr-1" />
+        <span className="hidden sm:inline">Keyboard shortcuts:</span>
+      </div>
+      <div className="flex items-center gap-4 sm:gap-6">
+        <span>
+          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">
+            {modKey}+A
+          </kbd>{' '}
+          <span className="hidden sm:inline">Select all</span>
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">
+            {modKey}+Shift+A
+          </kbd>{' '}
+          <span className="hidden sm:inline">Approve</span>
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">
+            {modKey}+Shift+X
+          </kbd>{' '}
+          <span className="hidden sm:inline">Reject</span>
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">
+            Esc
+          </kbd>{' '}
+          <span className="hidden sm:inline">Clear</span>
+        </span>
+      </div>
+      <button
+        onClick={handleHide}
+        className="p-1 hover:text-gray-300 transition-colors"
+        title="Hide keyboard hints"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
 
 interface SortableHeaderProps {
   label: string;
@@ -75,6 +144,16 @@ function SortableHeader({
   );
 }
 
+type TabStatus =
+  | 'new'
+  | 'approved'
+  | 'in_progress'
+  | 'completed'
+  | 'deferred'
+  | 'rejected'
+  | 'filtered'
+  | null;
+
 interface ImprovementsTableProps {
   items: BacklogItem[];
   selectedIds: string[];
@@ -84,6 +163,49 @@ interface ImprovementsTableProps {
   onPrdClick?: (item: BacklogItem) => void;
   sort: { field: SortField; direction: SortDirection } | null;
   onSortChange: (field: SortField) => void;
+  activeStatus?: TabStatus;
+}
+
+// Empty state messages based on active status filter
+function getEmptyStateContent(activeStatus: TabStatus) {
+  switch (activeStatus) {
+    case 'new':
+      return {
+        title: 'No new items awaiting review',
+        description: 'Run /pm-review to discover improvements in your codebase',
+      };
+    case 'approved':
+      return {
+        title: 'No approved items ready to build',
+        description:
+          'Review new items and approve the ones you want to implement',
+      };
+    case 'in_progress':
+      return {
+        title: 'Nothing currently building',
+        description: 'Approved items will appear here when execution starts',
+      };
+    case 'completed':
+      return {
+        title: 'No completed items yet',
+        description: 'Items move here after successful implementation',
+      };
+    case 'deferred':
+      return {
+        title: 'No deferred items',
+        description: 'Items you save for later will appear here',
+      };
+    case 'rejected':
+      return {
+        title: 'No rejected items',
+        description: 'Items you reject will appear here for reference',
+      };
+    default:
+      return {
+        title: 'No items found',
+        description: 'Run /pm-review to analyze your codebase',
+      };
+  }
 }
 
 export function ImprovementsTable({
@@ -95,6 +217,7 @@ export function ImprovementsTable({
   onPrdClick,
   sort,
   onSortChange,
+  activeStatus,
 }: ImprovementsTableProps) {
   const {
     columnWidths,
@@ -246,16 +369,17 @@ export function ImprovementsTable({
 
       {items.length === 0 && (
         <div className="text-center py-16 text-gray-500">
-          <p className="text-lg mb-2">No items found</p>
+          <p className="text-lg mb-2">
+            {getEmptyStateContent(activeStatus ?? null).title}
+          </p>
           <p className="text-sm">
-            Run{' '}
-            <code className="bg-black/50 px-2 py-1 rounded text-gold font-mono">
-              /pm-review
-            </code>{' '}
-            to analyze your codebase
+            {getEmptyStateContent(activeStatus ?? null).description}
           </p>
         </div>
       )}
+
+      {/* Keyboard shortcuts hint bar */}
+      {items.length > 0 && <KeyboardHintBar />}
     </div>
   );
 }

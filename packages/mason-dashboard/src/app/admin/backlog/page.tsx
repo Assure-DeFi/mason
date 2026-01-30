@@ -1,13 +1,23 @@
 'use client';
 
-import { RefreshCw, Database, ArrowRight, Undo2, Sparkles } from 'lucide-react';
+import {
+  RefreshCw,
+  Database,
+  ArrowRight,
+  Undo2,
+  Sparkles,
+  Check,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import { UserMenu } from '@/components/auth/user-menu';
+import { BangerIdeaCard } from '@/components/backlog/banger-idea-card';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
+import { FeatureIdeasSection } from '@/components/backlog/feature-ideas-section';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
 import { GenerateIdeasModal } from '@/components/backlog/generate-ideas-modal';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
@@ -26,7 +36,7 @@ import { NextStepBanner } from '@/components/ui/NextStepBanner';
 import { OnboardingProgress } from '@/components/ui/OnboardingProgress';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { QuickStartFAB } from '@/components/ui/QuickStartFAB';
-import { SkeletonTable } from '@/components/ui/Skeleton';
+import { ImprovementsTableSkeleton } from '@/components/ui/Skeleton';
 import { useAutoMigrations } from '@/hooks/useAutoMigrations';
 import {
   useExecutionListener,
@@ -95,8 +105,13 @@ export default function BacklogPage() {
   // Global execution listener - auto-shows BuildingTheater when CLI execution starts
   // Works across ALL repos, not filtered by selected repository
   const handleExecutionDetected = useCallback(
-    (progress: { item_id: string }) => {
-      console.log('[Backlog] Execution detected for item:', progress.item_id);
+    (progress: { item_id: string; run_id: string | null }) => {
+      console.log(
+        '[Backlog] Execution detected for item:',
+        progress.item_id,
+        'run_id:',
+        progress.run_id,
+      );
 
       if (!client) {
         console.log('[Backlog] No client available, ignoring execution event');
@@ -123,8 +138,9 @@ export default function BacklogPage() {
         }
 
         console.log('[Backlog] Showing BuildingTheater for item:', item.title);
-        // Show the execution modal
-        setExecutionRunId(`cli-${progress.item_id}`);
+        // Use the real run_id from execution_progress if available, otherwise fallback to cli-{item_id}
+        const runId = progress.run_id || `cli-${progress.item_id}`;
+        setExecutionRunId(runId);
         setExecutingItemId(progress.item_id);
         setExecutingItemTitle(item.title);
       });
@@ -381,6 +397,36 @@ export default function BacklogPage() {
       .map((item) => item.id);
   }, [repoFilteredItems]);
 
+  // Get the banger idea (only one per analysis, highest priority if multiple)
+  const bangerIdea = useMemo(() => {
+    const bangerItems = repoFilteredItems.filter(
+      (item) =>
+        item.is_banger_idea &&
+        item.status !== 'completed' &&
+        item.status !== 'rejected',
+    );
+    if (bangerItems.length === 0) {
+      return null;
+    }
+    return bangerItems.sort((a, b) => b.priority_score - a.priority_score)[0];
+  }, [repoFilteredItems]);
+
+  // Get feature ideas (new features that aren't the banger idea)
+  const featureIdeas = useMemo(() => {
+    return repoFilteredItems.filter(
+      (item) =>
+        item.is_new_feature &&
+        !item.is_banger_idea &&
+        item.status !== 'completed' &&
+        item.status !== 'rejected',
+    );
+  }, [repoFilteredItems]);
+
+  // Get improvement items (not new features)
+  const improvementItems = useMemo(() => {
+    return filteredItems.filter((item) => !item.is_new_feature);
+  }, [filteredItems]);
+
   // Determine the contextual next step (based on repo-filtered items)
   const nextStepContext = useMemo(() => {
     if (repoFilteredItems.length === 0) {
@@ -487,6 +533,62 @@ export default function BacklogPage() {
       }
     };
   }, []);
+
+  // Keyboard shortcuts for bulk actions
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger in input fields or when modal is open
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        selectedItem
+      ) {
+        return;
+      }
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isModKey = isMac ? e.metaKey : e.ctrlKey;
+
+      // Escape - Clear selection
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSelectedIds([]);
+        return;
+      }
+
+      // Cmd/Ctrl+A - Select all / Deselect all
+      if (isModKey && !e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        if (selectedIds.length === filteredItems.length) {
+          setSelectedIds([]);
+        } else {
+          setSelectedIds(filteredItems.map((item) => item.id));
+        }
+        return;
+      }
+
+      // Cmd/Ctrl+Shift+A - Approve selected
+      if (isModKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        if (selectedIds.length > 0 && !isApproving) {
+          void handleBulkApprove(selectedIds);
+        }
+        return;
+      }
+
+      // Cmd/Ctrl+Shift+X - Reject selected
+      if (isModKey && e.shiftKey && e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        if (selectedIds.length > 0 && !isRejecting) {
+          void handleBulkReject(selectedIds);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedItem, selectedIds, filteredItems, isApproving, isRejecting]);
 
   // Handle undo action
   const handleUndo = async () => {
@@ -898,25 +1000,60 @@ export default function BacklogPage() {
       {/* Content Area */}
       <div className="max-w-7xl mx-auto">
         {isLoading ? (
-          // Skeleton loading state
+          // Skeleton loading state matching ImprovementsTable columns
           <div className="p-6">
-            <SkeletonTable rows={5} columns={5} />
+            <ImprovementsTableSkeleton rows={5} />
           </div>
         ) : isEmpty ? (
           // Empty state onboarding
           <EmptyStateOnboarding onRefresh={fetchItems} />
         ) : (
-          // Regular table view
-          <ImprovementsTable
-            items={filteredItems}
-            selectedIds={selectedIds}
-            onSelectItem={handleSelectItem}
-            onSelectAll={handleSelectAll}
-            onItemClick={handleItemClick}
-            onPrdClick={handlePrdClick}
-            sort={sort}
-            onSortChange={handleSortChange}
-          />
+          <div className="space-y-6 p-6">
+            {/* Banger Idea - Featured at top */}
+            {bangerIdea && (
+              <BangerIdeaCard
+                item={bangerIdea}
+                onViewDetails={handleItemClick}
+                onApprove={(id) => void handleUpdateStatus(id, 'approved')}
+                onReject={(id) => void handleUpdateStatus(id, 'rejected')}
+              />
+            )}
+
+            {/* Feature Ideas Section */}
+            {featureIdeas.length > 0 && (
+              <FeatureIdeasSection
+                items={featureIdeas}
+                onViewDetails={handleItemClick}
+                onViewAll={() => {
+                  // Filter to show only features - could add a filter state
+                  // For now, just clicking shows the first one
+                }}
+              />
+            )}
+
+            {/* Improvements Table */}
+            {(bangerIdea || featureIdeas.length > 0) &&
+              improvementItems.length > 0 && (
+                <div className="border-t border-gray-800 pt-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Improvements ({improvementItems.length})
+                  </h3>
+                </div>
+              )}
+            <ImprovementsTable
+              items={
+                improvementItems.length > 0 ? improvementItems : filteredItems
+              }
+              selectedIds={selectedIds}
+              onSelectItem={handleSelectItem}
+              onSelectAll={handleSelectAll}
+              onItemClick={handleItemClick}
+              onPrdClick={handlePrdClick}
+              sort={sort}
+              onSortChange={handleSortChange}
+              activeStatus={activeStatus}
+            />
+          </div>
         )}
       </div>
 
@@ -953,10 +1090,25 @@ export default function BacklogPage() {
         onClose={() => setShowGenerateIdeasModal(false)}
       />
 
-      {/* Toast */}
+      {/* Copy Success Toast */}
       {copiedToast && (
-        <div className="fixed bottom-6 right-6 px-4 py-3 bg-green-600 text-white shadow-lg">
-          Command copied! Paste into Claude Code to execute.
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-right-5 duration-200">
+          <div className="flex items-center gap-3 px-4 py-3 bg-green-600 text-white shadow-lg">
+            <Check className="w-5 h-5 flex-shrink-0" />
+            <div className="flex flex-col">
+              <span className="font-medium">Command copied!</span>
+              <span className="text-sm text-green-100">
+                Paste into Claude Code to execute
+              </span>
+            </div>
+            <button
+              onClick={() => setCopiedToast(false)}
+              className="ml-2 p-1 hover:bg-green-700 rounded transition-colors"
+              aria-label="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
