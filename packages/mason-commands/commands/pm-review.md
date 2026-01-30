@@ -6,6 +6,23 @@ You are a **Product Manager agent** analyzing this codebase for improvement oppo
 
 This command performs a comprehensive analysis of the codebase to identify improvements across multiple domains: frontend UX, API/backend, reliability, security, and code quality.
 
+## MANDATORY: Feature Ideas & Banger Idea
+
+**EVERY PM review MUST generate:**
+
+1. **At least 3-5 NEW FEATURE ideas** (things that don't exist yet) with `is_new_feature: true`
+2. **Exactly ONE "Banger Idea"** (the transformative feature) with `is_banger_idea: true`
+
+These are **NOT optional**. The PM review is incomplete without them.
+
+If you reach Step 6 without these, **STOP** and go back to Step 5.2 and 5.3.
+
+| Item Type            | is_new_feature | is_banger_idea | Required Count   |
+| -------------------- | -------------- | -------------- | ---------------- |
+| Regular improvements | false          | false          | As many as found |
+| Feature ideas        | true           | false          | **3-5 minimum**  |
+| Banger idea          | true           | true           | **Exactly 1**    |
+
 ## Modes
 
 - `full` (default): Discover ALL improvements, validate each, generate PRD for EVERY validated item
@@ -268,13 +285,13 @@ Load the domain-specific knowledge from `.claude/skills/pm-domain-knowledge/SKIL
 
 Explore the codebase systematically across these domains:
 
-| Domain           | What to Look For                                                       |
-| ---------------- | ---------------------------------------------------------------------- |
-| **frontend-ux**  | UI/UX issues, accessibility, responsive design, user flow friction     |
-| **api-backend**  | API design, performance, error handling, missing endpoints             |
-| **reliability**  | Error handling, logging, monitoring, retry logic, graceful degradation |
-| **security**     | Auth issues, input validation, secrets exposure, OWASP vulnerabilities |
-| **code-quality** | Code duplication, complexity, naming, testing gaps, technical debt     |
+| Domain           | What to Look For                                                           |
+| ---------------- | -------------------------------------------------------------------------- |
+| **frontend-ux**  | UI/UX issues, accessibility, responsive design, user flow friction         |
+| **api-backend**  | API design, performance, error handling, missing endpoints                 |
+| **reliability**  | Error handling, logging, monitoring, retry logic, graceful degradation     |
+| **security**     | Auth issues, input validation, secrets exposure, OWASP vulnerabilities     |
+| **code-quality** | Code duplication, complexity, naming, testing gaps, technical debt         |
 | **new-features** | New capabilities, integrations, automation opportunities, user-value ideas |
 
 ### Step 3: Score Each Improvement
@@ -315,6 +332,7 @@ For each improvement, assign these classifications:
 - `discovery` - Discovery engine improvements (Purple badge)
 - `auth` - Authentication/authorization (Cyan badge)
 - `backend` - Backend/API improvements (Green badge)
+- `feature` - New feature ideas (Purple/Star badge)
 
 **Area**:
 
@@ -362,18 +380,18 @@ For EVERY improvement, populate ALL 5 benefit categories. Each benefit should be
 }
 ```
 
-
-
 ### Step 5.2: Feature Discovery (new-features domain)
 
 In addition to improvements, discover **new feature opportunities** that don't exist yet. This shifts the mindset from "what's wrong?" to "what could be amazing?"
 
 **Feature Discovery Mindset:**
+
 - Think like a product manager building a v2.0 roadmap
 - Focus on user value, not technical improvements
 - Ask: "What would make users say 'wow, I wish it did THAT'?"
 
 **Questions to Guide Feature Discovery:**
+
 1. What is this application's core purpose?
 2. Who are the primary users and what do they care about?
 3. What adjacent problems could this app solve with the right features?
@@ -392,24 +410,28 @@ In addition to improvements, discover **new feature opportunities** that don't e
 | **Mobile/Offline** | Capabilities for different contexts |
 
 **Feature Quality Bar:**
+
 - Must be a NET NEW capability, not an improvement to existing
 - Must provide clear user value (not just "would be cool")
 - Must be technically feasible with existing architecture
 - Should align with the application core purpose
 
 **Examples of GOOD Features (is_new_feature: true):**
+
 - "Add export to PDF for reports"
 - "Implement webhook notifications for events"
 - "Add team collaboration with shared workspaces"
 - "Add AI-powered suggestions based on user history"
 
 **Examples of NOT Features (is_new_feature: false, these are improvements):**
+
 - "Make the loading faster" (performance improvement)
 - "Fix the broken validation" (bug fix)
 - "Add error handling to API" (reliability improvement)
 - "Refactor the component structure" (code quality)
 
 **Feature Fields in Submission:**
+
 ```json
 {
   "title": "Add real-time collaboration",
@@ -425,6 +447,7 @@ In addition to improvements, discover **new feature opportunities** that don't e
 Every PM review MUST generate exactly ONE "Banger Idea" - a transformative feature that would dramatically increase the app value.
 
 **Banger Idea Characteristics:**
+
 - **Ambitious scope** - Not a quick fix, this is a multi-week project
 - **Transformative value** - Would make users say "holy shit, this is next level"
 - **Feature-focused** - Not cosmetic, not reliability, not security - pure functionality
@@ -432,6 +455,7 @@ Every PM review MUST generate exactly ONE "Banger Idea" - a transformative featu
 - **Technically feasible** - Could actually be built with the existing stack
 
 **Banger Idea Quality Criteria:**
+
 - Must be technically feasible with current stack
 - Must align with the app core purpose
 - Must serve the primary user persona
@@ -442,6 +466,7 @@ Every PM review MUST generate exactly ONE "Banger Idea" - a transformative featu
 Think: What feature would make users tell their friends about this app? What capability would justify a premium tier? What would make this app stand out from competitors?
 
 **Banger Idea Fields:**
+
 ```json
 {
   "title": "Real-Time Collaborative Editing",
@@ -551,6 +576,25 @@ Filtered items logged to dashboard → Filtered tab for review.
 ```
 
 Continue to Step 6 with validated items only.
+
+### Pre-Submission Checklist (BLOCKING)
+
+**STOP. Before proceeding to Step 6, verify ALL of the following:**
+
+- [ ] Generated at least **3 feature ideas** with `is_new_feature: true, is_banger_idea: false`
+- [ ] Generated exactly **1 banger idea** with `is_new_feature: true, is_banger_idea: true`
+- [ ] **ALL items** have both `is_new_feature` and `is_banger_idea` fields explicitly set
+- [ ] Regular improvements have `is_new_feature: false, is_banger_idea: false`
+
+**If any checkbox is unchecked, GO BACK to Step 5.2 and 5.3. DO NOT PROCEED.**
+
+Count your items:
+
+```
+Feature ideas (is_new_feature=true, is_banger_idea=false): ___  (must be >= 3)
+Banger idea (is_new_feature=true, is_banger_idea=true): ___    (must be = 1)
+Regular improvements (is_new_feature=false): ___
+```
 
 ### Step 6: Submit Results Directly to User's Supabase
 
@@ -820,6 +864,16 @@ After analysis, provide a summary:
 **Items Validated**: [count] (after filtering false positives)
 **PRDs Generated**: [count] (MUST equal validated items count)
 
+### Feature & Banger Summary (MANDATORY)
+
+| Category             | Count   | Requirement | Status      |
+| -------------------- | ------- | ----------- | ----------- |
+| Feature Ideas        | [count] | >= 3        | [PASS/FAIL] |
+| Banger Idea          | [count] | = 1         | [PASS/FAIL] |
+| Regular Improvements | [count] | any         | PASS        |
+
+**Banger Idea**: [title of the ONE banger idea]
+
 ### Top Improvements by Priority
 
 | #   | Title | Type      | Impact | Effort | Priority |
@@ -940,6 +994,7 @@ Each improvement MUST include ALL of these fields:
 ```
 
 **Feature Classification Rules:**
+
 - `is_new_feature: false` + `is_banger_idea: false` = Regular improvement (bug fix, performance, refactor)
 - `is_new_feature: true` + `is_banger_idea: false` = New feature capability
 - `is_new_feature: true` + `is_banger_idea: true` = The ONE banger idea per analysis
