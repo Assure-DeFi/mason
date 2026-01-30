@@ -1,9 +1,10 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth/auth-options';
 import { executeRemotely } from '@/lib/execution/engine';
+import { executionStartSchema, validateRequest } from '@/lib/schemas';
 
 // POST /api/execution/start - Start remote execution
 // Privacy: GitHub token is passed from client (stored in localStorage, not server)
@@ -19,27 +20,13 @@ export async function POST(request: NextRequest) {
     // Extract idempotency key from header (optional - for request deduplication)
     const idempotencyKey = request.headers.get('X-Idempotency-Key');
 
-    const body = await request.json();
-    const { repositoryId, itemIds, githubToken } = body;
-
-    if (
-      !repositoryId ||
-      !itemIds ||
-      !Array.isArray(itemIds) ||
-      itemIds.length === 0
-    ) {
-      return NextResponse.json(
-        { error: 'Missing repositoryId or itemIds' },
-        { status: 400 },
-      );
+    // Validate request body with Zod schema
+    const validation = await validateRequest(request, executionStartSchema);
+    if (!validation.success) {
+      return validation.error;
     }
 
-    if (!githubToken) {
-      return NextResponse.json(
-        { error: 'Missing GitHub token' },
-        { status: 400 },
-      );
-    }
+    const { repositoryId, itemIds, githubToken } = validation.data;
 
     // Start execution (this runs async but returns immediately with run ID)
     // Token from client's localStorage, not from server-side session

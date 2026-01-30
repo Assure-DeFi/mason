@@ -3,10 +3,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth/auth-options';
-
-interface RestoreRequest {
-  filteredItemId: string;
-}
+import { backlogRestoreSchema, validateRequest } from '@/lib/schemas';
 
 /**
  * POST /api/backlog/restore - Restore a filtered item to the backlog
@@ -38,15 +35,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json()) as RestoreRequest;
-    const { filteredItemId } = body;
-
-    if (!filteredItemId) {
-      return NextResponse.json(
-        { error: 'filteredItemId is required' },
-        { status: 400 },
-      );
+    // Validate request body with Zod schema
+    const validation = await validateRequest(request, backlogRestoreSchema);
+    if (!validation.success) {
+      return validation.error;
     }
+
+    const { filteredItemId } = validation.data;
 
     // Create client for user's database
     const supabase = createClient(user.supabaseUrl, user.supabaseAnonKey);
