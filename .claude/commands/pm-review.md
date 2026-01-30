@@ -1,5 +1,6 @@
 ---
 name: pm-review
+version: 1.1.0
 description: PM Review Command
 ---
 
@@ -20,7 +21,7 @@ This command performs a comprehensive analysis of the codebase to identify impro
 
 These are **NOT optional**. The PM review is incomplete without them.
 
-If you reach Step 6 without these, **STOP** and go back to Step 2.5.
+If you reach Step 6 without these, **STOP** and go back to Step 5.2 and 5.3.
 
 | Item Type            | is_new_feature | is_banger_idea | Required Count   |
 | -------------------- | -------------- | -------------- | ---------------- |
@@ -96,9 +97,25 @@ Focus on: Dashboard components in src/components/dashboard/
 
 ## Process
 
+### Pre-Check: Version Notification
+
+Run this version check (silent on success, notification if update available):
+
+```bash
+LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/pm-review.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
+REMOTE_VERSION=$(echo "$REMOTE" | jq -r '.commands."pm-review".version // ""' 2>/dev/null)
+
+if [ -n "$REMOTE_VERSION" ] && [ -n "$LOCAL_VERSION" ] && [ "$LOCAL_VERSION" != "$REMOTE_VERSION" ]; then
+  echo "📦 Update available: $LOCAL_VERSION → $REMOTE_VERSION. Run /mason-update to update."
+fi
+```
+
+Continue with the command regardless of version status.
+
 ---
 
-## MANDATORY PRE-CHECK: READ THIS FIRST
+## ⚠️ MANDATORY PRE-CHECK: READ THIS FIRST ⚠️
 
 **BEFORE DOING ANYTHING ELSE, you MUST check for the initialization marker.**
 
@@ -308,23 +325,41 @@ Explore the codebase systematically across these domains:
 | **code-quality** | Code duplication, complexity, naming, testing gaps, technical debt         |
 | **new-features** | New capabilities, integrations, automation opportunities, user-value ideas |
 
-### Step 2.5: Creative Ideation Phase (MANDATORY - SEPARATE FROM ISSUE-FINDING)
+### Step 2.5: Creative Ideation Phase (MANDATORY - RUNS EVERY TIME)
+
+## ⚠️ HARD REQUIREMENT: THIS STEP CANNOT BE SKIPPED ⚠️
+
+**The feature-ideation agent MUST run on EVERY /pm-review execution.**
+
+This is NOT optional. This is NOT "after issue-finding if you have time."
+This MUST happen EVERY SINGLE RUN.
+
+**WHY THIS IS MANDATORY:**
+
+- Without features and a banger idea, the PM review is INCOMPLETE
+- The pre-submission validation will BLOCK you if these are missing
+- Users expect transformative ideas, not just bug reports
+
+---
 
 **CRITICAL: This is a DIFFERENT mindset than issue-finding.**
 
 Issue-finding asks: "What's wrong?"
 Creative ideation asks: "What could be AMAZING?"
 
-After the issue-finding exploration completes, spawn the feature-ideation agent:
+**IMMEDIATELY after starting issue-finding agents, ALSO spawn the feature-ideation agent in parallel:**
 
-**Use the Task tool:**
+**Use the Task tool with subagent_type: "feature-ideation":**
 
 ```
-subagent_type: "general-purpose"
+subagent_type: "feature-ideation"
 prompt: |
-  Load and execute the feature-ideation agent from .claude/agents/feature-ideation.md.
+  You are the feature-ideation agent. Analyze this codebase with a PRODUCT VISIONARY mindset.
 
-  Analyze this codebase with a PRODUCT VISIONARY mindset.
+  Your job is to identify:
+  1. What this app is trying to accomplish
+  2. Who the target user is
+  3. What's missing that would make this AMAZING
 
   Return structured JSON with:
   - app_understanding (intent, target_user, current_state, gaps)
@@ -333,16 +368,35 @@ prompt: |
 
   Focus on what would make users say 'wow' - NOT on bugs or code quality.
   Think like a founder who deeply understands target users.
+
+  Read .claude/agents/feature-ideation.md for full instructions.
 ```
 
 The output provides the raw material for the feature items submitted to the database.
 
-**IMPORTANT:** The feature-ideation agent runs SEPARATELY from issue-finding because:
+**EXECUTION ORDER:**
 
-1. It requires a completely different mental model
-2. Bug-finding mindset suppresses creative thinking
-3. Features need user-centric evaluation, not code-centric
-4. The banger idea deserves dedicated focus
+1. Start issue-finding agents (Step 2) - these can run in parallel
+2. **SIMULTANEOUSLY** start the feature-ideation agent - it runs IN PARALLEL with issue-finding
+3. Wait for ALL agents (issue-finding AND feature-ideation) to complete
+4. Combine results and proceed to scoring
+
+**WHY PARALLEL EXECUTION:**
+
+- Feature-ideation requires a completely different mental model
+- Bug-finding mindset suppresses creative thinking
+- Running in parallel saves time
+- The banger idea deserves dedicated focus from a specialized agent
+
+**IF YOU FORGET TO RUN FEATURE-IDEATION:**
+
+The Pre-Submission Validation (before Step 6) will BLOCK you with:
+
+```
+BLOCKED: Missing feature ideas. Go back to Step 2.5 (Creative Ideation Phase).
+```
+
+You will then need to run feature-ideation before proceeding. Save time by running it in parallel from the start.
 
 ### Step 3: Score Each Improvement
 
@@ -429,6 +483,105 @@ For EVERY improvement, populate ALL 5 benefit categories. Each benefit should be
   ]
 }
 ```
+
+### Step 5.2: Feature Discovery (new-features domain)
+
+In addition to improvements, discover **new feature opportunities** that don't exist yet. This shifts the mindset from "what's wrong?" to "what could be amazing?"
+
+**Feature Discovery Mindset:**
+
+- Think like a product manager building a v2.0 roadmap
+- Focus on user value, not technical improvements
+- Ask: "What would make users say 'wow, I wish it did THAT'?"
+
+**Questions to Guide Feature Discovery:**
+
+1. What is this application's core purpose?
+2. Who are the primary users and what do they care about?
+3. What adjacent problems could this app solve with the right features?
+4. What integrations would make this 10x more useful?
+5. What automation opportunities exist for repetitive tasks?
+
+**Feature Categories to Consider:**
+| Category | Examples |
+|----------|----------|
+| **Automation** | Repetitive tasks that could be automated |
+| **Intelligence** | Places where AI/ML could add value |
+| **Insights** | Data that exists but is not being surfaced |
+| **Collaboration** | Multi-user or team features |
+| **Integrations** | External services that complement the app |
+| **Accessibility** | Making the app usable by more people |
+| **Mobile/Offline** | Capabilities for different contexts |
+
+**Feature Quality Bar:**
+
+- Must be a NET NEW capability, not an improvement to existing
+- Must provide clear user value (not just "would be cool")
+- Must be technically feasible with existing architecture
+- Should align with the application core purpose
+
+**Examples of GOOD Features (is_new_feature: true):**
+
+- "Add export to PDF for reports"
+- "Implement webhook notifications for events"
+- "Add team collaboration with shared workspaces"
+- "Add AI-powered suggestions based on user history"
+
+**Examples of NOT Features (is_new_feature: false, these are improvements):**
+
+- "Make the loading faster" (performance improvement)
+- "Fix the broken validation" (bug fix)
+- "Add error handling to API" (reliability improvement)
+- "Refactor the component structure" (code quality)
+
+**Feature Fields in Submission:**
+
+```json
+{
+  "title": "Add real-time collaboration",
+  "problem": "Users cannot work together on the same content simultaneously...",
+  "solution": "Implement WebSocket-based real-time sync...",
+  "is_new_feature": true,
+  "is_banger_idea": false
+}
+```
+
+### Step 5.3: Banger Idea Generation (ONE per analysis)
+
+Every PM review MUST generate exactly ONE "Banger Idea" - a transformative feature that would dramatically increase the app value.
+
+**Banger Idea Characteristics:**
+
+- **Ambitious scope** - Not a quick fix, this is a multi-week project
+- **Transformative value** - Would make users say "holy shit, this is next level"
+- **Feature-focused** - Not cosmetic, not reliability, not security - pure functionality
+- **Vision-aligned** - Amplifies what the app is already trying to do
+- **Technically feasible** - Could actually be built with the existing stack
+
+**Banger Idea Quality Criteria:**
+
+- Must be technically feasible with current stack
+- Must align with the app core purpose
+- Must serve the primary user persona
+- Must be a FEATURE (not performance, security, or cosmetic)
+- Should require 2+ weeks of development (substantial, not trivial)
+
+**Banger Idea Prompt:**
+Think: What feature would make users tell their friends about this app? What capability would justify a premium tier? What would make this app stand out from competitors?
+
+**Banger Idea Fields:**
+
+```json
+{
+  "title": "Real-Time Collaborative Editing",
+  "problem": "Users work in isolation, unable to collaborate in real-time...",
+  "solution": "Transform the app from single-user to multiplayer with real-time cursors, instant sync, and presence indicators...",
+  "is_new_feature": true,
+  "is_banger_idea": true
+}
+```
+
+**IMPORTANT:** Only ONE item per analysis can have `is_banger_idea: true`. This is the flagship transformative feature. All other items (including other features) should have `is_banger_idea: false`.
 
 ### Step 5.4: Deduplication Check
 
@@ -1023,7 +1176,7 @@ Before creating ANY improvement:
 6. **Be specific** - Vague suggestions are not actionable
 7. **Include evidence** - Reference specific files/lines when possible
 8. **All 5 benefits required** - Every improvement must have all 5 benefit categories populated
-9. **Use new type values** - dashboard, discovery, auth, backend, feature (not fix, refactor)
+9. **Use new type values** - dashboard, discovery, auth, backend (not feature, fix, refactor)
 10. **Use new area values** - frontend, backend (not frontend-ux, api-backend, etc.)
 11. **Complexity is numeric** - Use 1-5 integer, not text
 12. **Avoid false positives** - Verify issues are real before flagging (see False Positive Prevention above)

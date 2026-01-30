@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 1.0.0
+version: 1.1.0
 description: PM Review Command
 ---
 
@@ -325,23 +325,41 @@ Explore the codebase systematically across these domains:
 | **code-quality** | Code duplication, complexity, naming, testing gaps, technical debt         |
 | **new-features** | New capabilities, integrations, automation opportunities, user-value ideas |
 
-### Step 2.5: Creative Ideation Phase (MANDATORY - SEPARATE FROM ISSUE-FINDING)
+### Step 2.5: Creative Ideation Phase (MANDATORY - RUNS EVERY TIME)
+
+## ⚠️ HARD REQUIREMENT: THIS STEP CANNOT BE SKIPPED ⚠️
+
+**The feature-ideation agent MUST run on EVERY /pm-review execution.**
+
+This is NOT optional. This is NOT "after issue-finding if you have time."
+This MUST happen EVERY SINGLE RUN.
+
+**WHY THIS IS MANDATORY:**
+
+- Without features and a banger idea, the PM review is INCOMPLETE
+- The pre-submission validation will BLOCK you if these are missing
+- Users expect transformative ideas, not just bug reports
+
+---
 
 **CRITICAL: This is a DIFFERENT mindset than issue-finding.**
 
 Issue-finding asks: "What's wrong?"
 Creative ideation asks: "What could be AMAZING?"
 
-After the issue-finding exploration completes, spawn the feature-ideation agent:
+**IMMEDIATELY after starting issue-finding agents, ALSO spawn the feature-ideation agent in parallel:**
 
-**Use the Task tool:**
+**Use the Task tool with subagent_type: "feature-ideation":**
 
 ```
-subagent_type: "general-purpose"
+subagent_type: "feature-ideation"
 prompt: |
-  Load and execute the feature-ideation agent from .claude/agents/feature-ideation.md.
+  You are the feature-ideation agent. Analyze this codebase with a PRODUCT VISIONARY mindset.
 
-  Analyze this codebase with a PRODUCT VISIONARY mindset.
+  Your job is to identify:
+  1. What this app is trying to accomplish
+  2. Who the target user is
+  3. What's missing that would make this AMAZING
 
   Return structured JSON with:
   - app_understanding (intent, target_user, current_state, gaps)
@@ -350,16 +368,35 @@ prompt: |
 
   Focus on what would make users say 'wow' - NOT on bugs or code quality.
   Think like a founder who deeply understands target users.
+
+  Read .claude/agents/feature-ideation.md for full instructions.
 ```
 
 The output provides the raw material for the feature items submitted to the database.
 
-**IMPORTANT:** The feature-ideation agent runs SEPARATELY from issue-finding because:
+**EXECUTION ORDER:**
 
-1. It requires a completely different mental model
-2. Bug-finding mindset suppresses creative thinking
-3. Features need user-centric evaluation, not code-centric
-4. The banger idea deserves dedicated focus
+1. Start issue-finding agents (Step 2) - these can run in parallel
+2. **SIMULTANEOUSLY** start the feature-ideation agent - it runs IN PARALLEL with issue-finding
+3. Wait for ALL agents (issue-finding AND feature-ideation) to complete
+4. Combine results and proceed to scoring
+
+**WHY PARALLEL EXECUTION:**
+
+- Feature-ideation requires a completely different mental model
+- Bug-finding mindset suppresses creative thinking
+- Running in parallel saves time
+- The banger idea deserves dedicated focus from a specialized agent
+
+**IF YOU FORGET TO RUN FEATURE-IDEATION:**
+
+The Pre-Submission Validation (before Step 6) will BLOCK you with:
+
+```
+BLOCKED: Missing feature ideas. Go back to Step 2.5 (Creative Ideation Phase).
+```
+
+You will then need to run feature-ideation before proceeding. Save time by running it in parallel from the start.
 
 ### Step 3: Score Each Improvement
 
