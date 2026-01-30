@@ -144,6 +144,16 @@ function SortableHeader({
   );
 }
 
+type TabStatus =
+  | 'new'
+  | 'approved'
+  | 'in_progress'
+  | 'completed'
+  | 'deferred'
+  | 'rejected'
+  | 'filtered'
+  | null;
+
 interface ImprovementsTableProps {
   items: BacklogItem[];
   selectedIds: string[];
@@ -153,6 +163,49 @@ interface ImprovementsTableProps {
   onPrdClick?: (item: BacklogItem) => void;
   sort: { field: SortField; direction: SortDirection } | null;
   onSortChange: (field: SortField) => void;
+  activeStatus?: TabStatus;
+}
+
+// Empty state messages based on active status filter
+function getEmptyStateContent(activeStatus: TabStatus) {
+  switch (activeStatus) {
+    case 'new':
+      return {
+        title: 'No new items awaiting review',
+        description: 'Run /pm-review to discover improvements in your codebase',
+      };
+    case 'approved':
+      return {
+        title: 'No approved items ready to build',
+        description:
+          'Review new items and approve the ones you want to implement',
+      };
+    case 'in_progress':
+      return {
+        title: 'Nothing currently building',
+        description: 'Approved items will appear here when execution starts',
+      };
+    case 'completed':
+      return {
+        title: 'No completed items yet',
+        description: 'Items move here after successful implementation',
+      };
+    case 'deferred':
+      return {
+        title: 'No deferred items',
+        description: 'Items you save for later will appear here',
+      };
+    case 'rejected':
+      return {
+        title: 'No rejected items',
+        description: 'Items you reject will appear here for reference',
+      };
+    default:
+      return {
+        title: 'No items found',
+        description: 'Run /pm-review to analyze your codebase',
+      };
+  }
 }
 
 export function ImprovementsTable({
@@ -164,6 +217,7 @@ export function ImprovementsTable({
   onPrdClick,
   sort,
   onSortChange,
+  activeStatus,
 }: ImprovementsTableProps) {
   const {
     columnWidths,
@@ -315,13 +369,11 @@ export function ImprovementsTable({
 
       {items.length === 0 && (
         <div className="text-center py-16 text-gray-500">
-          <p className="text-lg mb-2">No items found</p>
+          <p className="text-lg mb-2">
+            {getEmptyStateContent(activeStatus ?? null).title}
+          </p>
           <p className="text-sm">
-            Run{' '}
-            <code className="bg-black/50 px-2 py-1 rounded text-gold font-mono">
-              /pm-review
-            </code>{' '}
-            to analyze your codebase
+            {getEmptyStateContent(activeStatus ?? null).description}
           </p>
         </div>
       )}
