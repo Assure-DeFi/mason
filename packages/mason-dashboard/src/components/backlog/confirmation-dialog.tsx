@@ -3,6 +3,8 @@
 import { X, AlertTriangle } from 'lucide-react';
 import { useEffect } from 'react';
 
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+
 interface ConfirmationDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,6 +30,8 @@ export function ConfirmationDialog({
   confirmVariant,
   isLoading = false,
 }: ConfirmationDialogProps) {
+  const focusTrapRef = useFocusTrap(isOpen);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !isLoading) {
@@ -62,6 +66,10 @@ export function ConfirmationDialog({
       onClick={onClose}
     >
       <div
+        ref={focusTrapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dialog-title"
         className="bg-navy border border-gray-800 w-full max-w-md shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -71,7 +79,9 @@ export function ConfirmationDialog({
             <div className="p-2 bg-yellow-500/10 text-yellow-400">
               <AlertTriangle className="w-5 h-5" />
             </div>
-            <h3 className="text-lg font-semibold text-white">{title}</h3>
+            <h3 id="dialog-title" className="text-lg font-semibold text-white">
+              {title}
+            </h3>
           </div>
           <button
             onClick={onClose}
@@ -99,7 +109,7 @@ export function ConfirmationDialog({
                   </li>
                 ))}
                 {itemTitles.length > 5 && (
-                  <li className="text-sm text-gray-500 italic">
+                  <li className="text-sm text-gray-400 italic">
                     ...and {itemTitles.length - 5} more
                   </li>
                 )}

@@ -53,6 +53,35 @@ These patterns are NEVER real problems - reject immediately:
 | Example/sample data               | `00000000-0000-0000-0000-000000000000` UUIDs |
 | Commented code in examples        | Code examples in markdown or docs            |
 
+#### Extended Tier 1 Patterns
+
+| Pattern          | Detection                                                              | False Positive Example             |
+| ---------------- | ---------------------------------------------------------------------- | ---------------------------------- |
+| Test files       | Path contains `__tests__/`, `*.test.*`, `*.spec.*`, `cypress/`, `e2e/` | Test code is intentionally minimal |
+| Generated code   | File has `.generated.ts`, `// @generated`, `AUTO-GENERATED`            | Don't modify generated output      |
+| Config files     | `tsconfig.json`, `tailwind.config.*`, `.eslintrc*`, `package.json`     | Config-level concerns              |
+| Demo/Stories     | `*.stories.*`, `*.demo.*`, `examples/` directory                       | Documentation code                 |
+| In-progress area | File/area matches `status='in_progress'` backlog item                  | Work already underway              |
+
+**Detection commands for extended patterns:**
+
+```bash
+# Check if file is a test file
+echo "$FILE_PATH" | grep -qE '(__tests__|\.test\.|\.spec\.|cypress/|e2e/)'
+
+# Check if file is generated
+head -20 "$FILE_PATH" | grep -qiE '@generated|AUTO-GENERATED|DO NOT EDIT'
+
+# Check if file is config
+echo "$FILE_PATH" | grep -qE '(tsconfig|tailwind\.config|\.eslintrc|jest\.config|vite\.config|package\.json)$'
+
+# Check if file is demo/stories
+echo "$FILE_PATH" | grep -qE '(\.stories\.|\.demo\.|/examples/)'
+
+# Check for in-progress items in same area (requires database query)
+# Query: SELECT title FROM mason_pm_backlog_items WHERE status='in_progress' AND (title ILIKE '%<area>%' OR solution ILIKE '%<file>%')
+```
+
 **Action:** Set `verdict: "filtered"`, `tier: "tier1"`, `confidence: 0.95`
 
 ### Tier 2: Contextual Investigation
@@ -80,6 +109,107 @@ cat .claude/skills/pm-domain-knowledge/*.md | grep -A10 "Off-Limits"
 git log --oneline -10 --all -- <file>
 ```
 
+#### History & Deduplication Checks
+
+Before validating, check for duplicates against existing data:
+
+1. **Existing Backlog Check**: Query for similar items already in backlog
+
+   ```bash
+   # Query for fuzzy title match (>80% similarity via ILIKE patterns)
+   # SELECT id, title, status FROM mason_pm_backlog_items
+   # WHERE title ILIKE '%<key_words>%' AND status NOT IN ('completed', 'rejected')
+   ```
+
+   - If similar item exists with status `new`, `approved`, or `in_progress`: **filter** (confidence 0.90)
+   - Reason: "Similar item already exists in backlog: <title>"
+
+2. **Completed Item Memory (7-day window)**:
+
+   ```bash
+   # Query for recently completed items in same area
+   # SELECT title, completed_at FROM mason_pm_backlog_items
+   # WHERE status = 'completed'
+   #   AND updated_at > NOW() - INTERVAL '7 days'
+   #   AND (title ILIKE '%<key_words>%' OR solution ILIKE '%<file_path>%')
+   ```
+
+   - If match found: **filter** (confidence 0.85)
+   - Reason: "Similar item completed within last 7 days: <title>"
+
+3. **Cross-Run Deduplication**: Within the same analysis run, compare each suggestion against others
+   - Extract key words from title (nouns, verbs)
+   - If >80% word overlap with another suggestion in this run: **filter** the lower-priority one
+   - Reason: "Duplicate of higher-priority suggestion: <other_title>"
+
+#### Extended Tier 2: Contextual Intelligence
+
+These checks require deeper codebase investigation for specific suggestion types:
+
+1. **Recent Fix Detection**:
+
+   ```bash
+   # Check git log for recent commits fixing the flagged area
+   git log --oneline -10 --all -- <file> | grep -iE "fix|resolve|handle|address"
+   ```
+
+   - If recent fix found for same area: increase filter confidence by +0.15
+   - Evidence: "Recent commit addressed this: <commit_hash> - <message>"
+
+2. **ErrorBoundary Scope Analysis** (for "missing error handling" suggestions):
+   Before flagging missing error handling in React components:
+
+   ```bash
+   # Check parent files for ErrorBoundary wrappers
+   grep -r "ErrorBoundary\|componentDidCatch\|getDerivedStateFromError" src/
+
+   # Check if component is wrapped in layout with error boundary
+   grep -l "ErrorBoundary" $(dirname <file>)/*.tsx
+   ```
+
+   - If error boundary exists in parent/layout: **filter** (confidence 0.82)
+   - Reason: "Error handling exists in parent ErrorBoundary component"
+
+3. **Retry Logic Detection** (for reliability suggestions):
+
+   ```bash
+   # Check for existing retry implementations
+   grep -r "retry\|withRetry\|retryCount\|maxRetries\|backoff\|exponentialBackoff" src/
+   ```
+
+   - If retry pattern exists: **filter** suggestions to add retry logic (confidence 0.80)
+   - Reason: "Retry logic already implemented at: <file:line>"
+
+4. **Rate Limiting Context** (for rate limiting suggestions):
+
+   ```bash
+   # Check for existing rate limiting middleware
+   grep -r "rateLimiter\|rateLimit\|throttle\|debounce\|requestsPerMinute" src/
+   ```
+
+   - If rate limiting exists: **filter** (confidence 0.80)
+   - Reason: "Rate limiting already implemented at: <file:line>"
+
+5. **ADR Cross-Reference**:
+
+   ```bash
+   # Check for documented architecture decisions
+   ls docs/adr/*.md 2>/dev/null
+   grep -l "<flagged-pattern>" docs/adr/*.md ARCHITECTURE.md .claude/rules/*.md 2>/dev/null
+   ```
+
+   - If ADR documents the pattern as intentional: **filter** (confidence 0.88)
+   - Reason: "Pattern documented as intentional in: <adr_file>"
+
+6. **TypeScript Strict Mode Check**:
+   ```bash
+   # Check if strict mode is enabled
+   grep '"strict": true' tsconfig.json
+   ```
+
+   - If `strict: true`: reduce confidence for type safety suggestions by -0.20
+   - Many type issues are already caught by strict mode
+
 **Action:** If evidence of intentional design found:
 
 - Set `verdict: "filtered"`, `tier: "tier2"`, `confidence: 0.75-0.90`
@@ -103,10 +233,147 @@ For suggestions that pass Tier 2, verify they're actionable and beneficial:
 - Scope creep: Solution much larger than problem warrants
 - Speculative issues: "might cause problems" without evidence
 
+#### Solution Quality Checks
+
+1. **Specificity Score**: Solution MUST reference:
+   - At least one specific file path (e.g., `src/components/Button.tsx`)
+   - OR at least one specific function/component name
+   - Reject if only vague terms like "improve", "refactor", "fix" without specifics
+
+   ```bash
+   # Check if solution contains file paths
+   echo "$SOLUTION" | grep -qE '(src/|packages/|lib/|app/|components/)[a-zA-Z0-9/_-]+\.(ts|tsx|js|jsx)'
+
+   # Check if solution contains function/component names (PascalCase or camelCase identifiers)
+   echo "$SOLUTION" | grep -qE '\b[A-Z][a-zA-Z0-9]+\b|\b[a-z]+[A-Z][a-zA-Z0-9]*\b'
+   ```
+
+2. **File Existence Validation**: Verify all file paths in solution exist:
+
+   ```bash
+   # Extract paths matching src/... or packages/...
+   PATHS=$(echo "$SOLUTION" | grep -oE '(src|packages|lib|app)/[a-zA-Z0-9/_.-]+\.(ts|tsx|js|jsx)')
+
+   # Verify each exists in codebase
+   for path in $PATHS; do
+     if [ ! -f "$path" ]; then
+       echo "Referenced file does not exist: $path"
+       # Filter with confidence 0.85 - file path is wrong
+     fi
+   done
+   ```
+
+3. **Completed Item Check**: Query `mason_pm_backlog_items` for:
+   - Same title (fuzzy) + `status='completed'` within 7 days
+   - Same file area + `status='completed'` within 7 days
+
 **Action:** If solution is vague or impact is negative:
 
 - Set `verdict: "filtered"`, `tier: "tier3"`, `confidence: 0.70-0.85`
 - Provide specific reason in `reason` field
+
+## Domain-Specific Validation Rules
+
+These rules apply additional scrutiny based on the suggestion's domain:
+
+### Security Domain
+
+**Real Credential Detection** - Distinguish real credentials from placeholders:
+
+| Pattern Type | Real Credential Patterns         | Placeholder Patterns                     |
+| ------------ | -------------------------------- | ---------------------------------------- |
+| API Keys     | `sk-[a-zA-Z0-9]{20,}`            | `your-api-key`, `xxx`, `CHANGE_ME`       |
+| GitHub       | `ghp_[a-zA-Z0-9]{36}`            | `your-github-token`, `ghp_xxxxx`         |
+| JWT          | `eyJ[a-zA-Z0-9._-]{50,}`         | `your-jwt-token`, `eyJexample`           |
+| AWS          | `AKIA[A-Z0-9]{16}`               | `AKIAEXAMPLE`, `your-aws-key`            |
+| Generic      | High entropy strings (>4.0 bits) | `TODO`, `PLACEHOLDER`, `example`, `test` |
+
+**Detection logic:**
+
+```bash
+# Check if value matches real credential pattern AND is NOT in .env.example
+if echo "$VALUE" | grep -qE '^(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|eyJ[a-zA-Z0-9._-]{50,})$'; then
+  # Check if file is .env.example (placeholder expected)
+  if echo "$FILE_PATH" | grep -qE '\.env\.example$'; then
+    # This is a placeholder, not a real credential - FILTER
+  else
+    # This is a real credential - VALIDATE
+  fi
+fi
+```
+
+### Code Quality Domain
+
+**Dead Code Validation** - Verify unused code via import analysis:
+
+```bash
+# Don't flag dead code unless:
+# 1. Function/component has 0 imports across the codebase
+grep -r "import.*<function_name>" src/ --include="*.ts" --include="*.tsx" | wc -l
+
+# 2. Not exported from an index file (may be public API)
+grep -l "export.*<function_name>" src/**/index.ts
+```
+
+- Only flag if import count = 0 AND not in index exports
+- Confidence: 0.75 (dead code detection has false positives)
+
+**Duplication Threshold** - Only flag significant duplication:
+
+```bash
+# Only flag code duplication if ALL of these are true:
+# 1. Duplicated block is >20 lines
+# 2. Occurs 3+ times in codebase
+# 3. Not in test files
+```
+
+- Below threshold: **filter** (confidence 0.85)
+- Reason: "Duplication below threshold (requires >20 lines, 3+ occurrences)"
+
+### Backend Domain
+
+**N+1 Query Evidence** - Require concrete evidence before flagging:
+
+```bash
+# Only flag N+1 queries if you find:
+# 1. Loop containing a database query
+grep -B5 -A5 "for.*\{" <file> | grep -E "\.from\(|\.select\(|await.*query"
+
+# 2. OR evidence from logs/profiler (user reports slow queries)
+# 3. OR clear "SELECT ... WHERE ... IN" without batching
+```
+
+- Without evidence: **filter** (confidence 0.80)
+- Reason: "N+1 query flagged without concrete evidence - requires loop+query pattern or profiler data"
+
+### Validation Blocklist Integration
+
+Check `.claude/pm-blocklist.json` if it exists for user-defined exclusions:
+
+```json
+{
+  "patterns": [
+    {
+      "type": "file",
+      "pattern": "legacy/*",
+      "reason": "Legacy code not being maintained"
+    },
+    {
+      "type": "title",
+      "pattern": "*logging*",
+      "reason": "Logging improvements are low priority"
+    }
+  ]
+}
+```
+
+```bash
+# Check blocklist
+if [ -f ".claude/pm-blocklist.json" ]; then
+  # Match suggestion against blocklist patterns
+  # If match found: filter with confidence 0.95
+fi
+```
 
 ## Output Format
 
@@ -179,6 +446,24 @@ Always check `.claude/skills/pm-domain-knowledge/` if it exists:
 - **Known Issues**: Don't duplicate already-tracked problems
 - **Intentional Patterns**: Respect documented design decisions
 
+### Confidence Decay for Restored Items
+
+When patterns are repeatedly restored by users, reduce confidence in filtering them:
+
+- Track restore count by `filter_tier` + `filter_reason` pattern
+- If pattern restored 2+ times: reduce confidence by -0.10
+- If pattern restored 5+ times: reduce confidence by -0.25
+- Consider removing from auto-filter if restore rate > 50%
+
+Query for restore feedback:
+
+```sql
+SELECT filter_tier, filter_reason, COUNT(*) as restore_count
+FROM mason_pm_restore_feedback
+GROUP BY filter_tier, filter_reason
+HAVING COUNT(*) >= 2
+```
+
 ## Process (Optimized for Parallel Execution)
 
 The validation process is designed for parallel execution across multiple suggestions. When invoked as a batch, suggestions are partitioned into independent validation groups.
@@ -195,6 +480,8 @@ Suggestions In (N items)
 │  - Load domain knowledge                  │
 │  - Load CLAUDE.md                         │
 │  - Load Off-Limits patterns               │
+│  - Load blocklist if exists               │
+│  - Load restore feedback for decay        │
 └───────────────────────────────────────────┘
         │
         ▼
@@ -212,6 +499,8 @@ Suggestions In (N items)
 │  (Remaining items in parallel batches)    │
 │  - Batch by file/area for I/O efficiency  │
 │  - Max 5 concurrent investigations        │
+│  - History & deduplication checks         │
+│  - Contextual intelligence checks         │
 │  - Partition: [Tier2 Filtered] + [Pass]   │
 └───────────────────────────────────────────┘
         │
@@ -220,6 +509,8 @@ Suggestions In (N items)
 │     Wave 4: Tier 3 Assessment (Fast)      │
 │  (All remaining items, no I/O needed)     │
 │  - Evaluate solution actionability        │
+│  - Solution specificity score             │
+│  - File existence validation              │
 │  - Check impact vs effort alignment       │
 │  - Final partition                        │
 └───────────────────────────────────────────┘
@@ -236,22 +527,29 @@ Suggestions In (N items)
 1. **Wave 1: Load Context (Once)**
    - Read domain knowledge if available
    - Check CLAUDE.md for project conventions
+   - Load `.claude/pm-blocklist.json` if exists
+   - Load restore feedback for confidence decay
    - Cache patterns for reuse across all suggestions
 
 2. **Wave 2: Tier 1 Parallel Scan**
    - Run pattern matching on ALL suggestions in parallel
    - Auto-reject obvious false positives immediately
+   - Check extended patterns (test files, generated code, config, demos)
    - This is stateless - no dependencies between items
 
 3. **Wave 3: Tier 2 Parallel Investigation**
    - Group remaining suggestions by target file/area
    - Investigate each group in parallel (batch file reads)
+   - Run history & deduplication checks
+   - Run contextual intelligence checks
    - Look for design rationale and existing mitigations
 
 4. **Wave 4: Tier 3 Assessment**
-   - Verify solutions are actionable
+   - Verify solutions are actionable (specificity score)
+   - Validate file paths exist
    - Check for net positive impact
-   - Fast evaluation - no additional I/O
+   - Apply domain-specific rules
+   - Fast evaluation - minimal additional I/O
 
 5. **Aggregate and Return**
    - Merge all filtered items from each tier
@@ -304,13 +602,35 @@ Suggestions In (N items)
 }
 ```
 
-### Example 3: Validated (Real Issue)
+### Example 3: False Positive (Tier 1 - Test File)
+
+```json
+{
+  "title": "Missing input validation in handler",
+  "problem": "src/__tests__/handlers.test.ts lacks input validation",
+  "solution": "Add input validation to test handlers"
+}
+```
+
+**Validation:**
+
+```json
+{
+  "verdict": "filtered",
+  "confidence": 0.95,
+  "tier": "tier1",
+  "reason": "File is a test file (__tests__/) - test code patterns are intentionally different",
+  "evidence": null
+}
+```
+
+### Example 4: Validated (Real Issue)
 
 ```json
 {
   "title": "Add loading states to dashboard cards",
   "problem": "KPI cards show empty content while data loads",
-  "solution": "Add skeleton loaders to KPICard component"
+  "solution": "Add skeleton loaders to KPICard component in src/components/dashboard/KPICard.tsx"
 }
 ```
 
@@ -321,7 +641,7 @@ Suggestions In (N items)
   "verdict": "validated",
   "confidence": 0.88,
   "tier": "passed_all",
-  "notes": "Verified: No loading states exist, causes visible flash"
+  "notes": "Verified: No loading states exist, causes visible flash. Solution references specific file."
 }
 ```
 
@@ -350,3 +670,5 @@ This reduces validation time from O(N) sequential to near O(1) parallel.
 4. **Conservative by default** - When uncertain, let the suggestion through
 5. **Parallel by design** - Validation tiers are structured for concurrent execution
 6. **Batch I/O** - Group file reads by directory to minimize disk access
+7. **Learn from restores** - Confidence decays for patterns users frequently restore
+8. **Respect blocklist** - User-defined exclusions take precedence

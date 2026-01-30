@@ -361,6 +361,35 @@ For EVERY improvement, populate ALL 5 benefit categories. Each benefit should be
 }
 ```
 
+### Step 5.4: Deduplication Check
+
+Before validation, check for duplicates against existing backlog:
+
+```bash
+# Query existing items in backlog (non-completed, non-rejected)
+EXISTING_ITEMS=$(curl -s "${supabaseUrl}/rest/v1/mason_pm_backlog_items?select=id,title,solution,status&status=neq.completed&status=neq.rejected" \
+  -H "apikey: ${supabaseAnonKey}" \
+  -H "Authorization: Bearer ${supabaseAnonKey}")
+```
+
+**Deduplication criteria:**
+
+1. **Title Similarity**: Compare each suggestion title against existing items
+   - Extract key words (nouns, verbs) from both titles
+   - If >80% word overlap: mark as duplicate
+
+2. **Solution Overlap**: Check if same file/area already has an open item
+   - If existing item targets same primary file: mark as duplicate
+
+3. **Cross-Run Duplicates**: Within this analysis run
+   - Compare each suggestion against others in the same batch
+   - If duplicate found, keep the higher-priority one (higher impact, lower effort)
+
+**Action for duplicates:**
+
+- Log to `mason_pm_filtered_items` with tier="tier2", reason="Duplicate of existing item: <title>"
+- Do NOT submit to backlog
+
 ### Step 5.5: Validate Suggestions (Parallel)
 
 Before submission, validate each suggestion to filter false positives. This step runs in parallel for efficiency.
@@ -374,15 +403,23 @@ Invoke the pm-validator agent to check all suggestions:
    - Test fixtures (`test_api_key`, `mock_secret`)
    - `NEXT_PUBLIC_*` environment variables
    - Example/sample data in documentation
+   - Test files (`__tests__/`, `*.test.*`, `*.spec.*`)
+   - Generated code (`.generated.ts`, `@generated`)
+   - Config files (`tsconfig.json`, `tailwind.config.*`)
+   - Demo/Story files (`*.stories.*`, `examples/`)
 
 2. **Tier 2 (Contextual)**: Investigate the codebase
    - Check for `// why`, `// NOTE`, `// intentional` comments
    - Look for existing error handling/mitigations
    - Check `.claude/skills/pm-domain-knowledge/` Off-Limits
+   - Check for in-progress items in same area
+   - Check for items completed within last 7 days
 
 3. **Tier 3 (Impact)**: Verify actionable solutions
    - Solution references specific files/patterns
    - Fix improves system without side effects
+   - Solution specificity score (must have file paths or function names)
+   - File existence validation (referenced files must exist)
 
 #### Log Filtered Items
 
@@ -506,7 +543,7 @@ Then, write the improvements directly to the user's own Supabase using the REST 
 ANALYSIS_RUN_ID=$(uuidgen)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Step 1: Create analysis run record (include repository_id and user_id)
+# Step 1: Create analysis run record (include repository_id if available)
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -514,7 +551,6 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   -H "Prefer: return=minimal" \
   -d '{
     "id": "'${ANALYSIS_RUN_ID}'",
-    "user_id": "'${USER_ID}'",
     "mode": "full",
     "items_found": 15,
     "started_at": "'${TIMESTAMP}'",
@@ -523,8 +559,8 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
     "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")'
   }'
 
-# Step 2: Insert backlog items with user_id and repository_id
-# Note: user_id links items to the user, repository_id enables filtering by repo
+# Step 2: Insert backlog items with repository_id for multi-repo support
+# Note: repository_id enables filtering by repo in the dashboard
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -532,7 +568,6 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "Prefer: return=minimal" \
   -d '[
     {
-      "user_id": "'${USER_ID}'",
       "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
       "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
       "title": "Add data freshness timestamps",

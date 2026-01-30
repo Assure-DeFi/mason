@@ -111,3 +111,12 @@ description: Brief description of what this command does.
 **Why**: Users may be viewing Repo A in dashboard while executing Repo B from CLI - the notification/visualization should still appear.
 
 ---
+
+## Database Changes: ALWAYS Update MIGRATION_SQL
+
+**Discovered**: 2026-01-30
+**Context**: New tables added in code but not in migrations would break existing users
+**Pattern**: ANY new table or column MUST be added to `MIGRATION_SQL` in `packages/mason-dashboard/src/app/api/setup/migrations/route.ts`. This is NON-NEGOTIABLE. The migration runs when users click "Update Database Schema" in Settings.
+**Why**: The MIGRATION_SQL is the single source of truth. Existing users need to run migrations to get new schema. If code references tables that don't exist in migrations, existing users get errors. All migrations must be idempotent (CREATE IF NOT EXISTS pattern).
+
+---

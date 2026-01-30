@@ -93,21 +93,33 @@ export default function BacklogPage() {
   // Works across ALL repos, not filtered by selected repository
   const handleExecutionDetected = useCallback(
     (progress: { item_id: string }) => {
+      console.log('[Backlog] Execution detected for item:', progress.item_id);
+
       if (!client) {
+        console.log('[Backlog] No client available, ignoring execution event');
         return;
       }
 
-      // Don't show if already showing an execution
+      // Allow showing new execution even if one is already visible
+      // User can close the old one manually if needed
       if (executionRunId) {
-        return;
+        console.log(
+          '[Backlog] Execution already showing, replacing with new one:',
+          progress.item_id,
+        );
       }
 
       // Fetch item details and show the execution modal
       void fetchItemForExecution(client, progress.item_id).then((item) => {
         if (!item) {
+          console.log(
+            '[Backlog] Could not fetch item details for:',
+            progress.item_id,
+          );
           return;
         }
 
+        console.log('[Backlog] Showing BuildingTheater for item:', item.title);
         // Show the execution modal
         setExecutionRunId(`cli-${progress.item_id}`);
         setExecutingItemId(progress.item_id);
@@ -117,9 +129,11 @@ export default function BacklogPage() {
     [client, executionRunId],
   );
 
+  // Keep listener enabled even when showing an execution
+  // This allows detecting new executions (which will replace the current one)
   useExecutionListener({
     client,
-    enabled: isConfigured && !executionRunId,
+    enabled: isConfigured,
     onExecutionStart: handleExecutionDetected,
   });
 
