@@ -21,6 +21,7 @@ import { OnboardingProgress } from '@/components/ui/OnboardingProgress';
 import { QuickStartFAB } from '@/components/ui/QuickStartFAB';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { createMasonUserRecord } from '@/lib/supabase/user-record';
 import type {
   BacklogItem,
   BacklogStatus,
@@ -67,15 +68,43 @@ export default function BacklogPage() {
     setError(null);
 
     try {
-      const { data: userData } = await client
+      let { data: userData } = await client
         .from('mason_users')
         .select('id')
         .eq('github_id', session.user.github_id)
         .single();
 
+      // Auto-create user record if it doesn't exist (for existing users who set up before this was added)
       if (!userData) {
-        setItems([]);
-        return;
+        console.log('User record not found, auto-creating...');
+        const createResult = await createMasonUserRecord(client, {
+          github_id: session.user.github_id,
+          github_username:
+            session.user.github_username || session.user.github_id,
+          github_email: session.user.github_email,
+          github_avatar_url: session.user.github_avatar_url,
+        });
+
+        if (!createResult.success) {
+          console.error('Failed to create user record:', createResult.error);
+          setItems([]);
+          return;
+        }
+
+        // Fetch the newly created user record
+        const { data: newUserData } = await client
+          .from('mason_users')
+          .select('id')
+          .eq('github_id', session.user.github_id)
+          .single();
+
+        userData = newUserData;
+
+        if (!userData) {
+          console.error('User record still not found after creation');
+          setItems([]);
+          return;
+        }
       }
 
       const { data, error: fetchError } = await client
