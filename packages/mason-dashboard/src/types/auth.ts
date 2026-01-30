@@ -30,6 +30,14 @@ export interface GitHubRepository {
   last_synced_at: string | null;
 }
 
+export interface ItemResult {
+  itemId: string;
+  title: string;
+  success: boolean;
+  error?: string;
+  filesChanged?: number;
+}
+
 export interface RemoteExecutionRun {
   id: string;
   created_at: string;
@@ -48,6 +56,10 @@ export interface RemoteExecutionRun {
   files_changed: number;
   lines_added: number;
   lines_removed: number;
+  // Partial success tracking
+  item_results?: ItemResult[] | null;
+  success_count?: number | null;
+  failure_count?: number | null;
 }
 
 export type RemoteExecutionStatus =
