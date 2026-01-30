@@ -29,6 +29,8 @@ import { runMigrations } from '@/lib/supabase/pg-migrate';
  *   - mason_execution_logs
  *   - mason_ai_provider_keys
  *   - mason_execution_progress
+ *   - mason_pm_restore_feedback
+ *   - mason_dependency_analysis
  */
 const MIGRATION_SQL = `
 --------------------------------------------------------------------------------
@@ -273,6 +275,51 @@ CREATE TABLE IF NOT EXISTS mason_pm_restore_feedback (
   restored_at TIMESTAMPTZ NOT NULL
 );
 
+-- Mason Dependency Analysis table (detailed risk analysis for backlog items)
+-- Stores import graph, test coverage gaps, and breaking change detection
+CREATE TABLE IF NOT EXISTS mason_dependency_analysis (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  item_id UUID NOT NULL REFERENCES mason_pm_backlog_items(id) ON DELETE CASCADE,
+
+  -- Files identified in solution
+  target_files TEXT[] DEFAULT '{}',
+  -- Files that import target files (cascade risk)
+  affected_files TEXT[] DEFAULT '{}',
+  -- Files that target files import (upstream dependencies)
+  upstream_dependencies TEXT[] DEFAULT '{}',
+
+  -- Risk score breakdown (1-10 each)
+  file_count_score INTEGER DEFAULT 1 CHECK (file_count_score BETWEEN 1 AND 10),
+  dependency_depth_score INTEGER DEFAULT 1 CHECK (dependency_depth_score BETWEEN 1 AND 10),
+  test_coverage_score INTEGER DEFAULT 1 CHECK (test_coverage_score BETWEEN 1 AND 10),
+  cascade_potential_score INTEGER DEFAULT 1 CHECK (cascade_potential_score BETWEEN 1 AND 10),
+  api_surface_score INTEGER DEFAULT 1 CHECK (api_surface_score BETWEEN 1 AND 10),
+
+  -- Computed overall risk score (weighted average)
+  overall_risk_score INTEGER GENERATED ALWAYS AS (
+    (file_count_score * 20 +
+     dependency_depth_score * 25 +
+     test_coverage_score * 25 +
+     cascade_potential_score * 20 +
+     api_surface_score * 10) / 100
+  ) STORED,
+
+  -- Breaking changes detection
+  breaking_changes JSONB DEFAULT '[]'::jsonb,
+  has_breaking_changes BOOLEAN GENERATED ALWAYS AS (jsonb_array_length(breaking_changes) > 0) STORED,
+
+  -- Test coverage gaps
+  files_without_tests TEXT[] DEFAULT '{}',
+
+  -- Database/external API impact
+  migration_needed BOOLEAN DEFAULT false,
+  api_changes_detected BOOLEAN DEFAULT false,
+
+  UNIQUE(item_id)
+);
+
 -- Ensure user_id columns exist in tables that might have been created before user_id was added
 -- This handles upgrades from older schema versions
 ALTER TABLE mason_api_keys ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
@@ -281,6 +328,13 @@ ALTER TABLE mason_pm_analysis_runs ADD COLUMN IF NOT EXISTS user_id UUID REFEREN
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
 ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
+
+-- Add risk analysis summary columns to backlog items (for quick access without joins)
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS risk_score INTEGER CHECK (risk_score IS NULL OR risk_score BETWEEN 1 AND 10);
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS risk_analyzed_at TIMESTAMPTZ;
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS files_affected_count INTEGER DEFAULT 0;
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS has_breaking_changes BOOLEAN DEFAULT false;
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS test_coverage_gaps INTEGER DEFAULT 0;
 
 -- Add idempotency_key column for request deduplication
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
@@ -313,6 +367,8 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_wave ON mason_pm_executi
 CREATE INDEX IF NOT EXISTS idx_mason_execution_progress_item ON mason_execution_progress(item_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_tier ON mason_pm_restore_feedback(filter_tier);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_filtered_item ON mason_pm_restore_feedback(filtered_item_id);
+CREATE INDEX IF NOT EXISTS idx_mason_dependency_analysis_item ON mason_dependency_analysis(item_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_risk_score ON mason_pm_backlog_items(risk_score) WHERE risk_score IS NOT NULL;
 
 -- Enable Row Level Security
 ALTER TABLE mason_users ENABLE ROW LEVEL SECURITY;
@@ -328,6 +384,7 @@ ALTER TABLE mason_pm_execution_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_execution_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_execution_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_restore_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_dependency_analysis ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (BYOD model - users own their database, allow all operations)
 -- Users table
@@ -418,6 +475,13 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_restore_feedback' AND policyname = 'Allow all on pm_restore_feedback') THEN
     CREATE POLICY "Allow all on pm_restore_feedback" ON mason_pm_restore_feedback FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Dependency Analysis table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_dependency_analysis' AND policyname = 'Allow all on dependency_analysis') THEN
+    CREATE POLICY "Allow all on dependency_analysis" ON mason_dependency_analysis FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 

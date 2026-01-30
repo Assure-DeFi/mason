@@ -5,13 +5,33 @@ import type { BacklogItem } from '@/types/backlog';
 
 export type AIProvider = 'anthropic' | 'openai';
 
+/**
+ * Risk analysis context for PRD generation
+ */
+export interface RiskAnalysisContext {
+  overall_risk_score: number;
+  target_files: string[];
+  affected_files: string[];
+  breaking_changes: Array<{
+    file: string;
+    type: string;
+    description: string;
+    severity: string;
+  }>;
+  files_without_tests: string[];
+  migration_needed: boolean;
+  api_changes_detected: boolean;
+}
+
 // Timeout configuration for PRD generation
 const PRD_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 // Custom error class for timeouts
 class PrdTimeoutError extends Error {
   constructor(provider: string) {
-    super(`PRD generation timed out after ${PRD_TIMEOUT_MS / 1000} seconds using ${provider}`);
+    super(
+      `PRD generation timed out after ${PRD_TIMEOUT_MS / 1000} seconds using ${provider}`,
+    );
     this.name = 'PrdTimeoutError';
   }
 }
@@ -52,6 +72,7 @@ export interface GeneratePrdOptions {
   additionalContext?: string;
   provider?: AIProvider;
   apiKey?: string;
+  riskAnalysis?: RiskAnalysisContext;
 }
 
 async function generateWithAnthropic(
@@ -143,6 +164,31 @@ export async function generatePrd(
     );
   }
 
+  // Build risk analysis section if available
+  let riskSection = '';
+  if (options.riskAnalysis) {
+    const ra = options.riskAnalysis;
+    riskSection = `
+## Code-Based Risk Analysis
+- **Overall Risk Score**: ${ra.overall_risk_score}/10
+- **Target Files**: ${ra.target_files.length > 0 ? ra.target_files.join(', ') : 'None identified'}
+- **Files That May Be Affected**: ${ra.affected_files.length} files import the target files
+- **Test Coverage Gaps**: ${ra.files_without_tests.length > 0 ? ra.files_without_tests.join(', ') : 'All target files have tests'}
+- **Migration Needed**: ${ra.migration_needed ? 'Yes - database schema changes detected' : 'No'}
+- **API Changes**: ${ra.api_changes_detected ? 'Yes - API endpoint modifications detected' : 'No'}
+${
+  ra.breaking_changes.length > 0
+    ? `
+### Breaking Changes Detected
+${ra.breaking_changes.map((bc) => `- **${bc.severity.toUpperCase()}**: ${bc.description} (${bc.file})`).join('\n')}
+`
+    : ''
+}
+
+**IMPORTANT**: Use the risk analysis above to inform the Risks & Mitigations section. Address each identified issue.
+`;
+  }
+
   const userPrompt = `Create a detailed PRD for the following improvement:
 
 ## Title
@@ -163,7 +209,7 @@ ${options.item.solution}
 
 ## Benefits
 ${options.item.benefits.map((b) => `- **${b.title}**: ${b.description}`).join('\n')}
-
+${riskSection}
 ${options.additionalContext ? `## Additional Context\n${options.additionalContext}` : ''}
 
 ---
@@ -173,7 +219,7 @@ Generate a comprehensive PRD with the following sections:
 2. Proposed Solution (detailed)
 3. Success Criteria (measurable)
 4. Technical Approach (with wave-based task breakdown)
-5. Risks & Mitigations
+5. Risks & Mitigations${options.riskAnalysis ? ' (incorporate the code-based risk analysis above)' : ''}
 6. Out of Scope
 
 For the Technical Approach, break down into waves with specific tasks and subagent assignments.`;

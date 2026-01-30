@@ -49,6 +49,9 @@ export const TABLES = {
 
   // Feedback tracking
   PM_RESTORE_FEEDBACK: 'mason_pm_restore_feedback',
+
+  // Risk analysis
+  DEPENDENCY_ANALYSIS: 'mason_dependency_analysis',
 } as const;
 
 /**
