@@ -41,16 +41,6 @@ export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
 
-    // Rate limit check - AI-heavy operations are limited to 10/hour
-    // Use item ID as part of identifier to prevent abuse on single items
-    const clientIp =
-      request.headers.get('x-forwarded-for')?.split(',')[0] ?? 'unknown';
-    const rateLimitResult = await checkRateLimit(`prd:${clientIp}`, 'aiHeavy');
-
-    if (!rateLimitResult.success) {
-      return createRateLimitResponse(rateLimitResult);
-    }
-
     // Get user session to identify which database to connect to
     const session = await getServerSession(authOptions);
 
@@ -59,6 +49,19 @@ export async function POST(request: Request, { params }: RouteParams) {
         { error: 'Authentication required' },
         { status: 401 },
       );
+    }
+
+    // Rate limit check - AI-heavy operations are limited to 10/hour
+    // Use user ID for authenticated requests to ensure fair per-user limits
+    // regardless of network location (multiple users on same network get separate limits)
+    const rateLimitIdentifier = `prd:user:${session.user.github_id}`;
+    const rateLimitResult = await checkRateLimit(
+      rateLimitIdentifier,
+      'aiHeavy',
+    );
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     // Connect to USER's database (not central DB)

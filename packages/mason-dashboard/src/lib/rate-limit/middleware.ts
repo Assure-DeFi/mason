@@ -98,6 +98,36 @@ export function addRateLimitHeaders(
 }
 
 /**
+ * Get a rate limit identifier for a user.
+ * Uses user ID for authenticated requests, falls back to IP for unauthenticated.
+ *
+ * @param operation - The operation being rate-limited (e.g., 'prd', 'execute')
+ * @param userId - The authenticated user's ID (e.g., github_id)
+ * @param fallbackIp - Fallback IP address if user is not authenticated
+ * @returns A unique identifier for rate limiting
+ *
+ * @example
+ * // For authenticated users
+ * const identifier = getRateLimitIdentifier('prd', session.user.github_id);
+ * // Returns: 'prd:user:123456'
+ *
+ * @example
+ * // For unauthenticated requests (falls back to IP)
+ * const identifier = getRateLimitIdentifier('validate', undefined, clientIp);
+ * // Returns: 'validate:ip:192.168.1.1'
+ */
+export function getRateLimitIdentifier(
+  operation: string,
+  userId?: string,
+  fallbackIp?: string,
+): string {
+  if (userId) {
+    return `${operation}:user:${userId}`;
+  }
+  return `${operation}:ip:${fallbackIp ?? 'unknown'}`;
+}
+
+/**
  * Higher-order function to wrap API route handlers with rate limiting
  *
  * Usage:
@@ -111,7 +141,7 @@ export function addRateLimitHeaders(
  *     strategy: 'aiHeavy',
  *     getIdentifier: async (request) => {
  *       const session = await getServerSession(authOptions);
- *       return session?.user?.id ?? 'anonymous';
+ *       return getRateLimitIdentifier('prd', session?.user?.github_id);
  *     },
  *   }
  * );
