@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCw, Database, ArrowRight, Undo2, Sparkles } from 'lucide-react';
+import { RefreshCw, Database, ArrowRight, Undo2, Sparkles, Check, X } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -1080,10 +1080,23 @@ export default function BacklogPage() {
         onClose={() => setShowGenerateIdeasModal(false)}
       />
 
-      {/* Toast */}
+      {/* Copy Success Toast */}
       {copiedToast && (
-        <div className="fixed bottom-6 right-6 px-4 py-3 bg-green-600 text-white shadow-lg">
-          Command copied! Paste into Claude Code to execute.
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-right-5 duration-200">
+          <div className="flex items-center gap-3 px-4 py-3 bg-green-600 text-white shadow-lg">
+            <Check className="w-5 h-5 flex-shrink-0" />
+            <div className="flex flex-col">
+              <span className="font-medium">Command copied!</span>
+              <span className="text-sm text-green-100">Paste into Claude Code to execute</span>
+            </div>
+            <button
+              onClick={() => setCopiedToast(false)}
+              className="ml-2 p-1 hover:bg-green-700 rounded transition-colors"
+              aria-label="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
