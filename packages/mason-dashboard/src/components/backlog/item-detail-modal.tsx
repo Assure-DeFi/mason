@@ -4,6 +4,8 @@ import { clsx } from 'clsx';
 import { X, FileText, Check, Clock, ShieldAlert } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 
+import type { ReactNode } from 'react';
+
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SuccessAnimation } from '@/components/ui/SuccessAnimation';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -13,6 +15,55 @@ import type {
   BacklogStatus,
   DependencyAnalysis,
 } from '@/types/backlog';
+
+/**
+ * Safely parse inline markdown (bold and code) without using dangerouslySetInnerHTML
+ * Returns React elements instead of HTML strings
+ */
+function parseInlineMarkdown(text: string): ReactNode[] {
+  const result: ReactNode[] = [];
+  let currentIndex = 0;
+  let keyIndex = 0;
+
+  // Combined regex for bold (**text**) and inline code (`text`)
+  const pattern = /(\*\*(.+?)\*\*)|(`([^`]+)`)/g;
+  let match;
+
+  while ((match = pattern.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > currentIndex) {
+      result.push(text.slice(currentIndex, match.index));
+    }
+
+    if (match[1]) {
+      // Bold text - match[2] contains the text inside **
+      result.push(
+        <strong key={keyIndex++} className="font-semibold text-white">
+          {match[2]}
+        </strong>,
+      );
+    } else if (match[3]) {
+      // Inline code - match[4] contains the text inside ``
+      result.push(
+        <code
+          key={keyIndex++}
+          className="px-1 py-0.5 bg-black rounded text-gold font-mono text-sm"
+        >
+          {match[4]}
+        </code>,
+      );
+    }
+
+    currentIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text after last match
+  if (currentIndex < text.length) {
+    result.push(text.slice(currentIndex));
+  }
+
+  return result.length > 0 ? result : [text];
+}
 
 import { BenefitsGrid } from './benefits-grid';
 import { ItemTimeline } from './ItemTimeline';
@@ -293,25 +344,12 @@ export function ItemDetailModal({
         return;
       }
 
-      // Bold text (basic)
-      let processedLine = line.replace(
-        /\*\*(.+?)\*\*/g,
-        '<strong class="font-semibold text-white">$1</strong>',
-      );
-      // Inline code
-      processedLine = processedLine.replace(
-        /`([^`]+)`/g,
-        '<code class="px-1 py-0.5 bg-black rounded text-gold font-mono text-sm">$1</code>',
-      );
-
-      // Regular paragraph
+      // Regular paragraph with inline formatting (bold, code)
       if (line.trim()) {
         elements.push(
-          <p
-            key={index}
-            className="my-2 text-gray-300 leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: processedLine }}
-          />,
+          <p key={index} className="my-2 text-gray-300 leading-relaxed">
+            {parseInlineMarkdown(line)}
+          </p>,
         );
       } else {
         elements.push(<div key={index} className="h-2" />);
