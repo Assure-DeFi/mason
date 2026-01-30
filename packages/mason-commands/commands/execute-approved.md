@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 1.2.0
+version: 1.3.0
 description: Execute Approved Command
 ---
 
@@ -23,6 +23,7 @@ Options:
 - `--item <id>`: Execute a specific item by ID
 - `--limit <n>`: Maximum number of items to execute (optional, no limit by default)
 - `--dry-run`: Show execution plan without making changes
+- `--auto`: Run in headless mode for autopilot execution (skips confirmations, outputs machine-readable status)
 
 Examples:
 
@@ -30,6 +31,7 @@ Examples:
 - `/execute-approved --item abc123` - Execute specific item
 - `/execute-approved --limit 3` - Execute top 3 approved items
 - `/execute-approved --dry-run` - Preview execution plan
+- `/execute-approved --auto` - Execute all approved items in headless mode (for autopilot)
 
 ## Process
 
@@ -68,6 +70,38 @@ fi
 4. **Continue execution** with the updated command
 
 Do NOT ask the user - just auto-update and continue.
+
+---
+
+### Auto Mode Detection
+
+**Check if `--auto` flag is present in the command arguments.**
+
+```bash
+# Parse arguments for --auto flag
+AUTO_MODE=false
+if echo "$*" | grep -q '\-\-auto'; then
+  AUTO_MODE=true
+  echo "AUTOPILOT_MODE: Running in headless mode"
+fi
+```
+
+**When AUTO_MODE is true:**
+
+- Skip ALL user confirmations
+- Output machine-readable status lines prefixed with `AUTOPILOT_STATUS:`
+- Continue execution without waiting for user input
+- Report detailed progress for dashboard monitoring
+
+**Autopilot Status Line Format:**
+
+```
+AUTOPILOT_STATUS: {"phase": "starting", "items_count": 5}
+AUTOPILOT_STATUS: {"phase": "executing", "item_id": "xxx", "item_title": "...", "progress": "1/5"}
+AUTOPILOT_STATUS: {"phase": "validating", "item_id": "xxx", "check": "typescript"}
+AUTOPILOT_STATUS: {"phase": "complete", "items_executed": 5, "prs_created": 5}
+AUTOPILOT_STATUS: {"phase": "error", "message": "...", "item_id": "xxx"}
+```
 
 ---
 

@@ -9,12 +9,14 @@ import {
   Sparkles,
   BookOpen,
   HelpCircle,
+  Bot,
 } from 'lucide-react';
 import Link from 'next/link';
 import { signOut, useSession } from 'next-auth/react';
 import { useState, useRef, useEffect } from 'react';
 
 import { InstructionsModal } from '@/components/ui/InstructionsModal';
+import { canAccessAutopilot } from '@/lib/feature-flags';
 
 import { SignInButton } from './sign-in-button';
 
@@ -136,6 +138,20 @@ export function UserMenu() {
               <Database className="h-4 w-4" />
               Database Settings
             </Link>
+
+            {canAccessAutopilot(user.github_email) && (
+              <Link
+                href="/settings/autopilot"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-gold hover:bg-gray-900"
+                onClick={() => setIsOpen(false)}
+              >
+                <Bot className="h-4 w-4" />
+                Autopilot
+                <span className="rounded bg-gold/20 px-1 py-0.5 text-[10px]">
+                  BETA
+                </span>
+              </Link>
+            )}
 
             <div className="my-1 border-t border-gray-800" />
 

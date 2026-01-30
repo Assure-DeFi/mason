@@ -1,0 +1,45 @@
+{
+  "name": "mason-autopilot",
+  "version": "0.1.0",
+  "description": "Autopilot daemon for Mason - automated codebase analysis and execution",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "mason-autopilot": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mason",
+    "autopilot",
+    "automation",
+    "claude",
+    "ai",
+    "codebase-analysis"
+  ],
+  "author": "Assure DeFi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Assure-DeFi/mason.git",
+    "directory": "packages/mason-autopilot"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "commander": "^12.0.0",
+    "cron-parser": "^4.9.0",
+    "enquirer": "^2.4.1",
+    "ora": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.0"
+  }
+}

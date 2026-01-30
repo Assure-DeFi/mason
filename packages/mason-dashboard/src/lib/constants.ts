@@ -52,6 +52,10 @@ export const TABLES = {
 
   // Risk analysis
   DEPENDENCY_ANALYSIS: 'mason_dependency_analysis',
+
+  // Autopilot tables
+  AUTOPILOT_CONFIG: 'mason_autopilot_config',
+  AUTOPILOT_RUNS: 'mason_autopilot_runs',
 } as const;
 
 /**
