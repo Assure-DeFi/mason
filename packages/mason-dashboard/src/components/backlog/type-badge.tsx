@@ -28,6 +28,10 @@ const TYPE_CONFIG: Record<BacklogType, { label: string; className: string }> = {
     label: 'Backend',
     className: 'bg-green-500/20 text-green-300 border-green-500/30',
   },
+  feature: {
+    label: 'Feature',
+    className: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+  },
 };
 
 export function TypeBadge({ type, size = 'sm', isNewFeature }: TypeBadgeProps) {

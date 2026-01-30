@@ -308,7 +308,13 @@ export function ExecutionProgress({
   const showBuildingTheater = itemId && client;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="execution-progress-title"
+      aria-busy={status === 'in_progress'}
+    >
       <div
         className={`flex max-h-[80vh] w-full flex-col overflow-hidden rounded-lg bg-navy shadow-xl ${showBuildingTheater ? 'max-w-6xl' : 'max-w-3xl'}`}
       >
@@ -317,7 +323,10 @@ export function ExecutionProgress({
           <div className="flex items-center gap-3">
             {getStatusIcon()}
             <div>
-              <h2 className="text-lg font-semibold text-white">
+              <h2
+                id="execution-progress-title"
+                className="text-lg font-semibold text-white"
+              >
                 {getStatusText()}
               </h2>
               {prUrl && (
@@ -356,6 +365,9 @@ export function ExecutionProgress({
           {/* Logs (right column or full width) */}
           <div
             className={`overflow-y-auto bg-black p-4 font-mono text-sm ${showBuildingTheater ? 'rounded-lg' : 'flex-1'}`}
+            role="log"
+            aria-live="polite"
+            aria-label="Execution logs"
           >
             {error && (
               <div className="mb-4 rounded bg-red-900/20 p-3 text-red-400">

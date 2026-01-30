@@ -78,6 +78,7 @@ function KeyboardHintBar() {
         onClick={handleHide}
         className="p-1 hover:text-gray-300 transition-colors"
         title="Hide keyboard hints"
+        aria-label="Hide keyboard hints"
       >
         <X className="w-3.5 h-3.5" />
       </button>
