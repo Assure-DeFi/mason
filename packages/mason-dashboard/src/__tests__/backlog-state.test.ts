@@ -7,16 +7,31 @@ function createMockItem(overrides: Partial<BacklogItem> = {}): BacklogItem {
   return {
     id: `item-${Math.random().toString(36).slice(2)}`,
     title: 'Test Item',
-    description: 'Test description',
-    type: 'improvement',
+    problem: 'Test problem description',
+    solution: 'Test solution description',
+    type: 'dashboard',
     area: 'frontend',
     status: 'new' as BacklogStatus,
     priority_score: 50,
+    impact_score: 7,
+    effort_score: 4,
     complexity: 'medium',
+    benefits: [],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     repository_id: 'repo-1',
-    user_id: 'user-1',
+    branch_name: null,
+    pr_url: null,
+    prd_content: null,
+    prd_generated_at: null,
+    analysis_run_id: null,
+    risk_score: null,
+    risk_analyzed_at: null,
+    files_affected_count: null,
+    has_breaking_changes: null,
+    test_coverage_gaps: null,
+    is_new_feature: false,
+    is_banger_idea: false,
     ...overrides,
   };
 }
@@ -378,6 +393,184 @@ describe('Backlog State Mutations', () => {
       );
 
       expect(getCounts()).toEqual({ new: 1, approved: 1 });
+    });
+  });
+
+  describe('Banger Idea and Feature Filtering', () => {
+    it('should filter banger ideas correctly', () => {
+      const items: BacklogItem[] = [
+        createMockItem({
+          id: 'banger-1',
+          is_new_feature: true,
+          is_banger_idea: true,
+          status: 'new',
+          priority_score: 100,
+        }),
+        createMockItem({
+          id: 'feature-1',
+          is_new_feature: true,
+          is_banger_idea: false,
+          status: 'new',
+        }),
+        createMockItem({
+          id: 'improvement-1',
+          is_new_feature: false,
+          is_banger_idea: false,
+          status: 'new',
+        }),
+      ];
+
+      // Filter banger ideas (should only return items with is_banger_idea: true)
+      const bangerItems = items.filter(
+        (item) =>
+          item.is_banger_idea &&
+          item.status !== 'completed' &&
+          item.status !== 'rejected',
+      );
+
+      expect(bangerItems).toHaveLength(1);
+      expect(bangerItems[0].id).toBe('banger-1');
+    });
+
+    it('should filter feature ideas excluding banger idea', () => {
+      const items: BacklogItem[] = [
+        createMockItem({
+          id: 'banger-1',
+          is_new_feature: true,
+          is_banger_idea: true,
+          status: 'new',
+        }),
+        createMockItem({
+          id: 'feature-1',
+          is_new_feature: true,
+          is_banger_idea: false,
+          status: 'new',
+        }),
+        createMockItem({
+          id: 'feature-2',
+          is_new_feature: true,
+          is_banger_idea: false,
+          status: 'approved',
+        }),
+        createMockItem({
+          id: 'improvement-1',
+          is_new_feature: false,
+          is_banger_idea: false,
+          status: 'new',
+        }),
+      ];
+
+      // Filter feature ideas (is_new_feature: true but NOT banger idea)
+      const featureIdeas = items.filter(
+        (item) =>
+          item.is_new_feature &&
+          !item.is_banger_idea &&
+          item.status !== 'completed' &&
+          item.status !== 'rejected',
+      );
+
+      expect(featureIdeas).toHaveLength(2);
+      expect(featureIdeas.map((f) => f.id)).toContain('feature-1');
+      expect(featureIdeas.map((f) => f.id)).toContain('feature-2');
+      expect(featureIdeas.map((f) => f.id)).not.toContain('banger-1');
+    });
+
+    it('should filter improvement items (non-features)', () => {
+      const items: BacklogItem[] = [
+        createMockItem({
+          id: 'banger-1',
+          is_new_feature: true,
+          is_banger_idea: true,
+        }),
+        createMockItem({
+          id: 'feature-1',
+          is_new_feature: true,
+          is_banger_idea: false,
+        }),
+        createMockItem({
+          id: 'improvement-1',
+          is_new_feature: false,
+          is_banger_idea: false,
+        }),
+        createMockItem({
+          id: 'improvement-2',
+          is_new_feature: false,
+          is_banger_idea: false,
+        }),
+      ];
+
+      // Filter improvements (not new features)
+      const improvements = items.filter((item) => !item.is_new_feature);
+
+      expect(improvements).toHaveLength(2);
+      expect(improvements.map((i) => i.id)).toContain('improvement-1');
+      expect(improvements.map((i) => i.id)).toContain('improvement-2');
+    });
+
+    it('should select highest priority banger idea when multiple exist', () => {
+      const items: BacklogItem[] = [
+        createMockItem({
+          id: 'banger-low',
+          is_new_feature: true,
+          is_banger_idea: true,
+          status: 'new',
+          priority_score: 50,
+        }),
+        createMockItem({
+          id: 'banger-high',
+          is_new_feature: true,
+          is_banger_idea: true,
+          status: 'new',
+          priority_score: 100,
+        }),
+      ];
+
+      // Get banger ideas and sort by priority
+      const bangerItems = items
+        .filter(
+          (item) =>
+            item.is_banger_idea &&
+            item.status !== 'completed' &&
+            item.status !== 'rejected',
+        )
+        .sort((a, b) => b.priority_score - a.priority_score);
+
+      const topBanger = bangerItems[0];
+      expect(topBanger.id).toBe('banger-high');
+      expect(topBanger.priority_score).toBe(100);
+    });
+
+    it('should exclude completed/rejected banger ideas', () => {
+      const items: BacklogItem[] = [
+        createMockItem({
+          id: 'banger-completed',
+          is_new_feature: true,
+          is_banger_idea: true,
+          status: 'completed',
+        }),
+        createMockItem({
+          id: 'banger-rejected',
+          is_new_feature: true,
+          is_banger_idea: true,
+          status: 'rejected',
+        }),
+        createMockItem({
+          id: 'banger-active',
+          is_new_feature: true,
+          is_banger_idea: true,
+          status: 'approved',
+        }),
+      ];
+
+      const activeBangers = items.filter(
+        (item) =>
+          item.is_banger_idea &&
+          item.status !== 'completed' &&
+          item.status !== 'rejected',
+      );
+
+      expect(activeBangers).toHaveLength(1);
+      expect(activeBangers[0].id).toBe('banger-active');
     });
   });
 });
