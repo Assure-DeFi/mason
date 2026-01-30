@@ -75,3 +75,12 @@ description: Brief description of what this command does.
 **Why**: Users connect multiple repos - showing all items regardless of selected repo creates confusion
 
 ---
+
+## PM Review: No Item Without PRD
+
+**Discovered**: 2026-01-29
+**Context**: PM review was only generating 3 PRDs even when discovering more improvements
+**Pattern**: EVERY item submitted to the database MUST have a PRD. The process is: Discover → Validate → Generate PRD for EACH → Submit. No artificial limits on count.
+**Why**: Items without PRDs cannot be executed properly. The full PRD enables wave-based parallel execution and provides context for the implementation agent.
+
+---
