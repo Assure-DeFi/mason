@@ -56,6 +56,10 @@ export default function BacklogPage() {
   const [copiedToast, setCopiedToast] = useState(false);
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [executionRunId, setExecutionRunId] = useState<string | null>(null);
+  const [executingItemId, setExecutingItemId] = useState<string | null>(null);
+  const [executingItemTitle, setExecutingItemTitle] = useState<string | null>(
+    null,
+  );
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [sort, setSort] = useState<{
@@ -515,10 +519,14 @@ export default function BacklogPage() {
     }
   };
 
-  const _handleRemoteExecute = (_itemIds: string[]) => {
+  const _handleRemoteExecute = (itemIds: string[], itemTitle?: string) => {
     // Start remote execution - handled by the UnifiedExecuteButton modal
     // This would integrate with the existing RemoteExecuteButton logic
     setExecutionRunId('starting'); // Placeholder - would get actual run ID
+    if (itemIds.length > 0) {
+      setExecutingItemId(itemIds[0]);
+      setExecutingItemTitle(itemTitle ?? null);
+    }
   };
 
   if (!isDbLoading && !isConfigured) {
@@ -707,8 +715,13 @@ export default function BacklogPage() {
       {executionRunId && (
         <ExecutionProgress
           runId={executionRunId}
+          itemId={executingItemId ?? undefined}
+          itemTitle={executingItemTitle ?? undefined}
+          client={client}
           onClose={() => {
             setExecutionRunId(null);
+            setExecutingItemId(null);
+            setExecutingItemTitle(null);
             void fetchItems(); // Refresh to show updated statuses
           }}
         />

@@ -1,9 +1,12 @@
 'use client';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { X, CheckCircle, XCircle, Loader2, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
 import type { RemoteExecutionStatus } from '@/types/auth';
+
+import { BuildingTheater } from './BuildingTheater';
 
 interface ExecutionLog {
   id: string;
@@ -15,10 +18,19 @@ interface ExecutionLog {
 
 interface ExecutionProgressProps {
   runId: string;
+  itemId?: string;
+  itemTitle?: string;
+  client?: SupabaseClient | null;
   onClose: () => void;
 }
 
-export function ExecutionProgress({ runId, onClose }: ExecutionProgressProps) {
+export function ExecutionProgress({
+  runId,
+  itemId,
+  itemTitle,
+  client,
+  onClose,
+}: ExecutionProgressProps) {
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [status, setStatus] = useState<RemoteExecutionStatus>('in_progress');
   const [prUrl, setPrUrl] = useState<string | null>(null);
@@ -103,9 +115,13 @@ export function ExecutionProgress({ runId, onClose }: ExecutionProgressProps) {
     }
   };
 
+  const showBuildingTheater = itemId && client;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-navy shadow-xl">
+      <div
+        className={`flex max-h-[80vh] w-full flex-col overflow-hidden rounded-lg bg-navy shadow-xl ${showBuildingTheater ? 'max-w-6xl' : 'max-w-3xl'}`}
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-800 p-4">
           <div className="flex items-center gap-3">
@@ -132,34 +148,52 @@ export function ExecutionProgress({ runId, onClose }: ExecutionProgressProps) {
           </button>
         </div>
 
-        {/* Logs */}
-        <div className="flex-1 overflow-y-auto bg-black p-4 font-mono text-sm">
-          {error && (
-            <div className="mb-4 rounded bg-red-900/20 p-3 text-red-400">
-              {error}
+        {/* Main Content - Two columns when BuildingTheater is shown */}
+        <div
+          className={`flex-1 overflow-hidden ${showBuildingTheater ? 'grid grid-cols-2 gap-4 p-4' : ''}`}
+        >
+          {/* BuildingTheater (left column) */}
+          {showBuildingTheater && (
+            <div className="overflow-y-auto">
+              <BuildingTheater
+                itemId={itemId}
+                client={client}
+                itemTitle={itemTitle}
+              />
             </div>
           )}
 
-          {logs.length === 0 && !error && (
-            <div className="flex items-center gap-2 text-gray-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Waiting for logs...
-            </div>
-          )}
+          {/* Logs (right column or full width) */}
+          <div
+            className={`overflow-y-auto bg-black p-4 font-mono text-sm ${showBuildingTheater ? 'rounded-lg' : 'flex-1'}`}
+          >
+            {error && (
+              <div className="mb-4 rounded bg-red-900/20 p-3 text-red-400">
+                {error}
+              </div>
+            )}
 
-          {logs.map((log) => (
-            <div key={log.id} className="mb-1">
-              <span className="text-gray-600">
-                {new Date(log.created_at).toLocaleTimeString()}
-              </span>{' '}
-              <span className={getLogLevelStyles(log.log_level)}>
-                [{log.log_level.toUpperCase()}]
-              </span>{' '}
-              <span className="text-gray-300">{log.message}</span>
-            </div>
-          ))}
+            {logs.length === 0 && !error && (
+              <div className="flex items-center gap-2 text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Waiting for logs...
+              </div>
+            )}
 
-          <div ref={logsEndRef} />
+            {logs.map((log) => (
+              <div key={log.id} className="mb-1">
+                <span className="text-gray-600">
+                  {new Date(log.created_at).toLocaleTimeString()}
+                </span>{' '}
+                <span className={getLogLevelStyles(log.log_level)}>
+                  [{log.log_level.toUpperCase()}]
+                </span>{' '}
+                <span className="text-gray-300">{log.message}</span>
+              </div>
+            ))}
+
+            <div ref={logsEndRef} />
+          </div>
         </div>
 
         {/* Footer */}
