@@ -24,6 +24,10 @@ program
 program
   .command('init')
   .description('Initialize autopilot configuration')
+  .option(
+    '-n, --non-interactive',
+    'Run without prompts (requires MASON_SUPABASE_URL and MASON_SUPABASE_KEY env vars)',
+  )
   .action(initCommand);
 
 program
