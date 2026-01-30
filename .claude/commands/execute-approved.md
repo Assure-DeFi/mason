@@ -1,56 +1,12 @@
+---
+name: execute-approved
+version: 1.2.0
+description: Execute Approved Command
+---
+
 # Execute Approved Command
 
-version: 1.1.0
-
 Execute approved items from the PM backlog using wave-based parallel execution.
-
----
-
-## CRITICAL RULES - MANDATORY COMPLIANCE
-
-**These rules are NON-NEGOTIABLE. Failure to follow them breaks the system.**
-
-### Rule 1: COMPLETE ALL TASKS
-
-You MUST execute ALL approved items until every single one is complete. Do NOT stop partway through. If you encounter an error, log it, mark the item as failed, and CONTINUE with the next item. Only stop when ALL items have been processed (success or failure).
-
-### Rule 2: NEVER STOP WITHOUT STATUS UPDATE
-
-Before stopping execution for ANY reason, you MUST:
-
-1. Update EVERY item's status in Supabase (completed, rejected, or back to approved)
-2. Update EVERY item's execution_progress record (complete or failed)
-3. Update the execution_run record with final status
-
-### Rule 3: REAL-TIME PROGRESS UPDATES ARE MANDATORY
-
-Update `mason_execution_progress` table at EVERY phase transition:
-
-- `site_review` → Starting execution
-- `foundation` → Code generation complete
-- `building` → Committing changes
-- `inspection` → Creating PR
-- `complete` → Finished (or failed with validation\_\* = 'fail')
-
-These updates drive the BuildingTheater visualization. Missing updates = broken UI.
-
-### Rule 4: CLEANUP ON FAILURE
-
-If execution fails midway:
-
-1. Reset any items stuck in `in_progress` back to `approved`
-2. Mark their execution*progress as failed (validation*\* = 'fail')
-3. Log detailed error message to execution_logs
-
-### Rule 5: VERIFY WRITES SUCCEEDED
-
-After EVERY Supabase write operation, verify it succeeded. If it fails:
-
-1. Retry up to 3 times with exponential backoff
-2. Log the failure
-3. Continue execution (don't block on non-critical writes)
-
----
 
 ## Overview
 
@@ -210,11 +166,14 @@ SUPABASE_KEY=$(jq -r '.supabaseAnonKey' mason.config.json)
 
 # ==== LOGGING HELPER (MANDATORY) ====
 # Use this function throughout execution to write logs to the dashboard
+# IMPORTANT: Runs SYNCHRONOUSLY (no &) to ensure logs are actually written before continuing
 log_execution() {
   local level="$1"   # debug, info, warn, error
   local message="$2"
   local metadata="${3:-{}}"  # optional JSON metadata
 
+  # Write synchronously - wait for curl to complete so logs are confirmed written
+  # Do NOT use & at the end - that would background the curl and potentially lose logs
   curl -s -X POST "${SUPABASE_URL}/rest/v1/mason_execution_logs" \
     -H "apikey: ${SUPABASE_KEY}" \
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
@@ -225,7 +184,7 @@ log_execution() {
       "log_level": "'"${level}"'",
       "message": "'"${message}"'",
       "metadata": '"${metadata}"'
-    }' > /dev/null 2>&1 &
+    }' > /dev/null
 }
 # ==== END LOGGING HELPER ====
 
@@ -237,14 +196,8 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
   -H "Prefer: return=minimal" \
   -d '{"status": "in_progress", "branch_name": "mason/<slug>", "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
 
-# IMPORTANT: Delete any existing progress record first (for re-execution scenarios)
-# This ensures a fresh INSERT which triggers the realtime subscription
-curl -X DELETE "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
-  -H "apikey: ${SUPABASE_KEY}" \
-  -H "Authorization: Bearer ${SUPABASE_KEY}"
-
 # Create execution progress record for BuildingTheater visualization
-# This triggers the BuildingTheater to AUTO-APPEAR in the dashboard via realtime INSERT event
+# This triggers the BuildingTheater to AUTO-APPEAR in the dashboard
 curl -X POST "${SUPABASE_URL}/rest/v1/mason_execution_progress" \
   -H "apikey: ${SUPABASE_KEY}" \
   -H "Authorization: Bearer ${SUPABASE_KEY}" \

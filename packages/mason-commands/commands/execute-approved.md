@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 1.1.0
+version: 1.2.0
 description: Execute Approved Command
 ---
 
@@ -166,11 +166,14 @@ SUPABASE_KEY=$(jq -r '.supabaseAnonKey' mason.config.json)
 
 # ==== LOGGING HELPER (MANDATORY) ====
 # Use this function throughout execution to write logs to the dashboard
+# IMPORTANT: Runs SYNCHRONOUSLY (no &) to ensure logs are actually written before continuing
 log_execution() {
   local level="$1"   # debug, info, warn, error
   local message="$2"
   local metadata="${3:-{}}"  # optional JSON metadata
 
+  # Write synchronously - wait for curl to complete so logs are confirmed written
+  # Do NOT use & at the end - that would background the curl and potentially lose logs
   curl -s -X POST "${SUPABASE_URL}/rest/v1/mason_execution_logs" \
     -H "apikey: ${SUPABASE_KEY}" \
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
@@ -181,7 +184,7 @@ log_execution() {
       "log_level": "'"${level}"'",
       "message": "'"${message}"'",
       "metadata": '"${metadata}"'
-    }' > /dev/null 2>&1 &
+    }' > /dev/null
 }
 # ==== END LOGGING HELPER ====
 

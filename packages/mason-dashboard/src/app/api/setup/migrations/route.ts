@@ -490,6 +490,13 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Enable REPLICA IDENTITY FULL for realtime tables (REQUIRED for postgres_changes)
+-- Without this, Postgres only tracks primary key changes, not full row data
+-- This ensures realtime subscriptions receive complete row data on INSERT/UPDATE
+ALTER TABLE mason_execution_logs REPLICA IDENTITY FULL;
+ALTER TABLE mason_execution_progress REPLICA IDENTITY FULL;
+ALTER TABLE mason_remote_execution_runs REPLICA IDENTITY FULL;
+
 -- Enable realtime for execution progress table (CRITICAL for BuildingTheater auto-show)
 -- This allows the dashboard to receive real-time INSERT events when CLI execution starts
 DO $$ BEGIN

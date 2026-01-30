@@ -121,6 +121,52 @@ export function ExecutionProgress({
     };
   }, [client, runId, isRealRunId]);
 
+  // Polling fallback for logs - guarantees logs appear even if realtime fails
+  // This is a hybrid approach: realtime for instant updates, polling as safety net
+  useEffect(() => {
+    if (!client || !isRealRunId || status !== 'in_progress') {
+      return;
+    }
+
+    console.log('[ExecutionProgress] Starting polling fallback for logs');
+
+    const pollLogs = async () => {
+      const { data } = await client
+        .from(TABLES.EXECUTION_LOGS)
+        .select('*')
+        .eq('execution_run_id', runId)
+        .order('created_at', { ascending: true });
+
+      if (data && data.length > 0) {
+        setLogs((prev) => {
+          // Merge and deduplicate by id - prevents duplicates from realtime + polling
+          const existingIds = new Set(prev.map((l) => l.id));
+          const newLogs = data.filter(
+            (l) => !existingIds.has(l.id),
+          ) as ExecutionLog[];
+          if (newLogs.length > 0) {
+            console.log(
+              '[ExecutionProgress] Polling found',
+              newLogs.length,
+              'new logs',
+            );
+            return [...prev, ...newLogs];
+          }
+          return prev;
+        });
+      }
+    };
+
+    const pollInterval = setInterval(() => {
+      void pollLogs();
+    }, 2000); // Poll every 2 seconds
+
+    return () => {
+      console.log('[ExecutionProgress] Stopping polling fallback');
+      clearInterval(pollInterval);
+    };
+  }, [client, runId, isRealRunId, status]);
+
   // Also check execution run status for completion
   useEffect(() => {
     if (!client || !isRealRunId) {
