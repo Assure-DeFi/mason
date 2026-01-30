@@ -84,3 +84,12 @@ description: Brief description of what this command does.
 **Why**: Items without PRDs cannot be executed properly. The full PRD enables wave-based parallel execution and provides context for the implementation agent.
 
 ---
+
+## Database Changes: ALWAYS Update MIGRATION_SQL
+
+**Discovered**: 2026-01-30
+**Context**: New tables added in code but not in migrations would break existing users
+**Pattern**: ANY new table or column MUST be added to `MIGRATION_SQL` in `packages/mason-dashboard/src/app/api/setup/migrations/route.ts`. This is NON-NEGOTIABLE. The migration runs when users click "Update Database Schema" in Settings.
+**Why**: The MIGRATION_SQL is the single source of truth. Existing users need to run migrations to get new schema. If code references tables that don't exist in migrations, existing users get errors. All migrations must be idempotent (CREATE IF NOT EXISTS pattern).
+
+---

@@ -128,8 +128,14 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
   -H "Prefer: return=minimal" \
   -d '{"status": "in_progress", "branch_name": "mason/<slug>", "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
 
+# IMPORTANT: Delete any existing progress record first (for re-execution scenarios)
+# This ensures a fresh INSERT which triggers the realtime subscription
+curl -X DELETE "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}"
+
 # Create execution progress record for BuildingTheater visualization
-# This triggers the BuildingTheater to AUTO-APPEAR in the dashboard
+# This triggers the BuildingTheater to AUTO-APPEAR in the dashboard via realtime INSERT event
 curl -X POST "${SUPABASE_URL}/rest/v1/mason_execution_progress" \
   -H "apikey: ${SUPABASE_KEY}" \
   -H "Authorization: Bearer ${SUPABASE_KEY}" \
@@ -152,6 +158,7 @@ curl -X POST "${SUPABASE_URL}/rest/v1/mason_execution_progress" \
 ```
 
 This update will appear **immediately** in the dashboard:
+
 - The item moves from "Approved" tab to "In Progress" tab
 - The BuildingTheater modal auto-appears showing the construction animation
 
@@ -199,13 +206,13 @@ update_progress "inspection" 3 "Running TypeScript check..." 0 4
 
 **Progress updates at each phase:**
 
-| Phase         | When to Update                       | wave_status Example                    |
-| ------------- | ------------------------------------ | -------------------------------------- |
-| `site_review` | Start of execution                   | "Analyzing PRD and dependencies..."    |
-| `foundation`  | Wave 1 starts (Explore tasks)        | "Exploring existing patterns..."       |
-| `building`    | Wave 2+ starts (Implementation)      | "Implementing feature components..."   |
-| `inspection`  | Validation phase starts              | "Running validation checks..."         |
-| `complete`    | All validations pass                 | "Build complete!"                      |
+| Phase         | When to Update                  | wave_status Example                  |
+| ------------- | ------------------------------- | ------------------------------------ |
+| `site_review` | Start of execution              | "Analyzing PRD and dependencies..."  |
+| `foundation`  | Wave 1 starts (Explore tasks)   | "Exploring existing patterns..."     |
+| `building`    | Wave 2+ starts (Implementation) | "Implementing feature components..." |
+| `inspection`  | Validation phase starts         | "Running validation checks..."       |
+| `complete`    | All validations pass            | "Build complete!"                    |
 
 **Update validation status during inspection phase:**
 
@@ -532,6 +539,7 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${ite
 ```
 
 This update will appear **immediately** in the dashboard:
+
 - The item moves from "In Progress" tab to "Completed" tab
 - The BuildingTheater shows completion animation with certificate
 

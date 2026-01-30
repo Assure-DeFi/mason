@@ -4,6 +4,44 @@ These rules apply to ALL changes to the Mason database schema and migrations.
 
 ## Critical Principles
 
+### 0. ALWAYS Update MIGRATION_SQL When Adding Tables/Columns
+
+**This is MANDATORY and non-negotiable.**
+
+When ANY code change requires a new database table or column:
+
+1. **Add it to `MIGRATION_SQL`** in `packages/mason-dashboard/src/app/api/setup/migrations/route.ts`
+2. The migration runs when users click "Update Database Schema" in Settings
+3. All migrations MUST be idempotent (safe to run multiple times)
+4. This ensures ALL users (new and existing) get the schema automatically
+
+**Why this matters:**
+
+- The `MIGRATION_SQL` constant is the SINGLE SOURCE OF TRUTH for database schema
+- Users click "Update Database Schema" button in the dashboard to apply changes
+- If you add a table in code but not in migrations, existing users will get errors
+- New tables need: CREATE TABLE, indexes, RLS enable, and RLS policy
+
+**Checklist for new tables:**
+
+```sql
+-- 1. Create table
+CREATE TABLE IF NOT EXISTS mason_new_table (...);
+
+-- 2. Add indexes
+CREATE INDEX IF NOT EXISTS idx_mason_new_table_... ON mason_new_table(...);
+
+-- 3. Enable RLS
+ALTER TABLE mason_new_table ENABLE ROW LEVEL SECURITY;
+
+-- 4. Add RLS policy
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_new_table' AND policyname = 'Allow all on new_table') THEN
+    CREATE POLICY "Allow all on new_table" ON mason_new_table FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+```
+
 ### 1. NEVER Delete User Data
 
 **Absolutely prohibited in migrations:**
@@ -103,6 +141,7 @@ When modifying migrations, ensure ALL of these tables are included:
 | `mason_remote_execution_runs` | Remote execution   | ✓        |
 | `mason_execution_logs`        | Execution logs     | ✓        |
 | `mason_ai_provider_keys`      | AI provider keys   | ✓        |
+| `mason_pm_restore_feedback`   | Restore tracking   | ✓        |
 
 ## Audit Process
 

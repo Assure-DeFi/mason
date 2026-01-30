@@ -114,6 +114,22 @@ export async function POST(request: Request) {
       // Don't fail the request - the item was already restored
     }
 
+    // Track restore feedback for confidence decay system
+    // This helps the pm-validator learn which filter patterns are too aggressive
+    const { error: trackError } = await supabase
+      .from('mason_pm_restore_feedback')
+      .insert({
+        filtered_item_id: filteredItemId,
+        filter_tier: filteredItem.filter_tier,
+        filter_reason: filteredItem.filter_reason,
+        restored_at: new Date().toISOString(),
+      });
+
+    if (trackError) {
+      // Log but don't fail - feedback tracking is non-critical
+      console.warn('Failed to track restore feedback:', trackError);
+    }
+
     return NextResponse.json({
       message: 'Item restored successfully',
       backlogItem: newItem,

@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SuccessAnimation } from '@/components/ui/SuccessAnimation';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import type { BacklogItem, BacklogStatus } from '@/types/backlog';
 
 import { BenefitsGrid } from './benefits-grid';
@@ -14,26 +15,30 @@ import { PriorityDots } from './priority-dots';
 import { QuickWinBadge } from './QuickWinBadge';
 import { TypeBadge } from './type-badge';
 
+export type ViewMode = 'details' | 'prd' | 'timeline';
+
 interface ItemDetailModalProps {
   item: BacklogItem;
   onClose: () => void;
   onUpdateStatus: (id: string, status: BacklogStatus) => Promise<void>;
   onGeneratePrd: (id: string) => Promise<void>;
+  initialViewMode?: ViewMode;
 }
-
-type ViewMode = 'details' | 'prd' | 'timeline';
 
 export function ItemDetailModal({
   item,
   onClose,
   onUpdateStatus,
   onGeneratePrd,
+  initialViewMode = 'details',
 }: ItemDetailModalProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('details');
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  const focusTrapRef = useFocusTrap(true);
 
   // Keyboard navigation
   useEffect(() => {
@@ -243,13 +248,19 @@ export function ItemDetailModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-        <div className="bg-navy border border-gray-800 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 sm:p-4">
+        <div
+          ref={focusTrapRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="item-detail-title"
+          className="bg-navy border border-gray-800 w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+        >
           {/* Header */}
-          <div className="flex items-start justify-between p-6 border-b border-gray-800">
-            <div className="flex-1">
+          <div className="flex items-start justify-between p-4 sm:p-6 border-b border-gray-800 gap-2">
+            <div className="flex-1 min-w-0">
               {/* Status and Priority */}
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
                 <StatusBadge status={item.status} showTooltip={true} />
                 <div className="flex items-center gap-2">
                   <PriorityDots value={item.impact_score} variant="priority" />
@@ -264,12 +275,15 @@ export function ItemDetailModal({
               </div>
 
               {/* Title */}
-              <h2 className="text-xl font-semibold text-white mb-3">
+              <h2
+                id="item-detail-title"
+                className="text-lg sm:text-xl font-semibold text-white mb-3"
+              >
                 {item.title}
               </h2>
 
               {/* Tags */}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <TypeBadge type={item.type} size="md" />
                 <span className="px-3 py-1 text-sm bg-gray-800 text-gray-300">
                   {item.area === 'frontend' ? 'Frontend' : 'Backend'}
@@ -294,9 +308,9 @@ export function ItemDetailModal({
           </div>
 
           {/* Scores Bar */}
-          <div className="flex items-center gap-8 px-6 py-4 border-b border-gray-800 bg-black/20">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-8 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-800 bg-black/20">
             <div>
-              <span className="text-xs text-gray-500 uppercase tracking-wide">
+              <span className="text-xs text-gray-400 uppercase tracking-wide">
                 Impact
               </span>
               <span className="ml-2 text-lg font-bold text-white">
@@ -304,7 +318,7 @@ export function ItemDetailModal({
               </span>
             </div>
             <div>
-              <span className="text-xs text-gray-500 uppercase tracking-wide">
+              <span className="text-xs text-gray-400 uppercase tracking-wide">
                 Effort
               </span>
               <span className="ml-2 text-lg font-bold text-white">
@@ -313,12 +327,12 @@ export function ItemDetailModal({
             </div>
 
             {/* View Mode Tabs */}
-            <div className="flex-1 flex justify-end">
-              <div className="flex items-center gap-1 bg-black/30 rounded p-1">
+            <div className="flex-1 flex justify-end mt-2 sm:mt-0">
+              <div className="flex items-center gap-0.5 sm:gap-1 bg-black/30 rounded p-1">
                 <button
                   onClick={() => setViewMode('details')}
                   className={clsx(
-                    'px-3 py-1 text-xs rounded transition-colors',
+                    'px-2 sm:px-3 py-1 text-xs rounded transition-colors',
                     viewMode === 'details'
                       ? 'bg-gray-700 text-white'
                       : 'text-gray-400 hover:text-white',
@@ -330,7 +344,7 @@ export function ItemDetailModal({
                   onClick={() => setViewMode('prd')}
                   disabled={!item.prd_content}
                   className={clsx(
-                    'px-3 py-1 text-xs rounded transition-colors',
+                    'px-2 sm:px-3 py-1 text-xs rounded transition-colors',
                     viewMode === 'prd'
                       ? 'bg-gray-700 text-white'
                       : 'text-gray-400 hover:text-white',
@@ -342,21 +356,21 @@ export function ItemDetailModal({
                 <button
                   onClick={() => setViewMode('timeline')}
                   className={clsx(
-                    'px-3 py-1 text-xs rounded transition-colors flex items-center gap-1',
+                    'px-2 sm:px-3 py-1 text-xs rounded transition-colors flex items-center gap-1',
                     viewMode === 'timeline'
                       ? 'bg-gray-700 text-white'
                       : 'text-gray-400 hover:text-white',
                   )}
                 >
                   <Clock className="w-3 h-3" />
-                  History
+                  <span className="hidden sm:inline">History</span>
                 </button>
               </div>
             </div>
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
             {viewMode === 'prd' && item.prd_content ? (
               <div className="prose prose-invert prose-sm max-w-none">
                 {renderPrdContent(item.prd_content)}
@@ -372,7 +386,7 @@ export function ItemDetailModal({
               <>
                 {/* Problem */}
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                  <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
                     Problem
                   </h3>
                   <div className="p-4 bg-black/30 border border-gray-800">
@@ -384,7 +398,7 @@ export function ItemDetailModal({
 
                 {/* Solution */}
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                  <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
                     Solution
                   </h3>
                   <div className="p-4 bg-black/30 border border-gray-800">
@@ -397,7 +411,7 @@ export function ItemDetailModal({
                 {/* Benefits */}
                 {item.benefits && item.benefits.length > 0 && (
                   <div>
-                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
                       Benefits
                     </h3>
                     <BenefitsGrid benefits={item.benefits} />
@@ -408,22 +422,25 @@ export function ItemDetailModal({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-center gap-4 p-4 border-t border-gray-800 bg-black/20">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 p-3 sm:p-4 border-t border-gray-800 bg-black/20">
             {/* View/Generate PRD Button */}
             <button
               onClick={
                 item.prd_content ? () => setViewMode('prd') : handleGeneratePrd
               }
               disabled={isGenerating}
-              className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-600 text-gray-300 hover:bg-white/5 disabled:opacity-50"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm border border-gray-600 text-gray-300 hover:bg-white/5 disabled:opacity-50"
               title={item.prd_content ? '' : 'Press G to generate'}
             >
               <FileText className="w-4 h-4" />
-              {isGenerating
-                ? 'Generating...'
-                : item.prd_content
-                  ? 'View PRD'
-                  : 'Generate PRD'}
+              <span className="hidden sm:inline">
+                {isGenerating
+                  ? 'Generating...'
+                  : item.prd_content
+                    ? 'View PRD'
+                    : 'Generate PRD'}
+              </span>
+              <span className="sm:hidden">{isGenerating ? '...' : 'PRD'}</span>
             </button>
 
             {/* Reject Button - only show for new items */}
@@ -431,11 +448,11 @@ export function ItemDetailModal({
               <button
                 onClick={() => handleStatusChange('rejected')}
                 disabled={isUpdating}
-                className="flex items-center gap-2 px-4 py-2 text-sm border border-red-600/50 text-red-400 hover:bg-red-600/10 disabled:opacity-50"
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm border border-red-600/50 text-red-400 hover:bg-red-600/10 disabled:opacity-50"
                 title="Press X to reject"
               >
                 <X className="w-4 h-4" />
-                Reject
+                <span className="hidden sm:inline">Reject</span>
               </button>
             )}
 
@@ -446,30 +463,35 @@ export function ItemDetailModal({
                 <button
                   onClick={() => handleStatusChange('approved')}
                   disabled={isUpdating || isGenerating}
-                  className="flex items-center gap-2 px-4 py-2 text-sm border border-green-600/50 text-green-400 hover:bg-green-600/10 disabled:opacity-50"
+                  className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm border border-green-600/50 text-green-400 hover:bg-green-600/10 disabled:opacity-50"
                   title="Press A to approve"
                 >
                   <Check className="w-4 h-4" />
-                  Approve
+                  <span className="hidden sm:inline">Approve</span>
                 </button>
 
                 {/* Approve + Generate PRD Combo */}
                 <button
                   onClick={handleApproveAndGeneratePrd}
                   disabled={isUpdating || isGenerating}
-                  className="flex items-center gap-2 px-6 py-2 text-sm bg-gold text-navy font-medium hover:opacity-90 disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 sm:px-6 py-2 text-sm bg-gold text-navy font-medium hover:opacity-90 disabled:opacity-50"
                 >
                   <Sparkles className="w-4 h-4" />
-                  {isUpdating || isGenerating
-                    ? 'Working...'
-                    : 'Approve & Generate PRD'}
+                  <span className="hidden sm:inline">
+                    {isUpdating || isGenerating
+                      ? 'Working...'
+                      : 'Approve & Generate PRD'}
+                  </span>
+                  <span className="sm:hidden">
+                    {isUpdating || isGenerating ? '...' : 'Approve+'}
+                  </span>
                 </button>
               </>
             )}
           </div>
 
-          {/* Keyboard hints */}
-          <div className="px-4 py-2 border-t border-gray-800 bg-black/30 text-xs text-gray-500 text-center">
+          {/* Keyboard hints - hidden on mobile */}
+          <div className="hidden sm:block px-4 py-2 border-t border-gray-800 bg-black/30 text-xs text-gray-400 text-center">
             Keyboard: <kbd className="px-1 py-0.5 bg-gray-800 rounded">Esc</kbd>{' '}
             close
             {item.status === 'new' && (

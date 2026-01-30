@@ -52,15 +52,32 @@ export function useExecutionListener({
           table: TABLES.EXECUTION_PROGRESS,
         },
         (payload) => {
+          console.log(
+            '[ExecutionListener] Received event:',
+            payload.eventType,
+            payload.new,
+          );
           const progress = payload.new as ExecutionProgress;
 
           // Only trigger on fresh executions (site_review phase)
           if (progress.current_phase === 'site_review') {
+            console.log(
+              '[ExecutionListener] New execution detected, triggering callback for item:',
+              progress.item_id,
+            );
             callbackRef.current?.(progress);
           }
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[ExecutionListener] Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log(
+            '[ExecutionListener] Listening for execution_progress INSERTs on table:',
+            TABLES.EXECUTION_PROGRESS,
+          );
+        }
+      });
 
     return () => {
       void client.removeChannel(channel);
@@ -82,6 +99,11 @@ export async function fetchItemForExecution(
     .single();
 
   if (error || !data) {
+    console.error(
+      '[ExecutionListener] Failed to fetch item for execution:',
+      itemId,
+      error,
+    );
     return null;
   }
 
