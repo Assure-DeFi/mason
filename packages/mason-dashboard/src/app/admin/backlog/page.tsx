@@ -107,6 +107,25 @@ export default function BacklogPage() {
         }
       }
 
+      // First, claim any orphaned items (items with null user_id)
+      // This handles items created before user_id was added to pm-review
+      const { data: orphanedItems } = await client
+        .from('mason_pm_backlog_items')
+        .select('id')
+        .is('user_id', null);
+
+      if (orphanedItems && orphanedItems.length > 0) {
+        console.log(
+          `Found ${orphanedItems.length} orphaned items, claiming for user...`,
+        );
+        const orphanedIds = orphanedItems.map((item) => item.id);
+        await client
+          .from('mason_pm_backlog_items')
+          .update({ user_id: userData.id })
+          .in('id', orphanedIds);
+      }
+
+      // Now fetch all items for this user
       const { data, error: fetchError } = await client
         .from('mason_pm_backlog_items')
         .select('*')
