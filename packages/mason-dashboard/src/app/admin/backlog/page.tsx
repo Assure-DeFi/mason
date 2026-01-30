@@ -1,17 +1,25 @@
 'use client';
 
-import { RefreshCw, Database, ArrowRight, Undo2, Sparkles, Check, X } from 'lucide-react';
+import {
+  RefreshCw,
+  Database,
+  ArrowRight,
+  Undo2,
+  Sparkles,
+  Check,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import { UserMenu } from '@/components/auth/user-menu';
+import { BangerIdeaCard } from '@/components/backlog/banger-idea-card';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
+import { FeatureIdeasSection } from '@/components/backlog/feature-ideas-section';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
 import { GenerateIdeasModal } from '@/components/backlog/generate-ideas-modal';
-import { BangerIdeaCard } from '@/components/backlog/banger-idea-card';
-import { FeatureIdeasSection } from '@/components/backlog/feature-ideas-section';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import {
   ItemDetailModal,
@@ -28,7 +36,7 @@ import { NextStepBanner } from '@/components/ui/NextStepBanner';
 import { OnboardingProgress } from '@/components/ui/OnboardingProgress';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { QuickStartFAB } from '@/components/ui/QuickStartFAB';
-import { SkeletonTable } from '@/components/ui/Skeleton';
+import { ImprovementsTableSkeleton } from '@/components/ui/Skeleton';
 import { useAutoMigrations } from '@/hooks/useAutoMigrations';
 import {
   useExecutionListener,
@@ -397,7 +405,9 @@ export default function BacklogPage() {
         item.status !== 'completed' &&
         item.status !== 'rejected',
     );
-    if (bangerItems.length === 0) return null;
+    if (bangerItems.length === 0) {
+      return null;
+    }
     return bangerItems.sort((a, b) => b.priority_score - a.priority_score)[0];
   }, [repoFilteredItems]);
 
@@ -990,9 +1000,9 @@ export default function BacklogPage() {
       {/* Content Area */}
       <div className="max-w-7xl mx-auto">
         {isLoading ? (
-          // Skeleton loading state
+          // Skeleton loading state matching ImprovementsTable columns
           <div className="p-6">
-            <SkeletonTable rows={5} columns={5} />
+            <ImprovementsTableSkeleton rows={5} />
           </div>
         ) : isEmpty ? (
           // Empty state onboarding
@@ -1087,7 +1097,9 @@ export default function BacklogPage() {
             <Check className="w-5 h-5 flex-shrink-0" />
             <div className="flex flex-col">
               <span className="font-medium">Command copied!</span>
-              <span className="text-sm text-green-100">Paste into Claude Code to execute</span>
+              <span className="text-sm text-green-100">
+                Paste into Claude Code to execute
+              </span>
             </div>
             <button
               onClick={() => setCopiedToast(false)}
