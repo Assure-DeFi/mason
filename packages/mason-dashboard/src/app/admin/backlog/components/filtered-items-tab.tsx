@@ -1,16 +1,10 @@
 'use client';
 
 import { clsx } from 'clsx';
-import {
-  AlertTriangle,
-  RotateCcw,
-  Eye,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-} from 'lucide-react';
+import { RotateCcw, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 
+import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import type { FilteredItem, FilterTier } from '@/types/backlog';
 
@@ -32,7 +26,6 @@ export function FilteredItemsTab({
   const { client } = useUserDatabase();
   const [items, setItems] = useState<FilteredItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRetrying, setIsRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
@@ -115,33 +108,18 @@ export function FilteredItemsTab({
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
-  const handleRetry = async () => {
-    setIsRetrying(true);
-    await fetchFilteredItems();
-    setIsRetrying(false);
+  const handleRetry = () => {
+    void fetchFilteredItems();
   };
 
   if (error) {
     return (
       <div className="p-8">
-        <div className="border border-red-800 bg-red-900/20 p-6 text-center">
-          <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-red-400" />
-          <p className="text-red-400">{error}</p>
-          <button
-            onClick={handleRetry}
-            disabled={isRetrying}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm border border-red-700 text-red-400 hover:bg-red-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isRetrying ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Retrying...
-              </>
-            ) : (
-              'Try Again'
-            )}
-          </button>
-        </div>
+        <ErrorBanner
+          error={new Error(error)}
+          onRetry={handleRetry}
+          onDismiss={() => setError(null)}
+        />
       </div>
     );
   }
