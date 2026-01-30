@@ -5,12 +5,20 @@
  * scheduled PM reviews and executions.
  */
 
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { parseExpression } from 'cron-parser';
+
+/**
+ * Generate a SHA-256 hash of an API key
+ */
+function hashApiKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex');
+}
 
 interface AutopilotConfig {
   version: string;
@@ -176,6 +184,8 @@ async function fetchAutopilotConfig(): Promise<AutopilotDbConfig | null> {
   // Get repository info from mason.config.json in the repo
   const masonConfigPath = join(localConfig.repositoryPath, 'mason.config.json');
   if (!existsSync(masonConfigPath)) {
+    console.error('  mason.config.json not found at:', masonConfigPath);
+    console.error('  Run mason-autopilot init from your repository directory.');
     return null;
   }
 
@@ -183,19 +193,47 @@ async function fetchAutopilotConfig(): Promise<AutopilotDbConfig | null> {
   const apiKey = masonConfig.apiKey;
 
   if (!apiKey) {
+    console.error('  mason.config.json is missing apiKey field.');
     return null;
   }
 
-  // Extract user_id from API key validation
-  // For now, we'll query by the repo path (simplified)
+  // Validate API key and get repository_id
+  const keyHash = hashApiKey(apiKey);
+  const { data: apiKeyData, error: apiKeyError } = await supabase
+    .from('mason_api_keys')
+    .select('user_id, repository_id')
+    .eq('key_hash', keyHash)
+    .single();
+
+  if (apiKeyError || !apiKeyData) {
+    console.error(
+      '  API key validation failed. Key may be invalid or expired.',
+    );
+    console.error('  Error:', apiKeyError?.message || 'No matching key found');
+    return null;
+  }
+
+  console.log('  Repository ID:', apiKeyData.repository_id);
+
+  // Query autopilot config for this specific repository
   const { data, error } = await supabase
     .from('mason_autopilot_config')
     .select('*')
-    .eq('enabled', true)
-    .limit(1)
+    .eq('repository_id', apiKeyData.repository_id)
     .single();
 
   if (error || !data) {
+    if (error?.code === 'PGRST116') {
+      console.error(
+        '  No autopilot config found for repository:',
+        apiKeyData.repository_id,
+      );
+      console.error(
+        '  Configure autopilot at: https://mason.assuredefi.com/settings/autopilot',
+      );
+    } else {
+      console.error('  Failed to fetch autopilot config:', error?.message);
+    }
     return null;
   }
 

@@ -5,10 +5,18 @@
  * and repository path.
  */
 
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
+
+/**
+ * Generate a SHA-256 hash of an API key
+ */
+function hashApiKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex');
+}
 
 interface AutopilotConfig {
   version: string;
