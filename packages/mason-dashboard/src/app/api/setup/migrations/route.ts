@@ -33,6 +33,11 @@ import { runMigrations } from '@/lib/supabase/pg-migrate';
  *   - mason_dependency_analysis
  *   - mason_autopilot_config
  *   - mason_autopilot_runs
+ *
+ * Realtime-enabled tables (for dashboard live updates):
+ *   - mason_execution_progress (BuildingTheater visualization)
+ *   - mason_execution_logs (log streaming)
+ *   - mason_pm_backlog_items (item status changes from CLI)
  */
 const MIGRATION_SQL = `
 --------------------------------------------------------------------------------
@@ -558,6 +563,7 @@ END $$;
 ALTER TABLE mason_execution_logs REPLICA IDENTITY FULL;
 ALTER TABLE mason_execution_progress REPLICA IDENTITY FULL;
 ALTER TABLE mason_remote_execution_runs REPLICA IDENTITY FULL;
+ALTER TABLE mason_pm_backlog_items REPLICA IDENTITY FULL;
 
 -- Enable realtime for execution progress table (CRITICAL for BuildingTheater auto-show)
 -- This allows the dashboard to receive real-time INSERT events when CLI execution starts
@@ -574,6 +580,16 @@ END $$;
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE mason_execution_logs;
+  END IF;
+EXCEPTION WHEN duplicate_object THEN
+  NULL; -- Table already in publication
+END $$;
+
+-- Enable realtime for backlog items table (CRITICAL for dashboard status updates)
+-- This allows the dashboard to receive real-time UPDATE events when CLI changes item status
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE mason_pm_backlog_items;
   END IF;
 EXCEPTION WHEN duplicate_object THEN
   NULL; -- Table already in publication

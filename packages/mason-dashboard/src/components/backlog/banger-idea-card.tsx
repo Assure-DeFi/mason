@@ -1,6 +1,13 @@
 'use client';
 
-import { Sparkles, ChevronRight, Check, X } from 'lucide-react';
+import {
+  Sparkles,
+  ChevronRight,
+  Check,
+  X,
+  CheckCircle,
+  Trash2,
+} from 'lucide-react';
 
 import type { BacklogItem } from '@/types/backlog';
 
@@ -11,6 +18,8 @@ interface BangerIdeaCardProps {
   onViewDetails: (item: BacklogItem) => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  onComplete?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 export function BangerIdeaCard({
@@ -18,6 +27,8 @@ export function BangerIdeaCard({
   onViewDetails,
   onApprove,
   onReject,
+  onComplete,
+  onDelete,
 }: BangerIdeaCardProps) {
   return (
     <div className="relative overflow-hidden border-2 border-gold/40 bg-gradient-to-br from-gold/10 via-black/40 to-black/60">
@@ -38,7 +49,9 @@ export function BangerIdeaCard({
                   Featured Opportunity
                 </span>
               </div>
-              <h3 className="text-xl font-bold text-white mt-1">{item.title}</h3>
+              <h3 className="text-xl font-bold text-white mt-1">
+                {item.title}
+              </h3>
             </div>
           </div>
           <TypeBadge type={item.type} size="md" isNewFeature />
@@ -109,10 +122,45 @@ export function BangerIdeaCard({
             </>
           )}
 
-          {item.status === 'approved' && (
-            <span className="px-4 py-3 bg-green-600/20 border border-green-600/40 text-green-400 font-medium">
-              Approved
-            </span>
+          {(item.status === 'approved' || item.status === 'in_progress') && (
+            <>
+              <span
+                className={`px-4 py-3 font-medium ${
+                  item.status === 'in_progress'
+                    ? 'bg-yellow-600/20 border border-yellow-600/40 text-yellow-400'
+                    : 'bg-green-600/20 border border-green-600/40 text-green-400'
+                }`}
+              >
+                {item.status === 'in_progress' ? 'In Progress' : 'Approved'}
+              </span>
+              <button
+                onClick={() => onReject(item.id)}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600/20 border border-red-600/40 text-red-400 font-medium hover:bg-red-600/30 transition-colors"
+                title="Reject this idea"
+              >
+                <X className="w-4 h-4" />
+                Reject
+              </button>
+              {onComplete && (
+                <button
+                  onClick={() => onComplete(item.id)}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600/20 border border-blue-600/40 text-blue-400 font-medium hover:bg-blue-600/30 transition-colors"
+                  title="Mark as completed"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Complete
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(item.id)}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-600/20 border border-gray-600/40 text-gray-400 font-medium hover:bg-gray-600/30 transition-colors"
+                  title="Delete this idea"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

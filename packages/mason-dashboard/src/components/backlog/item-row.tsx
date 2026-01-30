@@ -92,7 +92,9 @@ export function ItemRow({
             impactScore={item.impact_score}
             effortScore={item.effort_score}
           />
-          {item.tags?.includes('banger') && <BangerBadge />}
+          {(item.is_banger_idea || item.tags?.includes('banger')) && (
+            <BangerBadge />
+          )}
         </div>
       </td>
 
