@@ -131,9 +131,90 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
 
 This update will appear **immediately** in the dashboard via real-time subscription. The item moves from "Approved" tab to "In Progress" tab.
 
+### Step 5.2: Initialize Execution Progress (MANDATORY)
+
+**Create a progress record for granular real-time updates.** This enables the dashboard to show building-themed visual progress.
+
+```bash
+# Create or update execution progress record
+curl -X POST "${SUPABASE_URL}/rest/v1/mason_execution_progress" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: resolution=merge-duplicates" \
+  -d '{
+    "item_id": "'${itemId}'",
+    "current_phase": "site_review",
+    "current_wave": 1,
+    "total_waves": 4,
+    "wave_status": "pending",
+    "current_task": "Surveying the codebase",
+    "started_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+    "updated_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
+```
+
+The dashboard will show the construction-themed progress visualization with:
+- Building floors for each wave
+- Current phase (Site Review → Foundation → Building → Inspection → Complete)
+- File-level progress as "bricks" being placed
+
 ### Step 6: Execute Waves
 
-Execute each wave using the Task tool:
+Execute each wave using the Task tool. **Update progress before each wave starts:**
+
+#### 6.1: Update Progress - Foundation Phase
+
+Before starting Wave 1 (exploration), update to foundation phase:
+
+```bash
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "current_phase": "foundation",
+    "current_task": "Planning the implementation",
+    "updated_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
+```
+
+#### 6.2: Update Progress - Building Phase (Per Wave)
+
+Before each implementation wave, update progress:
+
+```bash
+# Starting Wave N
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "current_phase": "building",
+    "current_wave": 1,
+    "wave_status": "in_progress",
+    "current_task": "Building Floor 1 - Exploration",
+    "updated_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
+```
+
+#### 6.3: Update Progress - File Changes
+
+When modifying files, update the current file and lines changed:
+
+```bash
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "current_file": "src/components/Button.tsx",
+    "lines_changed": 47,
+    "updated_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
+```
+
+#### 6.4: Execute Waves
 
 ```typescript
 // Wave 1 - All tasks in parallel
@@ -198,7 +279,27 @@ WHERE id = $taskId;
 
 **This step is REQUIRED before any commit. Changes must pass 100% of validation checks.**
 
-After implementation waves complete, execute a comprehensive testing wave:
+After implementation waves complete, execute a comprehensive testing wave.
+
+#### 8.0: Update Progress - Inspection Phase
+
+Before starting validation, update to inspection phase:
+
+```bash
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "current_phase": "inspection",
+    "current_task": "Inspector arriving at building site",
+    "validation_typescript": "pending",
+    "validation_eslint": "pending",
+    "validation_build": "pending",
+    "validation_tests": "pending",
+    "updated_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
+```
 
 #### 8.1: Run Validation Suite
 
@@ -216,6 +317,44 @@ const validationResults = await Promise.all([
   Task({ subagent_type: 'Bash', prompt: 'Run unit tests: pnpm test' }),
 ]);
 ```
+
+**Update validation status as each check runs:**
+
+```bash
+# Before running TypeScript check
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "validation_typescript": "running",
+    "current_task": "Inspector checking TypeScript",
+    "updated_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
+
+# After TypeScript check passes
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "validation_typescript": "pass",
+    "updated_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
+
+# If TypeScript check fails
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "validation_typescript": "fail",
+    "inspector_findings": ["TypeScript: 3 type errors found"],
+    "updated_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
+```
+
+Repeat the pattern for `validation_eslint`, `validation_build`, and `validation_tests`.
 
 #### 8.2: Validation Checks (All Must Pass)
 
@@ -268,6 +407,22 @@ await Task({
 ### Step 9: Auto-Fix Iteration Loop
 
 **If ANY validation check fails, the system MUST automatically iterate until all checks pass.**
+
+**Update fix iteration progress:**
+
+```bash
+# When starting a fix iteration
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fix_iteration": 1,
+    "current_task": "Fixing inspector findings (Revision 1/5)",
+    "inspector_findings": ["TypeScript: 3 type errors", "ESLint: 2 warnings"],
+    "updated_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
+```
 
 ```typescript
 const MAX_FIX_ITERATIONS = 5;
@@ -420,6 +575,29 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
 ```
 
 This update will appear **immediately** in the dashboard. The item moves from "In Progress" tab to "Completed" tab.
+
+### Step 11.2: Update Progress - Complete Phase (MANDATORY)
+
+**After successful commit**, update the execution progress to complete:
+
+```bash
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "current_phase": "complete",
+    "current_task": "Occupancy Certificate Issued",
+    "validation_typescript": "pass",
+    "validation_eslint": "pass",
+    "validation_build": "pass",
+    "validation_tests": "pass",
+    "completed_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+    "updated_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
+```
+
+This triggers the celebration animation in the dashboard with "Rock Solid by Design".
 
 ### Step 12: Update Item Status
 

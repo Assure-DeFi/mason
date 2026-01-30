@@ -28,6 +28,7 @@ import { runMigrations } from '@/lib/supabase/pg-migrate';
  *   - mason_remote_execution_runs
  *   - mason_execution_logs
  *   - mason_ai_provider_keys
+ *   - mason_execution_progress
  */
 const MIGRATION_SQL = `
 --------------------------------------------------------------------------------
@@ -215,6 +216,52 @@ CREATE TABLE IF NOT EXISTS mason_pm_execution_tasks (
   result_summary TEXT
 );
 
+-- Mason Execution Progress table (real-time progress for dashboard updates)
+-- Provides granular progress tracking during CLI execution
+CREATE TABLE IF NOT EXISTS mason_execution_progress (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_id UUID NOT NULL REFERENCES mason_pm_backlog_items(id) ON DELETE CASCADE,
+  run_id UUID REFERENCES mason_pm_execution_runs(id) ON DELETE CASCADE,
+
+  -- Execution phase
+  current_phase TEXT DEFAULT 'site_review' CHECK (current_phase IN ('site_review', 'foundation', 'building', 'inspection', 'complete')),
+
+  -- Wave progress
+  current_wave INTEGER DEFAULT 1,
+  total_waves INTEGER DEFAULT 4,
+  wave_status TEXT DEFAULT 'pending' CHECK (wave_status IN ('pending', 'in_progress', 'completed')),
+
+  -- Task progress within wave
+  current_task TEXT,
+  tasks_completed INTEGER DEFAULT 0,
+  tasks_total INTEGER DEFAULT 0,
+
+  -- File-level progress
+  current_file TEXT,
+  files_touched TEXT[] DEFAULT '{}',
+  lines_changed INTEGER DEFAULT 0,
+
+  -- Validation status
+  validation_typescript TEXT DEFAULT 'pending' CHECK (validation_typescript IN ('pending', 'running', 'pass', 'fail')),
+  validation_eslint TEXT DEFAULT 'pending' CHECK (validation_eslint IN ('pending', 'running', 'pass', 'fail')),
+  validation_build TEXT DEFAULT 'pending' CHECK (validation_build IN ('pending', 'running', 'pass', 'fail')),
+  validation_tests TEXT DEFAULT 'pending' CHECK (validation_tests IN ('pending', 'running', 'pass', 'fail')),
+
+  -- Inspector findings (for fix iterations)
+  inspector_findings TEXT[] DEFAULT '{}',
+
+  -- Fix iterations
+  fix_iteration INTEGER DEFAULT 0,
+  max_iterations INTEGER DEFAULT 5,
+
+  -- Timestamps
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+
+  UNIQUE(item_id)
+);
+
 -- Ensure user_id columns exist in tables that might have been created before user_id was added
 -- This handles upgrades from older schema versions
 ALTER TABLE mason_api_keys ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
@@ -242,6 +289,7 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_run_id ON mason_pm_execu
 CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_item_id ON mason_pm_execution_tasks(item_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_status ON mason_pm_execution_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_wave ON mason_pm_execution_tasks(run_id, wave_number);
+CREATE INDEX IF NOT EXISTS idx_mason_execution_progress_item ON mason_execution_progress(item_id);
 
 -- Enable Row Level Security
 ALTER TABLE mason_users ENABLE ROW LEVEL SECURITY;
@@ -255,6 +303,7 @@ ALTER TABLE mason_ai_provider_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_filtered_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_execution_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_execution_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_execution_progress ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (BYOD model - users own their database, allow all operations)
 -- Users table
@@ -331,6 +380,13 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_execution_tasks' AND policyname = 'Allow all on pm_execution_tasks') THEN
     CREATE POLICY "Allow all on pm_execution_tasks" ON mason_pm_execution_tasks FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Execution Progress table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_execution_progress' AND policyname = 'Allow all on execution_progress') THEN
+    CREATE POLICY "Allow all on execution_progress" ON mason_execution_progress FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 `;
