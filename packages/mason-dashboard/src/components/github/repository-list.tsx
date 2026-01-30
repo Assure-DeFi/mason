@@ -34,7 +34,7 @@ export function RepositoryList({ onDisconnect }: RepositoryListProps) {
       }
 
       const data = await response.json();
-      setRepositories(data.repositories);
+      setRepositories(data.data?.repositories ?? []);
     } catch (err) {
       console.error('Error fetching repositories:', err);
       setError('Failed to load repositories');
