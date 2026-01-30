@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 1.2.0
+version: 1.3.0
 description: PM Review Command
 ---
 
@@ -463,9 +463,35 @@ For each improvement, assign these classifications:
 - `frontend` - Frontend code changes
 - `backend` - Backend code changes
 
-### Step 5: Generate Benefits
+### Step 5: Generate Benefits (MANDATORY - NO EXCEPTIONS)
 
-For EVERY improvement, populate ALL 5 benefit categories. Each benefit should be specific to the improvement:
+## ⚠️ HARD REQUIREMENT: EVERY ITEM MUST HAVE ALL 5 BENEFITS ⚠️
+
+**For EVERY improvement, you MUST populate ALL 5 benefit categories.** This is NOT optional.
+
+Items without complete benefits will be **BLOCKED** at the Pre-Submission Validation step.
+
+**WHY BENEFITS ARE MANDATORY:**
+
+- Users need to understand WHY they should approve an item
+- Benefits explain the value to different stakeholders
+- Without benefits, items appear as just "problems" with no clear ROI
+- The dashboard displays benefits prominently - empty benefits = poor UX
+
+**EACH benefit description MUST be:**
+
+1. **Specific to this improvement** - not generic placeholder text
+2. **Actionable/measurable** - describes a concrete outcome
+3. **Role-appropriate** - speaks to that stakeholder's concerns
+
+**BANNED DESCRIPTIONS (these will fail validation):**
+
+- "Specific benefit for end users..." (template text)
+- "No impact" or "N/A" (lazy - find a real benefit)
+- Generic single-word answers
+- Copy-pasted identical descriptions across items
+
+**REQUIRED: All 5 categories with meaningful descriptions:**
 
 ```json
 {
@@ -474,35 +500,37 @@ For EVERY improvement, populate ALL 5 benefit categories. Each benefit should be
       "category": "user_experience",
       "icon": "user",
       "title": "USER EXPERIENCE",
-      "description": "Specific benefit for end users..."
+      "description": "[SPECIFIC: How end users benefit from this change - e.g., 'Reduces page load time from 3s to 1s, improving perceived responsiveness']"
     },
     {
       "category": "sales_team",
       "icon": "users",
       "title": "SALES TEAM",
-      "description": "Specific benefit for sales/business..."
+      "description": "[SPECIFIC: How sales/business teams benefit - e.g., 'Enables demo of real-time features to prospects, improving close rates']"
     },
     {
       "category": "operations",
       "icon": "settings",
       "title": "OPERATIONS",
-      "description": "Specific benefit for ops/support..."
+      "description": "[SPECIFIC: How ops/support teams benefit - e.g., 'Reduces support tickets about data staleness by providing clear timestamps']"
     },
     {
       "category": "performance",
       "icon": "chart",
       "title": "PERFORMANCE",
-      "description": "Technical performance impact..."
+      "description": "[SPECIFIC: Technical performance impact - e.g., 'Eliminates N+1 query pattern, reducing API response time by 60%']"
     },
     {
       "category": "reliability",
       "icon": "wrench",
       "title": "RELIABILITY",
-      "description": "System reliability impact..."
+      "description": "[SPECIFIC: System reliability impact - e.g., 'Adds retry logic preventing silent failures during network instability']"
     }
   ]
 }
 ```
+
+**EVERY category must have a thoughtful, specific description.** Even for technical improvements, find the human impact for each role.
 
 ### Step 5.2: Feature Discovery (new-features domain)
 
@@ -705,7 +733,7 @@ Continue to Step 6 with validated items only.
 
 **THIS IS A HARD STOP. Execute the following validation before proceeding:**
 
-Before submitting items, count and validate feature requirements:
+Before submitting items, validate ALL requirements:
 
 ```bash
 # Count feature ideas and banger ideas in your prepared items
@@ -713,28 +741,52 @@ Before submitting items, count and validate feature requirements:
 
 FEATURE_COUNT=<count items where is_new_feature=true AND is_banger_idea=false>
 BANGER_COUNT=<count items where is_banger_idea=true>
+TOTAL_ITEMS=<count all items>
+
+# Count items with complete benefits (exactly 5 benefit objects with non-empty descriptions)
+ITEMS_WITH_COMPLETE_BENEFITS=<count items where benefits array has exactly 5 objects AND all descriptions are non-empty and not template text>
+ITEMS_MISSING_BENEFITS=$((TOTAL_ITEMS - ITEMS_WITH_COMPLETE_BENEFITS))
 
 echo "Pre-Submission Validation:"
 echo "  Feature ideas (is_new_feature=true, is_banger_idea=false): $FEATURE_COUNT (required: >= 3)"
 echo "  Banger idea (is_banger_idea=true): $BANGER_COUNT (required: = 1)"
+echo "  Items with complete benefits (5 categories): $ITEMS_WITH_COMPLETE_BENEFITS / $TOTAL_ITEMS"
 
-# BLOCKING CHECK
+# BLOCKING CHECK 1: Feature ideas
 if [ "$FEATURE_COUNT" -lt 3 ]; then
   echo "BLOCKED: Missing feature ideas. Go back to Step 2.5 (Creative Ideation Phase)."
   echo "You MUST generate at least 3 new feature ideas before proceeding."
   # DO NOT PROCEED - return to Step 2.5
 fi
 
+# BLOCKING CHECK 2: Banger idea
 if [ "$BANGER_COUNT" -ne 1 ]; then
   echo "BLOCKED: Missing or multiple banger ideas. Go back to Step 2.5 (Creative Ideation Phase)."
   echo "You MUST have exactly 1 banger idea before proceeding."
   # DO NOT PROCEED - return to Step 2.5
 fi
 
-echo "PASSED: Proceeding to submission."
+# BLOCKING CHECK 3: Benefits (NEW - MANDATORY)
+if [ "$ITEMS_MISSING_BENEFITS" -gt 0 ]; then
+  echo "BLOCKED: $ITEMS_MISSING_BENEFITS items are missing complete benefits."
+  echo "EVERY item MUST have exactly 5 benefits with specific descriptions."
+  echo "Go back and add benefits for ALL items before proceeding."
+  echo ""
+  echo "Required benefit categories (ALL 5 REQUIRED):"
+  echo "  1. user_experience - How end users benefit"
+  echo "  2. sales_team - How sales/business benefits"
+  echo "  3. operations - How ops/support benefits"
+  echo "  4. performance - Technical performance impact"
+  echo "  5. reliability - System reliability impact"
+  echo ""
+  echo "Each description must be SPECIFIC to the improvement, NOT template text."
+  # DO NOT PROCEED - fix benefits first
+fi
+
+echo "PASSED: All validations passed. Proceeding to submission."
 ```
 
-**If either check fails, you MUST return to Step 2.5 and re-run the feature-ideation agent. DO NOT skip this.**
+**If ANY check fails, you MUST fix the issue before proceeding. DO NOT skip this.**
 
 **Required counts:**
 
@@ -743,6 +795,14 @@ echo "PASSED: Proceeding to submission."
 | Regular improvements | false          | false          | As many as found |
 | Feature ideas        | true           | false          | **>= 3**         |
 | Banger idea          | true           | true           | **Exactly 1**    |
+
+**Benefits requirement (ALL items):**
+
+| Field    | Requirement                                               |
+| -------- | --------------------------------------------------------- |
+| benefits | Array of **exactly 5** benefit objects                    |
+| Each     | Must have category, icon, title, AND specific description |
+| Quality  | Descriptions must be improvement-specific, not templates  |
 
 ### Step 6: Submit Results Directly to User's Supabase
 
@@ -845,7 +905,11 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   }'
 
 # Step 2: Insert backlog items with repository_id for multi-repo support
-# CRITICAL: EVERY item MUST include is_new_feature and is_banger_idea fields!
+# CRITICAL: EVERY item MUST include:
+# - is_new_feature and is_banger_idea fields (see rules below)
+# - benefits array with EXACTLY 5 benefit objects (NO EXCEPTIONS)
+#
+# Feature flags:
 # - Regular improvements: is_new_feature: false, is_banger_idea: false
 # - New features: is_new_feature: true, is_banger_idea: false
 # - The ONE banger idea: is_new_feature: true, is_banger_idea: true
@@ -866,7 +930,13 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
       "impact_score": 9,
       "effort_score": 2,
       "complexity": 2,
-      "benefits": [...],
+      "benefits": [
+        {"category": "user_experience", "icon": "user", "title": "USER EXPERIENCE", "description": "Clear visibility into data freshness increases trust and reduces confusion about stale data"},
+        {"category": "sales_team", "icon": "users", "title": "SALES TEAM", "description": "Executives gain confidence in data currency for real-time decision-making during calls"},
+        {"category": "operations", "icon": "settings", "title": "OPERATIONS", "description": "Reduces support tickets about data staleness by proactively showing freshness indicators"},
+        {"category": "performance", "icon": "chart", "title": "PERFORMANCE", "description": "Minimal performance impact - timestamps already exist in data, just need display"},
+        {"category": "reliability", "icon": "wrench", "title": "RELIABILITY", "description": "Helps users identify when manual refresh is needed, preventing decisions on stale data"}
+      ],
       "is_new_feature": false,
       "is_banger_idea": false,
       "status": "new"
@@ -882,7 +952,13 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
       "impact_score": 10,
       "effort_score": 8,
       "complexity": 4,
-      "benefits": [...],
+      "benefits": [
+        {"category": "user_experience", "icon": "user", "title": "USER EXPERIENCE", "description": "Users can collaborate in real-time, seeing each other's changes instantly without refresh"},
+        {"category": "sales_team", "icon": "users", "title": "SALES TEAM", "description": "Enables live demos with prospects, showcasing modern collaboration capabilities"},
+        {"category": "operations", "icon": "settings", "title": "OPERATIONS", "description": "Eliminates merge conflicts and reduces support requests about lost changes"},
+        {"category": "performance", "icon": "chart", "title": "PERFORMANCE", "description": "WebSocket-based sync provides sub-100ms latency for collaborative updates"},
+        {"category": "reliability", "icon": "wrench", "title": "RELIABILITY", "description": "Conflict resolution ensures no data loss even with concurrent edits"}
+      ],
       "is_new_feature": true,
       "is_banger_idea": true,
       "status": "new"
