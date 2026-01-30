@@ -36,8 +36,9 @@ export default function GitHubSettingsPage() {
       const response = await fetch('/api/github/repositories');
       if (response.ok) {
         const data = await response.json();
+        const repositories = data.data?.repositories ?? [];
         setConnectedRepoIds(
-          data.repositories.map((r: GitHubRepository) => r.github_repo_id),
+          repositories.map((r: GitHubRepository) => r.github_repo_id),
         );
       }
     } catch (error) {

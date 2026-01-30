@@ -27,7 +27,9 @@ interface RepositorySelectorProps {
  * Get last used repository from localStorage
  */
 function getLastUsedRepository(): string | null {
-  if (typeof window === 'undefined') {return null;}
+  if (typeof window === 'undefined') {
+    return null;
+  }
   try {
     return localStorage.getItem(STORAGE_KEYS.LAST_REPOSITORY);
   } catch {
@@ -39,7 +41,9 @@ function getLastUsedRepository(): string | null {
  * Save last used repository to localStorage
  */
 function saveLastUsedRepository(repoId: string): void {
-  if (typeof window === 'undefined') {return;}
+  if (typeof window === 'undefined') {
+    return;
+  }
   try {
     localStorage.setItem(STORAGE_KEYS.LAST_REPOSITORY, repoId);
   } catch {
@@ -122,23 +126,24 @@ export function RepositorySelector({
       }
 
       const data = await response.json();
-      setRepositories(data.repositories);
+      const repositories = data.data?.repositories ?? [];
+      setRepositories(repositories);
 
       // Smart auto-selection priority:
       // 1. If value already set, keep it
       // 2. Try last used repository from localStorage
       // 3. Fall back to first repository
-      if (!value && data.repositories.length > 0) {
+      if (!value && repositories.length > 0) {
         const lastUsed = getLastUsedRepository();
         const lastUsedRepo = lastUsed
-          ? data.repositories.find((r: GitHubRepository) => r.id === lastUsed)
+          ? repositories.find((r: GitHubRepository) => r.id === lastUsed)
           : null;
 
         if (lastUsedRepo) {
           onChange(lastUsedRepo.id);
         } else {
-          onChange(data.repositories[0].id);
-          saveLastUsedRepository(data.repositories[0].id);
+          onChange(repositories[0].id);
+          saveLastUsedRepository(repositories[0].id);
         }
       }
     } catch (err) {
