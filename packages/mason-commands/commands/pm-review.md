@@ -653,7 +653,10 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   }'
 
 # Step 2: Insert backlog items with repository_id for multi-repo support
-# Note: repository_id enables filtering by repo in the dashboard
+# CRITICAL: EVERY item MUST include is_new_feature and is_banger_idea fields!
+# - Regular improvements: is_new_feature: false, is_banger_idea: false
+# - New features: is_new_feature: true, is_banger_idea: false
+# - The ONE banger idea: is_new_feature: true, is_banger_idea: true
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -672,6 +675,24 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
       "effort_score": 2,
       "complexity": 2,
       "benefits": [...],
+      "is_new_feature": false,
+      "is_banger_idea": false,
+      "status": "new"
+    },
+    {
+      "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+      "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
+      "title": "Real-Time Collaborative Editing",
+      "problem": "Users work in isolation...",
+      "solution": "Transform the app to multiplayer with real-time sync...",
+      "type": "backend",
+      "area": "backend",
+      "impact_score": 10,
+      "effort_score": 8,
+      "complexity": 4,
+      "benefits": [...],
+      "is_new_feature": true,
+      "is_banger_idea": true,
       "status": "new"
     }
   ]'
@@ -912,9 +933,16 @@ Each improvement MUST include ALL of these fields:
       "title": "RELIABILITY",
       "description": "Helps users identify when refresh needed"
     }
-  ]
+  ],
+  "is_new_feature": false,
+  "is_banger_idea": false
 }
 ```
+
+**Feature Classification Rules:**
+- `is_new_feature: false` + `is_banger_idea: false` = Regular improvement (bug fix, performance, refactor)
+- `is_new_feature: true` + `is_banger_idea: false` = New feature capability
+- `is_new_feature: true` + `is_banger_idea: true` = The ONE banger idea per analysis
 
 ## False Positive Prevention
 
