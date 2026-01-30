@@ -485,7 +485,7 @@ Then, write the improvements directly to the user's own Supabase using the REST 
 ANALYSIS_RUN_ID=$(uuidgen)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Step 1: Create analysis run record (include repository_id if available)
+# Step 1: Create analysis run record (include repository_id and user_id)
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -493,6 +493,7 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   -H "Prefer: return=minimal" \
   -d '{
     "id": "'${ANALYSIS_RUN_ID}'",
+    "user_id": "'${USER_ID}'",
     "mode": "full",
     "items_found": 15,
     "started_at": "'${TIMESTAMP}'",
@@ -501,8 +502,8 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
     "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")'
   }'
 
-# Step 2: Insert backlog items with repository_id for multi-repo support
-# Note: repository_id enables filtering by repo in the dashboard
+# Step 2: Insert backlog items with user_id and repository_id
+# Note: user_id links items to the user, repository_id enables filtering by repo
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -510,6 +511,7 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "Prefer: return=minimal" \
   -d '[
     {
+      "user_id": "'${USER_ID}'",
       "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
       "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
       "title": "Add data freshness timestamps",
