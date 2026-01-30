@@ -1,12 +1,14 @@
 'use client';
 
 import { clsx } from 'clsx';
+import { Star } from 'lucide-react';
 
 import type { BacklogType } from '@/types/backlog';
 
 interface TypeBadgeProps {
   type: BacklogType;
   size?: 'sm' | 'md';
+  isNewFeature?: boolean;
 }
 
 const TYPE_CONFIG: Record<BacklogType, { label: string; className: string }> = {
@@ -28,17 +30,18 @@ const TYPE_CONFIG: Record<BacklogType, { label: string; className: string }> = {
   },
 };
 
-export function TypeBadge({ type, size = 'sm' }: TypeBadgeProps) {
+export function TypeBadge({ type, size = 'sm', isNewFeature }: TypeBadgeProps) {
   const config = TYPE_CONFIG[type];
 
   return (
     <span
       className={clsx(
-        'inline-flex items-center border',
+        'inline-flex items-center gap-1 border',
         config.className,
         size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm',
       )}
     >
+      {isNewFeature && <Star className="w-3 h-3 fill-current" />}
       {config.label}
     </span>
   );

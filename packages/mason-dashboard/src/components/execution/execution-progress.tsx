@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
+import { TABLES } from '@/lib/constants';
 import type { RemoteExecutionStatus, ItemResult } from '@/types/auth';
 
 import { BuildingTheater } from './BuildingTheater';
@@ -51,12 +52,160 @@ export function ExecutionProgress({
   const logsEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  // Check if this is a CLI execution with a real run_id (UUID format)
+  // vs a synthetic "cli-{item_id}" format
+  const isRealRunId = runId && !runId.startsWith('cli-');
+
+  // Subscribe to execution_logs via Supabase realtime for CLI executions with real run_id
   useEffect(() => {
-    // CLI executions don't have a logs endpoint - skip SSE connection
-    if (runId.startsWith('cli-')) {
-      console.log(
-        '[ExecutionProgress] CLI execution detected, skipping SSE logs connection',
-      );
+    if (!client || !isRealRunId) {
+      return;
+    }
+
+    console.log(
+      '[ExecutionProgress] Subscribing to execution_logs for run_id:',
+      runId,
+    );
+
+    // First, fetch existing logs
+    const fetchExistingLogs = async () => {
+      const { data, error: fetchError } = await client
+        .from(TABLES.EXECUTION_LOGS)
+        .select('*')
+        .eq('execution_run_id', runId)
+        .order('created_at', { ascending: true });
+
+      if (fetchError) {
+        console.error(
+          '[ExecutionProgress] Error fetching existing logs:',
+          fetchError,
+        );
+        return;
+      }
+
+      if (data && data.length > 0) {
+        console.log('[ExecutionProgress] Found', data.length, 'existing logs');
+        setLogs(data as ExecutionLog[]);
+      }
+    };
+
+    void fetchExistingLogs();
+
+    // Subscribe to new logs
+    const channel = client
+      .channel(`execution-logs-${runId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: TABLES.EXECUTION_LOGS,
+          filter: `execution_run_id=eq.${runId}`,
+        },
+        (payload) => {
+          console.log('[ExecutionProgress] New log received:', payload.new);
+          const newLog = payload.new as ExecutionLog;
+          setLogs((prev) => [...prev, newLog]);
+        },
+      )
+      .subscribe((subscriptionStatus) => {
+        console.log(
+          '[ExecutionProgress] Logs subscription status:',
+          subscriptionStatus,
+        );
+      });
+
+    return () => {
+      console.log('[ExecutionProgress] Unsubscribing from execution_logs');
+      void client.removeChannel(channel);
+    };
+  }, [client, runId, isRealRunId]);
+
+  // Also check execution run status for completion
+  useEffect(() => {
+    if (!client || !isRealRunId) {
+      return;
+    }
+
+    // Subscribe to execution run updates
+    const channel = client
+      .channel(`execution-run-${runId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: TABLES.REMOTE_EXECUTION_RUNS,
+          filter: `id=eq.${runId}`,
+        },
+        (payload) => {
+          console.log(
+            '[ExecutionProgress] Execution run updated:',
+            payload.new,
+          );
+          const run = payload.new as {
+            status: RemoteExecutionStatus;
+            pr_url?: string;
+            item_results?: ItemResult[];
+            success_count?: number;
+            failure_count?: number;
+          };
+
+          if (run.status && run.status !== 'in_progress') {
+            setStatus(run.status);
+            if (run.pr_url) {
+              setPrUrl(run.pr_url);
+            }
+            if (run.item_results) {
+              setItemResults(run.item_results);
+            }
+            if (run.success_count !== undefined) {
+              setSuccessCount(run.success_count);
+            }
+            if (run.failure_count !== undefined) {
+              setFailureCount(run.failure_count);
+            }
+          }
+        },
+      )
+      .subscribe();
+
+    // Also fetch current status in case we missed the update
+    const fetchRunStatus = async () => {
+      const { data } = await client
+        .from(TABLES.REMOTE_EXECUTION_RUNS)
+        .select('status, pr_url, item_results, success_count, failure_count')
+        .eq('id', runId)
+        .single();
+
+      if (data && data.status !== 'in_progress') {
+        setStatus(data.status);
+        if (data.pr_url) {
+          setPrUrl(data.pr_url);
+        }
+        if (data.item_results) {
+          setItemResults(data.item_results as ItemResult[]);
+        }
+        if (data.success_count !== undefined) {
+          setSuccessCount(data.success_count);
+        }
+        if (data.failure_count !== undefined) {
+          setFailureCount(data.failure_count);
+        }
+      }
+    };
+
+    void fetchRunStatus();
+
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [client, runId, isRealRunId]);
+
+  // Connect to SSE endpoint for remote executions (non-CLI)
+  useEffect(() => {
+    // Skip SSE for CLI executions - we use Supabase realtime instead
+    if (runId.startsWith('cli-') || isRealRunId) {
       return;
     }
 
@@ -102,7 +251,7 @@ export function ExecutionProgress({
     return () => {
       eventSource.close();
     };
-  }, [runId]);
+  }, [runId, isRealRunId]);
 
   // Auto-scroll to bottom
   useEffect(() => {

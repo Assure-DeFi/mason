@@ -203,4 +203,98 @@ export function SkeletonModal() {
   );
 }
 
+/**
+ * Skeleton row matching the ImprovementsTable columns
+ */
+export function ImprovementsTableSkeletonRow() {
+  return (
+    <tr className="border-b border-gray-800/30">
+      {/* Checkbox */}
+      <td className="py-3 px-3" style={{ width: '40px' }}>
+        <Skeleton width={16} height={16} />
+      </td>
+      {/* Title */}
+      <td className="py-3 px-3" style={{ width: '300px' }}>
+        <Skeleton height={16} className="w-full max-w-[250px]" />
+      </td>
+      {/* Type */}
+      <td className="py-3 px-3" style={{ width: '100px' }}>
+        <Skeleton height={20} className="w-16" />
+      </td>
+      {/* Priority */}
+      <td className="py-3 px-3" style={{ width: '90px' }}>
+        <Skeleton height={24} width={32} />
+      </td>
+      {/* Complexity */}
+      <td className="py-3 px-3" style={{ width: '100px' }}>
+        <Skeleton height={20} className="w-14" />
+      </td>
+      {/* Area */}
+      <td className="py-3 px-3" style={{ width: '120px' }}>
+        <Skeleton height={16} className="w-20" />
+      </td>
+      {/* Status */}
+      <td className="py-3 px-3" style={{ width: '110px' }}>
+        <Skeleton height={24} className="w-16" />
+      </td>
+      {/* PRD */}
+      <td className="py-3 px-3 text-center" style={{ width: '50px' }}>
+        <Skeleton width={20} height={20} className="mx-auto" />
+      </td>
+      {/* Updated */}
+      <td className="py-3 px-3" style={{ width: '100px' }}>
+        <Skeleton height={16} className="w-16" />
+      </td>
+    </tr>
+  );
+}
+
+/**
+ * Skeleton for ImprovementsTable with accurate column structure
+ */
+export function ImprovementsTableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+        <thead>
+          <tr className="border-b border-gray-800/50 bg-black/10">
+            <th className="py-3 px-3" style={{ width: '40px' }}>
+              <Skeleton width={16} height={16} />
+            </th>
+            <th className="py-3 px-3 text-left" style={{ width: '300px' }}>
+              <Skeleton height={12} className="w-12" />
+            </th>
+            <th className="py-3 px-3 text-left" style={{ width: '100px' }}>
+              <Skeleton height={12} className="w-10" />
+            </th>
+            <th className="py-3 px-3 text-left" style={{ width: '90px' }}>
+              <Skeleton height={12} className="w-14" />
+            </th>
+            <th className="py-3 px-3 text-left" style={{ width: '100px' }}>
+              <Skeleton height={12} className="w-16" />
+            </th>
+            <th className="py-3 px-3 text-left" style={{ width: '120px' }}>
+              <Skeleton height={12} className="w-10" />
+            </th>
+            <th className="py-3 px-3 text-left" style={{ width: '110px' }}>
+              <Skeleton height={12} className="w-12" />
+            </th>
+            <th className="py-3 px-3 text-center" style={{ width: '50px' }}>
+              <Skeleton height={12} className="w-8 mx-auto" />
+            </th>
+            <th className="py-3 px-3 text-left" style={{ width: '100px' }}>
+              <Skeleton height={12} className="w-14" />
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-800/30">
+          {Array.from({ length: rows }).map((_, i) => (
+            <ImprovementsTableSkeletonRow key={i} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default Skeleton;
