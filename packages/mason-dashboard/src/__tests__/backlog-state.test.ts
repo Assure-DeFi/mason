@@ -359,8 +359,12 @@ describe('Backlog State Mutations', () => {
       const getCounts = () => {
         const counts = { new: 0, approved: 0 };
         items.forEach((item) => {
-          if (item.status === 'new') counts.new++;
-          if (item.status === 'approved') counts.approved++;
+          if (item.status === 'new') {
+            counts.new++;
+          }
+          if (item.status === 'approved') {
+            counts.approved++;
+          }
         });
         return counts;
       };
