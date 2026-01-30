@@ -5,7 +5,10 @@ import {
   ChevronDown,
   ChevronsUpDown,
   RotateCcw,
+  Keyboard,
+  X,
 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 import {
   useColumnResize,
@@ -15,6 +18,72 @@ import type { BacklogItem, SortField, SortDirection } from '@/types/backlog';
 
 import { ItemRow } from './item-row';
 import { ResizeHandle } from './resize-handle';
+
+const KEYBOARD_HINTS_HIDDEN_KEY = 'mason_keyboard_hints_hidden';
+
+function KeyboardHintBar() {
+  const [isHidden, setIsHidden] = useState(true);
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    const hidden = localStorage.getItem(KEYBOARD_HINTS_HIDDEN_KEY) === 'true';
+    setIsHidden(hidden);
+    setIsMac(navigator.platform.toUpperCase().indexOf('MAC') >= 0);
+  }, []);
+
+  const handleHide = () => {
+    localStorage.setItem(KEYBOARD_HINTS_HIDDEN_KEY, 'true');
+    setIsHidden(true);
+  };
+
+  if (isHidden) {
+    return null;
+  }
+
+  const modKey = isMac ? '⌘' : 'Ctrl';
+
+  return (
+    <div className="mt-4 px-4 py-2 bg-black/30 border border-gray-800/50 flex items-center justify-between text-xs text-gray-500">
+      <div className="flex items-center gap-1">
+        <Keyboard className="w-3.5 h-3.5 mr-1" />
+        <span className="hidden sm:inline">Keyboard shortcuts:</span>
+      </div>
+      <div className="flex items-center gap-4 sm:gap-6">
+        <span>
+          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">
+            {modKey}+A
+          </kbd>{' '}
+          <span className="hidden sm:inline">Select all</span>
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">
+            {modKey}+Shift+A
+          </kbd>{' '}
+          <span className="hidden sm:inline">Approve</span>
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">
+            {modKey}+Shift+X
+          </kbd>{' '}
+          <span className="hidden sm:inline">Reject</span>
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">
+            Esc
+          </kbd>{' '}
+          <span className="hidden sm:inline">Clear</span>
+        </span>
+      </div>
+      <button
+        onClick={handleHide}
+        className="p-1 hover:text-gray-300 transition-colors"
+        title="Hide keyboard hints"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
 
 interface SortableHeaderProps {
   label: string;
@@ -256,6 +325,9 @@ export function ImprovementsTable({
           </p>
         </div>
       )}
+
+      {/* Keyboard shortcuts hint bar */}
+      {items.length > 0 && <KeyboardHintBar />}
     </div>
   );
 }

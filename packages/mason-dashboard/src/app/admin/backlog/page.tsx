@@ -488,6 +488,62 @@ export default function BacklogPage() {
     };
   }, []);
 
+  // Keyboard shortcuts for bulk actions
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger in input fields or when modal is open
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        selectedItem
+      ) {
+        return;
+      }
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isModKey = isMac ? e.metaKey : e.ctrlKey;
+
+      // Escape - Clear selection
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSelectedIds([]);
+        return;
+      }
+
+      // Cmd/Ctrl+A - Select all / Deselect all
+      if (isModKey && !e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        if (selectedIds.length === filteredItems.length) {
+          setSelectedIds([]);
+        } else {
+          setSelectedIds(filteredItems.map((item) => item.id));
+        }
+        return;
+      }
+
+      // Cmd/Ctrl+Shift+A - Approve selected
+      if (isModKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        if (selectedIds.length > 0 && !isApproving) {
+          void handleBulkApprove(selectedIds);
+        }
+        return;
+      }
+
+      // Cmd/Ctrl+Shift+X - Reject selected
+      if (isModKey && e.shiftKey && e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        if (selectedIds.length > 0 && !isRejecting) {
+          void handleBulkReject(selectedIds);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedItem, selectedIds, filteredItems, isApproving, isRejecting]);
+
   // Handle undo action
   const handleUndo = async () => {
     if (!undoState || !client) {
