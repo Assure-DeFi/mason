@@ -8,6 +8,7 @@ import { TABLES } from '@/lib/constants';
 interface ExecutionProgress {
   id: string;
   item_id: string;
+  run_id: string | null;
   current_phase: string;
   started_at: string;
 }
@@ -62,8 +63,10 @@ export function useExecutionListener({
           // Only trigger on fresh executions (site_review phase)
           if (progress.current_phase === 'site_review') {
             console.log(
-              '[ExecutionListener] New execution detected, triggering callback for item:',
+              '[ExecutionListener] New execution detected for item:',
               progress.item_id,
+              'run_id:',
+              progress.run_id,
             );
             callbackRef.current?.(progress);
           }
