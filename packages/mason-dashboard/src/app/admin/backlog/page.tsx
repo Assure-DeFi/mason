@@ -10,7 +10,10 @@ import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
-import { ItemDetailModal } from '@/components/backlog/item-detail-modal';
+import {
+  ItemDetailModal,
+  type ViewMode,
+} from '@/components/backlog/item-detail-modal';
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
@@ -22,6 +25,10 @@ import { OnboardingProgress } from '@/components/ui/OnboardingProgress';
 import { QuickStartFAB } from '@/components/ui/QuickStartFAB';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { useAutoMigrations } from '@/hooks/useAutoMigrations';
+import {
+  useExecutionListener,
+  fetchItemForExecution,
+} from '@/hooks/useExecutionListener';
 import { useRealtimeBacklog } from '@/hooks/useRealtimeBacklog';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { createMasonUserRecord } from '@/lib/supabase/user-record';
@@ -67,6 +74,7 @@ export default function BacklogPage() {
     field: SortField;
     direction: SortDirection;
   } | null>(null);
+  const [modalViewMode, setModalViewMode] = useState<ViewMode>('details');
 
   // Bulk action loading states
   const [isApproving, setIsApproving] = useState(false);
@@ -78,6 +86,40 @@ export default function BacklogPage() {
   // Undo state
   const [undoState, setUndoState] = useState<UndoState | null>(null);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Global execution listener - auto-shows BuildingTheater when CLI execution starts
+  // Works across ALL repos, not filtered by selected repository
+  const handleExecutionDetected = useCallback(
+    (progress: { item_id: string }) => {
+      if (!client) {
+        return;
+      }
+
+      // Don't show if already showing an execution
+      if (executionRunId) {
+        return;
+      }
+
+      // Fetch item details and show the execution modal
+      void fetchItemForExecution(client, progress.item_id).then((item) => {
+        if (!item) {
+          return;
+        }
+
+        // Show the execution modal
+        setExecutionRunId(`cli-${progress.item_id}`);
+        setExecutingItemId(progress.item_id);
+        setExecutingItemTitle(item.title);
+      });
+    },
+    [client, executionRunId],
+  );
+
+  useExecutionListener({
+    client,
+    enabled: isConfigured && !executionRunId,
+    onExecutionStart: handleExecutionDetected,
+  });
 
   const handleSortChange = useCallback((field: SortField) => {
     setSort((prev) => {
@@ -346,6 +388,18 @@ export default function BacklogPage() {
 
   const handleClearSelection = () => {
     setSelectedIds([]);
+  };
+
+  // Handle clicking on an item row (opens modal with details view)
+  const handleItemClick = (item: BacklogItem) => {
+    setModalViewMode('details');
+    setSelectedItem(item);
+  };
+
+  // Handle clicking on PRD icon (opens modal with PRD view)
+  const handlePrdClick = (item: BacklogItem) => {
+    setModalViewMode('prd');
+    setSelectedItem(item);
   };
 
   // Get selected items from IDs
@@ -775,7 +829,8 @@ export default function BacklogPage() {
             selectedIds={selectedIds}
             onSelectItem={handleSelectItem}
             onSelectAll={handleSelectAll}
-            onItemClick={setSelectedItem}
+            onItemClick={handleItemClick}
+            onPrdClick={handlePrdClick}
             sort={sort}
             onSortChange={handleSortChange}
           />
@@ -789,6 +844,7 @@ export default function BacklogPage() {
           onClose={() => setSelectedItem(null)}
           onUpdateStatus={handleUpdateStatus}
           onGeneratePrd={handleGeneratePrd}
+          initialViewMode={modalViewMode}
         />
       )}
 
