@@ -15,12 +15,12 @@ This command implements approved improvements from the backlog. It uses the Task
 Options:
 
 - `--item <id>`: Execute a specific item by ID
-- `--limit <n>`: Maximum number of items to execute (default: 5)
+- `--limit <n>`: Maximum number of items to execute (optional, no limit by default)
 - `--dry-run`: Show execution plan without making changes
 
 Examples:
 
-- `/execute-approved` - Execute up to 5 approved items
+- `/execute-approved` - Execute ALL approved items
 - `/execute-approved --item abc123` - Execute specific item
 - `/execute-approved --limit 3` - Execute top 3 approved items
 - `/execute-approved --dry-run` - Preview execution plan
@@ -29,14 +29,22 @@ Examples:
 
 ### Step 1: Fetch Approved Items
 
-Query Supabase for approved items:
+Query Supabase for ALL approved items (no limit unless explicitly specified):
 
 ```sql
-SELECT * FROM pm_backlog_items
+-- When --limit is NOT specified: fetch ALL approved items
+SELECT * FROM mason_pm_backlog_items
+WHERE status = 'approved'
+ORDER BY priority_score DESC;
+
+-- When --limit IS specified: apply the limit
+SELECT * FROM mason_pm_backlog_items
 WHERE status = 'approved'
 ORDER BY priority_score DESC
 LIMIT $limit;
 ```
+
+**IMPORTANT:** By default, execute ALL approved items. Only apply LIMIT when user explicitly passes `--limit <n>`.
 
 ### Step 2: Verify PRDs Exist
 
@@ -186,9 +194,199 @@ SET status = 'completed', completed_at = now()
 WHERE id = $taskId;
 ```
 
-### Step 8: Commit Changes
+### Step 8: Testing & Validation Wave (MANDATORY)
 
-After each item is complete:
+**This step is REQUIRED before any commit. Changes must pass 100% of validation checks.**
+
+After implementation waves complete, execute a comprehensive testing wave:
+
+#### 8.1: Run Validation Suite
+
+Execute all validation checks in parallel:
+
+```typescript
+// Run all validation checks in parallel
+const validationResults = await Promise.all([
+  Task({
+    subagent_type: 'Bash',
+    prompt: 'Run TypeScript type checking: pnpm typecheck',
+  }),
+  Task({ subagent_type: 'Bash', prompt: 'Run ESLint: pnpm lint' }),
+  Task({ subagent_type: 'Bash', prompt: 'Run build: pnpm build' }),
+  Task({ subagent_type: 'Bash', prompt: 'Run unit tests: pnpm test' }),
+]);
+```
+
+#### 8.2: Validation Checks (All Must Pass)
+
+| Check                     | Command                | Required     |
+| ------------------------- | ---------------------- | ------------ |
+| TypeScript                | `pnpm typecheck`       | ✅ MUST PASS |
+| ESLint                    | `pnpm lint`            | ✅ MUST PASS |
+| Build                     | `pnpm build`           | ✅ MUST PASS |
+| Unit Tests                | `pnpm test`            | ✅ MUST PASS |
+| E2E Tests (if applicable) | `pnpm playwright test` | ✅ MUST PASS |
+
+#### 8.3: Frontend Validation (For UI Changes)
+
+If the implementation includes frontend changes:
+
+```typescript
+// Start dev server and run visual validation
+await Task({
+  subagent_type: 'webapp-testing',
+  prompt: `
+    Validate the frontend changes:
+    1. Start the dev server (pnpm dev in packages/mason-dashboard)
+    2. Navigate to affected pages
+    3. Verify no console errors
+    4. Verify no visual regressions
+    5. Test interactive elements work correctly
+    6. Capture screenshots for verification
+  `,
+});
+```
+
+#### 8.4: Backend Validation (For API Changes)
+
+If the implementation includes backend/API changes:
+
+```typescript
+// Validate backend functionality
+await Task({
+  subagent_type: 'Bash',
+  prompt: `
+    Validate backend changes:
+    1. Check API endpoints respond correctly
+    2. Verify database operations work
+    3. Test error handling paths
+    4. Validate response schemas
+  `,
+});
+```
+
+### Step 9: Auto-Fix Iteration Loop
+
+**If ANY validation check fails, the system MUST automatically iterate until all checks pass.**
+
+```typescript
+const MAX_FIX_ITERATIONS = 5;
+let iteration = 0;
+let allPassed = false;
+
+while (!allPassed && iteration < MAX_FIX_ITERATIONS) {
+  iteration++;
+
+  // Run validation suite
+  const results = await runValidationSuite();
+
+  if (results.allPassed) {
+    allPassed = true;
+    console.log(`✅ All validations passed on iteration ${iteration}`);
+    break;
+  }
+
+  // Analyze failures and create fix tasks
+  const failures = results.failures;
+  console.log(`❌ Iteration ${iteration}: ${failures.length} failures found`);
+
+  // Fix each failure
+  for (const failure of failures) {
+    await Task({
+      subagent_type: 'general-purpose',
+      prompt: `
+        Fix the following validation failure:
+
+        **Check Type**: ${failure.type}
+        **Error Output**:
+        \`\`\`
+        ${failure.output}
+        \`\`\`
+
+        Instructions:
+        1. Analyze the error message carefully
+        2. Identify the root cause
+        3. Make the MINIMAL change needed to fix the issue
+        4. Do NOT introduce new features or refactoring
+        5. Focus only on making the check pass
+      `,
+    });
+  }
+}
+
+if (!allPassed) {
+  // Mark item as failed and log detailed error report
+  throw new Error(
+    `Failed to pass all validations after ${MAX_FIX_ITERATIONS} iterations`,
+  );
+}
+```
+
+#### 9.1: Iteration Tracking
+
+Track each iteration in Supabase:
+
+```sql
+INSERT INTO pm_validation_iterations (
+  run_id,
+  item_id,
+  iteration_number,
+  checks_passed,
+  checks_failed,
+  failure_details,
+  created_at
+) VALUES (
+  $runId,
+  $itemId,
+  $iteration,
+  $passedCount,
+  $failedCount,
+  $failureJson,
+  now()
+);
+```
+
+#### 9.2: Failure Categories & Fix Strategies
+
+| Failure Type     | Fix Strategy                                                      |
+| ---------------- | ----------------------------------------------------------------- |
+| TypeScript Error | Read error, fix type issue, re-check                              |
+| ESLint Error     | Apply auto-fix first (`pnpm lint:fix`), then manual fix if needed |
+| Build Error      | Analyze build output, fix compilation issue                       |
+| Test Failure     | Read test, understand assertion, fix implementation               |
+| E2E Failure      | Review screenshot, fix UI or interaction issue                    |
+
+#### 9.3: Smart Fix Ordering
+
+Fix issues in this priority order:
+
+1. **TypeScript errors** - These often cause cascading failures
+2. **ESLint errors** - Many can be auto-fixed
+3. **Build errors** - Must pass before tests can run
+4. **Unit test failures** - Fix logic issues
+5. **E2E failures** - Fix integration issues
+
+### Step 10: Final Validation Gate
+
+Before proceeding to commit, verify ALL checks pass:
+
+```typescript
+// Final validation - ALL must pass
+const finalResults = await runValidationSuite();
+
+if (!finalResults.allPassed) {
+  // DO NOT COMMIT - Mark as failed
+  await updateItemStatus(itemId, 'validation_failed', finalResults);
+  return;
+}
+
+// Only proceed to commit if 100% pass
+console.log('✅ Final validation passed - proceeding to commit');
+```
+
+### Step 11: Commit Changes
+
+After ALL validations pass:
 
 ```bash
 git add .
@@ -196,12 +394,18 @@ git commit -m "feat: [item title]
 
 [Brief description of changes]
 
+Validation Results:
+- TypeScript: ✅ Pass
+- ESLint: ✅ Pass
+- Build: ✅ Pass
+- Tests: ✅ Pass
+
 Implements: PM-<item-id>
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
-### Step 8.1: Mark Item Completed (MANDATORY)
+### Step 11.1: Mark Item Completed (MANDATORY)
 
 **After successful commit**, update the item status to `completed` via Supabase REST API:
 
@@ -217,23 +421,27 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
 
 This update will appear **immediately** in the dashboard. The item moves from "In Progress" tab to "Completed" tab.
 
-### Step 9: Update Item Status
+### Step 12: Update Item Status
 
 ```sql
 UPDATE pm_backlog_items
 SET
   status = 'completed',
   branch_name = 'mason/<slug>',
+  validation_passed = true,
+  validation_iterations = $iterationCount,
   updated_at = now()
 WHERE id = $itemId;
 ```
 
-### Step 10: Complete Execution Run
+### Step 13: Complete Execution Run
 
 ```sql
 UPDATE pm_execution_runs
 SET
   status = 'success',
+  validation_summary = $validationJson,
+  total_fix_iterations = $totalIterations,
   completed_at = now()
 WHERE id = $runId;
 ```
@@ -260,9 +468,19 @@ During execution, show progress:
 - [x] Create avatar upload component
 - [ ] Add API endpoint (in progress...)
 
-#### Wave 3: Validation
+#### Wave 3: Code Review
 
 - [ ] Review all changes
+
+#### Wave 4: Testing & Validation
+
+- [ ] TypeScript check
+- [ ] ESLint check
+- [ ] Build check
+- [ ] Unit tests
+- [ ] Frontend validation
+
+**Fix Iterations**: 0
 
 ---
 
@@ -280,16 +498,30 @@ After completion:
 
 **Items Executed**: 3
 **Total Tasks**: 24
-**Time Elapsed**: 15 minutes
-**Status**: Success
+**Status**: ✅ All Validations Passed
+
+### Validation Summary
+
+| Check      | Status  | Notes            |
+| ---------- | ------- | ---------------- |
+| TypeScript | ✅ Pass | 0 errors         |
+| ESLint     | ✅ Pass | 0 errors         |
+| Build      | ✅ Pass | Compiled cleanly |
+| Unit Tests | ✅ Pass | 45/45 passing    |
+| E2E Tests  | ✅ Pass | 12/12 passing    |
+
+**Total Fix Iterations**: 2
+
+- Iteration 1: Fixed 3 TypeScript errors
+- Iteration 2: Fixed 1 ESLint warning
 
 ### Branches Created
 
-| Item              | Branch                         | Status   |
-| ----------------- | ------------------------------ | -------- |
-| Add avatar upload | `mason/add-user-avatar-upload` | Complete |
-| Fix validation    | `mason/fix-login-validation`   | Complete |
-| Refactor errors   | `mason/refactor-api-errors`    | Complete |
+| Item              | Branch                         | Validation | Iterations |
+| ----------------- | ------------------------------ | ---------- | ---------- |
+| Add avatar upload | `mason/add-user-avatar-upload` | ✅ Pass    | 1          |
+| Fix validation    | `mason/fix-login-validation`   | ✅ Pass    | 0          |
+| Refactor errors   | `mason/refactor-api-errors`    | ✅ Pass    | 2          |
 
 ### Next Steps
 
@@ -300,7 +532,9 @@ After completion:
 
 ## Error Handling
 
-If a task fails:
+### Implementation Task Failures
+
+If an implementation task fails:
 
 1. Log the error with context
 2. Update task status to 'failed'
@@ -317,6 +551,34 @@ SET
 WHERE id = $taskId;
 ```
 
+### Validation Failure Handling
+
+**Validation failures trigger automatic fix iterations:**
+
+1. **On validation failure**: Do NOT mark as failed immediately
+2. **Analyze the error**: Parse error output to identify root cause
+3. **Create fix task**: Generate targeted fix for the specific failure
+4. **Apply fix**: Execute the fix using appropriate subagent
+5. **Re-validate**: Run the full validation suite again
+6. **Repeat**: Continue until all pass or MAX_ITERATIONS reached
+
+```typescript
+// Validation failure triggers auto-fix, not immediate failure
+if (validationFailed) {
+  // DO NOT throw error
+  // Instead, enter fix iteration loop
+  await autoFixIteration(failures);
+}
+```
+
+### Permanent Failure Conditions
+
+An item is marked as **permanently failed** only when:
+
+1. **Max iterations exceeded**: After 5 fix attempts, validation still fails
+2. **Unfixable error**: Error type is not auto-fixable (e.g., missing dependency)
+3. **Manual intervention required**: Error requires human decision
+
 ### Mark Item Failed (MANDATORY on Permanent Failure)
 
 When execution fails permanently (after max retry iterations or unrecoverable error), update the item status to `rejected` via Supabase REST API:
@@ -332,6 +594,28 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
 ```
 
 This update will appear **immediately** in the dashboard. The item moves to "Rejected" tab with the failure reason.
+
+**SQL equivalent (for reference):**
+
+```sql
+UPDATE pm_backlog_items
+SET
+  status = 'validation_failed',
+  validation_passed = false,
+  validation_iterations = $iterationCount,
+  failure_reason = $reason,
+  updated_at = now()
+WHERE id = $itemId;
+```
+
+### Error Escalation
+
+When validation fails permanently:
+
+1. **Log detailed report**: Include all iteration attempts and fixes tried
+2. **Create follow-up item**: Generate new backlog item for manual review
+3. **Notify**: Mark for user attention in dashboard
+4. **Preserve work**: Keep branch with partial implementation for review
 
 ## Git Hygiene
 
@@ -356,8 +640,24 @@ Read credentials from `mason.config.json`:
 
 ## Important Notes
 
-1. **Test after each wave** - Run tests to catch issues early
-2. **Review before commit** - Use code-reviewer subagent
-3. **Keep branches focused** - One item per branch
-4. **Update progress** - Keep Supabase status current
-5. **Handle failures gracefully** - Log and continue where possible
+1. **MANDATORY VALIDATION** - All changes MUST pass validation before commit
+2. **AUTO-FIX ENABLED** - System automatically fixes failures up to 5 iterations
+3. **NO COMMIT WITHOUT PASS** - Never commit if any validation check fails
+4. **Test after each wave** - Run tests to catch issues early
+5. **Review before validation** - Use code-reviewer subagent before testing
+6. **Keep branches focused** - One item per branch
+7. **Update progress** - Keep Supabase status current (including validation state)
+8. **Track iterations** - Log every fix attempt for debugging
+
+## Validation Checklist
+
+Before any commit is created, verify:
+
+- [ ] `pnpm typecheck` passes with 0 errors
+- [ ] `pnpm lint` passes with 0 errors/warnings
+- [ ] `pnpm build` completes successfully
+- [ ] `pnpm test` all tests pass
+- [ ] Frontend works (no console errors, correct behavior)
+- [ ] Backend works (API responds correctly, no server errors)
+
+**If any check fails → Auto-fix → Re-validate → Repeat until 100% pass**

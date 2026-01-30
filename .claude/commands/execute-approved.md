@@ -29,14 +29,22 @@ Examples:
 
 ### Step 1: Fetch Approved Items
 
-Query Supabase for approved items:
+Query Supabase for ALL approved items (no limit unless explicitly specified):
 
 ```sql
-SELECT * FROM pm_backlog_items
+-- When --limit is NOT specified: fetch ALL approved items
+SELECT * FROM mason_pm_backlog_items
+WHERE status = 'approved'
+ORDER BY priority_score DESC;
+
+-- When --limit IS specified: apply the limit
+SELECT * FROM mason_pm_backlog_items
 WHERE status = 'approved'
 ORDER BY priority_score DESC
 LIMIT $limit;
 ```
+
+**IMPORTANT:** By default, execute ALL approved items. Only apply LIMIT when user explicitly passes `--limit <n>`.
 
 ### Step 2: Verify PRDs Exist
 
