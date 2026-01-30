@@ -21,6 +21,7 @@ import { NextStepBanner } from '@/components/ui/NextStepBanner';
 import { OnboardingProgress } from '@/components/ui/OnboardingProgress';
 import { QuickStartFAB } from '@/components/ui/QuickStartFAB';
 import { SkeletonTable } from '@/components/ui/Skeleton';
+import { useAutoMigrations } from '@/hooks/useAutoMigrations';
 import { useRealtimeBacklog } from '@/hooks/useRealtimeBacklog';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { createMasonUserRecord } from '@/lib/supabase/user-record';
@@ -42,6 +43,10 @@ interface UndoState {
 export default function BacklogPage() {
   const { data: session } = useSession();
   const { client, isConfigured, isLoading: isDbLoading } = useUserDatabase();
+
+  // Auto-run database migrations when user has OAuth configured
+  // Runs silently in background, once per 24h
+  useAutoMigrations();
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -179,9 +184,7 @@ export default function BacklogPage() {
     onItemUpdate: useCallback(
       (updatedItem: BacklogItem) => {
         setItems((prev) =>
-          prev.map((item) =>
-            item.id === updatedItem.id ? updatedItem : item,
-          ),
+          prev.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
         );
         // Also update selected item if it's the one that changed
         if (selectedItem?.id === updatedItem.id) {
@@ -193,13 +196,16 @@ export default function BacklogPage() {
     onItemInsert: useCallback((newItem: BacklogItem) => {
       setItems((prev) => [newItem, ...prev]);
     }, []),
-    onItemDelete: useCallback((deletedItem: BacklogItem) => {
-      setItems((prev) => prev.filter((item) => item.id !== deletedItem.id));
-      // Close detail modal if viewing deleted item
-      if (selectedItem?.id === deletedItem.id) {
-        setSelectedItem(null);
-      }
-    }, [selectedItem]),
+    onItemDelete: useCallback(
+      (deletedItem: BacklogItem) => {
+        setItems((prev) => prev.filter((item) => item.id !== deletedItem.id));
+        // Close detail modal if viewing deleted item
+        if (selectedItem?.id === deletedItem.id) {
+          setSelectedItem(null);
+        }
+      },
+      [selectedItem],
+    ),
     enabled: isConfigured && !isDbLoading,
   });
 
