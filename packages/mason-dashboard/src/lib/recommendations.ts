@@ -42,7 +42,7 @@ function getAreaSynergyCount(items: BacklogItem[], item: BacklogItem): number {
     (other) =>
       other.id !== item.id &&
       other.area === item.area &&
-      (other.status === 'approved' || other.status === 'new'),
+      other.status === 'new',
   ).length;
 }
 
@@ -112,9 +112,7 @@ function buildReasoning(
   // Area synergy reasoning
   if (areaSynergyCount >= 2) {
     const areaItems = getItemsInArea(items, item.area).filter(
-      (other) =>
-        other.id !== item.id &&
-        (other.status === 'approved' || other.status === 'new'),
+      (other) => other.id !== item.id && other.status === 'new',
     );
     if (areaItems.length > 0) {
       const otherItem = areaItems[0];
@@ -196,10 +194,8 @@ export function getRecommendedItems(
   items: BacklogItem[],
   limit: number = 5,
 ): Recommendation[] {
-  // Filter to only approved or new items
-  const eligibleItems = items.filter(
-    (item) => item.status === 'approved' || item.status === 'new',
-  );
+  // Filter to only new items (not yet approved)
+  const eligibleItems = items.filter((item) => item.status === 'new');
 
   // Build recommendations for each eligible item
   const recommendations: Recommendation[] = eligibleItems.map((item) => {
@@ -232,11 +228,7 @@ export function getQuickWins(
   limit: number = 3,
 ): BacklogItem[] {
   return items
-    .filter(
-      (item) =>
-        (item.status === 'approved' || item.status === 'new') &&
-        isQuickWin(item),
-    )
+    .filter((item) => item.status === 'new' && isQuickWin(item))
     .sort((a, b) => b.priority_score - a.priority_score)
     .slice(0, limit);
 }
@@ -253,10 +245,6 @@ export function getItemsByArea(
   area: BacklogArea,
 ): BacklogItem[] {
   return items
-    .filter(
-      (item) =>
-        item.area === area &&
-        (item.status === 'approved' || item.status === 'new'),
-    )
+    .filter((item) => item.area === area && item.status === 'new')
     .sort((a, b) => b.priority_score - a.priority_score);
 }

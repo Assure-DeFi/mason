@@ -564,6 +564,11 @@ export default function BacklogPage() {
     setSelectedItem(item);
   };
 
+  // Handle quick approve from Mason Recommends
+  const handleQuickApprove = async (itemId: string) => {
+    await handleUpdateStatus(itemId, 'approved');
+  };
+
   // Get selected items from IDs
   const selectedItems = useMemo(() => {
     return items.filter((item) => selectedIds.includes(item.id));
@@ -1037,15 +1042,19 @@ export default function BacklogPage() {
         />
       </div>
 
-      {/* Mason Recommends Section */}
-      {!isEmpty && !isLoading && recommendations.length > 0 && (
-        <div className="max-w-7xl mx-auto px-6 pt-6">
-          <MasonRecommends
-            recommendations={recommendations}
-            onItemClick={handleRecommendationClick}
-          />
-        </div>
-      )}
+      {/* Mason Recommends Section - only on "All" (null) and "New" tabs */}
+      {!isEmpty &&
+        !isLoading &&
+        recommendations.length > 0 &&
+        (activeStatus === null || activeStatus === 'new') && (
+          <div className="max-w-7xl mx-auto px-6 pt-6">
+            <MasonRecommends
+              recommendations={recommendations}
+              onItemClick={handleRecommendationClick}
+              onApprove={handleQuickApprove}
+            />
+          </div>
+        )}
 
       {/* Content Area */}
       <div className="max-w-7xl mx-auto">

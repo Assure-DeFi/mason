@@ -1,7 +1,14 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, ChevronDown, ChevronUp, Info, X } from 'lucide-react';
+import {
+  Lightbulb,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  X,
+  Check,
+} from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 import type { BacklogItem } from '@/types/backlog';
@@ -17,16 +24,29 @@ interface RecommendedItem {
 interface MasonRecommendsProps {
   recommendations: RecommendedItem[];
   onItemClick: (itemId: string) => void;
+  onApprove: (itemId: string) => Promise<void>;
 }
 
 export function MasonRecommends({
   recommendations,
   onItemClick,
+  onApprove,
 }: MasonRecommendsProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+
+  const handleApprove = async (e: React.MouseEvent, itemId: string) => {
+    e.stopPropagation();
+    setApprovingId(itemId);
+    try {
+      await onApprove(itemId);
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   // Close tooltip when clicking outside
   useEffect(() => {
@@ -96,7 +116,7 @@ export function MasonRecommends({
                           </p>
                           <ul className="space-y-1 list-disc list-inside">
                             <li>High priority score (impact vs. effort)</li>
-                            <li>New or approved status</li>
+                            <li>New items awaiting approval</li>
                             <li>Strategic alignment with recent work</li>
                             <li>Dependencies and blockers resolved</li>
                           </ul>
@@ -145,56 +165,80 @@ export function MasonRecommends({
               className="overflow-hidden"
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {displayedRecommendations.map((rec, idx) => (
-                  <motion.button
-                    key={rec.item.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.1, duration: 0.3 }}
-                    onClick={() => onItemClick(rec.item.id)}
-                    className="text-left p-4 bg-black/60 border border-gray-700 hover:border-gold/50 transition-all group"
-                  >
-                    {/* Title and type */}
-                    <div className="flex items-start justify-between mb-3">
-                      <TypeBadge
-                        type={rec.item.type}
-                        isNewFeature={rec.item.is_new_feature}
-                      />
-                      <span className="text-xs font-bold text-gold">
-                        #{idx + 1}
-                      </span>
-                    </div>
-
-                    <h4 className="font-semibold text-white group-hover:text-gold transition-colors mb-2 line-clamp-2">
-                      {rec.item.title}
-                    </h4>
-
-                    {/* Reasoning */}
-                    <p className="text-xs text-gray-400 mb-3 line-clamp-2">
-                      {rec.reasoning}
-                    </p>
-
-                    {/* Tags */}
-                    <div className="flex flex-wrap gap-1.5">
-                      {rec.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-2 py-0.5 bg-gold/10 border border-gold/20 text-gold text-xs"
-                        >
-                          {tag}
+                <AnimatePresence mode="popLayout">
+                  {displayedRecommendations.map((rec, idx) => (
+                    <motion.div
+                      key={rec.item.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9, x: -20 }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 400,
+                        damping: 25,
+                      }}
+                      onClick={() => onItemClick(rec.item.id)}
+                      className="text-left p-4 bg-black/60 border border-gray-700 hover:border-gold/50 transition-all group cursor-pointer"
+                    >
+                      {/* Title and type */}
+                      <div className="flex items-start justify-between mb-3">
+                        <TypeBadge
+                          type={rec.item.type}
+                          isNewFeature={rec.item.is_new_feature}
+                        />
+                        <span className="text-xs font-bold text-gold">
+                          #{idx + 1}
                         </span>
-                      ))}
-                    </div>
+                      </div>
 
-                    {/* Priority score indicator */}
-                    <div className="mt-3 pt-3 border-t border-gray-800 flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Priority</span>
-                      <span className="text-sm font-bold text-green-400">
-                        {rec.item.priority_score}
-                      </span>
-                    </div>
-                  </motion.button>
-                ))}
+                      <h4 className="font-semibold text-white group-hover:text-gold transition-colors mb-2 line-clamp-2">
+                        {rec.item.title}
+                      </h4>
+
+                      {/* Reasoning */}
+                      <p className="text-xs text-gray-400 mb-3 line-clamp-2">
+                        {rec.reasoning}
+                      </p>
+
+                      {/* Tags */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {rec.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="px-2 py-0.5 bg-gold/10 border border-gold/20 text-gold text-xs"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Priority and Approve button */}
+                      <div className="mt-3 pt-3 border-t border-gray-800 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">
+                            Priority
+                          </span>
+                          <span className="text-sm font-bold text-green-400">
+                            {rec.item.priority_score}
+                          </span>
+                        </div>
+                        <button
+                          onClick={(e) => handleApprove(e, rec.item.id)}
+                          disabled={approvingId === rec.item.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gold/10 border border-gold/30 text-gold text-xs font-medium hover:bg-gold/20 transition-all disabled:opacity-50"
+                        >
+                          {approvingId === rec.item.id ? (
+                            <span className="w-3 h-3 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+                          ) : (
+                            <Check className="w-3 h-3" />
+                          )}
+                          Approve
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             </motion.div>
           )}
