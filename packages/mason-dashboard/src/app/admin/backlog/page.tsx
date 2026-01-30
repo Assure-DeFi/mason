@@ -18,11 +18,13 @@ import {
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
+import { MasonMark } from '@/components/brand';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { JourneyMap } from '@/components/ui/JourneyMap';
 import { NextStepBanner } from '@/components/ui/NextStepBanner';
 import { OnboardingProgress } from '@/components/ui/OnboardingProgress';
+import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { QuickStartFAB } from '@/components/ui/QuickStartFAB';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { useAutoMigrations } from '@/hooks/useAutoMigrations';
@@ -742,10 +744,10 @@ export default function BacklogPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-white">
-                  System Improvements
+                  Your Build Queue
                 </h1>
                 <p className="mt-1 text-sm text-gray-400">
-                  Manage and track improvement ideas from PM reviews
+                  Mason found these. You decide what ships.
                 </p>
               </div>
               <UserMenu />
@@ -757,12 +759,11 @@ export default function BacklogPage() {
           <div className="rounded-lg border border-gray-800 bg-black/50 p-8 text-center">
             <Database className="mx-auto mb-4 h-16 w-16 text-gray-600" />
             <h2 className="mb-2 text-xl font-semibold text-white">
-              Database Not Configured
+              Let&apos;s get you set up
             </h2>
             <p className="mb-6 text-gray-400">
               Mason stores all your data in your own Supabase database. Complete
-              the setup wizard to connect your database and start analyzing your
-              codebase.
+              the setup wizard to connect your database and start building.
             </p>
             <Link
               href="/setup"
@@ -805,13 +806,17 @@ export default function BacklogPage() {
       <div className="border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white">
-                System Improvements
-              </h1>
-              <p className="text-gray-400 text-sm mt-1">
-                Manage and track improvement ideas from PM reviews
-              </p>
+            <div className="flex items-center gap-4">
+              <MasonMark size="lg" />
+              <div className="h-10 w-px bg-gray-700" />
+              <div>
+                <h1 className="text-2xl font-bold text-white">
+                  Your Build Queue
+                </h1>
+                <p className="text-gray-400 text-sm mt-1">
+                  Mason found these. You decide what ships.
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
@@ -968,24 +973,31 @@ export default function BacklogPage() {
         </div>
       )}
 
+      {/* Footer */}
+      <div className="max-w-7xl mx-auto px-6 py-8 mt-8 border-t border-gray-800">
+        <PoweredByFooter showCTA={true} />
+      </div>
+
       {/* Quick Start FAB */}
       <QuickStartFAB />
 
-      {/* Bulk Actions Bar */}
-      <BulkActionsBar
-        selectedItems={selectedItems}
-        onApprove={handleBulkApprove}
-        onReject={handleBulkReject}
-        onRestore={handleBulkRestore}
-        onComplete={handleBulkComplete}
-        onDelete={handleBulkDelete}
-        onClearSelection={handleClearSelection}
-        isApproving={isApproving}
-        isRejecting={isRejecting}
-        isRestoring={isRestoring}
-        isCompleting={isCompleting}
-        isDeleting={isDeleting}
-      />
+      {/* Bulk Actions Bar - hidden when detail modal is open */}
+      {!selectedItem && (
+        <BulkActionsBar
+          selectedItems={selectedItems}
+          onApprove={handleBulkApprove}
+          onReject={handleBulkReject}
+          onRestore={handleBulkRestore}
+          onComplete={handleBulkComplete}
+          onDelete={handleBulkDelete}
+          onClearSelection={handleClearSelection}
+          isApproving={isApproving}
+          isRejecting={isRejecting}
+          isRestoring={isRestoring}
+          isCompleting={isCompleting}
+          isDeleting={isDeleting}
+        />
+      )}
 
       {/* Undo Toast */}
       {undoState && (
