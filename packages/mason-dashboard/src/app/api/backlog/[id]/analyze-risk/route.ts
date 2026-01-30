@@ -9,30 +9,10 @@ import {
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import { createGitHubClient } from '@/lib/github/client';
-import { createServiceClient } from '@/lib/supabase/client';
 import type { BacklogItem } from '@/types/backlog';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
-}
-
-/**
- * Get a Supabase client connected to the user's database.
- */
-async function getUserDatabaseClient(githubId: string) {
-  const centralClient = createServiceClient();
-
-  const { data: user, error } = await centralClient
-    .from('mason_users')
-    .select('supabase_url, supabase_anon_key')
-    .eq('github_id', githubId)
-    .single();
-
-  if (error || !user?.supabase_url || !user?.supabase_anon_key) {
-    return null;
-  }
-
-  return createClient(user.supabase_url, user.supabase_anon_key);
 }
 
 /**
@@ -47,7 +27,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Get user session
     const session = await getServerSession(authOptions);
-    if (!session?.user?.github_id) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 },
@@ -65,14 +45,22 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Connect to user's database
-    const supabase = await getUserDatabaseClient(session.user.github_id);
-    if (!supabase) {
+    // Get user's database credentials from session
+    const user = session.user as {
+      id: string;
+      supabaseUrl?: string;
+      supabaseAnonKey?: string;
+    };
+
+    if (!user.supabaseUrl || !user.supabaseAnonKey) {
       return NextResponse.json(
-        { error: 'User database not configured. Please complete setup.' },
+        { error: 'Database not configured. Please complete setup.' },
         { status: 400 },
       );
     }
+
+    // Connect to user's database
+    const supabase = createClient(user.supabaseUrl, user.supabaseAnonKey);
 
     // Fetch the backlog item
     const { data: item, error: fetchError } = await supabase

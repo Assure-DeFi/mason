@@ -1,6 +1,7 @@
 'use client';
 
-import { Star, ChevronRight } from 'lucide-react';
+import { Star, ChevronRight, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
 
 import type { BacklogItem } from '@/types/backlog';
 
@@ -9,19 +10,19 @@ import { TypeBadge } from './type-badge';
 interface FeatureIdeasSectionProps {
   items: BacklogItem[];
   onViewDetails: (item: BacklogItem) => void;
-  onViewAll?: () => void;
 }
 
 export function FeatureIdeasSection({
   items,
   onViewDetails,
-  onViewAll,
 }: FeatureIdeasSectionProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   if (items.length === 0) {
     return null;
   }
 
-  const previewItems = items.slice(0, 3);
+  const displayItems = isExpanded ? items : items.slice(0, 3);
   const hasMore = items.length > 3;
 
   return (
@@ -42,7 +43,7 @@ export function FeatureIdeasSection({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
-        {previewItems.map((item) => (
+        {displayItems.map((item) => (
           <button
             key={item.id}
             onClick={() => onViewDetails(item)}
@@ -62,14 +63,23 @@ export function FeatureIdeasSection({
         ))}
       </div>
 
-      {hasMore && onViewAll && (
+      {hasMore && (
         <div className="px-4 pb-4">
           <button
-            onClick={onViewAll}
+            onClick={() => setIsExpanded(!isExpanded)}
             className="w-full flex items-center justify-center gap-2 py-2 text-gray-400 hover:text-gold border border-gray-700 hover:border-gold/40 transition-colors"
           >
-            View all {items.length} features
-            <ChevronRight className="w-4 h-4" />
+            {isExpanded ? (
+              <>
+                Show less
+                <ChevronUp className="w-4 h-4" />
+              </>
+            ) : (
+              <>
+                View all {items.length} features
+                <ChevronRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </div>
       )}

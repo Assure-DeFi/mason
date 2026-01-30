@@ -1021,10 +1021,6 @@ export default function BacklogPage() {
               <FeatureIdeasSection
                 items={featureIdeas}
                 onViewDetails={handleItemClick}
-                onViewAll={() => {
-                  // Filter to show only features - could add a filter state
-                  // For now, just clicking shows the first one
-                }}
               />
             )}
 
