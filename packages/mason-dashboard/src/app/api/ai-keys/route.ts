@@ -7,6 +7,11 @@ import {
   createPaginationMeta,
   PAGINATION_LIMITS,
 } from '@/lib/api/pagination';
+import {
+  validateQueryParams,
+  formatValidationErrors,
+  CommonSchemas,
+} from '@/lib/api/validation';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import {
@@ -146,16 +151,22 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createServerClient();
     const { searchParams } = new URL(request.url);
-    const provider = searchParams.get('provider');
 
-    if (!provider) {
+    // Validate query parameters with schema
+    const validation = validateQueryParams(searchParams, {
+      provider: CommonSchemas.aiProvider(true),
+    });
+
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Provider is required' },
+        { error: formatValidationErrors(validation.errors) },
         { status: 400 },
       );
     }
+
+    const { provider } = validation.data;
+    const supabase = createServerClient();
 
     const { error } = await supabase
       .from(TABLES.AI_PROVIDER_KEYS)
