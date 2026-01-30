@@ -1,3 +1,8 @@
+---
+name: pm-review
+description: PM Review Command
+---
+
 # PM Review Command
 
 You are a **Product Manager agent** analyzing this codebase for improvement opportunities.
@@ -5,6 +10,23 @@ You are a **Product Manager agent** analyzing this codebase for improvement oppo
 ## Overview
 
 This command performs a comprehensive analysis of the codebase to identify improvements across multiple domains: frontend UX, API/backend, reliability, security, and code quality.
+
+## MANDATORY: Feature Ideas & Banger Idea
+
+**EVERY PM review MUST generate:**
+
+1. **At least 3-5 NEW FEATURE ideas** (things that don't exist yet) with `is_new_feature: true`
+2. **Exactly ONE "Banger Idea"** (the transformative feature) with `is_banger_idea: true`
+
+These are **NOT optional**. The PM review is incomplete without them.
+
+If you reach Step 6 without these, **STOP** and go back to Step 2.5.
+
+| Item Type            | is_new_feature | is_banger_idea | Required Count   |
+| -------------------- | -------------- | -------------- | ---------------- |
+| Regular improvements | false          | false          | As many as found |
+| Feature ideas        | true           | false          | **3-5 minimum**  |
+| Banger idea          | true           | true           | **Exactly 1**    |
 
 ## Modes
 
@@ -76,7 +98,7 @@ Focus on: Dashboard components in src/components/dashboard/
 
 ---
 
-## ⚠️ MANDATORY PRE-CHECK: READ THIS FIRST ⚠️
+## MANDATORY PRE-CHECK: READ THIS FIRST
 
 **BEFORE DOING ANYTHING ELSE, you MUST check for the initialization marker.**
 
@@ -277,13 +299,50 @@ Load the domain-specific knowledge from `.claude/skills/pm-domain-knowledge/SKIL
 
 Explore the codebase systematically across these domains:
 
-| Domain           | What to Look For                                                       |
-| ---------------- | ---------------------------------------------------------------------- |
-| **frontend-ux**  | UI/UX issues, accessibility, responsive design, user flow friction     |
-| **api-backend**  | API design, performance, error handling, missing endpoints             |
-| **reliability**  | Error handling, logging, monitoring, retry logic, graceful degradation |
-| **security**     | Auth issues, input validation, secrets exposure, OWASP vulnerabilities |
-| **code-quality** | Code duplication, complexity, naming, testing gaps, technical debt     |
+| Domain           | What to Look For                                                           |
+| ---------------- | -------------------------------------------------------------------------- |
+| **frontend-ux**  | UI/UX issues, accessibility, responsive design, user flow friction         |
+| **api-backend**  | API design, performance, error handling, missing endpoints                 |
+| **reliability**  | Error handling, logging, monitoring, retry logic, graceful degradation     |
+| **security**     | Auth issues, input validation, secrets exposure, OWASP vulnerabilities     |
+| **code-quality** | Code duplication, complexity, naming, testing gaps, technical debt         |
+| **new-features** | New capabilities, integrations, automation opportunities, user-value ideas |
+
+### Step 2.5: Creative Ideation Phase (MANDATORY - SEPARATE FROM ISSUE-FINDING)
+
+**CRITICAL: This is a DIFFERENT mindset than issue-finding.**
+
+Issue-finding asks: "What's wrong?"
+Creative ideation asks: "What could be AMAZING?"
+
+After the issue-finding exploration completes, spawn the feature-ideation agent:
+
+**Use the Task tool:**
+
+```
+subagent_type: "general-purpose"
+prompt: |
+  Load and execute the feature-ideation agent from .claude/agents/feature-ideation.md.
+
+  Analyze this codebase with a PRODUCT VISIONARY mindset.
+
+  Return structured JSON with:
+  - app_understanding (intent, target_user, current_state, gaps)
+  - feature_ideas (3-5 items, each with is_new_feature: true, is_banger_idea: false)
+  - banger_idea (exactly 1 item with is_new_feature: true, is_banger_idea: true)
+
+  Focus on what would make users say 'wow' - NOT on bugs or code quality.
+  Think like a founder who deeply understands target users.
+```
+
+The output provides the raw material for the feature items submitted to the database.
+
+**IMPORTANT:** The feature-ideation agent runs SEPARATELY from issue-finding because:
+
+1. It requires a completely different mental model
+2. Bug-finding mindset suppresses creative thinking
+3. Features need user-centric evaluation, not code-centric
+4. The banger idea deserves dedicated focus
 
 ### Step 3: Score Each Improvement
 
@@ -323,6 +382,7 @@ For each improvement, assign these classifications:
 - `discovery` - Discovery engine improvements (Purple badge)
 - `auth` - Authentication/authorization (Cyan badge)
 - `backend` - Backend/API improvements (Green badge)
+- `feature` - New feature ideas (Purple/Star badge)
 
 **Area**:
 
@@ -468,6 +528,49 @@ Filtered items logged to dashboard → Filtered tab for review.
 
 Continue to Step 6 with validated items only.
 
+### Pre-Submission Validation (ENFORCED)
+
+**THIS IS A HARD STOP. Execute the following validation before proceeding:**
+
+Before submitting items, count and validate feature requirements:
+
+```bash
+# Count feature ideas and banger ideas in your prepared items
+# Parse your items JSON to extract counts
+
+FEATURE_COUNT=<count items where is_new_feature=true AND is_banger_idea=false>
+BANGER_COUNT=<count items where is_banger_idea=true>
+
+echo "Pre-Submission Validation:"
+echo "  Feature ideas (is_new_feature=true, is_banger_idea=false): $FEATURE_COUNT (required: >= 3)"
+echo "  Banger idea (is_banger_idea=true): $BANGER_COUNT (required: = 1)"
+
+# BLOCKING CHECK
+if [ "$FEATURE_COUNT" -lt 3 ]; then
+  echo "BLOCKED: Missing feature ideas. Go back to Step 2.5 (Creative Ideation Phase)."
+  echo "You MUST generate at least 3 new feature ideas before proceeding."
+  # DO NOT PROCEED - return to Step 2.5
+fi
+
+if [ "$BANGER_COUNT" -ne 1 ]; then
+  echo "BLOCKED: Missing or multiple banger ideas. Go back to Step 2.5 (Creative Ideation Phase)."
+  echo "You MUST have exactly 1 banger idea before proceeding."
+  # DO NOT PROCEED - return to Step 2.5
+fi
+
+echo "PASSED: Proceeding to submission."
+```
+
+**If either check fails, you MUST return to Step 2.5 and re-run the feature-ideation agent. DO NOT skip this.**
+
+**Required counts:**
+
+| Item Type            | is_new_feature | is_banger_idea | Required Count   |
+| -------------------- | -------------- | -------------- | ---------------- |
+| Regular improvements | false          | false          | As many as found |
+| Feature ideas        | true           | false          | **>= 3**         |
+| Banger idea          | true           | true           | **Exactly 1**    |
+
 ### Step 6: Submit Results Directly to User's Supabase
 
 **Privacy Architecture:** Data is written DIRECTLY to the user's own Supabase database, never to the central server. The central server only validates the API key for identity.
@@ -569,7 +672,10 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   }'
 
 # Step 2: Insert backlog items with repository_id for multi-repo support
-# Note: repository_id enables filtering by repo in the dashboard
+# CRITICAL: EVERY item MUST include is_new_feature and is_banger_idea fields!
+# - Regular improvements: is_new_feature: false, is_banger_idea: false
+# - New features: is_new_feature: true, is_banger_idea: false
+# - The ONE banger idea: is_new_feature: true, is_banger_idea: true
 curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
@@ -588,6 +694,24 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
       "effort_score": 2,
       "complexity": 2,
       "benefits": [...],
+      "is_new_feature": false,
+      "is_banger_idea": false,
+      "status": "new"
+    },
+    {
+      "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+      "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
+      "title": "Real-Time Collaborative Editing",
+      "problem": "Users work in isolation...",
+      "solution": "Transform the app to multiplayer with real-time sync...",
+      "type": "backend",
+      "area": "backend",
+      "impact_score": 10,
+      "effort_score": 8,
+      "complexity": 4,
+      "benefits": [...],
+      "is_new_feature": true,
+      "is_banger_idea": true,
       "status": "new"
     }
   ]'
@@ -715,6 +839,16 @@ After analysis, provide a summary:
 **Items Validated**: [count] (after filtering false positives)
 **PRDs Generated**: [count] (MUST equal validated items count)
 
+### Feature & Banger Summary (MANDATORY)
+
+| Category             | Count   | Requirement | Status      |
+| -------------------- | ------- | ----------- | ----------- |
+| Feature Ideas        | [count] | >= 3        | [PASS/FAIL] |
+| Banger Idea          | [count] | = 1         | [PASS/FAIL] |
+| Regular Improvements | [count] | any         | PASS        |
+
+**Banger Idea**: [title of the ONE banger idea]
+
 ### Top Improvements by Priority
 
 | #   | Title | Type      | Impact | Effort | Priority |
@@ -828,9 +962,17 @@ Each improvement MUST include ALL of these fields:
       "title": "RELIABILITY",
       "description": "Helps users identify when refresh needed"
     }
-  ]
+  ],
+  "is_new_feature": false,
+  "is_banger_idea": false
 }
 ```
+
+**Feature Classification Rules:**
+
+- `is_new_feature: false` + `is_banger_idea: false` = Regular improvement (bug fix, performance, refactor)
+- `is_new_feature: true` + `is_banger_idea: false` = New feature capability
+- `is_new_feature: true` + `is_banger_idea: true` = The ONE banger idea per analysis
 
 ## False Positive Prevention
 
@@ -881,7 +1023,7 @@ Before creating ANY improvement:
 6. **Be specific** - Vague suggestions are not actionable
 7. **Include evidence** - Reference specific files/lines when possible
 8. **All 5 benefits required** - Every improvement must have all 5 benefit categories populated
-9. **Use new type values** - dashboard, discovery, auth, backend (not feature, fix, refactor)
+9. **Use new type values** - dashboard, discovery, auth, backend, feature (not fix, refactor)
 10. **Use new area values** - frontend, backend (not frontend-ux, api-backend, etc.)
 11. **Complexity is numeric** - Use 1-5 integer, not text
 12. **Avoid false positives** - Verify issues are real before flagging (see False Positive Prevention above)

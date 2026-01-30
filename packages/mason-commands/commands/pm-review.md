@@ -303,6 +303,42 @@ Explore the codebase systematically across these domains:
 | **code-quality** | Code duplication, complexity, naming, testing gaps, technical debt         |
 | **new-features** | New capabilities, integrations, automation opportunities, user-value ideas |
 
+### Step 2.5: Creative Ideation Phase (MANDATORY - SEPARATE FROM ISSUE-FINDING)
+
+**CRITICAL: This is a DIFFERENT mindset than issue-finding.**
+
+Issue-finding asks: "What's wrong?"
+Creative ideation asks: "What could be AMAZING?"
+
+After the issue-finding exploration completes, spawn the feature-ideation agent:
+
+**Use the Task tool:**
+
+```
+subagent_type: "general-purpose"
+prompt: |
+  Load and execute the feature-ideation agent from .claude/agents/feature-ideation.md.
+
+  Analyze this codebase with a PRODUCT VISIONARY mindset.
+
+  Return structured JSON with:
+  - app_understanding (intent, target_user, current_state, gaps)
+  - feature_ideas (3-5 items, each with is_new_feature: true, is_banger_idea: false)
+  - banger_idea (exactly 1 item with is_new_feature: true, is_banger_idea: true)
+
+  Focus on what would make users say 'wow' - NOT on bugs or code quality.
+  Think like a founder who deeply understands target users.
+```
+
+The output provides the raw material for the feature items submitted to the database.
+
+**IMPORTANT:** The feature-ideation agent runs SEPARATELY from issue-finding because:
+
+1. It requires a completely different mental model
+2. Bug-finding mindset suppresses creative thinking
+3. Features need user-centric evaluation, not code-centric
+4. The banger idea deserves dedicated focus
+
 ### Step 3: Score Each Improvement
 
 For each improvement identified, assign scores:
@@ -586,24 +622,48 @@ Filtered items logged to dashboard → Filtered tab for review.
 
 Continue to Step 6 with validated items only.
 
-### Pre-Submission Checklist (BLOCKING)
+### Pre-Submission Validation (ENFORCED)
 
-**STOP. Before proceeding to Step 6, verify ALL of the following:**
+**THIS IS A HARD STOP. Execute the following validation before proceeding:**
 
-- [ ] Generated at least **3 feature ideas** with `is_new_feature: true, is_banger_idea: false`
-- [ ] Generated exactly **1 banger idea** with `is_new_feature: true, is_banger_idea: true`
-- [ ] **ALL items** have both `is_new_feature` and `is_banger_idea` fields explicitly set
-- [ ] Regular improvements have `is_new_feature: false, is_banger_idea: false`
+Before submitting items, count and validate feature requirements:
 
-**If any checkbox is unchecked, GO BACK to Step 5.2 and 5.3. DO NOT PROCEED.**
+```bash
+# Count feature ideas and banger ideas in your prepared items
+# Parse your items JSON to extract counts
 
-Count your items:
+FEATURE_COUNT=<count items where is_new_feature=true AND is_banger_idea=false>
+BANGER_COUNT=<count items where is_banger_idea=true>
 
+echo "Pre-Submission Validation:"
+echo "  Feature ideas (is_new_feature=true, is_banger_idea=false): $FEATURE_COUNT (required: >= 3)"
+echo "  Banger idea (is_banger_idea=true): $BANGER_COUNT (required: = 1)"
+
+# BLOCKING CHECK
+if [ "$FEATURE_COUNT" -lt 3 ]; then
+  echo "BLOCKED: Missing feature ideas. Go back to Step 2.5 (Creative Ideation Phase)."
+  echo "You MUST generate at least 3 new feature ideas before proceeding."
+  # DO NOT PROCEED - return to Step 2.5
+fi
+
+if [ "$BANGER_COUNT" -ne 1 ]; then
+  echo "BLOCKED: Missing or multiple banger ideas. Go back to Step 2.5 (Creative Ideation Phase)."
+  echo "You MUST have exactly 1 banger idea before proceeding."
+  # DO NOT PROCEED - return to Step 2.5
+fi
+
+echo "PASSED: Proceeding to submission."
 ```
-Feature ideas (is_new_feature=true, is_banger_idea=false): ___  (must be >= 3)
-Banger idea (is_new_feature=true, is_banger_idea=true): ___    (must be = 1)
-Regular improvements (is_new_feature=false): ___
-```
+
+**If either check fails, you MUST return to Step 2.5 and re-run the feature-ideation agent. DO NOT skip this.**
+
+**Required counts:**
+
+| Item Type            | is_new_feature | is_banger_idea | Required Count   |
+| -------------------- | -------------- | -------------- | ---------------- |
+| Regular improvements | false          | false          | As many as found |
+| Feature ideas        | true           | false          | **>= 3**         |
+| Banger idea          | true           | true           | **Exactly 1**    |
 
 ### Step 6: Submit Results Directly to User's Supabase
 
