@@ -1,5 +1,4 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import {
@@ -12,6 +11,15 @@ import {
   formatValidationErrors,
   CommonSchemas,
 } from '@/lib/api/validation';
+import {
+  apiSuccess,
+  unauthorized,
+  badRequest,
+  notFound,
+  serverError,
+  ErrorCodes,
+  apiError,
+} from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import {
   formatDatabaseError,
@@ -27,7 +35,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     const supabase = createServiceClient();
@@ -48,24 +56,22 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error(formatDatabaseError('fetch repositories', error));
-      return NextResponse.json(
-        { error: getUserFriendlyDatabaseError('fetch repositories', error) },
-        { status: 500 },
+      return apiError(
+        ErrorCodes.DATABASE_ERROR,
+        getUserFriendlyDatabaseError('fetch repositories', error),
+        500,
       );
     }
 
     const meta = createPaginationMeta(limit, offset, repos?.length ?? 0);
 
-    return NextResponse.json({
+    return apiSuccess({
       repositories: repos as GitHubRepository[],
       pagination: meta,
     });
   } catch (error) {
     console.error('Error fetching repositories:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }
 
@@ -76,24 +82,18 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     const body = await request.json();
     const { owner, name, githubToken } = body;
 
     if (!owner || !name) {
-      return NextResponse.json(
-        { error: 'Missing owner or name' },
-        { status: 400 },
-      );
+      return badRequest('Missing owner or name');
     }
 
     if (!githubToken) {
-      return NextResponse.json(
-        { error: 'Missing GitHub token' },
-        { status: 400 },
-      );
+      return badRequest('Missing GitHub token');
     }
 
     // Use token from client request (stored in their localStorage)
@@ -130,27 +130,22 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error(formatDatabaseError('save repository', error));
-      return NextResponse.json(
-        { error: getUserFriendlyDatabaseError('connect repository', error) },
-        { status: 500 },
+      return apiError(
+        ErrorCodes.DATABASE_ERROR,
+        getUserFriendlyDatabaseError('connect repository', error),
+        500,
       );
     }
 
-    return NextResponse.json({ repository: savedRepo as GitHubRepository });
+    return apiSuccess({ repository: savedRepo as GitHubRepository });
   } catch (error) {
     console.error('Error connecting repository:', error);
 
     if ((error as { status?: number }).status === 404) {
-      return NextResponse.json(
-        { error: 'Repository not found or no access' },
-        { status: 404 },
-      );
+      return notFound('Repository not found or no access');
     }
 
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }
 
@@ -160,7 +155,7 @@ export async function DELETE(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     const { searchParams } = new URL(request.url);
@@ -171,10 +166,7 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (!validation.success) {
-      return NextResponse.json(
-        { error: formatValidationErrors(validation.errors) },
-        { status: 400 },
-      );
+      return badRequest(formatValidationErrors(validation.errors));
     }
 
     const { id: repositoryId } = validation.data;
@@ -189,20 +181,16 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       console.error(formatDatabaseError('disconnect repository', error));
-      return NextResponse.json(
-        {
-          error: getUserFriendlyDatabaseError('disconnect repository', error),
-        },
-        { status: 500 },
+      return apiError(
+        ErrorCodes.DATABASE_ERROR,
+        getUserFriendlyDatabaseError('disconnect repository', error),
+        500,
       );
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ disconnected: true });
   } catch (error) {
     console.error('Error disconnecting repository:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }
