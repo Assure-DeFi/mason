@@ -374,7 +374,7 @@ async function setupUserAndRepository(
   const { data: existingRepo } = await supabase
     .from('mason_github_repositories')
     .select('id')
-    .eq('full_name', userInfo.repoName)
+    .eq('github_full_name', userInfo.repoName)
     .eq('user_id', userId)
     .single();
 
@@ -383,15 +383,19 @@ async function setupUserAndRepository(
     console.log('Found existing repository registration.');
   } else {
     console.log('Registering repository...');
+    const [owner, repoName] = userInfo.repoName.split('/');
     const { data: newRepo, error: repoError } = await supabase
       .from('mason_github_repositories')
       .insert({
         user_id: userId,
-        github_id: Date.now(), // Placeholder - real GitHub ID would come from OAuth
-        name: userInfo.repoName.split('/')[1],
-        full_name: userInfo.repoName,
-        private: true,
-        default_branch: 'main',
+        github_repo_id: Date.now(), // Placeholder - real GitHub ID would come from OAuth
+        github_owner: owner,
+        github_name: repoName,
+        github_full_name: userInfo.repoName,
+        github_default_branch: 'main',
+        github_private: true,
+        github_clone_url: `https://github.com/${userInfo.repoName}.git`,
+        github_html_url: `https://github.com/${userInfo.repoName}`,
       })
       .select('id')
       .single();
