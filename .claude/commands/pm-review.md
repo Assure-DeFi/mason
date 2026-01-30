@@ -8,9 +8,11 @@ This command performs a comprehensive analysis of the codebase to identify impro
 
 ## Modes
 
-- `full` (default): Generate 10-20 improvements with PRDs for all items
+- `full` (default): Discover ALL improvements, validate each, generate PRD for EVERY validated item
 - `area:<name>`: Focus on specific area (frontend-ux, api-backend, reliability, security, code-quality)
-- `quick`: Generate 5-7 quick wins only (low effort, high impact)
+- `quick`: Focus on quick wins only (low effort, high impact) - still requires PRD for each
+
+**CRITICAL: Every item that enters the database MUST have a PRD. No exceptions.**
 
 Usage: `/pm-review [mode]`
 
@@ -537,9 +539,20 @@ Data stored in: YOUR Supabase (not central server)
 View in Dashboard: https://mason.assuredefi.com/admin/backlog
 ```
 
-### Step 7: Generate PRDs (All Items, All Modes)
+### Step 7: Generate PRDs (MANDATORY - ALL Items)
 
-For EVERY backlog item generated, create a detailed PRD. This ensures all items arrive in the dashboard complete and ready for approval.
+**BLOCKING REQUIREMENT: You MUST generate a PRD for EVERY validated item before submission.**
+
+This is NOT optional. The process is:
+
+1. Discover improvements (as many as are real problems)
+2. Validate each improvement (filter false positives)
+3. Generate a PRD for EACH validated item (no limit on count)
+4. Submit ALL items with their PRDs to the database
+
+**If you have 15 validated improvements, you generate 15 PRDs. If you have 25, you generate 25. There is NO cap.**
+
+An item without a PRD is incomplete and MUST NOT be submitted to the database.
 
 **PRD Structure:**
 
@@ -633,8 +646,9 @@ After analysis, provide a summary:
 ## PM Review Complete
 
 **Mode**: [full/area:X/quick]
-**Items Found**: [count]
-**PRDs Generated**: [count] (all items)
+**Items Discovered**: [count]
+**Items Validated**: [count] (after filtering false positives)
+**PRDs Generated**: [count] (MUST equal validated items count)
 
 ### Top Improvements by Priority
 
@@ -794,13 +808,15 @@ Before creating ANY improvement:
 
 ## Important Notes
 
-1. **Be thorough but realistic** - Only suggest improvements that provide clear value
-2. **Consider existing patterns** - Align suggestions with codebase conventions
-3. **Prioritize ruthlessly** - Focus on high-impact, low-effort items first
-4. **Be specific** - Vague suggestions are not actionable
-5. **Include evidence** - Reference specific files/lines when possible
-6. **All 5 benefits required** - Every improvement must have all 5 benefit categories populated
-7. **Use new type values** - dashboard, discovery, auth, backend (not feature, fix, refactor)
-8. **Use new area values** - frontend, backend (not frontend-ux, api-backend, etc.)
-9. **Complexity is numeric** - Use 1-5 integer, not text
-10. **Avoid false positives** - Verify issues are real before flagging (see False Positive Prevention above)
+1. **MANDATORY: PRD for every item** - No item enters the database without a complete PRD. Period.
+2. **No artificial limits** - If you find 20 valid improvements, generate 20 PRDs. If 30, generate 30.
+3. **Be thorough but realistic** - Only suggest improvements that provide clear value
+4. **Consider existing patterns** - Align suggestions with codebase conventions
+5. **Prioritize ruthlessly** - Focus on high-impact, low-effort items first
+6. **Be specific** - Vague suggestions are not actionable
+7. **Include evidence** - Reference specific files/lines when possible
+8. **All 5 benefits required** - Every improvement must have all 5 benefit categories populated
+9. **Use new type values** - dashboard, discovery, auth, backend (not feature, fix, refactor)
+10. **Use new area values** - frontend, backend (not frontend-ux, api-backend, etc.)
+11. **Complexity is numeric** - Use 1-5 integer, not text
+12. **Avoid false positives** - Verify issues are real before flagging (see False Positive Prevention above)
