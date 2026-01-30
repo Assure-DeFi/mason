@@ -163,10 +163,18 @@ export default function BacklogPage() {
     }
   }, [isLoading, items.length]);
 
-  // Calculate counts for stats bar
+  // Filter items by selected repository first
+  const repoFilteredItems = useMemo(() => {
+    if (!selectedRepoId) {
+      return items;
+    }
+    return items.filter((item) => item.repository_id === selectedRepoId);
+  }, [items, selectedRepoId]);
+
+  // Calculate counts for stats bar (based on repo-filtered items)
   const counts: StatusCounts = useMemo(() => {
     const result: StatusCounts = {
-      total: items.length,
+      total: repoFilteredItems.length,
       new: 0,
       approved: 0,
       in_progress: 0,
@@ -175,31 +183,31 @@ export default function BacklogPage() {
       rejected: 0,
     };
 
-    items.forEach((item) => {
+    repoFilteredItems.forEach((item) => {
       result[item.status]++;
     });
 
     return result;
-  }, [items]);
+  }, [repoFilteredItems]);
 
-  // Filter items by active status
+  // Filter items by active status (on top of repo filter)
   const filteredItems = useMemo(() => {
     if (!activeStatus) {
-      return items;
+      return repoFilteredItems;
     }
-    return items.filter((item) => item.status === activeStatus);
-  }, [items, activeStatus]);
+    return repoFilteredItems.filter((item) => item.status === activeStatus);
+  }, [repoFilteredItems, activeStatus]);
 
-  // Get approved item IDs for execute button
+  // Get approved item IDs for execute button (from repo-filtered items)
   const approvedItemIds = useMemo(() => {
-    return items
+    return repoFilteredItems
       .filter((item) => item.status === 'approved')
       .map((item) => item.id);
-  }, [items]);
+  }, [repoFilteredItems]);
 
-  // Determine the contextual next step
+  // Determine the contextual next step (based on repo-filtered items)
   const nextStepContext = useMemo(() => {
-    if (items.length === 0) {
+    if (repoFilteredItems.length === 0) {
       return 'empty-backlog';
     }
     if (counts.approved > 0) {
