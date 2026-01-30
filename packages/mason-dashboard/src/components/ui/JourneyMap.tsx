@@ -45,27 +45,27 @@ function determineCurrentStep(counts: StatusCounts): JourneyStep {
 const STEPS = [
   {
     id: 'analyze' as const,
-    label: 'CLI: Analyze',
+    label: 'Find Ideas',
     icon: Terminal,
-    description: 'Run /pm-review',
+    description: 'Let Mason explore',
   },
   {
     id: 'review' as const,
-    label: 'Dashboard: Review',
+    label: 'Pick Favorites',
     icon: Eye,
-    description: 'Approve items',
+    description: 'Approve the good ones',
   },
   {
     id: 'execute' as const,
-    label: 'CLI: Execute',
+    label: 'Build It',
     icon: Play,
-    description: 'Run /execute-approved',
+    description: 'Let Mason build',
   },
   {
     id: 'done' as const,
-    label: 'Done',
+    label: 'Shipped',
     icon: Check,
-    description: 'Implementation complete',
+    description: 'Nice work!',
   },
 ];
 

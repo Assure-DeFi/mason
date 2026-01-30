@@ -1,15 +1,9 @@
 'use client';
 
-import {
-  HelpCircle,
-  ChevronDown,
-  ChevronUp,
-  Terminal,
-  Sparkles,
-} from 'lucide-react';
+import { HelpCircle, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 import { useState } from 'react';
 
-import { MasonTagline } from '@/components/brand';
+import { MasonAvatar, MasonTagline } from '@/components/brand';
 import { ClaudeCodeExplainer } from '@/components/ui/ClaudeCodeExplainer';
 import { CopyCommand } from '@/components/ui/CopyCommand';
 
@@ -23,9 +17,9 @@ export function EmptyStateOnboarding({ onRefresh }: EmptyStateOnboardingProps) {
 
   return (
     <div className="mason-entrance flex flex-col items-center justify-center py-16 px-4">
-      {/* Mason Icon */}
-      <div className="mb-8 flex items-center justify-center w-20 h-20 rounded-full bg-gold/20">
-        <Sparkles className="w-10 h-10 text-gold" />
+      {/* Mason Avatar */}
+      <div className="mb-8">
+        <MasonAvatar size="lg" variant="minimal" />
       </div>
 
       {/* Heading */}

@@ -17,40 +17,36 @@ interface NextStepBannerProps {
 
 const BANNER_CONFIG = {
   'post-setup': {
-    title: 'Setup complete!',
-    message: 'Open your terminal and paste the install command to get started.',
+    title: 'All set!',
+    message: 'Paste the install command into your terminal to get started.',
     cta: null,
     dismissible: true,
     storageKey: 'mason_dismissed_post_setup',
   },
   'empty-backlog': {
-    title: 'Ready to find improvements?',
-    message:
-      'Run /pm-review in Claude Code to analyze your codebase and discover improvements.',
+    title: 'The workshop is quiet...',
+    message: 'Run /pm-review and let Mason scout for ideas.',
     cta: '/pm-review',
     dismissible: false,
     storageKey: null,
   },
   'has-new-items': {
-    title: 'New items to review!',
-    message:
-      'Review items and click Approve on the ones you want to implement.',
+    title: 'Mason found some gems!',
+    message: 'Take a look and approve the ones you want to build.',
     cta: null,
     dismissible: true,
     storageKey: 'mason_dismissed_review_prompt',
   },
   'has-approved': {
-    title: 'Ready to implement!',
-    message:
-      'You have approved items ready. Run /execute-approved to implement them.',
+    title: 'Ready to build!',
+    message: 'Run /execute-approved and watch Mason work.',
     cta: '/execute-approved',
     dismissible: true,
     storageKey: 'mason_dismissed_execute_prompt',
   },
   'all-complete': {
-    title: 'Great progress!',
-    message:
-      'All items are handled. Run /pm-review again to find more improvements.',
+    title: 'Nice work, everything shipped!',
+    message: 'Run /pm-review again to find the next batch.',
     cta: '/pm-review',
     dismissible: true,
     storageKey: 'mason_dismissed_complete_prompt',
