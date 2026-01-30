@@ -32,6 +32,7 @@ export function UnifiedExecuteButton({
   const [copyError, setCopyError] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
   const [showClaudeCodeExplainer, setShowClaudeCodeExplainer] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   const command = `/execute-approved --ids ${itemIds.join(',')}`;
 
@@ -40,10 +41,12 @@ export function UnifiedExecuteButton({
       await navigator.clipboard.writeText(command);
       setCopied(true);
       setCopyError(false);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2500);
       setTimeout(() => {
         setCopied(false);
         setShowModal(false);
-      }, 1500);
+      }, 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
       setCopyError(true);
@@ -231,6 +234,16 @@ export function UnifiedExecuteButton({
         isOpen={showClaudeCodeExplainer}
         onClose={() => setShowClaudeCodeExplainer(false)}
       />
+
+      {/* Toast notification */}
+      {showToast && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-green-600 text-white text-sm shadow-lg rounded-lg">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4" />
+            Command copied to clipboard
+          </div>
+        </div>
+      )}
     </>
   );
 }
