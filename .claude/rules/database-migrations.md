@@ -7,6 +7,7 @@ These rules apply to ALL changes to the Mason database schema and migrations.
 ### 1. NEVER Delete User Data
 
 **Absolutely prohibited in migrations:**
+
 - `DROP TABLE` statements
 - `DELETE FROM` statements
 - `TRUNCATE` statements
@@ -14,6 +15,7 @@ These rules apply to ALL changes to the Mason database schema and migrations.
 - Any operation that could cause data loss
 
 **If schema changes require data migration:**
+
 1. Add new columns/tables first
 2. Migrate data in application code
 3. Only remove old structures after confirming migration success
@@ -40,9 +42,44 @@ END $$;
 
 The migration SQL in `/api/setup/migrations/route.ts` MUST include ALL tables used by the codebase.
 
+### 4. NEVER Hardcode Table Names in Application Code
+
+**All Supabase queries MUST use the `TABLES` constant from `@/lib/constants.ts`.**
+
+```typescript
+// WRONG - hardcoded table names cause silent failures
+const { data } = await client.from('users').select('*');
+const { data } = await client.from('pm_backlog_items').select('*');
+
+// CORRECT - always import and use TABLES constant
+import { TABLES } from '@/lib/constants';
+
+const { data } = await client.from(TABLES.USERS).select('*');
+const { data } = await client.from(TABLES.PM_BACKLOG_ITEMS).select('*');
+```
+
+**Why this matters:**
+
+- All Mason tables are prefixed with `mason_` (e.g., `mason_users`, not `users`)
+- Hardcoded strings like `'users'` query non-existent tables and return empty results
+- This causes silent failures where existing users see empty states
+- Using the constant ensures the correct `mason_` prefix is always applied
+
+**Before committing any Supabase query code:**
+
+```bash
+# Find any hardcoded table names (these are BUGS)
+grep -r "\.from(['\"][^m]" packages/mason-dashboard/src --include="*.ts" --include="*.tsx"
+grep -r "\.from(['\"]m[^a]" packages/mason-dashboard/src --include="*.ts" --include="*.tsx"
+
+# Verify all queries use TABLES constant
+grep -r "\.from(TABLES\." packages/mason-dashboard/src
+```
+
 ## Migration File Location
 
 **Single Source of Truth:**
+
 ```
 packages/mason-dashboard/src/app/api/setup/migrations/route.ts
 ```
@@ -53,25 +90,26 @@ The `MIGRATION_SQL` constant in this file is what runs when users click "Update 
 
 When modifying migrations, ensure ALL of these tables are included:
 
-| Table | Purpose | Required |
-|-------|---------|----------|
-| `mason_users` | User accounts | ✓ |
-| `mason_api_keys` | CLI authentication | ✓ |
-| `mason_github_repositories` | Connected repos | ✓ |
-| `mason_pm_analysis_runs` | PM review tracking | ✓ |
-| `mason_pm_backlog_items` | Backlog items | ✓ |
-| `mason_pm_filtered_items` | Filtered items | ✓ |
-| `mason_pm_execution_runs` | Execution tracking | ✓ |
-| `mason_pm_execution_tasks` | Execution tasks | ✓ |
-| `mason_remote_execution_runs` | Remote execution | ✓ |
-| `mason_execution_logs` | Execution logs | ✓ |
-| `mason_ai_provider_keys` | AI provider keys | ✓ |
+| Table                         | Purpose            | Required |
+| ----------------------------- | ------------------ | -------- |
+| `mason_users`                 | User accounts      | ✓        |
+| `mason_api_keys`              | CLI authentication | ✓        |
+| `mason_github_repositories`   | Connected repos    | ✓        |
+| `mason_pm_analysis_runs`      | PM review tracking | ✓        |
+| `mason_pm_backlog_items`      | Backlog items      | ✓        |
+| `mason_pm_filtered_items`     | Filtered items     | ✓        |
+| `mason_pm_execution_runs`     | Execution tracking | ✓        |
+| `mason_pm_execution_tasks`    | Execution tasks    | ✓        |
+| `mason_remote_execution_runs` | Remote execution   | ✓        |
+| `mason_execution_logs`        | Execution logs     | ✓        |
+| `mason_ai_provider_keys`      | AI provider keys   | ✓        |
 
 ## Audit Process
 
 **Before ANY code change that touches database tables:**
 
 1. Search codebase for table references:
+
    ```bash
    grep -r "\.from\(['\"]mason_" packages/mason-dashboard/src
    grep -r "TABLES\." packages/mason-dashboard/src
@@ -122,6 +160,7 @@ END $$;
 When adding a new table to the codebase:
 
 1. **Add to constants** (`/lib/constants.ts`):
+
    ```typescript
    export const TABLES = {
      // ... existing
@@ -130,6 +169,7 @@ When adding a new table to the codebase:
    ```
 
 2. **Add to migrations** (`/api/setup/migrations/route.ts`):
+
    ```sql
    -- Add table definition
    CREATE TABLE IF NOT EXISTS mason_new_table (...);
@@ -153,11 +193,13 @@ When adding a new table to the codebase:
 ## Column Modifications
 
 **Adding columns:**
+
 ```sql
 ALTER TABLE table_name ADD COLUMN IF NOT EXISTS new_column TYPE DEFAULT value;
 ```
 
 **Changing column types (DANGEROUS):**
+
 - Create new column with new type
 - Migrate data in application
 - Keep old column for backwards compatibility
