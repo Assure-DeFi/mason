@@ -271,6 +271,10 @@ ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS user_id UUID REFEREN
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
 ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
 
+-- Add idempotency_key column for request deduplication
+ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_expires_at TIMESTAMPTZ;
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_user_id ON mason_api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_key_hash ON mason_api_keys(key_hash);
@@ -280,6 +284,7 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_status ON mason_pm_backlog
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_repository_id ON mason_pm_backlog_items(repository_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_analysis_runs_user_id ON mason_pm_analysis_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_remote_execution_runs_user_id ON mason_remote_execution_runs(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_remote_execution_runs_idempotency ON mason_remote_execution_runs(idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_execution_run_id ON mason_execution_logs(execution_run_id);
 CREATE INDEX IF NOT EXISTS idx_mason_ai_provider_keys_user_id ON mason_ai_provider_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_filtered_items_repository_id ON mason_pm_filtered_items(repository_id);
