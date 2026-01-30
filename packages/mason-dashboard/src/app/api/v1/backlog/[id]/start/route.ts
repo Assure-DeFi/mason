@@ -73,11 +73,13 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const supabase = createServiceClient();
 
-    // First, verify the item exists and is in 'approved' status
+    // First, verify the item exists, belongs to this user, and is in 'approved' status
+    // SECURITY: Always filter by user_id to ensure data isolation
     const { data: existingItem, error: fetchError } = await supabase
       .from('mason_pm_backlog_items')
       .select('id, status, title')
       .eq('id', itemId)
+      .eq('user_id', user.id)
       .single();
 
     if (fetchError || !existingItem) {
@@ -99,6 +101,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Update the item to in_progress
+    // SECURITY: Include user_id in update filter
     const { data: updatedItem, error: updateError } = await supabase
       .from('mason_pm_backlog_items')
       .update({
@@ -107,6 +110,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', itemId)
+      .eq('user_id', user.id)
       .select()
       .single();
 
