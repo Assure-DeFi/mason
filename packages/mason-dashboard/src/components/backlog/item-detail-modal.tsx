@@ -14,24 +14,26 @@ import { PriorityDots } from './priority-dots';
 import { QuickWinBadge } from './QuickWinBadge';
 import { TypeBadge } from './type-badge';
 
+export type ViewMode = 'details' | 'prd' | 'timeline';
+
 interface ItemDetailModalProps {
   item: BacklogItem;
   onClose: () => void;
   onUpdateStatus: (id: string, status: BacklogStatus) => Promise<void>;
   onGeneratePrd: (id: string) => Promise<void>;
+  initialViewMode?: ViewMode;
 }
-
-type ViewMode = 'details' | 'prd' | 'timeline';
 
 export function ItemDetailModal({
   item,
   onClose,
   onUpdateStatus,
   onGeneratePrd,
+  initialViewMode = 'details',
 }: ItemDetailModalProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('details');
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 

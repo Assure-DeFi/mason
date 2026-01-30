@@ -9,6 +9,7 @@ import { UserMenu } from '@/components/auth/user-menu';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
+import { GenerateIdeasModal } from '@/components/backlog/generate-ideas-modal';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import {
   ItemDetailModal,
@@ -17,7 +18,6 @@ import {
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
-import { GenerateIdeasModal } from '@/components/backlog/generate-ideas-modal';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { JourneyMap } from '@/components/ui/JourneyMap';

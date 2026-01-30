@@ -84,3 +84,30 @@ description: Brief description of what this command does.
 **Why**: Items without PRDs cannot be executed properly. The full PRD enables wave-based parallel execution and provides context for the implementation agent.
 
 ---
+
+## Skill Instructions: One-Time Setup Must Be Explicit
+
+**Discovered**: 2026-01-30
+**Context**: /pm-review asked user same questions repeatedly despite answers being saved
+**Pattern**: When a skill has one-time initialization, make it EXTREMELY explicit with: (1) A prominent note at the top "This runs ONCE", (2) A bash script showing the check logic, (3) Bold "SKIP TO STEP X" instructions, (4) "END OF ONE-TIME INITIALIZATION" marker after the section
+**Why**: Agents follow instructions literally - ambiguous "if needed" phrasing gets re-evaluated every run. Explicit skip logic prevents repeated prompts.
+
+---
+
+## Real-Time Dashboard: Write Progress Records for Visualization
+
+**Discovered**: 2026-01-30
+**Context**: BuildingTheater was wired up but never showed animations - it subscribed to execution_progress table but nothing wrote to it
+**Pattern**: When building real-time visualizations, ensure BOTH sides are implemented: (1) Dashboard subscribes to table changes, (2) CLI/engine WRITES to that table. The visualization is useless if no data flows into it.
+**Why**: It's easy to build the display side and forget the data side. Always trace the full data flow from source → table → subscription → UI.
+
+---
+
+## Cross-Repo Features: Don't Filter by Selected Repository
+
+**Discovered**: 2026-01-30
+**Context**: BuildingTheater needed to auto-appear when ANY connected repo starts executing, not just the currently selected one
+**Pattern**: For features that should work across all repos (execution monitoring, notifications), subscribe WITHOUT repository_id filter. Only filter by repo when showing repo-specific data lists.
+**Why**: Users may be viewing Repo A in dashboard while executing Repo B from CLI - the notification/visualization should still appear.
+
+---
