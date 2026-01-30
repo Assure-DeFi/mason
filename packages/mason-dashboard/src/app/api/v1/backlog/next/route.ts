@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
+import { TABLES } from '@/lib/constants';
 import { createServiceClient } from '@/lib/supabase/client';
 
 /**
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
     // Build query for approved items ordered by priority
     // SECURITY: Always filter by user_id to ensure data isolation
     let query = supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .select(
         `
         id,

@@ -25,7 +25,7 @@ async function getUserDatabaseClient(githubId: string) {
   const centralClient = createServiceClient();
 
   const { data: user, error } = await centralClient
-    .from('mason_users')
+    .from(TABLES.USERS)
     .select('supabase_url, supabase_anon_key')
     .eq('github_id', githubId)
     .single();
@@ -76,7 +76,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Fetch the item
     const { data: item, error: fetchError } = await supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .select('*')
       .eq('id', id)
       .single();
@@ -126,7 +126,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Update the item with PRD content
     const { data: updated, error: updateError } = await supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .update({
         prd_content: prdContent,
         prd_generated_at: new Date().toISOString(),

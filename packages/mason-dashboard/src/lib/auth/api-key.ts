@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 
+import { TABLES } from '@/lib/constants';
 import { createServiceClient } from '@/lib/supabase/client';
 import type { User } from '@/types/auth';
 
@@ -104,7 +105,7 @@ export async function validateApiKey(key: string): Promise<User | null> {
 
   // Use JOIN to fetch api_key and user in a single query
   const { data: joined, error: joinError } = await supabase
-    .from('mason_api_keys')
+    .from(TABLES.API_KEYS)
     .select(
       `
       id,
@@ -162,7 +163,7 @@ export async function validateApiKey(key: string): Promise<User | null> {
 
   // Update last_used_at asynchronously (fire and forget - don't block validation)
   void supabase
-    .from('mason_api_keys')
+    .from(TABLES.API_KEYS)
     .update({ last_used_at: new Date().toISOString() })
     .eq('id', joined.id)
     .then(() => {
@@ -214,7 +215,7 @@ export async function listApiKeys(userId: string): Promise<ApiKeyInfo[]> {
   const supabase = createServiceClient();
 
   const { data, error } = await supabase
-    .from('mason_api_keys')
+    .from(TABLES.API_KEYS)
     .select('id, name, key_prefix, created_at, last_used_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
@@ -239,7 +240,7 @@ export async function createApiKey(
   const supabase = createServiceClient();
 
   const { data, error } = await supabase
-    .from('mason_api_keys')
+    .from(TABLES.API_KEYS)
     .insert({
       user_id: userId,
       name,
@@ -274,7 +275,7 @@ export async function deleteApiKey(
 
   // First verify the key exists AND belongs to this user
   const { data: existingKey, error: fetchError } = await supabase
-    .from('mason_api_keys')
+    .from(TABLES.API_KEYS)
     .select('id')
     .eq('id', keyId)
     .eq('user_id', userId)
@@ -287,7 +288,7 @@ export async function deleteApiKey(
 
   // Now safe to delete - we've verified ownership
   const { error: deleteError } = await supabase
-    .from('mason_api_keys')
+    .from(TABLES.API_KEYS)
     .delete()
     .eq('id', keyId)
     .eq('user_id', userId);

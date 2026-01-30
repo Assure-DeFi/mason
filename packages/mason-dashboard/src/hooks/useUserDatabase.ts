@@ -14,6 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+import { TABLES } from '@/lib/constants';
 import { getSupabase } from '@/lib/supabase/client';
 import {
   type MasonConfig,
@@ -208,7 +209,7 @@ export function useUserDatabase(): UseUserDatabaseReturn {
       try {
         const centralClient = getSupabase();
         const { data: userData, error } = await centralClient
-          .from('mason_users')
+          .from(TABLES.USERS)
           .select('supabase_url, supabase_anon_key')
           .eq('github_id', session.user.github_id)
           .single();

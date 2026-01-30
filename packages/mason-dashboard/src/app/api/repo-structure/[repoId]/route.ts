@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth/auth-options';
+import { TABLES } from '@/lib/constants';
 import { createGitHubClient } from '@/lib/github/client';
 import { createServiceClient } from '@/lib/supabase/client';
 
@@ -89,7 +90,7 @@ export async function GET(
 
     // Get repository details
     const { data: repo, error: repoError } = await supabase
-      .from('mason_github_repositories')
+      .from(TABLES.GITHUB_REPOSITORIES)
       .select('*')
       .eq('id', repoId)
       .eq('user_id', session.user.id)

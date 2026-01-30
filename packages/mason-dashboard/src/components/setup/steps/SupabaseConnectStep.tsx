@@ -14,6 +14,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { TABLES } from '@/lib/constants';
 import {
   listProjects,
   checkMasonTablesExist,
@@ -310,7 +311,7 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
         throw new Error('Database client not available');
       }
 
-      const { error } = await client.from('mason_users').select('id').limit(1);
+      const { error } = await client.from(TABLES.USERS).select('id').limit(1);
 
       if (error) {
         throw error;

@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { TABLES } from '@/lib/constants';
 import type { FilteredItem, FilterTier } from '@/types/backlog';
 
 interface FilteredItemsTabProps {
@@ -41,7 +42,7 @@ export function FilteredItemsTab({
 
     try {
       let query = client
-        .from('mason_pm_filtered_items')
+        .from(TABLES.PM_FILTERED_ITEMS)
         .select('*')
         .eq('override_status', 'filtered');
 

@@ -183,7 +183,9 @@ export function DeleteAccountModal({
   }> => {
     try {
       const response = await fetch('/api/account/delete', {
-        method: 'DELETE',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation: CONFIRMATION_PHRASE }),
       });
 
       if (!response.ok) {

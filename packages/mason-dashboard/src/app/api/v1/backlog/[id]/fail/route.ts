@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
+import { TABLES } from '@/lib/constants';
 import { createServiceClient } from '@/lib/supabase/client';
 
 interface RouteParams {
@@ -87,7 +88,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Atomic update: include status check in WHERE clause to prevent race conditions
     // SECURITY: Always filter by user_id to ensure data isolation
     const { data: updatedItem, error: updateError } = await supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .update(updateData)
       .eq('id', itemId)
       .eq('user_id', user.id)
@@ -99,7 +100,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (updateError || !updatedItem) {
       // Fetch current status to provide helpful error
       const { data: currentItem } = await supabase
-        .from('mason_pm_backlog_items')
+        .from(TABLES.PM_BACKLOG_ITEMS)
         .select('status')
         .eq('id', itemId)
         .eq('user_id', user.id)

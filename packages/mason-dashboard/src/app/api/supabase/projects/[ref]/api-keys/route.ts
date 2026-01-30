@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { validateProjectRef } from '@/lib/validation/supabase';
+
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
 
 async function fetchWithTimeout(
@@ -35,6 +37,12 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const { ref: projectRef } = await params;
   const authHeader = request.headers.get('Authorization');
+
+  // Validate projectRef format to prevent enumeration/misuse
+  const refError = validateProjectRef(projectRef);
+  if (refError) {
+    return NextResponse.json({ error: refError }, { status: 400 });
+  }
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return NextResponse.json(

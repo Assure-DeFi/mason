@@ -18,6 +18,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { MasonTagline } from '@/components/brand';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { TABLES } from '@/lib/constants';
 import { saveMasonConfig, getMasonConfig } from '@/lib/supabase/user-client';
 
 import type { WizardStepProps } from '../SetupWizard';
@@ -70,7 +71,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
 
     try {
       const { data: userData } = await client
-        .from('mason_users')
+        .from(TABLES.USERS)
         .select('id')
         .eq('github_id', session.user.github_id)
         .single();
@@ -96,7 +97,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
         .join('');
 
       const { error: insertError } = await client
-        .from('mason_api_keys')
+        .from(TABLES.API_KEYS)
         .insert({
           user_id: userData.id,
           name: 'Setup Wizard',

@@ -4,6 +4,11 @@ import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth/auth-options';
 import { executeRemotely } from '@/lib/execution/engine';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import { executionStartSchema, validateRequest } from '@/lib/schemas';
 
 // POST /api/execution/start - Start remote execution
@@ -15,6 +20,13 @@ export async function POST(request: NextRequest) {
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Rate limit: 10 executions per hour per user (AI-heavy operation)
+    const rateLimitId = getRateLimitIdentifier('execution', session.user.id);
+    const rateLimitResult = await checkRateLimit(rateLimitId, 'aiHeavy');
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     // Extract idempotency key from header (optional - for request deduplication)

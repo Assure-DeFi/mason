@@ -1,6 +1,7 @@
 import { type NextAuthOptions } from 'next-auth';
 import GitHubProvider from 'next-auth/providers/github';
 
+import { TABLES } from '@/lib/constants';
 import { createServiceClient } from '@/lib/supabase/client';
 import type { SessionUser } from '@/types/auth';
 
@@ -74,7 +75,7 @@ export const authOptions: NextAuthOptions = {
 
         // Upsert user in database (identity only - NO access token stored)
         // Privacy: GitHub access token is stored client-side only
-        const { error } = await supabase.from('mason_users').upsert(
+        const { error } = await supabase.from(TABLES.USERS).upsert(
           {
             github_id: githubId,
             github_username: githubUsername,
@@ -109,7 +110,7 @@ export const authOptions: NextAuthOptions = {
 
         // Fetch user from database to get the UUID
         const { data: dbUser } = await supabase
-          .from('mason_users')
+          .from(TABLES.USERS)
           .select('*')
           .eq('github_id', githubId)
           .single();

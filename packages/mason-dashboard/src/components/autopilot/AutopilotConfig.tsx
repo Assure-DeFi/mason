@@ -153,10 +153,11 @@ function getFrequencyDescription(freq: FrequencyConfig): string {
       return `Every ${freq.interval} hour${freq.interval > 1 ? 's' : ''}`;
     case 'daily':
       return `Daily at ${freq.timeHour.toString().padStart(2, '0')}:00`;
-    case 'weekly':
+    case 'weekly': {
       const day =
         DAYS_OF_WEEK.find((d) => d.value === freq.dayOfWeek)?.label || 'Monday';
       return `Every ${day} at ${freq.timeHour.toString().padStart(2, '0')}:00`;
+    }
     default:
       return 'Unknown schedule';
   }

@@ -21,6 +21,7 @@ import {
   apiError,
 } from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
+import { TABLES } from '@/lib/constants';
 import {
   formatDatabaseError,
   getUserFriendlyDatabaseError,
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     );
 
     const { data: repos, error } = await supabase
-      .from('mason_github_repositories')
+      .from(TABLES.GITHUB_REPOSITORIES)
       .select('*')
       .eq('user_id', session.user.id)
       .eq('is_active', true)
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     // Insert or update the repository
     const { data: savedRepo, error } = await supabase
-      .from('mason_github_repositories')
+      .from(TABLES.GITHUB_REPOSITORIES)
       .upsert(
         {
           user_id: session.user.id,
@@ -174,7 +175,7 @@ export async function DELETE(request: NextRequest) {
 
     // Soft delete by setting is_active to false
     const { error } = await supabase
-      .from('mason_github_repositories')
+      .from(TABLES.GITHUB_REPOSITORIES)
       .update({ is_active: false })
       .eq('id', repositoryId)
       .eq('user_id', session.user.id);

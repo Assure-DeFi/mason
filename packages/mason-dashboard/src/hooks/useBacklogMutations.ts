@@ -8,6 +8,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useCallback, useRef, useState } from 'react';
 
+import { TABLES } from '@/lib/constants';
 import type { BacklogItem, BacklogStatus } from '@/types/backlog';
 
 interface UndoState {
@@ -87,7 +88,7 @@ export function useBacklogMutations({
       }
 
       const { data: updated, error } = await client
-        .from('mason_pm_backlog_items')
+        .from(TABLES.PM_BACKLOG_ITEMS)
         .update({ status, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
@@ -152,7 +153,7 @@ export function useBacklogMutations({
       // Update all items
       const updates = ids.map(async (id) => {
         const { data, error } = await client
-          .from('mason_pm_backlog_items')
+          .from(TABLES.PM_BACKLOG_ITEMS)
           .update({ status: newStatus, updated_at: new Date().toISOString() })
           .eq('id', id)
           .select()
@@ -259,7 +260,7 @@ export function useBacklogMutations({
 
         // Delete from database
         const { error } = await client
-          .from('mason_pm_backlog_items')
+          .from(TABLES.PM_BACKLOG_ITEMS)
           .delete()
           .in('id', ids);
 
@@ -319,7 +320,7 @@ export function useBacklogMutations({
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id, ...itemWithoutId } = item;
         const { data, error } = await client
-          .from('mason_pm_backlog_items')
+          .from(TABLES.PM_BACKLOG_ITEMS)
           .insert({ ...itemWithoutId, id })
           .select()
           .single();
@@ -342,7 +343,7 @@ export function useBacklogMutations({
     const updates = Array.from(undoState.previousStatuses.entries()).map(
       async ([id, status]) => {
         const { data, error } = await client
-          .from('mason_pm_backlog_items')
+          .from(TABLES.PM_BACKLOG_ITEMS)
           .update({ status, updated_at: new Date().toISOString() })
           .eq('id', id)
           .select()

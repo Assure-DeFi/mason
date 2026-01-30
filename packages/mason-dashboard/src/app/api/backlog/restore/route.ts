@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth/auth-options';
+import { TABLES } from '@/lib/constants';
 import { backlogRestoreSchema, validateRequest } from '@/lib/schemas';
 
 /**
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
 
     // Fetch the filtered item
     const { data: filteredItem, error: fetchError } = await supabase
-      .from('mason_pm_filtered_items')
+      .from(TABLES.PM_FILTERED_ITEMS)
       .select('*')
       .eq('id', filteredItemId)
       .single();
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
     };
 
     const { data: newItem, error: insertError } = await supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .insert(backlogItem)
       .select()
       .single();
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
 
     // Mark filtered item as restored
     const { error: updateError } = await supabase
-      .from('mason_pm_filtered_items')
+      .from(TABLES.PM_FILTERED_ITEMS)
       .update({ override_status: 'restored' })
       .eq('id', filteredItemId);
 
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
     // Track restore feedback for confidence decay system
     // This helps the pm-validator learn which filter patterns are too aggressive
     const { error: trackError } = await supabase
-      .from('mason_pm_restore_feedback')
+      .from(TABLES.PM_RESTORE_FEEDBACK)
       .insert({
         filtered_item_id: filteredItemId,
         filter_tier: filteredItem.filter_tier,

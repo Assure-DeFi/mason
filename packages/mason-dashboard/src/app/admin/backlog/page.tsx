@@ -46,6 +46,7 @@ import {
 } from '@/hooks/useExecutionListener';
 import { useRealtimeBacklog } from '@/hooks/useRealtimeBacklog';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { TABLES } from '@/lib/constants';
 import { ensureExecutionProgress } from '@/lib/execution/progress';
 import { getRecommendedItems } from '@/lib/recommendations';
 import { createMasonUserRecord } from '@/lib/supabase/user-record';
@@ -179,7 +180,7 @@ export default function BacklogPage() {
 
     try {
       let { data: userData } = await client
-        .from('mason_users')
+        .from(TABLES.USERS)
         .select('id')
         .eq('github_id', session.user.github_id)
         .single();
@@ -203,7 +204,7 @@ export default function BacklogPage() {
 
         // Fetch the newly created user record
         const { data: newUserData } = await client
-          .from('mason_users')
+          .from(TABLES.USERS)
           .select('id')
           .eq('github_id', session.user.github_id)
           .single();
@@ -220,7 +221,7 @@ export default function BacklogPage() {
       // First, claim any orphaned items (items with null user_id)
       // This handles items created before user_id was added to pm-review
       const { data: orphanedItems } = await client
-        .from('mason_pm_backlog_items')
+        .from(TABLES.PM_BACKLOG_ITEMS)
         .select('id')
         .is('user_id', null);
 
@@ -230,14 +231,14 @@ export default function BacklogPage() {
         );
         const orphanedIds = orphanedItems.map((item) => item.id);
         await client
-          .from('mason_pm_backlog_items')
+          .from(TABLES.PM_BACKLOG_ITEMS)
           .update({ user_id: userData.id })
           .in('id', orphanedIds);
       }
 
       // Now fetch all items for this user
       const { data, error: fetchError } = await client
-        .from('mason_pm_backlog_items')
+        .from(TABLES.PM_BACKLOG_ITEMS)
         .select('*')
         .eq('user_id', userData.id)
         .order('priority_score', { ascending: false });
@@ -407,7 +408,8 @@ export default function BacklogPage() {
       if (!item.is_banger_idea) {
         return false;
       }
-      if (item.status === 'rejected') {
+      // Completed/rejected bangers should appear as normal items, not in the featured card
+      if (item.status === 'rejected' || item.status === 'completed') {
         return false;
       }
 
@@ -415,7 +417,7 @@ export default function BacklogPage() {
       if (activeStatus) {
         return item.status === activeStatus;
       }
-      // "All Items" tab - show all non-rejected
+      // "All Items" tab - show all active (new/approved/in_progress) bangers
       return true;
     });
     if (bangerItems.length === 0) {
@@ -482,7 +484,7 @@ export default function BacklogPage() {
     }
 
     const { data: updated, error: updateError } = await client
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -657,7 +659,7 @@ export default function BacklogPage() {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id, ...itemWithoutId } = item;
         const { data, error } = await client
-          .from('mason_pm_backlog_items')
+          .from(TABLES.PM_BACKLOG_ITEMS)
           .insert({ ...itemWithoutId, id }) // Re-use original ID
           .select()
           .single();
@@ -682,7 +684,7 @@ export default function BacklogPage() {
     const updates = Array.from(undoState.previousStatuses.entries()).map(
       async ([id, status]) => {
         const { data, error } = await client
-          .from('mason_pm_backlog_items')
+          .from(TABLES.PM_BACKLOG_ITEMS)
           .update({ status, updated_at: new Date().toISOString() })
           .eq('id', id)
           .select()
@@ -732,7 +734,7 @@ export default function BacklogPage() {
     // Update all items
     const updates = ids.map(async (id) => {
       const { data, error } = await client
-        .from('mason_pm_backlog_items')
+        .from(TABLES.PM_BACKLOG_ITEMS)
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
@@ -826,7 +828,7 @@ export default function BacklogPage() {
 
       // Delete from database
       const { error } = await client
-        .from('mason_pm_backlog_items')
+        .from(TABLES.PM_BACKLOG_ITEMS)
         .delete()
         .in('id', ids);
 
@@ -1075,6 +1077,8 @@ export default function BacklogPage() {
                 onViewDetails={handleItemClick}
                 onApprove={(id) => void handleUpdateStatus(id, 'approved')}
                 onReject={(id) => void handleUpdateStatus(id, 'rejected')}
+                onComplete={(id) => void handleUpdateStatus(id, 'completed')}
+                onDelete={(id) => void handleBulkDelete([id])}
               />
             )}
 

@@ -15,6 +15,7 @@ import { useState, useEffect, useRef } from 'react';
 
 import { useGitHubToken } from '@/hooks/useGitHubToken';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { TABLES } from '@/lib/constants';
 import { createMasonUserRecord } from '@/lib/supabase/user-record';
 
 import type { WizardStepProps } from '../SetupWizard';
@@ -156,7 +157,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
 
       try {
         const { data: userData, error: userError } = await client
-          .from('mason_users')
+          .from(TABLES.USERS)
           .select('id')
           .eq('github_id', session.user.github_id)
           .single();
@@ -177,7 +178,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
         }
 
         const { data: connected, error: repoError } = await client
-          .from('mason_github_repositories')
+          .from(TABLES.GITHUB_REPOSITORIES)
           .select('id, github_repo_id, github_full_name')
           .eq('user_id', userData.id)
           .eq('is_active', true);
@@ -228,7 +229,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
 
     try {
       const { data: userData, error: userError } = await client
-        .from('mason_users')
+        .from(TABLES.USERS)
         .select('id')
         .eq('github_id', session.user.github_id)
         .single();
@@ -241,7 +242,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
       }
 
       const { data: existingRepo } = await client
-        .from('mason_github_repositories')
+        .from(TABLES.GITHUB_REPOSITORIES)
         .select('id')
         .eq('github_repo_id', repo.id)
         .eq('user_id', userData.id)
@@ -249,11 +250,11 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
 
       if (existingRepo) {
         await client
-          .from('mason_github_repositories')
+          .from(TABLES.GITHUB_REPOSITORIES)
           .update({ is_active: true, updated_at: new Date().toISOString() })
           .eq('id', existingRepo.id);
       } else {
-        await client.from('mason_github_repositories').insert({
+        await client.from(TABLES.GITHUB_REPOSITORIES).insert({
           user_id: userData.id,
           github_repo_id: repo.id,
           github_owner: repo.owner.login,

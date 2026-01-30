@@ -5,6 +5,7 @@ import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { TABLES } from '@/lib/constants';
 
 interface ConnectionStatusProps {
   /** Additional className */
@@ -32,7 +33,7 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
       try {
         // Simple ping to check if database is accessible
         const { error } = await client
-          .from('mason_users')
+          .from(TABLES.USERS)
           .select('id', { count: 'exact', head: true })
           .limit(1);
 

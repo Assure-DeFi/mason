@@ -14,6 +14,7 @@ import { useSession } from 'next-auth/react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { TABLES } from '@/lib/constants';
 import { getMasonConfig } from '@/lib/supabase/user-client';
 
 interface InstallMasonModalProps {
@@ -48,14 +49,14 @@ export function InstallMasonModal({
       setIsLoadingKeys(true);
       try {
         const { data: userData } = await client
-          .from('mason_users')
+          .from(TABLES.USERS)
           .select('id')
           .eq('github_id', session.user.github_id)
           .single();
 
         if (userData) {
           const { data: keys } = await client
-            .from('mason_api_keys')
+            .from(TABLES.API_KEYS)
             .select('id')
             .eq('user_id', userData.id)
             .limit(1);
@@ -93,7 +94,7 @@ export function InstallMasonModal({
 
     try {
       const { data: userData } = await client
-        .from('mason_users')
+        .from(TABLES.USERS)
         .select('id')
         .eq('github_id', session.user.github_id)
         .single();
@@ -119,7 +120,7 @@ export function InstallMasonModal({
         .join('');
 
       const { error: insertError } = await client
-        .from('mason_api_keys')
+        .from(TABLES.API_KEYS)
         .insert({
           user_id: userData.id,
           name: repoName ? `Install - ${repoName}` : 'CLI Install',

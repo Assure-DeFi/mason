@@ -4,6 +4,8 @@ import { clsx } from 'clsx';
 import { Copy, Check, AlertCircle } from 'lucide-react';
 import { useState, useCallback } from 'react';
 
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+
 interface CopyButtonProps {
   /** Text to copy to clipboard */
   text: string;
@@ -39,31 +41,20 @@ export function CopyButton({
   className,
   disabled = false,
 }: CopyButtonProps) {
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState(false);
+  const { copy, copied, error: copyError } = useCopyToClipboard({ onSuccess: onCopy });
   const [showToastState, setShowToastState] = useState(false);
 
   const handleCopy = useCallback(async () => {
-    if (disabled) {return;}
-
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setCopyError(false);
-      onCopy?.();
-
-      if (showToast) {
-        setShowToastState(true);
-        setTimeout(() => setShowToastState(false), 2000);
-      }
-
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-      setCopyError(true);
-      setTimeout(() => setCopyError(false), 3000);
+    if (disabled) {
+      return;
     }
-  }, [text, disabled, onCopy, showToast]);
+
+    const success = await copy(text);
+    if (success && showToast) {
+      setShowToastState(true);
+      setTimeout(() => setShowToastState(false), 2000);
+    }
+  }, [text, disabled, copy, showToast]);
 
   const variantClasses = {
     default:

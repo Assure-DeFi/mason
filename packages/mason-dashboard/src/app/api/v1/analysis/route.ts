@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
+import { TABLES } from '@/lib/constants';
 import { createServiceClient } from '@/lib/supabase/client';
 
 /**
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     // Fetch user's connected repositories for multi-repo support
     const supabase = createServiceClient();
     const { data: repositories } = await supabase
-      .from('mason_github_repositories')
+      .from(TABLES.GITHUB_REPOSITORIES)
       .select('id, github_full_name, github_clone_url, github_html_url')
       .eq('user_id', user.id)
       .eq('is_active', true);

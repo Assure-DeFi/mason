@@ -7,6 +7,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { TABLES } from '@/lib/constants';
+
 export interface GitHubUserInfo {
   github_id: string;
   github_username: string;
@@ -27,7 +29,7 @@ export async function createMasonUserRecord(
   githubUser: GitHubUserInfo,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await client.from('mason_users').upsert(
+    const { error } = await client.from(TABLES.USERS).upsert(
       {
         github_id: githubUser.github_id,
         github_username: githubUser.github_username,
@@ -64,7 +66,7 @@ export async function checkUserRecordExists(
 ): Promise<boolean> {
   try {
     const { data, error } = await client
-      .from('mason_users')
+      .from(TABLES.USERS)
       .select('id')
       .eq('github_id', githubId)
       .single();

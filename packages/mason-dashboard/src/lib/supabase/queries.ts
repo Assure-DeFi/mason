@@ -1,3 +1,4 @@
+import { TABLES } from '@/lib/constants';
 import type {
   BacklogItem,
   BacklogFilters,
@@ -18,7 +19,7 @@ export async function fetchBacklogItems(
   pageSize = 20,
 ): Promise<{ items: BacklogItem[]; total: number }> {
   let query = supabase
-    .from('mason_pm_backlog_items')
+    .from(TABLES.PM_BACKLOG_ITEMS)
     .select('*', { count: 'exact' });
 
   // Apply filters
@@ -69,7 +70,7 @@ export async function fetchBacklogItem(
   id: string,
 ): Promise<BacklogItem | null> {
   const { data, error } = await supabase
-    .from('mason_pm_backlog_items')
+    .from(TABLES.PM_BACKLOG_ITEMS)
     .select('*')
     .eq('id', id)
     .single();
@@ -92,7 +93,7 @@ export async function updateBacklogItemStatus(
   status: BacklogStatus,
 ): Promise<BacklogItem> {
   const { data, error } = await supabase
-    .from('mason_pm_backlog_items')
+    .from(TABLES.PM_BACKLOG_ITEMS)
     .update({ status })
     .eq('id', id)
     .select()
@@ -113,7 +114,7 @@ export async function updateBacklogItemPrd(
   prdContent: string,
 ): Promise<BacklogItem> {
   const { data, error } = await supabase
-    .from('mason_pm_backlog_items')
+    .from(TABLES.PM_BACKLOG_ITEMS)
     .update({
       prd_content: prdContent,
       prd_generated_at: new Date().toISOString(),
@@ -134,7 +135,7 @@ export async function updateBacklogItemPrd(
  */
 export async function fetchExecutionRuns(limit = 10): Promise<ExecutionRun[]> {
   const { data, error } = await supabase
-    .from('mason_pm_execution_runs')
+    .from(TABLES.PM_EXECUTION_RUNS)
     .select('*')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -153,7 +154,7 @@ export async function fetchExecutionTasks(
   runId: string,
 ): Promise<ExecutionTask[]> {
   const { data, error } = await supabase
-    .from('mason_pm_execution_tasks')
+    .from(TABLES.PM_EXECUTION_TASKS)
     .select('*')
     .eq('run_id', runId)
     .order('wave_number', { ascending: true })
@@ -186,27 +187,27 @@ export async function getBacklogStats(): Promise<{
   // which is still more efficient than fetching all rows
   const statusCounts = await Promise.all([
     supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .select('*', { count: 'exact', head: true })
       .eq('status', 'new'),
     supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .select('*', { count: 'exact', head: true })
       .eq('status', 'approved'),
     supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .select('*', { count: 'exact', head: true })
       .eq('status', 'in_progress'),
     supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .select('*', { count: 'exact', head: true })
       .eq('status', 'completed'),
     supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .select('*', { count: 'exact', head: true })
       .eq('status', 'deferred'),
     supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .select('*', { count: 'exact', head: true })
       .eq('status', 'rejected'),
   ]);
@@ -214,11 +215,11 @@ export async function getBacklogStats(): Promise<{
   // Query 2: Get counts by area
   const areaCounts = await Promise.all([
     supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .select('*', { count: 'exact', head: true })
       .eq('area', 'frontend'),
     supabase
-      .from('mason_pm_backlog_items')
+      .from(TABLES.PM_BACKLOG_ITEMS)
       .select('*', { count: 'exact', head: true })
       .eq('area', 'backend'),
   ]);
