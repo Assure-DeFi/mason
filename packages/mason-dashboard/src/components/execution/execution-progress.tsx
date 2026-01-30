@@ -1,10 +1,18 @@
 'use client';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { X, CheckCircle, XCircle, Loader2, ExternalLink } from 'lucide-react';
+import {
+  X,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  ExternalLink,
+  AlertTriangle,
+  Filter,
+} from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
-import type { RemoteExecutionStatus } from '@/types/auth';
+import type { RemoteExecutionStatus, ItemResult } from '@/types/auth';
 
 import { BuildingTheater } from './BuildingTheater';
 
@@ -22,6 +30,7 @@ interface ExecutionProgressProps {
   itemTitle?: string;
   client?: SupabaseClient | null;
   onClose: () => void;
+  repositoryId?: string;
 }
 
 export function ExecutionProgress({
@@ -30,11 +39,15 @@ export function ExecutionProgress({
   itemTitle,
   client,
   onClose,
+  repositoryId,
 }: ExecutionProgressProps) {
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [status, setStatus] = useState<RemoteExecutionStatus>('in_progress');
   const [prUrl, setPrUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [itemResults, setItemResults] = useState<ItemResult[]>([]);
+  const [successCount, setSuccessCount] = useState<number>(0);
+  const [failureCount, setFailureCount] = useState<number>(0);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -50,6 +63,16 @@ export function ExecutionProgress({
         if (data.type === 'complete') {
           setStatus(data.status);
           setPrUrl(data.pr_url);
+          // Extract item results for partial success display
+          if (data.item_results) {
+            setItemResults(data.item_results);
+          }
+          if (data.success_count !== undefined) {
+            setSuccessCount(data.success_count);
+          }
+          if (data.failure_count !== undefined) {
+            setFailureCount(data.failure_count);
+          }
           eventSource.close();
         } else if (data.type === 'error') {
           setError(data.message || 'An error occurred during execution');
@@ -91,7 +114,12 @@ export function ExecutionProgress({
     }
   };
 
+  const isPartialSuccess = status === 'success' && failureCount > 0;
+
   const getStatusIcon = () => {
+    if (isPartialSuccess) {
+      return <AlertTriangle className="h-6 w-6 text-yellow-400" />;
+    }
     switch (status) {
       case 'success':
         return <CheckCircle className="h-6 w-6 text-green-400" />;
@@ -103,6 +131,9 @@ export function ExecutionProgress({
   };
 
   const getStatusText = () => {
+    if (isPartialSuccess) {
+      return `Partial Success (${successCount} succeeded, ${failureCount} failed)`;
+    }
     switch (status) {
       case 'success':
         return 'Execution Complete';
@@ -114,6 +145,8 @@ export function ExecutionProgress({
         return 'Executing...';
     }
   };
+
+  const failedItems = itemResults.filter((r) => !r.success);
 
   const showBuildingTheater = itemId && client;
 
@@ -195,6 +228,65 @@ export function ExecutionProgress({
             <div ref={logsEndRef} />
           </div>
         </div>
+
+        {/* Item Results Section (shown for partial success) */}
+        {itemResults.length > 0 && (
+          <div className="border-t border-gray-800 p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+              Item Results
+              {isPartialSuccess && (
+                <span className="rounded bg-yellow-900/30 px-2 py-0.5 text-xs text-yellow-400">
+                  Partial Success
+                </span>
+              )}
+            </h3>
+            <div className="space-y-2">
+              {itemResults.map((result) => (
+                <div
+                  key={result.itemId}
+                  className={`flex items-start gap-3 rounded p-2 ${
+                    result.success
+                      ? 'bg-green-900/20 text-green-300'
+                      : 'bg-red-900/20 text-red-300'
+                  }`}
+                >
+                  {result.success ? (
+                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{result.title}</div>
+                    {result.success && result.filesChanged && (
+                      <div className="text-xs text-green-400/70">
+                        {result.filesChanged} file
+                        {result.filesChanged !== 1 ? 's' : ''} changed
+                      </div>
+                    )}
+                    {!result.success && result.error && (
+                      <div className="mt-1 text-xs text-red-400/70">
+                        {result.error}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* View Failed Items Button */}
+            {failedItems.length > 0 && repositoryId && (
+              <div className="mt-4">
+                <a
+                  href={`/admin/backlog?status=rejected&repository=${repositoryId}`}
+                  className="inline-flex items-center gap-2 rounded-md bg-red-900/30 px-3 py-2 text-sm text-red-300 hover:bg-red-900/50"
+                >
+                  <Filter className="h-4 w-4" />
+                  View Failed Items ({failedItems.length})
+                </a>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-end border-t border-gray-800 p-4">
