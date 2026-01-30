@@ -48,6 +48,7 @@ export interface ExecutionOptions {
   repositoryId: string;
   itemIds: string[];
   accessToken: string;
+  idempotencyKey?: string;
 }
 
 export interface ItemResult {
@@ -253,7 +254,29 @@ export async function executeRemotely(
   options: ExecutionOptions,
 ): Promise<ExecutionResult> {
   const supabase = createServiceClient();
-  const { userId, repositoryId, itemIds, accessToken } = options;
+  const { userId, repositoryId, itemIds, accessToken, idempotencyKey } = options;
+
+  // Check for existing run with the same idempotency key (request deduplication)
+  // This prevents duplicate execution on rapid clicks or network retries
+  if (idempotencyKey) {
+    const { data: existingRun } = await supabase
+      .from('mason_remote_execution_runs')
+      .select('id, status, pr_url, pr_number, error_message')
+      .eq('idempotency_key', idempotencyKey)
+      .gt('idempotency_expires_at', new Date().toISOString())
+      .single();
+
+    if (existingRun) {
+      // Return the existing run instead of creating a duplicate
+      return {
+        runId: existingRun.id,
+        success: existingRun.status === 'success',
+        prUrl: existingRun.pr_url || undefined,
+        prNumber: existingRun.pr_number || undefined,
+        error: existingRun.error_message || undefined,
+      };
+    }
+  }
 
   // Fetch repository details
   const { data: repo, error: repoError } = await supabase
@@ -285,6 +308,11 @@ export async function executeRemotely(
   const branchName = `mason/execution-${timestamp}`;
 
   // Create execution run record
+  // Include idempotency key for request deduplication (expires after 24 hours)
+  const idempotencyExpiresAt = idempotencyKey
+    ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    : null;
+
   const { data: run, error: runError } = await supabase
     .from('mason_remote_execution_runs')
     .insert({
@@ -295,6 +323,8 @@ export async function executeRemotely(
       branch_name: branchName,
       base_branch: repository.github_default_branch,
       status: 'in_progress',
+      idempotency_key: idempotencyKey || null,
+      idempotency_expires_at: idempotencyExpiresAt,
     })
     .select()
     .single();
