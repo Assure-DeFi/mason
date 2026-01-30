@@ -34,9 +34,10 @@ import type {
 } from '@/types/backlog';
 
 interface UndoState {
-  action: 'approve' | 'reject' | 'restore' | 'complete';
+  action: 'approve' | 'reject' | 'restore' | 'complete' | 'delete';
   itemIds: string[];
   previousStatuses: Map<string, BacklogStatus>;
+  deletedItems?: BacklogItem[]; // For delete undo
   message: string;
 }
 
@@ -72,6 +73,7 @@ export default function BacklogPage() {
   const [isRejecting, setIsRejecting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Undo state
   const [undoState, setUndoState] = useState<UndoState | null>(null);
@@ -372,6 +374,33 @@ export default function BacklogPage() {
       undoTimeoutRef.current = null;
     }
 
+    // Handle delete undo (re-insert items)
+    if (undoState.action === 'delete' && undoState.deletedItems) {
+      const inserts = undoState.deletedItems.map(async (item) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, ...itemWithoutId } = item;
+        const { data, error } = await client
+          .from('mason_pm_backlog_items')
+          .insert({ ...itemWithoutId, id }) // Re-use original ID
+          .select()
+          .single();
+
+        if (error) {
+          console.error(`Failed to restore deleted item ${id}:`, error);
+          return null;
+        }
+        return data as BacklogItem;
+      });
+
+      const results = await Promise.all(inserts);
+      const restoredItems = results.filter((r): r is BacklogItem => r !== null);
+
+      // Add restored items back to local state
+      setItems((prev) => [...restoredItems, ...prev]);
+      setUndoState(null);
+      return;
+    }
+
     // Restore all items to their previous statuses
     const updates = Array.from(undoState.previousStatuses.entries()).map(
       async ([id, status]) => {
@@ -504,6 +533,58 @@ export default function BacklogPage() {
       await bulkUpdateStatus(ids, 'completed', 'complete', 'Marked completed');
     } finally {
       setIsCompleting(false);
+    }
+  };
+
+  const handleBulkDelete = async (ids: string[]) => {
+    if (!client || ids.length === 0) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      // Store items for undo before deleting
+      const itemsToDelete = items.filter((i) => ids.includes(i.id));
+
+      // Delete from database
+      const { error } = await client
+        .from('mason_pm_backlog_items')
+        .delete()
+        .in('id', ids);
+
+      if (error) {
+        console.error('Failed to delete items:', error);
+        return;
+      }
+
+      // Update local state
+      setItems((prev) => prev.filter((i) => !ids.includes(i.id)));
+      setSelectedIds([]);
+
+      // Close detail modal if viewing a deleted item
+      if (selectedItem && ids.includes(selectedItem.id)) {
+        setSelectedItem(null);
+      }
+
+      // Set undo state with deleted items
+      setUndoState({
+        action: 'delete',
+        itemIds: ids,
+        previousStatuses: new Map(),
+        deletedItems: itemsToDelete,
+        message: `Deleted ${ids.length} item${ids.length !== 1 ? 's' : ''}`,
+      });
+
+      // Clear undo state after 8 seconds
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current);
+      }
+      undoTimeoutRef.current = setTimeout(() => {
+        setUndoState(null);
+      }, 8000);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -757,11 +838,13 @@ export default function BacklogPage() {
         onReject={handleBulkReject}
         onRestore={handleBulkRestore}
         onComplete={handleBulkComplete}
+        onDelete={handleBulkDelete}
         onClearSelection={handleClearSelection}
         isApproving={isApproving}
         isRejecting={isRejecting}
         isRestoring={isRestoring}
         isCompleting={isCompleting}
+        isDeleting={isDeleting}
       />
 
       {/* Undo Toast */}
