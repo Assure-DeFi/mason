@@ -3,11 +3,30 @@
  *
  * Handles creation and management of execution_progress records
  * for the BuildingTheater visualization.
+ *
+ * IMPORTANT: All functions in this module throw errors on failure.
+ * This ensures the execution engine can detect and handle failures
+ * rather than silently continuing with stale dashboard data.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { TABLES } from '@/lib/constants';
+
+/**
+ * Custom error for execution progress failures.
+ * Allows the engine to distinguish progress update failures from other errors.
+ */
+export class ExecutionProgressError extends Error {
+  constructor(
+    message: string,
+    public readonly itemId: string,
+    public readonly operation: 'create' | 'update' | 'delete',
+  ) {
+    super(message);
+    this.name = 'ExecutionProgressError';
+  }
+}
 
 export interface ExecutionProgressRecord {
   id: string;
@@ -44,10 +63,14 @@ export interface ExecutionProgressRecord {
  * Creates an execution_progress record for an item if one doesn't exist.
  * This triggers the BuildingTheater visualization in the dashboard.
  *
+ * IMPORTANT: This function THROWS on failure to ensure the execution engine
+ * can detect and handle failures rather than silently continuing.
+ *
  * @param client - Supabase client
  * @param itemId - The backlog item ID
  * @param options - Optional configuration for the progress record
- * @returns The created or existing progress record, or null on error
+ * @returns The created or existing progress record
+ * @throws ExecutionProgressError if creation fails
  */
 export async function ensureExecutionProgress(
   client: SupabaseClient,
@@ -57,7 +80,7 @@ export async function ensureExecutionProgress(
     totalWaves?: number;
     initialTask?: string;
   },
-): Promise<ExecutionProgressRecord | null> {
+): Promise<ExecutionProgressRecord> {
   // Check if a progress record already exists
   const { data: existing, error: checkError } = await client
     .from(TABLES.EXECUTION_PROGRESS)
@@ -70,7 +93,11 @@ export async function ensureExecutionProgress(
       '[ExecutionProgress] Error checking existing record:',
       checkError,
     );
-    return null;
+    throw new ExecutionProgressError(
+      `Failed to check existing progress record: ${checkError.message}`,
+      itemId,
+      'create',
+    );
   }
 
   // If record exists and is not complete, return it
@@ -88,6 +115,7 @@ export async function ensureExecutionProgress(
           '[ExecutionProgress] Error deleting completed record:',
           deleteError,
         );
+        // Non-fatal: return existing and let caller decide
         return existing as ExecutionProgressRecord;
       }
       // Fall through to create a new record
@@ -130,17 +158,29 @@ export async function ensureExecutionProgress(
     // Handle unique constraint violation (another process created it)
     if (insertError.code === '23505') {
       // Fetch the existing record
-      const { data: refetched } = await client
+      const { data: refetched, error: refetchError } = await client
         .from(TABLES.EXECUTION_PROGRESS)
         .select('*')
         .eq('item_id', itemId)
         .single();
 
-      return refetched as ExecutionProgressRecord | null;
+      if (refetchError || !refetched) {
+        throw new ExecutionProgressError(
+          `Failed to fetch existing progress record after conflict: ${refetchError?.message ?? 'No data returned'}`,
+          itemId,
+          'create',
+        );
+      }
+
+      return refetched as ExecutionProgressRecord;
     }
 
     console.error('[ExecutionProgress] Error creating record:', insertError);
-    return null;
+    throw new ExecutionProgressError(
+      `Failed to create progress record: ${insertError.message}`,
+      itemId,
+      'create',
+    );
   }
 
   console.log(
@@ -153,10 +193,14 @@ export async function ensureExecutionProgress(
 /**
  * Updates the execution progress for an item.
  *
+ * IMPORTANT: This function THROWS on failure to ensure the execution engine
+ * can detect and handle failures rather than silently continuing.
+ *
  * @param client - Supabase client
  * @param itemId - The backlog item ID
  * @param updates - The fields to update
- * @returns The updated progress record, or null on error
+ * @returns The updated progress record
+ * @throws ExecutionProgressError if update fails
  */
 export async function updateExecutionProgress(
   client: SupabaseClient,
@@ -164,7 +208,7 @@ export async function updateExecutionProgress(
   updates: Partial<
     Omit<ExecutionProgressRecord, 'id' | 'item_id' | 'started_at'>
   >,
-): Promise<ExecutionProgressRecord | null> {
+): Promise<ExecutionProgressRecord> {
   const { data, error } = await client
     .from(TABLES.EXECUTION_PROGRESS)
     .update({
@@ -177,7 +221,19 @@ export async function updateExecutionProgress(
 
   if (error) {
     console.error('[ExecutionProgress] Error updating record:', error);
-    return null;
+    throw new ExecutionProgressError(
+      `Failed to update progress record: ${error.message}`,
+      itemId,
+      'update',
+    );
+  }
+
+  if (!data) {
+    throw new ExecutionProgressError(
+      'No progress record found to update',
+      itemId,
+      'update',
+    );
   }
 
   return data as ExecutionProgressRecord;
@@ -186,16 +242,19 @@ export async function updateExecutionProgress(
 /**
  * Marks execution as complete.
  *
+ * IMPORTANT: This function THROWS on failure via updateExecutionProgress.
+ *
  * @param client - Supabase client
  * @param itemId - The backlog item ID
  * @param task - Final task description
- * @returns The updated progress record, or null on error
+ * @returns The updated progress record
+ * @throws ExecutionProgressError if update fails
  */
 export async function completeExecutionProgress(
   client: SupabaseClient,
   itemId: string,
   task: string = 'Occupancy Certificate Issued',
-): Promise<ExecutionProgressRecord | null> {
+): Promise<ExecutionProgressRecord> {
   return updateExecutionProgress(client, itemId, {
     current_phase: 'complete',
     current_task: task,
@@ -211,6 +270,9 @@ export async function completeExecutionProgress(
  * Cleans up execution progress record for an item.
  * Called when execution is cancelled or item status changes away from in_progress.
  *
+ * Note: This function logs errors but does NOT throw, as cleanup is best-effort.
+ * The item status is the source of truth, progress records are just for visualization.
+ *
  * @param client - Supabase client
  * @param itemId - The backlog item ID
  */
@@ -225,5 +287,44 @@ export async function cleanupExecutionProgress(
 
   if (error) {
     console.error('[ExecutionProgress] Error deleting record:', error);
+    // Don't throw - cleanup is best-effort
+  }
+}
+
+/**
+ * Marks execution progress as failed for an item.
+ * Sets phase to 'complete' with failed validation status to show failure in BuildingTheater.
+ *
+ * @param client - Supabase client
+ * @param itemId - The backlog item ID
+ * @param errorMessage - The error message to display
+ */
+export async function failExecutionProgress(
+  client: SupabaseClient,
+  itemId: string,
+  errorMessage: string,
+): Promise<void> {
+  try {
+    // First ensure record exists
+    await ensureExecutionProgress(client, itemId, {
+      initialTask: `Failed: ${errorMessage}`,
+    });
+
+    // Then update it to failed state
+    await updateExecutionProgress(client, itemId, {
+      current_phase: 'complete',
+      current_task: `Failed: ${errorMessage}`,
+      validation_typescript: 'fail',
+      validation_eslint: 'fail',
+      validation_build: 'fail',
+      validation_tests: 'fail',
+      completed_at: new Date().toISOString(),
+    });
+  } catch (updateError) {
+    // Best-effort - log but don't propagate
+    console.error(
+      '[ExecutionProgress] Failed to mark progress as failed:',
+      updateError,
+    );
   }
 }
