@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import OpenAIClient from 'openai';
 
 import { authOptions } from '@/lib/auth/auth-options';
+import { aiKeyTestSchema, validateRequest } from '@/lib/schemas';
 
 export async function POST(request: Request) {
   try {
@@ -13,15 +14,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { provider, apiKey } = body;
-
-    if (!provider || !apiKey) {
-      return NextResponse.json(
-        { error: 'Provider and API key are required' },
-        { status: 400 },
-      );
+    // Validate request body with Zod schema
+    const validation = await validateRequest(request, aiKeyTestSchema);
+    if (!validation.success) {
+      return validation.error;
     }
+
+    const { provider, apiKey } = validation.data;
 
     if (provider === 'anthropic') {
       // Test Anthropic connection with a minimal request
@@ -67,11 +66,6 @@ export async function POST(request: Request) {
         }
         throw err;
       }
-    } else {
-      return NextResponse.json(
-        { error: 'Invalid provider. Must be "anthropic" or "openai"' },
-        { status: 400 },
-      );
     }
   } catch (err) {
     console.error('AI key test error:', err);
