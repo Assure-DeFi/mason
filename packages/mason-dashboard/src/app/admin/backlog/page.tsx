@@ -25,6 +25,7 @@ import {
   ItemDetailModal,
   type ViewMode,
 } from '@/components/backlog/item-detail-modal';
+import { MasonRecommends } from '@/components/backlog/mason-recommends';
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
@@ -46,6 +47,7 @@ import {
 import { useRealtimeBacklog } from '@/hooks/useRealtimeBacklog';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { ensureExecutionProgress } from '@/lib/execution/progress';
+import { getRecommendedItems } from '@/lib/recommendations';
 import { createMasonUserRecord } from '@/lib/supabase/user-record';
 import type {
   BacklogItem,
@@ -402,8 +404,12 @@ export default function BacklogPage() {
   // Respects activeStatus tab filter
   const bangerIdea = useMemo(() => {
     const bangerItems = repoFilteredItems.filter((item) => {
-      if (!item.is_banger_idea) return false;
-      if (item.status === 'rejected') return false;
+      if (!item.is_banger_idea) {
+        return false;
+      }
+      if (item.status === 'rejected') {
+        return false;
+      }
 
       // If status tab is active, filter to that status
       if (activeStatus) {
@@ -422,8 +428,12 @@ export default function BacklogPage() {
   // Respects activeStatus tab filter
   const featureIdeas = useMemo(() => {
     return repoFilteredItems.filter((item) => {
-      if (!item.is_new_feature || item.is_banger_idea) return false;
-      if (item.status === 'rejected') return false;
+      if (!item.is_new_feature || item.is_banger_idea) {
+        return false;
+      }
+      if (item.status === 'rejected') {
+        return false;
+      }
 
       // If status tab is active, filter to that status
       if (activeStatus) {
@@ -438,6 +448,11 @@ export default function BacklogPage() {
   const improvementItems = useMemo(() => {
     return filteredItems.filter((item) => !item.is_new_feature);
   }, [filteredItems]);
+
+  // Get recommended items (strategic next steps)
+  const recommendations = useMemo(() => {
+    return getRecommendedItems(repoFilteredItems);
+  }, [repoFilteredItems]);
 
   // Determine the contextual next step (based on repo-filtered items)
   const nextStepContext = useMemo(() => {
@@ -529,6 +544,23 @@ export default function BacklogPage() {
   // Handle clicking on PRD icon (opens modal with PRD view)
   const handlePrdClick = (item: BacklogItem) => {
     setModalViewMode('prd');
+    setSelectedItem(item);
+  };
+
+  // Handle clicking on a recommendation (scroll to item and highlight)
+  const handleRecommendationClick = (itemId: string) => {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) {
+      return;
+    }
+
+    // Switch to the item's status tab if not already there
+    if (activeStatus !== item.status) {
+      setActiveStatus(item.status);
+    }
+
+    // Open the detail modal
+    setModalViewMode('details');
     setSelectedItem(item);
   };
 
@@ -1004,6 +1036,16 @@ export default function BacklogPage() {
           hasSession={!!session}
         />
       </div>
+
+      {/* Mason Recommends Section */}
+      {!isEmpty && !isLoading && recommendations.length > 0 && (
+        <div className="max-w-7xl mx-auto px-6 pt-6">
+          <MasonRecommends
+            recommendations={recommendations}
+            onItemClick={handleRecommendationClick}
+          />
+        </div>
+      )}
 
       {/* Content Area */}
       <div className="max-w-7xl mx-auto">

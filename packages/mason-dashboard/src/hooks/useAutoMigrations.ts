@@ -3,12 +3,12 @@
 /**
  * useAutoMigrations Hook
  *
- * Automatically runs database migrations on site load when:
+ * Automatically runs database migrations on every fresh page load when:
  * 1. User has a valid OAuth session with Supabase
  * 2. A project is selected
- * 3. Migrations haven't been run in the last 24 hours
  *
  * This ensures users always have the latest schema without manual intervention.
+ * Migrations are idempotent, so running them on every load is safe.
  */
 
 import { useSession } from 'next-auth/react';
@@ -25,10 +25,7 @@ import {
 } from '@/lib/supabase/oauth';
 import { getMasonConfig } from '@/lib/supabase/user-client';
 
-// How often to auto-run migrations (24 hours)
-const MIGRATION_INTERVAL_MS = 24 * 60 * 60 * 1000;
-
-// Storage key for tracking last migration run
+// Storage key for tracking last migration run (used for deduplication within same session)
 const LAST_MIGRATION_KEY = 'mason_last_auto_migration';
 
 interface MigrationState {
@@ -44,7 +41,7 @@ export interface UseAutoMigrationsReturn {
 /**
  * Get the timestamp of the last auto-migration run
  */
-function getLastMigrationTime(): number {
+function _getLastMigrationTime(): number {
   if (typeof window === 'undefined') {
     return 0;
   }
@@ -63,12 +60,25 @@ function setLastMigrationTime(timestamp: number): void {
 }
 
 /**
- * Check if migrations should run based on time elapsed
+ * Check if migrations have already run in this browser session
+ * (prevents duplicate runs on same page load)
  */
-function shouldRunMigrations(): boolean {
-  const lastRun = getLastMigrationTime();
-  const now = Date.now();
-  return now - lastRun > MIGRATION_INTERVAL_MS;
+function hasRunThisSession(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  // Use sessionStorage to track within browser session only
+  return sessionStorage.getItem('mason_migration_ran_this_session') === 'true';
+}
+
+/**
+ * Mark that migrations have run this session
+ */
+function markRanThisSession(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  sessionStorage.setItem('mason_migration_ran_this_session', 'true');
 }
 
 export function useAutoMigrations(): UseAutoMigrationsReturn {
@@ -95,9 +105,9 @@ export function useAutoMigrations(): UseAutoMigrationsReturn {
       return;
     }
 
-    // Check if we should skip based on time (unless forced)
-    if (!force && !shouldRunMigrations()) {
-      setState({ status: 'skipped', message: 'Already ran recently' });
+    // Check if we already ran this session (unless forced)
+    if (!force && hasRunThisSession()) {
+      setState({ status: 'skipped', message: 'Already ran this session' });
       return;
     }
 
@@ -159,7 +169,8 @@ export function useAutoMigrations(): UseAutoMigrationsReturn {
         throw new Error(data.error || 'Migration failed');
       }
 
-      // Update last migration time
+      // Mark as run this session and update last migration time for reference
+      markRanThisSession();
       setLastMigrationTime(Date.now());
       setState({ status: 'success', message: 'Schema updated' });
     } catch (err) {
