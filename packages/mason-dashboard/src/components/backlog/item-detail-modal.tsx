@@ -2,9 +2,8 @@
 
 import { clsx } from 'clsx';
 import { X, FileText, Check, Clock, ShieldAlert } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
-
 import type { ReactNode } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SuccessAnimation } from '@/components/ui/SuccessAnimation';
