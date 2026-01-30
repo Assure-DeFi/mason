@@ -85,12 +85,18 @@ description: Brief description of what this command does.
 
 ---
 
-## Skill Instructions: One-Time Setup Must Be Explicit
+## Skill Instructions: One-Time Setup Must Use Explicit Markers
 
 **Discovered**: 2026-01-30
 **Context**: /pm-review asked user same questions repeatedly despite answers being saved
-**Pattern**: When a skill has one-time initialization, make it EXTREMELY explicit with: (1) A prominent note at the top "This runs ONCE", (2) A bash script showing the check logic, (3) Bold "SKIP TO STEP X" instructions, (4) "END OF ONE-TIME INITIALIZATION" marker after the section
-**Why**: Agents follow instructions literally - ambiguous "if needed" phrasing gets re-evaluated every run. Explicit skip logic prevents repeated prompts.
+**Pattern**: For one-time initialization in skills:
+
+1. Use an explicit marker comment as the FIRST LINE of the generated file: `<!-- INITIALIZED: true -->`
+2. Check for this marker with `head -1 file.md` BEFORE any other logic
+3. Add a "MANDATORY PRE-CHECK" section at the very top of the skill
+4. Use "THIS IS A HARD STOP" language with bullet list of things NOT to do
+5. When generating the file, emphasize the marker is CRITICAL and must be line 1
+   **Why**: Agents follow instructions literally. Checking for template placeholders via grep is unreliable. A simple first-line marker check is unambiguous and easy for agents to verify.
 
 ---
 
