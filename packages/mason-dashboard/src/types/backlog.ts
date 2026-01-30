@@ -23,7 +23,12 @@ export function getComplexityValue(complexity: string | number): number {
 
 export type BacklogArea = 'frontend' | 'backend';
 
-export type BacklogType = 'dashboard' | 'discovery' | 'auth' | 'backend';
+export type BacklogType =
+  | 'dashboard'
+  | 'discovery'
+  | 'auth'
+  | 'backend'
+  | 'feature';
 
 export type BacklogStatus =
   | 'new'

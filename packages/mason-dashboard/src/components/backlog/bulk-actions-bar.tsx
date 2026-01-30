@@ -263,6 +263,9 @@ ${item.prd_content}
             disabled={isAnyLoading}
             className="flex items-center justify-center p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 transition-all disabled:opacity-50"
             title="More actions"
+            aria-label="More actions"
+            aria-expanded={showMoreMenu}
+            aria-haspopup="menu"
           >
             <MoreHorizontal className="w-5 h-5" />
           </button>
@@ -361,9 +364,10 @@ ${item.prd_content}
           onClick={onClearSelection}
           disabled={isAnyLoading}
           className="ml-1 md:ml-2 px-2 md:px-3 py-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+          aria-label="Clear selection"
         >
           <span className="hidden sm:inline">Clear</span>
-          <X className="w-4 h-4 sm:hidden" />
+          <X className="w-4 h-4 sm:hidden" aria-hidden="true" />
         </button>
       </div>
     </div>
