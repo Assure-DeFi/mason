@@ -1,15 +1,17 @@
 /**
  * mason-autopilot init
  *
- * Initialize autopilot configuration by prompting for Supabase credentials
- * and repository path.
+ * Initialize autopilot configuration. Creates all required files and database
+ * records if they don't exist - fully self-sufficient setup.
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+const API_KEY_PREFIX = 'mason_';
 
 /**
  * Generate a SHA-256 hash of an API key
@@ -18,26 +20,72 @@ function hashApiKey(key: string): string {
   return createHash('sha256').update(key).digest('hex');
 }
 
-interface AutopilotConfig {
+/**
+ * Generate a new API key
+ */
+function generateApiKey(): { key: string; hash: string; prefix: string } {
+  const rawRandom = randomBytes(24).toString('base64url');
+  const randomPart = rawRandom.replace(/^[-_]+/, '');
+  const key = `${API_KEY_PREFIX}${randomPart}`;
+  const hash = hashApiKey(key);
+  const prefix = key.substring(0, 12);
+  return { key, hash, prefix };
+}
+
+interface AutopilotLocalConfig {
   version: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
   repositoryPath: string;
-  userEmail?: string;
+}
+
+interface MasonConfig {
+  version: string;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  apiKey: string;
+  domains: Array<{ name: string; enabled: boolean; weight: number }>;
 }
 
 const CONFIG_DIR = join(homedir(), '.mason');
 const CONFIG_FILE = join(CONFIG_DIR, 'autopilot.json');
 
-export async function initCommand(): Promise<void> {
-  console.log('\nMason Autopilot - Configuration Setup\n');
+const DEFAULT_DOMAINS = [
+  { name: 'frontend-ux', enabled: true, weight: 1 },
+  { name: 'api-backend', enabled: true, weight: 1 },
+  { name: 'reliability', enabled: true, weight: 1 },
+  { name: 'security', enabled: true, weight: 1.2 },
+  { name: 'code-quality', enabled: true, weight: 0.8 },
+];
 
-  // Check if config already exists
+const DEFAULT_AUTOPILOT_CONFIG = {
+  enabled: true,
+  schedule_cron: '0 2 * * *', // Daily at 2 AM
+  auto_approval_rules: {
+    maxComplexity: 2,
+    minImpact: 3,
+    excludedCategories: ['security', 'breaking-change'],
+  },
+  guardian_rails: {
+    maxItemsPerDay: 5,
+    pauseOnFailure: true,
+    requireHumanReviewComplexity: 4,
+  },
+  execution_window: {
+    startHour: 0,
+    endHour: 6,
+  },
+};
+
+export async function initCommand(): Promise<void> {
+  console.log('\n🔧 Mason Autopilot - Configuration Setup\n');
+
+  // Check if already configured
   if (existsSync(CONFIG_FILE)) {
     console.log('Existing configuration found at:', CONFIG_FILE);
     const existing = JSON.parse(
       readFileSync(CONFIG_FILE, 'utf-8'),
-    ) as AutopilotConfig;
+    ) as AutopilotLocalConfig;
     console.log('  Supabase URL:', existing.supabaseUrl);
     console.log('  Repository:', existing.repositoryPath);
     console.log('\nTo reconfigure, delete the config file and run init again.');
@@ -45,65 +93,35 @@ export async function initCommand(): Promise<void> {
     return;
   }
 
-  // Dynamic import for enquirer (ESM)
   const { default: Enquirer } = await import('enquirer');
   const enquirer = new Enquirer();
 
-  interface InitAnswers {
-    supabaseUrl: string;
-    supabaseAnonKey: string;
-    repositoryPath: string;
-  }
-
   try {
-    // Check if mason.config.json exists in current directory
     const masonConfigPath = join(process.cwd(), 'mason.config.json');
-    let defaults = {
-      supabaseUrl: '',
-      supabaseAnonKey: '',
-      repositoryPath: process.cwd(),
-    };
-    let masonApiKey: string | undefined;
+    let masonConfig: MasonConfig | null = null;
+    let needsNewMasonConfig = false;
 
+    // Check for existing mason.config.json
     if (existsSync(masonConfigPath)) {
-      console.log('Found mason.config.json - importing credentials...\n');
-      const masonConfig = JSON.parse(readFileSync(masonConfigPath, 'utf-8'));
-      defaults = {
-        supabaseUrl: masonConfig.supabaseUrl || '',
-        supabaseAnonKey: masonConfig.supabaseAnonKey || '',
-        repositoryPath: process.cwd(),
-      };
-      masonApiKey = masonConfig.apiKey;
+      console.log('Found existing mason.config.json\n');
+      masonConfig = JSON.parse(readFileSync(masonConfigPath, 'utf-8'));
     } else {
-      console.error('ERROR: mason.config.json not found in current directory.');
-      console.error('\nAutopilot requires a Mason-connected repository.');
-      console.error('Please run this command from a repository that has been');
-      console.error(
-        'initialized with Mason (should have mason.config.json).\n',
-      );
-      console.error('To connect a repository to Mason:');
-      console.error('  1. Go to https://mason.assuredefi.com');
-      console.error('  2. Connect your repository');
-      console.error('  3. Download the mason.config.json file');
-      console.error('  4. Run mason-autopilot init again\n');
-      process.exit(1);
+      console.log('No mason.config.json found - will create one.\n');
+      needsNewMasonConfig = true;
     }
 
-    if (!masonApiKey) {
-      console.error('ERROR: mason.config.json is missing the apiKey field.');
-      console.error(
-        '\nPlease ensure your mason.config.json contains an apiKey.',
-      );
-      console.error('You can regenerate this from the Mason dashboard.\n');
-      process.exit(1);
+    // Prompt for Supabase credentials
+    interface CredentialAnswers {
+      supabaseUrl: string;
+      supabaseAnonKey: string;
     }
 
-    const answers = (await enquirer.prompt([
+    const credentials = (await enquirer.prompt([
       {
         type: 'input',
         name: 'supabaseUrl',
         message: 'Supabase URL:',
-        initial: defaults.supabaseUrl,
+        initial: masonConfig?.supabaseUrl || '',
         validate: (value: string) => {
           if (!value) return 'Supabase URL is required';
           if (!value.includes('supabase.co'))
@@ -115,128 +133,292 @@ export async function initCommand(): Promise<void> {
         type: 'password',
         name: 'supabaseAnonKey',
         message: 'Supabase Anon Key:',
-        initial: defaults.supabaseAnonKey,
+        initial: masonConfig?.supabaseAnonKey || '',
         validate: (value: string) => {
           if (!value) return 'Supabase Anon Key is required';
           if (!value.startsWith('eyJ')) return 'Must be a valid JWT token';
           return true;
         },
       },
-      {
-        type: 'input',
-        name: 'repositoryPath',
-        message: 'Repository path:',
-        initial: defaults.repositoryPath,
-        validate: (value: string) => {
-          if (!value) return 'Repository path is required';
-          if (!existsSync(value)) return 'Path does not exist';
-          if (!existsSync(join(value, '.git'))) return 'Not a git repository';
-          return true;
-        },
-      },
-    ])) as InitAnswers;
+    ])) as CredentialAnswers;
 
-    // Validate connection to Supabase
+    // Validate Supabase connection
     console.log('\nValidating Supabase connection...');
-    const supabase = createClient(answers.supabaseUrl, answers.supabaseAnonKey);
+    const supabase = createClient(
+      credentials.supabaseUrl,
+      credentials.supabaseAnonKey,
+    );
 
-    // Try to query the autopilot config table
-    const { error } = await supabase
+    // Check if required tables exist
+    const { error: tableError } = await supabase
       .from('mason_autopilot_config')
       .select('id')
       .limit(1);
 
-    if (error) {
-      if (error.code === '42P01') {
-        console.log(
-          '\nAutopilot tables not found. Please run database migrations in Mason Dashboard:',
-        );
-        console.log('  Settings > Database > Update Database Schema');
-        console.log('\nThen run this command again.');
-        return;
-      }
-      console.error('\nFailed to connect to Supabase:', error.message);
+    if (tableError?.code === '42P01') {
+      console.error('\nAutopilot tables not found in your database.');
+      console.error('Please run database migrations first:');
+      console.error('  1. Go to https://mason.assuredefi.com');
+      console.error('  2. Settings > Database > Update Database Schema');
+      console.error('\nThen run this command again.');
       return;
     }
 
     console.log('Connection verified!');
 
-    // Validate API key and get repository info
-    console.log('Validating API key...');
-    const { data: apiKeyData, error: apiKeyError } = await supabase
-      .from('mason_api_keys')
-      .select('user_id, repository_id')
-      .eq('key_hash', hashApiKey(masonApiKey))
-      .single();
+    // Handle API key and repository registration
+    let apiKey = masonConfig?.apiKey;
+    let userId: string;
+    let repositoryId: string;
 
-    if (apiKeyError || !apiKeyData) {
-      console.error('\nERROR: API key validation failed.');
-      console.error(
-        'The apiKey in mason.config.json may be invalid or expired.',
-      );
-      console.error(
-        'Please regenerate your API key from the Mason dashboard.\n',
-      );
-      return;
+    if (apiKey) {
+      // Validate existing API key
+      console.log('Validating existing API key...');
+      const { data: keyData, error: keyError } = await supabase
+        .from('mason_api_keys')
+        .select('user_id, repository_id')
+        .eq('key_hash', hashApiKey(apiKey))
+        .single();
+
+      if (keyError || !keyData) {
+        console.log('Existing API key is invalid or expired.');
+        console.log('Generating a new API key...\n');
+        apiKey = undefined;
+      } else {
+        console.log('API key valid!');
+        userId = keyData.user_id;
+        repositoryId = keyData.repository_id;
+      }
     }
 
-    console.log('API key valid!');
+    if (!apiKey) {
+      // Need to create new API key - first get or create user
+      const {
+        userId: uid,
+        repositoryId: rid,
+        apiKey: newKey,
+      } = await setupUserAndRepository(supabase, enquirer, process.cwd());
+      userId = uid;
+      repositoryId = rid;
+      apiKey = newKey;
+      needsNewMasonConfig = true;
+    }
 
-    // Check if autopilot config exists for this repository
-    console.log('Checking autopilot configuration...');
-    const { data: autopilotConfig, error: autopilotError } = await supabase
+    // Check/create autopilot config in database
+    console.log('\nChecking autopilot configuration...');
+    const { data: existingConfig } = await supabase
       .from('mason_autopilot_config')
       .select('id, enabled')
-      .eq('repository_id', apiKeyData.repository_id)
+      .eq('repository_id', repositoryId!)
       .single();
 
-    if (autopilotError || !autopilotConfig) {
-      console.log('\nNo autopilot configuration found for this repository.');
-      console.log('Please configure autopilot in the Mason Dashboard first:');
-      console.log('  https://mason.assuredefi.com/settings/autopilot');
-      console.log('\nThen run this command again.');
-      return;
-    }
+    if (!existingConfig) {
+      console.log('Creating default autopilot configuration...');
 
-    if (!autopilotConfig.enabled) {
-      console.log(
-        '\nAutopilot is configured but DISABLED for this repository.',
-      );
-      console.log('Enable it in the Mason Dashboard:');
-      console.log('  https://mason.assuredefi.com/settings/autopilot');
+      const { error: insertError } = await supabase
+        .from('mason_autopilot_config')
+        .insert({
+          user_id: userId!,
+          repository_id: repositoryId!,
+          ...DEFAULT_AUTOPILOT_CONFIG,
+        });
+
+      if (insertError) {
+        console.error(
+          'Failed to create autopilot config:',
+          insertError.message,
+        );
+        return;
+      }
+      console.log('Default autopilot configuration created!');
+      console.log('  Schedule: Daily at 2 AM');
+      console.log('  Execution window: 12 AM - 6 AM');
+      console.log('  Max items per day: 5');
+      console.log('  Auto-approve: complexity <= 2, impact >= 3');
     } else {
-      console.log('Autopilot is configured and enabled!');
+      console.log(
+        `Autopilot configuration exists (${existingConfig.enabled ? 'enabled' : 'disabled'})`,
+      );
     }
 
-    // Create config directory if needed
+    // Create/update mason.config.json if needed
+    if (needsNewMasonConfig) {
+      const newMasonConfig: MasonConfig = {
+        version: '2.0',
+        supabaseUrl: credentials.supabaseUrl,
+        supabaseAnonKey: credentials.supabaseAnonKey,
+        apiKey: apiKey!,
+        domains: masonConfig?.domains || DEFAULT_DOMAINS,
+      };
+
+      writeFileSync(masonConfigPath, JSON.stringify(newMasonConfig, null, 2));
+      console.log('\nCreated mason.config.json');
+      console.log(
+        '  ⚠️  Add this file to .gitignore to keep credentials safe!',
+      );
+    }
+
+    // Create local autopilot config
     if (!existsSync(CONFIG_DIR)) {
       mkdirSync(CONFIG_DIR, { recursive: true });
     }
 
-    // Save configuration
-    const config: AutopilotConfig = {
+    const localConfig: AutopilotLocalConfig = {
       version: '1.0',
-      supabaseUrl: answers.supabaseUrl,
-      supabaseAnonKey: answers.supabaseAnonKey,
-      repositoryPath: answers.repositoryPath,
+      supabaseUrl: credentials.supabaseUrl,
+      supabaseAnonKey: credentials.supabaseAnonKey,
+      repositoryPath: process.cwd(),
     };
 
-    writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-    console.log('\nConfiguration saved to:', CONFIG_FILE);
+    writeFileSync(CONFIG_FILE, JSON.stringify(localConfig, null, 2));
+    console.log('Created autopilot config:', CONFIG_FILE);
 
-    console.log('\nNext steps:');
-    console.log('  1. Configure autopilot settings in Mason Dashboard');
-    console.log('     https://mason.assuredefi.com/settings/autopilot');
-    console.log('  2. Start the daemon:');
+    console.log('\n✅ Autopilot initialization complete!\n');
+    console.log('Next steps:');
+    console.log('  1. Start the daemon:');
     console.log('     mason-autopilot start');
-    console.log('  3. (Optional) Install as system service:');
+    console.log('  2. (Optional) Install as system service:');
     console.log('     mason-autopilot install');
+    console.log('  3. (Optional) Customize settings in Mason Dashboard:');
+    console.log('     https://mason.assuredefi.com/settings/autopilot');
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ERR_USE_AFTER_CLOSE') {
-      // User cancelled with Ctrl+C
       console.log('\nSetup cancelled.');
       return;
     }
     throw err;
   }
+}
+
+/**
+ * Set up user and repository, generating a new API key
+ */
+async function setupUserAndRepository(
+  supabase: SupabaseClient,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  enquirer: any,
+  repoPath: string,
+): Promise<{ userId: string; repositoryId: string; apiKey: string }> {
+  console.log('\nSetting up repository connection...\n');
+
+  // Get GitHub info for identification
+  interface UserAnswers {
+    githubUsername: string;
+    repoName: string;
+  }
+
+  // Try to get repo name from git remote
+  let defaultRepoName = '';
+  try {
+    const { execSync } = await import('node:child_process');
+    const remoteUrl = execSync('git remote get-url origin', {
+      cwd: repoPath,
+      encoding: 'utf-8',
+    }).trim();
+    const match = remoteUrl.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?$/);
+    if (match) {
+      defaultRepoName = match[1];
+    }
+  } catch {
+    // Ignore - will prompt user
+  }
+
+  const userInfo = (await enquirer.prompt([
+    {
+      type: 'input',
+      name: 'githubUsername',
+      message: 'GitHub username:',
+      validate: (v: string) => (v ? true : 'Username is required'),
+    },
+    {
+      type: 'input',
+      name: 'repoName',
+      message: 'Repository (owner/name):',
+      initial: defaultRepoName,
+      validate: (v: string) =>
+        v.includes('/') ? true : 'Format: owner/repo-name',
+    },
+  ])) as UserAnswers;
+
+  // Check if user exists or create
+  let userId: string;
+  const { data: existingUser } = await supabase
+    .from('mason_users')
+    .select('id')
+    .eq('github_username', userInfo.githubUsername)
+    .single();
+
+  if (existingUser) {
+    userId = existingUser.id;
+    console.log('Found existing user account.');
+  } else {
+    console.log('Creating user account...');
+    const { data: newUser, error: userError } = await supabase
+      .from('mason_users')
+      .insert({
+        github_id: userInfo.githubUsername, // Using username as ID for CLI setup
+        github_username: userInfo.githubUsername,
+        is_active: true,
+      })
+      .select('id')
+      .single();
+
+    if (userError || !newUser) {
+      throw new Error(`Failed to create user: ${userError?.message}`);
+    }
+    userId = newUser.id;
+  }
+
+  // Check if repository exists or create
+  let repositoryId: string;
+  const { data: existingRepo } = await supabase
+    .from('mason_github_repositories')
+    .select('id')
+    .eq('full_name', userInfo.repoName)
+    .eq('user_id', userId)
+    .single();
+
+  if (existingRepo) {
+    repositoryId = existingRepo.id;
+    console.log('Found existing repository registration.');
+  } else {
+    console.log('Registering repository...');
+    const { data: newRepo, error: repoError } = await supabase
+      .from('mason_github_repositories')
+      .insert({
+        user_id: userId,
+        github_id: Date.now(), // Placeholder - real GitHub ID would come from OAuth
+        name: userInfo.repoName.split('/')[1],
+        full_name: userInfo.repoName,
+        private: true,
+        default_branch: 'main',
+      })
+      .select('id')
+      .single();
+
+    if (repoError || !newRepo) {
+      throw new Error(`Failed to register repository: ${repoError?.message}`);
+    }
+    repositoryId = newRepo.id;
+  }
+
+  // Generate and store API key
+  console.log('Generating API key...');
+  const { key, hash, prefix } = generateApiKey();
+
+  const { error: keyError } = await supabase.from('mason_api_keys').insert({
+    user_id: userId,
+    repository_id: repositoryId,
+    name: 'Autopilot CLI',
+    key_hash: hash,
+    key_prefix: prefix,
+  });
+
+  if (keyError) {
+    throw new Error(`Failed to create API key: ${keyError.message}`);
+  }
+
+  console.log('API key generated:', prefix + '...');
+
+  return { userId, repositoryId, apiKey: key };
 }
