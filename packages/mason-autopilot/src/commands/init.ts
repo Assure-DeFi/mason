@@ -55,6 +55,7 @@ export async function initCommand(): Promise<void> {
       supabaseAnonKey: '',
       repositoryPath: process.cwd(),
     };
+    let masonApiKey: string | undefined;
 
     if (existsSync(masonConfigPath)) {
       console.log('Found mason.config.json - importing credentials...\n');
@@ -64,6 +65,29 @@ export async function initCommand(): Promise<void> {
         supabaseAnonKey: masonConfig.supabaseAnonKey || '',
         repositoryPath: process.cwd(),
       };
+      masonApiKey = masonConfig.apiKey;
+    } else {
+      console.error('ERROR: mason.config.json not found in current directory.');
+      console.error('\nAutopilot requires a Mason-connected repository.');
+      console.error('Please run this command from a repository that has been');
+      console.error(
+        'initialized with Mason (should have mason.config.json).\n',
+      );
+      console.error('To connect a repository to Mason:');
+      console.error('  1. Go to https://mason.assuredefi.com');
+      console.error('  2. Connect your repository');
+      console.error('  3. Download the mason.config.json file');
+      console.error('  4. Run mason-autopilot init again\n');
+      process.exit(1);
+    }
+
+    if (!masonApiKey) {
+      console.error('ERROR: mason.config.json is missing the apiKey field.');
+      console.error(
+        '\nPlease ensure your mason.config.json contains an apiKey.',
+      );
+      console.error('You can regenerate this from the Mason dashboard.\n');
+      process.exit(1);
     }
 
     const answers = (await enquirer.prompt([
@@ -127,9 +151,54 @@ export async function initCommand(): Promise<void> {
       return;
     }
 
-    // Verify beta access (check if user email is in beta list)
-    // For now, we'll skip this check and let the dashboard handle it
     console.log('Connection verified!');
+
+    // Validate API key and get repository info
+    console.log('Validating API key...');
+    const { data: apiKeyData, error: apiKeyError } = await supabase
+      .from('mason_api_keys')
+      .select('user_id, repository_id')
+      .eq('key_hash', hashApiKey(masonApiKey))
+      .single();
+
+    if (apiKeyError || !apiKeyData) {
+      console.error('\nERROR: API key validation failed.');
+      console.error(
+        'The apiKey in mason.config.json may be invalid or expired.',
+      );
+      console.error(
+        'Please regenerate your API key from the Mason dashboard.\n',
+      );
+      return;
+    }
+
+    console.log('API key valid!');
+
+    // Check if autopilot config exists for this repository
+    console.log('Checking autopilot configuration...');
+    const { data: autopilotConfig, error: autopilotError } = await supabase
+      .from('mason_autopilot_config')
+      .select('id, enabled')
+      .eq('repository_id', apiKeyData.repository_id)
+      .single();
+
+    if (autopilotError || !autopilotConfig) {
+      console.log('\nNo autopilot configuration found for this repository.');
+      console.log('Please configure autopilot in the Mason Dashboard first:');
+      console.log('  https://mason.assuredefi.com/settings/autopilot');
+      console.log('\nThen run this command again.');
+      return;
+    }
+
+    if (!autopilotConfig.enabled) {
+      console.log(
+        '\nAutopilot is configured but DISABLED for this repository.',
+      );
+      console.log('Enable it in the Mason Dashboard:');
+      console.log('  https://mason.assuredefi.com/settings/autopilot');
+    } else {
+      console.log('Autopilot is configured and enabled!');
+    }
 
     // Create config directory if needed
     if (!existsSync(CONFIG_DIR)) {
