@@ -54,10 +54,10 @@ export function FirstItemCelebration({
             <Sparkles className="w-8 h-8 text-gold" />
           </div>
           <h2 className="text-xl font-bold text-white mb-2">
-            You found {itemCount} improvement{itemCount !== 1 ? 's' : ''}!
+            Look what Mason found!
           </h2>
           <p className="text-gray-400 text-sm">
-            Great work! Here&apos;s what to do next.
+            {itemCount} idea{itemCount !== 1 ? 's are' : ' is'} ready for your review.
           </p>
         </div>
 
