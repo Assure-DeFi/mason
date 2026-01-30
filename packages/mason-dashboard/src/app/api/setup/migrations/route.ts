@@ -262,6 +262,17 @@ CREATE TABLE IF NOT EXISTS mason_execution_progress (
   UNIQUE(item_id)
 );
 
+-- Mason PM Restore Feedback table (tracks restored items for confidence decay)
+-- Used by pm-validator to learn which filter patterns are too aggressive
+CREATE TABLE IF NOT EXISTS mason_pm_restore_feedback (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  filtered_item_id UUID REFERENCES mason_pm_filtered_items(id) ON DELETE CASCADE,
+  filter_tier TEXT NOT NULL,
+  filter_reason TEXT NOT NULL,
+  restored_at TIMESTAMPTZ NOT NULL
+);
+
 -- Ensure user_id columns exist in tables that might have been created before user_id was added
 -- This handles upgrades from older schema versions
 ALTER TABLE mason_api_keys ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
@@ -300,6 +311,8 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_item_id ON mason_pm_exec
 CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_status ON mason_pm_execution_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_wave ON mason_pm_execution_tasks(run_id, wave_number);
 CREATE INDEX IF NOT EXISTS idx_mason_execution_progress_item ON mason_execution_progress(item_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_tier ON mason_pm_restore_feedback(filter_tier);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_filtered_item ON mason_pm_restore_feedback(filtered_item_id);
 
 -- Enable Row Level Security
 ALTER TABLE mason_users ENABLE ROW LEVEL SECURITY;
@@ -314,6 +327,7 @@ ALTER TABLE mason_pm_filtered_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_execution_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_execution_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_execution_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_pm_restore_feedback ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (BYOD model - users own their database, allow all operations)
 -- Users table
@@ -398,6 +412,23 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_execution_progress' AND policyname = 'Allow all on execution_progress') THEN
     CREATE POLICY "Allow all on execution_progress" ON mason_execution_progress FOR ALL USING (true) WITH CHECK (true);
   END IF;
+END $$;
+
+-- PM Restore Feedback table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_restore_feedback' AND policyname = 'Allow all on pm_restore_feedback') THEN
+    CREATE POLICY "Allow all on pm_restore_feedback" ON mason_pm_restore_feedback FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Enable realtime for execution progress table (CRITICAL for BuildingTheater auto-show)
+-- This allows the dashboard to receive real-time INSERT events when CLI execution starts
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE mason_execution_progress;
+  END IF;
+EXCEPTION WHEN duplicate_object THEN
+  NULL; -- Table already in publication
 END $$;
 `;
 

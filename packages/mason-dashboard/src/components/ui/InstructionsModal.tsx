@@ -93,7 +93,9 @@ export function InstructionsModal({ isOpen, onClose }: InstructionsModalProps) {
     }
   }, [isOpen, handleKeyDown]);
 
-  if (!isOpen) {return null;}
+  if (!isOpen) {
+    return null;
+  }
 
   const renderContent = () => {
     switch (activeSection) {
@@ -990,7 +992,7 @@ function CodeBlock({
   return (
     <div className="flex items-center justify-between rounded bg-black px-3 py-2">
       <code className="text-gold">{code}</code>
-      <span className="text-xs text-gray-500">{description}</span>
+      <span className="text-xs text-gray-400">{description}</span>
     </div>
   );
 }
@@ -1069,7 +1071,7 @@ function CommandRow({
   return (
     <div className="flex items-center justify-between">
       <code className="font-mono text-sm text-gold">{command}</code>
-      <span className="text-xs text-gray-500">{description}</span>
+      <span className="text-xs text-gray-400">{description}</span>
     </div>
   );
 }
