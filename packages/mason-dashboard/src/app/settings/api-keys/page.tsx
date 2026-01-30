@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
+import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 
@@ -38,6 +39,7 @@ export default function ApiKeysPage() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [keyToDelete, setKeyToDelete] = useState<ApiKeyInfo | null>(null);
 
   const fetchKeys = useCallback(async () => {
     if (!client || !session?.user) {
@@ -186,6 +188,13 @@ export default function ApiKeysPage() {
       console.error('Error deleting API key:', err);
     } finally {
       setDeletingId(null);
+      setKeyToDelete(null);
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (keyToDelete) {
+      void handleDeleteKey(keyToDelete.id);
     }
   };
 
@@ -198,7 +207,9 @@ export default function ApiKeysPage() {
   };
 
   const formatRelativeTime = (dateString: string | null) => {
-    if (!dateString) {return 'Never';}
+    if (!dateString) {
+      return 'Never';
+    }
 
     const date = new Date(dateString);
     const now = new Date();
@@ -207,10 +218,18 @@ export default function ApiKeysPage() {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) {return 'Just now';}
-    if (diffMins < 60) {return `${diffMins}m ago`;}
-    if (diffHours < 24) {return `${diffHours}h ago`;}
-    if (diffDays < 7) {return `${diffDays}d ago`;}
+    if (diffMins < 1) {
+      return 'Just now';
+    }
+    if (diffMins < 60) {
+      return `${diffMins}m ago`;
+    }
+    if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    }
+    if (diffDays < 7) {
+      return `${diffDays}d ago`;
+    }
     return formatDate(dateString);
   };
 
@@ -353,7 +372,7 @@ export default function ApiKeysPage() {
                   </div>
 
                   <button
-                    onClick={() => handleDeleteKey(key.id)}
+                    onClick={() => setKeyToDelete(key)}
                     disabled={deletingId === key.id}
                     className="rounded-md p-2 text-gray-400 transition-colors hover:bg-red-900/20 hover:text-red-400 disabled:opacity-50"
                     title="Revoke key"
@@ -441,6 +460,23 @@ export default function ApiKeysPage() {
           </div>
         </div>
       )}
+
+      <ConfirmationDialog
+        isOpen={!!keyToDelete}
+        onClose={() => setKeyToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Revoke API Key"
+        message="This action cannot be undone. Any CLI sessions using this key will immediately fail authentication."
+        itemCount={1}
+        itemTitles={
+          keyToDelete
+            ? [`${keyToDelete.key_prefix}... (${keyToDelete.name})`]
+            : []
+        }
+        confirmLabel="Revoke Key"
+        confirmVariant="danger"
+        isLoading={deletingId === keyToDelete?.id}
+      />
     </div>
   );
 }

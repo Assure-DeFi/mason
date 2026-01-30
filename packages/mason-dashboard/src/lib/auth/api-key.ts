@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 
 import { createServiceClient } from '@/lib/supabase/client';
 import type { User } from '@/types/auth';
@@ -91,6 +91,8 @@ export function generateApiKey(): {
  * Optimized to use JOIN query - reduces from 3 queries to 2:
  * 1. SELECT with JOIN (api_key + user in one query)
  * 2. UPDATE last_used_at (lightweight, non-blocking)
+ *
+ * Uses timing-safe comparison to prevent timing attacks on hash validation
  */
 export async function validateApiKey(key: string): Promise<User | null> {
   if (!key || !key.startsWith(API_KEY_PREFIX)) {
@@ -106,6 +108,7 @@ export async function validateApiKey(key: string): Promise<User | null> {
     .select(
       `
       id,
+      key_hash,
       mason_users (
         id,
         created_at,
@@ -123,6 +126,24 @@ export async function validateApiKey(key: string): Promise<User | null> {
     .single();
 
   if (joinError || !joined) {
+    return null;
+  }
+
+  // Timing-safe comparison of hash values to prevent timing attacks
+  const storedHash = joined.key_hash;
+  if (!storedHash || typeof storedHash !== 'string') {
+    return null;
+  }
+
+  const hashBuffer = Buffer.from(hash, 'utf8');
+  const storedHashBuffer = Buffer.from(storedHash, 'utf8');
+
+  // Only compare if lengths match (timing-safe)
+  if (hashBuffer.length !== storedHashBuffer.length) {
+    return null;
+  }
+
+  if (!timingSafeEqual(hashBuffer, storedHashBuffer)) {
     return null;
   }
 
@@ -241,24 +262,40 @@ export async function createApiKey(
 
 /**
  * Delete an API key
- * Validates that the key belongs to the specified user
+ * Validates that the key belongs to the specified user before deletion
+ *
+ * @returns 'success' if deleted, 'not_found' if key doesn't exist or doesn't belong to user, 'error' on failure
  */
 export async function deleteApiKey(
   keyId: string,
   userId: string,
-): Promise<boolean> {
+): Promise<'success' | 'not_found' | 'error'> {
   const supabase = createServiceClient();
 
-  const { error } = await supabase
+  // First verify the key exists AND belongs to this user
+  const { data: existingKey, error: fetchError } = await supabase
+    .from('mason_api_keys')
+    .select('id')
+    .eq('id', keyId)
+    .eq('user_id', userId)
+    .single();
+
+  if (fetchError || !existingKey) {
+    // Key doesn't exist or doesn't belong to this user
+    return 'not_found';
+  }
+
+  // Now safe to delete - we've verified ownership
+  const { error: deleteError } = await supabase
     .from('mason_api_keys')
     .delete()
     .eq('id', keyId)
     .eq('user_id', userId);
 
-  if (error) {
-    console.error('Failed to delete API key:', error);
-    return false;
+  if (deleteError) {
+    console.error('Failed to delete API key:', deleteError);
+    return 'error';
   }
 
-  return true;
+  return 'success';
 }

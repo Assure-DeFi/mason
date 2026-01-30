@@ -25,9 +25,16 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Missing key ID' }, { status: 400 });
     }
 
-    const success = await deleteApiKey(id, session.user.id);
+    const result = await deleteApiKey(id, session.user.id);
 
-    if (!success) {
+    if (result === 'not_found') {
+      return NextResponse.json(
+        { error: 'API key not found or access denied' },
+        { status: 403 },
+      );
+    }
+
+    if (result === 'error') {
       return NextResponse.json(
         { error: 'Failed to delete API key' },
         { status: 500 },
