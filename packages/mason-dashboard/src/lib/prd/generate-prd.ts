@@ -5,6 +5,29 @@ import type { BacklogItem } from '@/types/backlog';
 
 export type AIProvider = 'anthropic' | 'openai';
 
+// Timeout configuration for PRD generation
+const PRD_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+
+// Custom error class for timeouts
+class PrdTimeoutError extends Error {
+  constructor(provider: string) {
+    super(`PRD generation timed out after ${PRD_TIMEOUT_MS / 1000} seconds using ${provider}`);
+    this.name = 'PrdTimeoutError';
+  }
+}
+
+// Helper: Wrap operation with timeout
+async function withTimeout<T>(
+  operation: () => Promise<T>,
+  timeoutMs: number,
+  errorFactory: () => Error,
+): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(errorFactory()), timeoutMs);
+  });
+  return Promise.race([operation(), timeoutPromise]);
+}
+
 const PRD_SYSTEM_PROMPT = `You are a senior product manager creating a detailed PRD (Product Requirements Document) for a development team.
 
 Your PRD must be:
@@ -37,17 +60,23 @@ async function generateWithAnthropic(
 ): Promise<string> {
   const client = new AnthropicClient({ apiKey });
 
-  const message = await client.messages.create({
-    model: 'claude-3-5-sonnet-20241022',
-    max_tokens: 4096,
-    system: PRD_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: userPrompt,
-      },
-    ],
-  });
+  // Wrap API call with timeout to prevent indefinite hangs
+  const message = await withTimeout(
+    () =>
+      client.messages.create({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 4096,
+        system: PRD_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+      }),
+    PRD_TIMEOUT_MS,
+    () => new PrdTimeoutError('Anthropic'),
+  );
 
   const textContent = message.content.find((block) => block.type === 'text');
   if (!textContent || textContent.type !== 'text') {
@@ -63,20 +92,26 @@ async function generateWithOpenAI(
 ): Promise<string> {
   const client = new OpenAIClient({ apiKey });
 
-  const completion = await client.chat.completions.create({
-    model: 'gpt-4o',
-    max_tokens: 4096,
-    messages: [
-      {
-        role: 'system',
-        content: PRD_SYSTEM_PROMPT,
-      },
-      {
-        role: 'user',
-        content: userPrompt,
-      },
-    ],
-  });
+  // Wrap API call with timeout to prevent indefinite hangs
+  const completion = await withTimeout(
+    () =>
+      client.chat.completions.create({
+        model: 'gpt-4o',
+        max_tokens: 4096,
+        messages: [
+          {
+            role: 'system',
+            content: PRD_SYSTEM_PROMPT,
+          },
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+      }),
+    PRD_TIMEOUT_MS,
+    () => new PrdTimeoutError('OpenAI'),
+  );
 
   const content = completion.choices[0]?.message?.content;
   if (!content) {

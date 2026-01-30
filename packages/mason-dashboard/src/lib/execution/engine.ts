@@ -136,6 +136,34 @@ const RETRY_CONFIG = {
   retryableStatusCodes: [429, 500, 502, 503, 504],
 };
 
+// Timeout configuration for Claude API calls
+const TIMEOUT_CONFIG = {
+  codeGenerationMs: 5 * 60 * 1000, // 5 minutes for code generation
+};
+
+// Custom error class for timeouts
+class TimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TimeoutError';
+  }
+}
+
+// Helper: Wrap operation with timeout
+async function withTimeout<T>(
+  operation: () => Promise<T>,
+  timeoutMs: number,
+  context: string,
+): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(new TimeoutError(`${context} timed out after ${timeoutMs / 1000} seconds`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([operation(), timeoutPromise]);
+}
+
 // Helper: Retry with exponential backoff
 async function withRetry<T>(
   operation: () => Promise<T>,
@@ -212,20 +240,28 @@ ${repoContext}
 
 Generate the code changes needed to implement this improvement. Follow existing patterns in the repository.`;
 
-  const message = await withRetry(
+  // Wrap Claude API call with timeout and retry
+  // Timeout: 5 minutes to prevent indefinite hangs
+  // Retry: 3 attempts with exponential backoff for transient errors
+  const message = await withTimeout(
     () =>
-      client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 8192,
-        system: CODE_GENERATION_SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt,
-          },
-        ],
-      }),
-    `Claude API call for "${item.title}"`,
+      withRetry(
+        () =>
+          client.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 8192,
+            system: CODE_GENERATION_SYSTEM_PROMPT,
+            messages: [
+              {
+                role: 'user',
+                content: userPrompt,
+              },
+            ],
+          }),
+        `Claude API call for "${item.title}"`,
+      ),
+    TIMEOUT_CONFIG.codeGenerationMs,
+    `Code generation for "${item.title}"`,
   );
 
   const textContent = message.content.find((block) => block.type === 'text');
