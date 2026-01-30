@@ -1,0 +1,17 @@
+{
+  "manifest_version": 1,
+  "commands": {
+    "pm-review": {
+      "version": "1.0.0",
+      "file_path": "commands/pm-review.md"
+    },
+    "execute-approved": {
+      "version": "1.0.0",
+      "file_path": "commands/execute-approved.md"
+    },
+    "mason-update": {
+      "version": "1.0.0",
+      "file_path": "commands/mason-update.md"
+    }
+  }
+}

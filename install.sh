@@ -111,6 +111,11 @@ download_file \
     ".claude/commands/execute-approved.md" \
     "execute-approved.md"
 
+download_file \
+    "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/commands/mason-update.md" \
+    ".claude/commands/mason-update.md" \
+    "mason-update.md"
+
 # Download skill template
 echo ""
 echo "Installing domain knowledge skill..."
@@ -249,6 +254,7 @@ verify_file() {
 
 verify_file ".claude/commands/pm-review.md"
 verify_file ".claude/commands/execute-approved.md"
+verify_file ".claude/commands/mason-update.md"
 verify_file ".claude/skills/pm-domain-knowledge/SKILL.md"
 verify_file "mason.config.json"
 
@@ -258,6 +264,27 @@ if [ $ERRORS -gt 0 ]; then
     echo "Please try running the installer again."
     exit 1
 fi
+
+# Record installed versions for update tracking
+echo ""
+echo "Recording installed versions..."
+
+# Extract versions from installed files
+PM_VERSION=$(grep -m1 "^version:" ".claude/commands/pm-review.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+EXEC_VERSION=$(grep -m1 "^version:" ".claude/commands/execute-approved.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+UPDATE_VERSION=$(grep -m1 "^version:" ".claude/commands/mason-update.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+
+cat > .claude/.mason-state.json << EOF
+{
+  "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "installed_versions": {
+    "pm-review": "${PM_VERSION:-1.0.0}",
+    "execute-approved": "${EXEC_VERSION:-1.0.0}",
+    "mason-update": "${UPDATE_VERSION:-1.0.0}"
+  }
+}
+EOF
+echo "  [OK] .claude/.mason-state.json"
 
 echo ""
 echo "=================================="
