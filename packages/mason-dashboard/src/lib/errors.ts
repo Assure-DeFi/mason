@@ -249,9 +249,79 @@ export function formatErrorForLogging(
   return parts.join('\n');
 }
 
-export default {
-  getErrorCode,
-  getErrorConfig,
-  formatErrorForLogging,
-  ERROR_CONFIGS,
-};
+/**
+ * Supabase/Postgres error with code and details
+ */
+export interface DatabaseError {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+}
+
+/**
+ * Format a database error with detailed context for debugging.
+ * Includes Supabase error code, message, and details when available.
+ */
+export function formatDatabaseError(
+  operation: string,
+  error: DatabaseError | null | undefined,
+): string {
+  if (!error) {
+    return `Failed to ${operation}: Unknown error`;
+  }
+
+  const parts = [`Failed to ${operation}:`];
+
+  if (error.code) {
+    parts.push(`[${error.code}]`);
+  }
+
+  if (error.message) {
+    parts.push(error.message);
+  }
+
+  if (error.details) {
+    parts.push(`(${error.details})`);
+  }
+
+  if (error.hint) {
+    parts.push(`Hint: ${error.hint}`);
+  }
+
+  return parts.join(' ');
+}
+
+/**
+ * Create a user-friendly error message from a database error.
+ * Extracts the most relevant information without exposing internals.
+ */
+export function getUserFriendlyDatabaseError(
+  operation: string,
+  error: DatabaseError | null | undefined,
+): string {
+  if (!error) {
+    return `Failed to ${operation}. Please try again.`;
+  }
+
+  const errorCodeMessages: Record<string, string> = {
+    PGRST116: 'The requested item was not found.',
+    PGRST301: 'Unable to connect to the database.',
+    '23505': 'This item already exists.',
+    '23503': 'Cannot delete - this item is referenced by other data.',
+    '42P01': 'Database table not found. Please run migrations.',
+    '42501': 'Permission denied. Please check your database permissions.',
+    '08P01': 'Database protocol error. Please try again.',
+    '57014': 'Query cancelled due to timeout. Please try again.',
+  };
+
+  if (error.code && errorCodeMessages[error.code]) {
+    return `Failed to ${operation}: ${errorCodeMessages[error.code]}`;
+  }
+
+  if (error.message) {
+    return `Failed to ${operation}: ${error.message}`;
+  }
+
+  return `Failed to ${operation}. Please try again.`;
+}
