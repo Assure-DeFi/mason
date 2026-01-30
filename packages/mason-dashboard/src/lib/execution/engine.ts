@@ -141,6 +141,159 @@ const TIMEOUT_CONFIG = {
   codeGenerationMs: 5 * 60 * 1000, // 5 minutes for code generation
 };
 
+// Circuit breaker configuration
+const CIRCUIT_BREAKER_CONFIG = {
+  failureThreshold: 3, // Open circuit after 3 consecutive failures
+  resetTimeoutMs: 30000, // 30 seconds before testing recovery
+};
+
+// Circuit breaker states
+enum CircuitState {
+  CLOSED = 'CLOSED', // Normal operation - requests pass through
+  OPEN = 'OPEN', // Failing fast - reject immediately
+  HALF_OPEN = 'HALF_OPEN', // Testing recovery - one request allowed
+}
+
+// Error types that should NOT trip the circuit breaker (client errors)
+const NON_TRIPPING_STATUS_CODES = [400, 401, 403, 404, 422];
+
+// Circuit breaker for Claude API calls
+class ClaudeCircuitBreaker {
+  private state: CircuitState = CircuitState.CLOSED;
+  private failureCount: number = 0;
+  private lastFailureTime: number = 0;
+  private readonly failureThreshold: number;
+  private readonly resetTimeoutMs: number;
+
+  constructor(
+    failureThreshold: number = CIRCUIT_BREAKER_CONFIG.failureThreshold,
+    resetTimeoutMs: number = CIRCUIT_BREAKER_CONFIG.resetTimeoutMs,
+  ) {
+    this.failureThreshold = failureThreshold;
+    this.resetTimeoutMs = resetTimeoutMs;
+  }
+
+  // Check if an error should trip the circuit breaker
+  private shouldTrip(error: unknown): boolean {
+    // Extract status code if available
+    const statusCode = (error as { status?: number }).status;
+
+    // Client errors (4xx except rate limits) should not trip the breaker
+    if (statusCode && NON_TRIPPING_STATUS_CODES.includes(statusCode)) {
+      return false;
+    }
+
+    // Network errors, server errors (5xx), and rate limits (429) should trip
+    return true;
+  }
+
+  // Check if reset timeout has expired
+  private isResetTimeoutExpired(): boolean {
+    return Date.now() - this.lastFailureTime >= this.resetTimeoutMs;
+  }
+
+  // Execute operation with circuit breaker protection
+  async execute<T>(operation: () => Promise<T>, context: string): Promise<T> {
+    // Check if we should transition from OPEN to HALF_OPEN
+    if (this.state === CircuitState.OPEN && this.isResetTimeoutExpired()) {
+      console.log(
+        `[CircuitBreaker] ${context}: Transitioning to HALF_OPEN for recovery test`,
+      );
+      this.state = CircuitState.HALF_OPEN;
+    }
+
+    // If circuit is OPEN, fail fast without calling the API
+    if (this.state === CircuitState.OPEN) {
+      const timeUntilRetry = Math.ceil(
+        (this.resetTimeoutMs - (Date.now() - this.lastFailureTime)) / 1000,
+      );
+      throw new CircuitBreakerOpenError(
+        `Claude API circuit breaker is OPEN. Too many consecutive failures. ` +
+          `Will retry in ${timeUntilRetry} seconds.`,
+      );
+    }
+
+    try {
+      const result = await operation();
+      this.onSuccess(context);
+      return result;
+    } catch (error) {
+      this.onFailure(error, context);
+      throw error;
+    }
+  }
+
+  // Handle successful operation
+  private onSuccess(context: string): void {
+    if (this.state === CircuitState.HALF_OPEN) {
+      console.log(
+        `[CircuitBreaker] ${context}: Recovery successful, closing circuit`,
+      );
+    }
+    this.failureCount = 0;
+    this.state = CircuitState.CLOSED;
+  }
+
+  // Handle failed operation
+  private onFailure(error: unknown, context: string): void {
+    if (!this.shouldTrip(error)) {
+      // Client error - don't count as circuit breaker failure
+      console.log(
+        `[CircuitBreaker] ${context}: Non-tripping error (client error), not counting`,
+      );
+      return;
+    }
+
+    this.failureCount++;
+    this.lastFailureTime = Date.now();
+
+    console.warn(
+      `[CircuitBreaker] ${context}: Failure ${this.failureCount}/${this.failureThreshold}`,
+    );
+
+    // If in HALF_OPEN and test failed, return to OPEN
+    if (this.state === CircuitState.HALF_OPEN) {
+      console.warn(
+        `[CircuitBreaker] ${context}: Recovery test failed, reopening circuit`,
+      );
+      this.state = CircuitState.OPEN;
+      return;
+    }
+
+    // Check if we should open the circuit
+    if (this.failureCount >= this.failureThreshold) {
+      console.error(
+        `[CircuitBreaker] ${context}: Threshold reached, opening circuit for ${this.resetTimeoutMs / 1000}s`,
+      );
+      this.state = CircuitState.OPEN;
+    }
+  }
+
+  // Get current circuit state (for monitoring/logging)
+  getState(): {
+    state: CircuitState;
+    failureCount: number;
+    lastFailureTime: number;
+  } {
+    return {
+      state: this.state,
+      failureCount: this.failureCount,
+      lastFailureTime: this.lastFailureTime,
+    };
+  }
+}
+
+// Custom error for when circuit breaker is open
+class CircuitBreakerOpenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CircuitBreakerOpenError';
+  }
+}
+
+// Singleton circuit breaker instance for Claude API calls
+const claudeCircuitBreaker = new ClaudeCircuitBreaker();
+
 // Custom error class for timeouts
 class TimeoutError extends Error {
   constructor(message: string) {
@@ -157,7 +310,11 @@ async function withTimeout<T>(
 ): Promise<T> {
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => {
-      reject(new TimeoutError(`${context} timed out after ${timeoutMs / 1000} seconds`));
+      reject(
+        new TimeoutError(
+          `${context} timed out after ${timeoutMs / 1000} seconds`,
+        ),
+      );
     }, timeoutMs);
   });
 
@@ -240,28 +397,34 @@ ${repoContext}
 
 Generate the code changes needed to implement this improvement. Follow existing patterns in the repository.`;
 
-  // Wrap Claude API call with timeout and retry
+  // Wrap Claude API call with circuit breaker, timeout, and retry
+  // Circuit breaker: Fail fast after 3 consecutive failures (prevents wasted time)
   // Timeout: 5 minutes to prevent indefinite hangs
   // Retry: 3 attempts with exponential backoff for transient errors
-  const message = await withTimeout(
+  const context = `Claude API call for "${item.title}"`;
+  const message = await claudeCircuitBreaker.execute(
     () =>
-      withRetry(
+      withTimeout(
         () =>
-          client.messages.create({
-            model: 'claude-3-5-sonnet-20241022',
-            max_tokens: 8192,
-            system: CODE_GENERATION_SYSTEM_PROMPT,
-            messages: [
-              {
-                role: 'user',
-                content: userPrompt,
-              },
-            ],
-          }),
-        `Claude API call for "${item.title}"`,
+          withRetry(
+            () =>
+              client.messages.create({
+                model: 'claude-3-5-sonnet-20241022',
+                max_tokens: 8192,
+                system: CODE_GENERATION_SYSTEM_PROMPT,
+                messages: [
+                  {
+                    role: 'user',
+                    content: userPrompt,
+                  },
+                ],
+              }),
+            context,
+          ),
+        TIMEOUT_CONFIG.codeGenerationMs,
+        `Code generation for "${item.title}"`,
       ),
-    TIMEOUT_CONFIG.codeGenerationMs,
-    `Code generation for "${item.title}"`,
+    context,
   );
 
   const textContent = message.content.find((block) => block.type === 'text');
@@ -290,7 +453,8 @@ export async function executeRemotely(
   options: ExecutionOptions,
 ): Promise<ExecutionResult> {
   const supabase = createServiceClient();
-  const { userId, repositoryId, itemIds, accessToken, idempotencyKey } = options;
+  const { userId, repositoryId, itemIds, accessToken, idempotencyKey } =
+    options;
 
   // Check for existing run with the same idempotency key (request deduplication)
   // This prevents duplicate execution on rapid clicks or network retries
@@ -696,4 +860,20 @@ export async function getExecutionLogs(
   }
 
   return data;
+}
+
+// Get circuit breaker state for monitoring
+export function getClaudeCircuitBreakerState(): {
+  state: string;
+  failureCount: number;
+  lastFailureTime: number;
+  isOpen: boolean;
+} {
+  const cbState = claudeCircuitBreaker.getState();
+  return {
+    state: cbState.state,
+    failureCount: cbState.failureCount,
+    lastFailureTime: cbState.lastFailureTime,
+    isOpen: cbState.state === CircuitState.OPEN,
+  };
 }
