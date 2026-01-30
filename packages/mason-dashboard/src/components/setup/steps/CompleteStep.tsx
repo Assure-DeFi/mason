@@ -70,7 +70,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
 
     try {
       const { data: userData } = await client
-        .from('users')
+        .from('mason_users')
         .select('id')
         .eq('github_id', session.user.github_id)
         .single();
@@ -95,12 +95,14 @@ export function CompleteStep({ onBack }: WizardStepProps) {
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
 
-      const { error: insertError } = await client.from('api_keys').insert({
-        user_id: userData.id,
-        name: 'Setup Wizard',
-        key_hash: keyHash,
-        key_prefix: keyPrefix,
-      });
+      const { error: insertError } = await client
+        .from('mason_api_keys')
+        .insert({
+          user_id: userData.id,
+          name: 'Setup Wizard',
+          key_hash: keyHash,
+          key_prefix: keyPrefix,
+        });
 
       if (insertError) {
         throw insertError;
