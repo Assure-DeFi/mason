@@ -47,3 +47,7 @@ mason.config.json
 packages/mason-dashboard/node_modules/
 packages/mason-dashboard/.next/
 *.env.local
+
+# Mason local config (contains API keys)
+mason.config.json
+.mason/
