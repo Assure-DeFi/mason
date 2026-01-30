@@ -20,6 +20,21 @@ See `.claude/rules/` for Mason-specific standards:
 - `privacy-architecture.md` - Minimal central data, user data stays local
 - `learned-patterns.md` - Patterns discovered while working on Mason
 
+## Reference Documentation
+
+**Check `.claude/docs/` FIRST** before exploring source code. These docs provide quick answers without re-reading source files.
+
+- **Index**: `.claude/docs/README.md` - Navigation and quick answers
+- **Tables**: `.claude/docs/constants/tables.md` - CRITICAL for avoiding hardcoded table bugs
+- **Schema**: `.claude/docs/database/tables.md` - All 13 tables with columns
+- **Types**: `.claude/docs/types/backlog.md` - BacklogItem and related types
+- **Architecture**: `.claude/docs/architecture/overview.md` - System design
+
+**When to use docs vs source:**
+
+- Docs: "What tables exist?", "How do I query backlog?", "What's the privacy model?"
+- Source: Implementation details, debugging specific issues, code modifications
+
 ## Mason-Specific Gotchas
 
 1. **Always use TABLES constant** for Supabase queries (tables are prefixed with `mason_`)
