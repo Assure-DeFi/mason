@@ -68,7 +68,7 @@ export default function BacklogPage() {
 
     try {
       const { data: userData } = await client
-        .from('users')
+        .from('mason_users')
         .select('id')
         .eq('github_id', session.user.github_id)
         .single();
@@ -79,7 +79,7 @@ export default function BacklogPage() {
       }
 
       const { data, error: fetchError } = await client
-        .from('pm_backlog_items')
+        .from('mason_pm_backlog_items')
         .select('*')
         .eq('user_id', userData.id)
         .order('priority_score', { ascending: false });
@@ -177,7 +177,7 @@ export default function BacklogPage() {
     }
 
     const { data: updated, error: updateError } = await client
-      .from('pm_backlog_items')
+      .from('mason_pm_backlog_items')
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
