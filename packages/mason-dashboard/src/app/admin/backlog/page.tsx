@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCw, Database, ArrowRight, Undo2 } from 'lucide-react';
+import { RefreshCw, Database, ArrowRight, Undo2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -17,6 +17,7 @@ import {
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
+import { GenerateIdeasModal } from '@/components/backlog/generate-ideas-modal';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { JourneyMap } from '@/components/ui/JourneyMap';
@@ -70,6 +71,7 @@ export default function BacklogPage() {
   );
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showGenerateIdeasModal, setShowGenerateIdeasModal] = useState(false);
   const [sort, setSort] = useState<{
     field: SortField;
     direction: SortDirection;
@@ -753,6 +755,14 @@ export default function BacklogPage() {
               )}
 
               <button
+                onClick={() => setShowGenerateIdeasModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gold text-navy font-medium hover:bg-gold/90 transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                Generate New Ideas
+              </button>
+
+              <button
                 onClick={fetchItems}
                 disabled={isLoading}
                 className="flex items-center gap-2 px-4 py-2 border border-gray-700 text-gray-300 hover:bg-white/5 disabled:opacity-50"
@@ -863,6 +873,12 @@ export default function BacklogPage() {
           }}
         />
       )}
+
+      {/* Generate Ideas Modal */}
+      <GenerateIdeasModal
+        isOpen={showGenerateIdeasModal}
+        onClose={() => setShowGenerateIdeasModal(false)}
+      />
 
       {/* Toast */}
       {copiedToast && (
