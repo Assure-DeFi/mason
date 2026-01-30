@@ -326,9 +326,15 @@ export default function BacklogPage() {
         const bVal = b[sort.field];
 
         // Handle null/undefined values
-        if (aVal == null && bVal == null) return 0;
-        if (aVal == null) return sort.direction === 'asc' ? 1 : -1;
-        if (bVal == null) return sort.direction === 'asc' ? -1 : 1;
+        if (aVal === null || aVal === undefined) {
+          if (bVal === null || bVal === undefined) {
+            return 0;
+          }
+          return sort.direction === 'asc' ? 1 : -1;
+        }
+        if (bVal === null || bVal === undefined) {
+          return sort.direction === 'asc' ? -1 : 1;
+        }
 
         // Compare based on type
         let comparison = 0;

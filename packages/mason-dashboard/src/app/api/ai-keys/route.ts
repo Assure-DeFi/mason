@@ -3,6 +3,10 @@ import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
+import {
+  formatDatabaseError,
+  getUserFriendlyDatabaseError,
+} from '@/lib/errors';
 import { createServerClient } from '@/lib/supabase/client';
 
 export async function GET() {
@@ -22,9 +26,9 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching AI keys:', error);
+      console.error(formatDatabaseError('fetch AI keys', error));
       return NextResponse.json(
-        { error: 'Failed to fetch AI keys' },
+        { error: getUserFriendlyDatabaseError('fetch AI keys', error) },
         { status: 500 },
       );
     }
@@ -99,9 +103,9 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error('Error saving AI key:', error);
+      console.error(formatDatabaseError('save AI key', error));
       return NextResponse.json(
-        { error: 'Failed to save AI key' },
+        { error: getUserFriendlyDatabaseError('save AI key', error) },
         { status: 500 },
       );
     }
@@ -142,9 +146,9 @@ export async function DELETE(request: Request) {
       .eq('user_id', session.user.id); // Only delete user's own keys
 
     if (error) {
-      console.error('Error deleting AI key:', error);
+      console.error(formatDatabaseError('delete AI key', error));
       return NextResponse.json(
-        { error: 'Failed to delete AI key' },
+        { error: getUserFriendlyDatabaseError('delete AI key', error) },
         { status: 500 },
       );
     }

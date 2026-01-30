@@ -1,12 +1,13 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth/auth-options';
 import {
-  createGitHubClient,
-  getRepository,
-} from '@/lib/github/client';
+  formatDatabaseError,
+  getUserFriendlyDatabaseError,
+} from '@/lib/errors';
+import { createGitHubClient, getRepository } from '@/lib/github/client';
 import { createServiceClient } from '@/lib/supabase/client';
 import type { GitHubRepository } from '@/types/auth';
 
@@ -29,9 +30,9 @@ export async function GET() {
       .order('github_full_name', { ascending: true });
 
     if (error) {
-      console.error('Failed to fetch repositories:', error);
+      console.error(formatDatabaseError('fetch repositories', error));
       return NextResponse.json(
-        { error: 'Failed to fetch repositories' },
+        { error: getUserFriendlyDatabaseError('fetch repositories', error) },
         { status: 500 },
       );
     }
@@ -106,9 +107,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Failed to save repository:', error);
+      console.error(formatDatabaseError('save repository', error));
       return NextResponse.json(
-        { error: 'Failed to connect repository' },
+        { error: getUserFriendlyDatabaseError('connect repository', error) },
         { status: 500 },
       );
     }
@@ -160,9 +161,11 @@ export async function DELETE(request: NextRequest) {
       .eq('user_id', session.user.id);
 
     if (error) {
-      console.error('Failed to disconnect repository:', error);
+      console.error(formatDatabaseError('disconnect repository', error));
       return NextResponse.json(
-        { error: 'Failed to disconnect repository' },
+        {
+          error: getUserFriendlyDatabaseError('disconnect repository', error),
+        },
         { status: 500 },
       );
     }
