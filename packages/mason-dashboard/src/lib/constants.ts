@@ -42,6 +42,7 @@ export const TABLES = {
   // Execution tables
   REMOTE_EXECUTION_RUNS: 'mason_remote_execution_runs',
   EXECUTION_LOGS: 'mason_execution_logs',
+  EXECUTION_PROGRESS: 'mason_execution_progress',
 
   // AI provider keys
   AI_PROVIDER_KEYS: 'mason_ai_provider_keys',
