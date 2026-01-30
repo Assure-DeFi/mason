@@ -104,13 +104,25 @@ export function BuildingTheater({
 
   useEffect(() => {
     if (!client || !itemId) {
+      console.log(
+        '[BuildingTheater] Not starting (client:',
+        !!client,
+        'itemId:',
+        itemId,
+        ')',
+      );
       setIsLoading(false);
       return;
     }
 
     const supabase = client;
+    console.log('[BuildingTheater] Initializing for item:', itemId);
 
     async function fetchProgress() {
+      console.log(
+        '[BuildingTheater] Fetching initial progress for item:',
+        itemId,
+      );
       const { data, error } = await supabase
         .from(TABLES.EXECUTION_PROGRESS)
         .select('*')
@@ -118,17 +130,30 @@ export function BuildingTheater({
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        // PGRST116 = no rows found
+        console.error(
+          '[BuildingTheater] Error fetching progress:',
+          error.message,
+        );
       }
 
       if (data) {
+        console.log(
+          '[BuildingTheater] Got initial progress - phase:',
+          data.current_phase,
+        );
         setProgress(data as ExecutionProgress);
+      } else {
+        console.log('[BuildingTheater] No progress record found yet');
       }
       setIsLoading(false);
     }
 
     void fetchProgress();
 
+    console.log(
+      '[BuildingTheater] Setting up realtime subscription for item:',
+      itemId,
+    );
     const channel = supabase
       .channel(`building-${itemId}`)
       .on(
@@ -140,16 +165,39 @@ export function BuildingTheater({
           filter: `item_id=eq.${itemId}`,
         },
         (payload) => {
+          console.log('[BuildingTheater] Realtime event:', payload.eventType);
           if (payload.eventType === 'DELETE') {
+            console.log('[BuildingTheater] Progress deleted');
             setProgress(null);
           } else {
-            setProgress(payload.new as ExecutionProgress);
+            const newProgress = payload.new as ExecutionProgress;
+            console.log(
+              '[BuildingTheater] Progress update - phase:',
+              newProgress.current_phase,
+              'wave:',
+              newProgress.current_wave,
+            );
+            setProgress(newProgress);
           }
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[BuildingTheater] Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log(
+            '[BuildingTheater] ✓ Realtime CONNECTED for item:',
+            itemId,
+          );
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('[BuildingTheater] ⚠ Realtime FAILED for item:', itemId);
+        }
+      });
 
     return () => {
+      console.log(
+        '[BuildingTheater] Cleaning up subscription for item:',
+        itemId,
+      );
       void supabase.removeChannel(channel);
     };
   }, [client, itemId]);

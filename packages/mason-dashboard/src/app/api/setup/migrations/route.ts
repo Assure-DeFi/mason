@@ -650,6 +650,97 @@ async function runMigrationsViaManagementApi(
   }
 }
 
+/**
+ * Verification SQL to check realtime is properly configured.
+ * Returns status for each critical realtime requirement.
+ */
+const VERIFICATION_SQL = `
+SELECT
+  -- Check REPLICA IDENTITY FULL for execution_progress
+  (SELECT
+    CASE WHEN relreplident = 'f' THEN true ELSE false END
+    FROM pg_class
+    WHERE relname = 'mason_execution_progress'
+  ) as execution_progress_replica_identity_full,
+
+  -- Check if table is in supabase_realtime publication
+  (SELECT
+    EXISTS(
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+      AND tablename = 'mason_execution_progress'
+    )
+  ) as execution_progress_in_publication,
+
+  -- Check RLS policy exists
+  (SELECT
+    EXISTS(
+      SELECT 1 FROM pg_policies
+      WHERE tablename = 'mason_execution_progress'
+      AND policyname = 'Allow all on execution_progress'
+    )
+  ) as execution_progress_rls_policy_exists;
+`;
+
+interface RealtimeVerification {
+  execution_progress_replica_identity_full: boolean;
+  execution_progress_in_publication: boolean;
+  execution_progress_rls_policy_exists: boolean;
+}
+
+/**
+ * Run verification query via Management API
+ */
+async function verifyRealtimeViaManagementApi(
+  projectRef: string,
+  accessToken: string,
+): Promise<{
+  success: boolean;
+  verification?: RealtimeVerification;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${MANAGEMENT_API_BASE}/projects/${projectRef}/database/query`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: VERIFICATION_SQL,
+          read_only: true,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error:
+          errorData.message ||
+          errorData.error ||
+          `Verification failed: ${response.status}`,
+      };
+    }
+
+    const data = await response.json();
+    // The response contains an array of results, we want the first row
+    if (data && Array.isArray(data) && data.length > 0) {
+      return { success: true, verification: data[0] as RealtimeVerification };
+    }
+
+    return { success: true, verification: undefined };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Verification failed',
+    };
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Require authentication before processing any migration request
@@ -694,7 +785,30 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: result.error }, { status: 500 });
       }
 
-      return NextResponse.json({ success: true });
+      // Run verification to check realtime is properly configured
+      const verification = await verifyRealtimeViaManagementApi(
+        projectRef,
+        accessToken,
+      );
+
+      return NextResponse.json({
+        success: true,
+        realtime: verification.success
+          ? {
+              verified: true,
+              status: verification.verification,
+              allChecksPass: verification.verification
+                ? verification.verification
+                    .execution_progress_replica_identity_full &&
+                  verification.verification.execution_progress_in_publication &&
+                  verification.verification.execution_progress_rls_policy_exists
+                : false,
+            }
+          : {
+              verified: false,
+              error: verification.error,
+            },
+      });
     }
 
     // Method 2: Direct PostgreSQL connection (fallback)
@@ -719,7 +833,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true });
+    // Note: For direct connection, we can't easily verify realtime without the Management API
+    // The verification would require parsing pg connection string and running the verification query
+    return NextResponse.json({
+      success: true,
+      realtime: {
+        verified: false,
+        note: 'Realtime verification requires OAuth authentication. Migrations applied successfully.',
+      },
+    });
   } catch (error) {
     console.error('Migration error:', error);
     return NextResponse.json(
