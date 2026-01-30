@@ -7,6 +7,7 @@ import {
   Download,
   RotateCcw,
   CheckCircle2,
+  Trash2,
 } from 'lucide-react';
 
 import type { BacklogItem } from '@/types/backlog';
@@ -17,11 +18,13 @@ interface BulkActionsBarProps {
   onReject: (ids: string[]) => void;
   onRestore: (ids: string[]) => void;
   onComplete: (ids: string[]) => void;
+  onDelete: (ids: string[]) => void;
   onClearSelection: () => void;
   isApproving: boolean;
   isRejecting: boolean;
   isRestoring: boolean;
   isCompleting: boolean;
+  isDeleting: boolean;
 }
 
 export function BulkActionsBar({
@@ -30,11 +33,13 @@ export function BulkActionsBar({
   onReject,
   onRestore,
   onComplete,
+  onDelete,
   onClearSelection,
   isApproving,
   isRejecting,
   isRestoring,
   isCompleting,
+  isDeleting,
 }: BulkActionsBarProps) {
   const count = selectedItems.length;
   const itemsWithPrd = selectedItems.filter((item) => item.prd_content);
@@ -50,7 +55,7 @@ export function BulkActionsBar({
   );
 
   const isAnyLoading =
-    isApproving || isRejecting || isRestoring || isCompleting;
+    isApproving || isRejecting || isRestoring || isCompleting || isDeleting;
 
   const handleExportPrds = () => {
     if (itemsWithPrd.length === 0) {
@@ -219,6 +224,24 @@ ${item.prd_content}
               {itemsCanComplete.length}
             </span>
           )}
+        </button>
+
+        {/* Delete Button - works on ALL items regardless of status */}
+        <button
+          onClick={() => onDelete(selectedItems.map((item) => item.id))}
+          disabled={isAnyLoading || count === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600/20 border border-red-600/50 text-red-400 font-medium hover:bg-red-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          title={`Permanently delete ${count} item${count !== 1 ? 's' : ''}`}
+        >
+          {isDeleting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Trash2 className="w-4 h-4" />
+          )}
+          <span>Delete</span>
+          <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-600/30 text-red-400">
+            {count}
+          </span>
         </button>
 
         {/* Clear Selection */}
