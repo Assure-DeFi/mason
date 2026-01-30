@@ -96,7 +96,7 @@ export function ItemRow({
 
       {/* Type */}
       <td className="py-3 px-3" style={{ width: `${columnWidths.type}px` }}>
-        <TypeBadge type={item.type} />
+        <TypeBadge type={item.type} isNewFeature={item.is_new_feature} />
       </td>
 
       {/* Priority */}

@@ -91,6 +91,10 @@ export interface BacklogItem {
   files_affected_count: number | null;
   has_breaking_changes: boolean | null;
   test_coverage_gaps: number | null;
+
+  // Feature classification
+  is_new_feature: boolean;
+  is_banger_idea: boolean;
 }
 
 export interface AnalysisRun {

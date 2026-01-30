@@ -275,6 +275,7 @@ Explore the codebase systematically across these domains:
 | **reliability**  | Error handling, logging, monitoring, retry logic, graceful degradation |
 | **security**     | Auth issues, input validation, secrets exposure, OWASP vulnerabilities |
 | **code-quality** | Code duplication, complexity, naming, testing gaps, technical debt     |
+| **new-features** | New capabilities, integrations, automation opportunities, user-value ideas |
 
 ### Step 3: Score Each Improvement
 
@@ -360,6 +361,98 @@ For EVERY improvement, populate ALL 5 benefit categories. Each benefit should be
   ]
 }
 ```
+
+
+
+### Step 5.2: Feature Discovery (new-features domain)
+
+In addition to improvements, discover **new feature opportunities** that don't exist yet. This shifts the mindset from "what's wrong?" to "what could be amazing?"
+
+**Feature Discovery Mindset:**
+- Think like a product manager building a v2.0 roadmap
+- Focus on user value, not technical improvements
+- Ask: "What would make users say 'wow, I wish it did THAT'?"
+
+**Questions to Guide Feature Discovery:**
+1. What is this application's core purpose?
+2. Who are the primary users and what do they care about?
+3. What adjacent problems could this app solve with the right features?
+4. What integrations would make this 10x more useful?
+5. What automation opportunities exist for repetitive tasks?
+
+**Feature Categories to Consider:**
+| Category | Examples |
+|----------|----------|
+| **Automation** | Repetitive tasks that could be automated |
+| **Intelligence** | Places where AI/ML could add value |
+| **Insights** | Data that exists but is not being surfaced |
+| **Collaboration** | Multi-user or team features |
+| **Integrations** | External services that complement the app |
+| **Accessibility** | Making the app usable by more people |
+| **Mobile/Offline** | Capabilities for different contexts |
+
+**Feature Quality Bar:**
+- Must be a NET NEW capability, not an improvement to existing
+- Must provide clear user value (not just "would be cool")
+- Must be technically feasible with existing architecture
+- Should align with the application core purpose
+
+**Examples of GOOD Features (is_new_feature: true):**
+- "Add export to PDF for reports"
+- "Implement webhook notifications for events"
+- "Add team collaboration with shared workspaces"
+- "Add AI-powered suggestions based on user history"
+
+**Examples of NOT Features (is_new_feature: false, these are improvements):**
+- "Make the loading faster" (performance improvement)
+- "Fix the broken validation" (bug fix)
+- "Add error handling to API" (reliability improvement)
+- "Refactor the component structure" (code quality)
+
+**Feature Fields in Submission:**
+```json
+{
+  "title": "Add real-time collaboration",
+  "problem": "Users cannot work together on the same content simultaneously...",
+  "solution": "Implement WebSocket-based real-time sync...",
+  "is_new_feature": true,
+  "is_banger_idea": false
+}
+```
+
+### Step 5.3: Banger Idea Generation (ONE per analysis)
+
+Every PM review MUST generate exactly ONE "Banger Idea" - a transformative feature that would dramatically increase the app value.
+
+**Banger Idea Characteristics:**
+- **Ambitious scope** - Not a quick fix, this is a multi-week project
+- **Transformative value** - Would make users say "holy shit, this is next level"
+- **Feature-focused** - Not cosmetic, not reliability, not security - pure functionality
+- **Vision-aligned** - Amplifies what the app is already trying to do
+- **Technically feasible** - Could actually be built with the existing stack
+
+**Banger Idea Quality Criteria:**
+- Must be technically feasible with current stack
+- Must align with the app core purpose
+- Must serve the primary user persona
+- Must be a FEATURE (not performance, security, or cosmetic)
+- Should require 2+ weeks of development (substantial, not trivial)
+
+**Banger Idea Prompt:**
+Think: What feature would make users tell their friends about this app? What capability would justify a premium tier? What would make this app stand out from competitors?
+
+**Banger Idea Fields:**
+```json
+{
+  "title": "Real-Time Collaborative Editing",
+  "problem": "Users work in isolation, unable to collaborate in real-time...",
+  "solution": "Transform the app from single-user to multiplayer with real-time cursors, instant sync, and presence indicators...",
+  "is_new_feature": true,
+  "is_banger_idea": true
+}
+```
+
+**IMPORTANT:** Only ONE item per analysis can have `is_banger_idea: true`. This is the flagship transformative feature. All other items (including other features) should have `is_banger_idea: false`.
 
 ### Step 5.4: Deduplication Check
 
