@@ -328,3 +328,165 @@ export async function failExecutionProgress(
     );
   }
 }
+
+/**
+ * Heartbeat configuration
+ */
+const HEARTBEAT_INTERVAL_MS = 30 * 1000; // 30 seconds
+const STALL_WARNING_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Execution heartbeat manager.
+ * Writes progress updates at regular intervals during long-running operations.
+ * This keeps the BuildingTheater visualization active and helps users identify stalled executions.
+ *
+ * Usage:
+ * ```
+ * const heartbeat = createHeartbeat(client, itemId);
+ * heartbeat.start('Generating code changes...');
+ * try {
+ *   const result = await longRunningOperation();
+ *   heartbeat.stop();
+ *   return result;
+ * } catch (error) {
+ *   heartbeat.stop();
+ *   throw error;
+ * }
+ * ```
+ */
+export interface ExecutionHeartbeat {
+  /** Start sending heartbeat updates */
+  start: (message: string) => void;
+  /** Stop the heartbeat interval */
+  stop: () => void;
+  /** Update the current status message */
+  updateMessage: (message: string) => void;
+  /** Get elapsed time in seconds since heartbeat started */
+  getElapsedSeconds: () => number;
+  /** Check if execution appears stalled (no activity for 5+ minutes) */
+  isStalled: () => boolean;
+}
+
+/**
+ * Creates a heartbeat manager for an execution item.
+ *
+ * @param client - Supabase client
+ * @param itemId - The backlog item ID
+ * @param options - Optional configuration
+ * @returns Heartbeat manager object
+ */
+export function createHeartbeat(
+  client: SupabaseClient,
+  itemId: string,
+  options?: {
+    intervalMs?: number;
+    onError?: (error: Error) => void;
+  },
+): ExecutionHeartbeat {
+  let intervalId: NodeJS.Timeout | null = null;
+  let currentMessage = '';
+  let startTime: number | null = null;
+  let lastUpdateTime: number | null = null;
+
+  const intervalMs = options?.intervalMs ?? HEARTBEAT_INTERVAL_MS;
+
+  const sendHeartbeat = async () => {
+    if (!startTime) {
+      return;
+    }
+
+    const elapsedSeconds = Math.round((Date.now() - startTime) / 1000);
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = elapsedSeconds % 60;
+    const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+
+    try {
+      // Update progress with elapsed time indicator
+      await client
+        .from(TABLES.EXECUTION_PROGRESS)
+        .update({
+          current_task: `${currentMessage} (${timeStr})`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('item_id', itemId);
+
+      lastUpdateTime = Date.now();
+    } catch (error) {
+      // Log but don't throw - heartbeat is best-effort
+      console.error('[Heartbeat] Failed to send heartbeat:', error);
+      options?.onError?.(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    }
+  };
+
+  return {
+    start(message: string) {
+      currentMessage = message;
+      startTime = Date.now();
+      lastUpdateTime = Date.now();
+
+      // Send initial heartbeat immediately
+      void sendHeartbeat();
+
+      // Set up interval
+      intervalId = setInterval(() => {
+        void sendHeartbeat();
+      }, intervalMs);
+    },
+
+    stop() {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+      startTime = null;
+    },
+
+    updateMessage(message: string) {
+      currentMessage = message;
+      // Send an immediate update when message changes
+      void sendHeartbeat();
+    },
+
+    getElapsedSeconds() {
+      return startTime ? Math.round((Date.now() - startTime) / 1000) : 0;
+    },
+
+    isStalled() {
+      if (!lastUpdateTime) {
+        return false;
+      }
+      return Date.now() - lastUpdateTime > STALL_WARNING_MS;
+    },
+  };
+}
+
+/**
+ * Wraps a long-running operation with automatic heartbeat updates.
+ * Convenience function that handles start/stop automatically.
+ *
+ * @param client - Supabase client
+ * @param itemId - The backlog item ID
+ * @param message - Status message to display
+ * @param operation - The async operation to execute
+ * @returns The result of the operation
+ */
+export async function withHeartbeat<T>(
+  client: SupabaseClient,
+  itemId: string,
+  message: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const heartbeat = createHeartbeat(client, itemId);
+  heartbeat.start(message);
+
+  try {
+    const result = await operation();
+    heartbeat.stop();
+    return result;
+  } catch (error) {
+    heartbeat.stop();
+    throw error;
+  }
+}

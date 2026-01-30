@@ -7,6 +7,8 @@ import {
   completeExecutionProgress,
   failExecutionProgress,
   ExecutionProgressError,
+  createHeartbeat,
+  type ExecutionHeartbeat,
 } from '@/lib/execution/progress';
 import {
   createGitHubClient,
@@ -397,9 +399,11 @@ async function withRetry<T>(
 }
 
 // Generate code changes using Claude
+// Accepts optional heartbeat to provide progress updates during long API calls
 async function generateCodeChanges(
   item: BacklogItem,
   repoContext: string,
+  heartbeat?: ExecutionHeartbeat,
 ): Promise<{
   files: Array<{ path: string; content: string; action: string }>;
   summary: string;
@@ -432,54 +436,66 @@ ${repoContext}
 
 Generate the code changes needed to implement this improvement. Follow existing patterns in the repository.`;
 
-  // Wrap Claude API call with circuit breaker, timeout, and retry
-  // Circuit breaker: Fail fast after 3 consecutive failures (prevents wasted time)
-  // Timeout: 5 minutes to prevent indefinite hangs
-  // Retry: 3 attempts with exponential backoff for transient errors
-  const context = `Claude API call for "${item.title}"`;
-  const message = await claudeCircuitBreaker.execute(
-    () =>
-      withTimeout(
-        () =>
-          withRetry(
-            () =>
-              client.messages.create({
-                model: 'claude-3-5-sonnet-20241022',
-                max_tokens: 8192,
-                system: CODE_GENERATION_SYSTEM_PROMPT,
-                messages: [
-                  {
-                    role: 'user',
-                    content: userPrompt,
-                  },
-                ],
-              }),
-            context,
-          ),
-        TIMEOUT_CONFIG.codeGenerationMs,
-        `Code generation for "${item.title}"`,
-      ),
-    context,
-  );
-
-  const textContent = message.content.find((block) => block.type === 'text');
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text content in code generation response');
-  }
-
-  const responseText = textContent.text.trim();
+  // Start heartbeat for long-running API call
+  heartbeat?.start(`Generating code for: ${item.title}`);
 
   try {
-    const parsed = JSON.parse(responseText);
-    return {
-      files: parsed.files ?? [],
-      summary: parsed.summary ?? 'Code changes generated',
-      commitMessage: parsed.commit_message ?? 'feat: implement improvement',
-    };
-  } catch {
-    throw new Error(
-      `Failed to parse code generation response: ${responseText.substring(0, 200)}`,
+    // Wrap Claude API call with circuit breaker, timeout, and retry
+    // Circuit breaker: Fail fast after 3 consecutive failures (prevents wasted time)
+    // Timeout: 5 minutes to prevent indefinite hangs
+    // Retry: 3 attempts with exponential backoff for transient errors
+    const context = `Claude API call for "${item.title}"`;
+    const message = await claudeCircuitBreaker.execute(
+      () =>
+        withTimeout(
+          () =>
+            withRetry(
+              () =>
+                client.messages.create({
+                  model: 'claude-3-5-sonnet-20241022',
+                  max_tokens: 8192,
+                  system: CODE_GENERATION_SYSTEM_PROMPT,
+                  messages: [
+                    {
+                      role: 'user',
+                      content: userPrompt,
+                    },
+                  ],
+                }),
+              context,
+            ),
+          TIMEOUT_CONFIG.codeGenerationMs,
+          `Code generation for "${item.title}"`,
+        ),
+      context,
     );
+
+    // Stop heartbeat after API call completes
+    heartbeat?.stop();
+
+    const textContent = message.content.find((block) => block.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error('No text content in code generation response');
+    }
+
+    const responseText = textContent.text.trim();
+
+    try {
+      const parsed = JSON.parse(responseText);
+      return {
+        files: parsed.files ?? [],
+        summary: parsed.summary ?? 'Code changes generated',
+        commitMessage: parsed.commit_message ?? 'feat: implement improvement',
+      };
+    } catch {
+      throw new Error(
+        `Failed to parse code generation response: ${responseText.substring(0, 200)}`,
+      );
+    }
+  } catch (error) {
+    // Ensure heartbeat is stopped on error
+    heartbeat?.stop();
+    throw error;
   }
 }
 
@@ -603,8 +619,21 @@ export async function executeRemotely(
     for (const item of backlogItems) {
       await log(runId, 'info', `Generating code for: ${item.title}`);
 
+      // Create heartbeat for this item's code generation
+      // This keeps the BuildingTheater showing activity during long Claude API calls
+      const heartbeat = createHeartbeat(supabase, item.id, {
+        onError: (err) => {
+          // Log heartbeat errors but don't fail the execution
+          void log(
+            runId,
+            'warn',
+            `Heartbeat error for ${item.title}: ${err.message}`,
+          );
+        },
+      });
+
       try {
-        const changes = await generateCodeChanges(item, repoContext);
+        const changes = await generateCodeChanges(item, repoContext, heartbeat);
 
         for (const file of changes.files) {
           allFileChanges.push({
