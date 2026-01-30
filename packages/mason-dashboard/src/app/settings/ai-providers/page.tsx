@@ -6,7 +6,6 @@ import {
   Check,
   X,
   Trash2,
-  AlertCircle,
   Database,
   ArrowRight,
   Loader2,
@@ -17,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
+import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { TABLES } from '@/lib/constants';
@@ -36,7 +36,9 @@ interface ValidationState {
 }
 
 function validateAnthropicKey(key: string): ValidationState {
-  if (!key) {return { isValid: false };}
+  if (!key) {
+    return { isValid: false };
+  }
 
   if (!key.startsWith('sk-ant-api03-')) {
     return {
@@ -56,7 +58,9 @@ function validateAnthropicKey(key: string): ValidationState {
 }
 
 function validateOpenAIKey(key: string): ValidationState {
-  if (!key) {return { isValid: false };}
+  if (!key) {
+    return { isValid: false };
+  }
 
   if (!key.startsWith('sk-')) {
     return {
@@ -163,7 +167,9 @@ export default function AIProvidersPage() {
   }, [session, fetchKeys, isConfigured, isDbLoading]);
 
   const handleTestAndSave = async () => {
-    if (!client || !keyValidation.isValid || !session?.user) {return;}
+    if (!client || !keyValidation.isValid || !session?.user) {
+      return;
+    }
 
     setIsTesting(true);
     setError(null);
@@ -228,7 +234,9 @@ export default function AIProvidersPage() {
   };
 
   const handleDeleteKey = async (provider: AIProvider) => {
-    if (!client) {return;}
+    if (!client) {
+      return;
+    }
 
     setDeletingProvider(provider);
 
@@ -337,16 +345,11 @@ export default function AIProvidersPage() {
         </div>
 
         {error && (
-          <div className="mb-6 flex items-center gap-2 rounded-lg border border-red-800 bg-red-900/20 p-4 text-red-400">
-            <AlertCircle className="h-5 w-5 flex-shrink-0" />
-            {error}
-            <button
-              onClick={() => setError(null)}
-              className="ml-auto text-red-400 hover:text-red-300"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+          <ErrorBanner
+            error={new Error(error)}
+            onDismiss={() => setError(null)}
+            className="mb-6"
+          />
         )}
 
         {saveSuccess && (

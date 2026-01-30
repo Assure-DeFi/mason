@@ -31,6 +31,7 @@ import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton'
 import { MasonMark } from '@/components/brand';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
 import { RepositorySelector } from '@/components/execution/repository-selector';
+import { ErrorBanner, ErrorToast } from '@/components/ui/ErrorBanner';
 import { JourneyMap } from '@/components/ui/JourneyMap';
 import { NextStepBanner } from '@/components/ui/NextStepBanner';
 import { OnboardingProgress } from '@/components/ui/OnboardingProgress';
@@ -884,16 +885,12 @@ export default function BacklogPage() {
     return (
       <main className="min-h-screen bg-navy">
         <div className="mx-auto max-w-7xl p-8">
-          <div className="border border-red-800 bg-red-900/20 p-8 text-center">
-            <h2 className="mb-2 text-xl font-semibold text-red-400">Error</h2>
-            <p className="mb-4 text-gray-300">{error}</p>
-            <button
-              onClick={fetchItems}
-              className="bg-red-600 px-4 py-2 hover:bg-red-700"
-            >
-              Try Again
-            </button>
-          </div>
+          <ErrorBanner
+            error={new Error(error)}
+            onRetry={fetchItems}
+            onDismiss={() => setError(null)}
+            dismissible={true}
+          />
         </div>
       </main>
     );
@@ -1114,15 +1111,11 @@ export default function BacklogPage() {
 
       {/* Execution Error Toast */}
       {executionError && (
-        <div className="fixed bottom-6 right-6 px-4 py-3 bg-red-600 text-white shadow-lg">
-          {executionError}
-          <button
-            onClick={() => setExecutionError(null)}
-            className="ml-4 text-white/80 hover:text-white"
-          >
-            Dismiss
-          </button>
-        </div>
+        <ErrorToast
+          message={executionError}
+          onDismiss={() => setExecutionError(null)}
+          duration={8000}
+        />
       )}
 
       {/* Footer */}
