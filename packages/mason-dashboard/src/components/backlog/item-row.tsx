@@ -7,6 +7,7 @@ import type { ColumnWidths } from '@/hooks/useColumnResize';
 import { getComplexityValue } from '@/types/backlog';
 import type { BacklogItem, BacklogStatus } from '@/types/backlog';
 
+import { BangerBadge } from './BangerBadge';
 import { PriorityDots } from './priority-dots';
 import { QuickWinBadge } from './QuickWinBadge';
 import { TypeBadge } from './type-badge';
@@ -91,6 +92,7 @@ export function ItemRow({
             impactScore={item.impact_score}
             effortScore={item.effort_score}
           />
+          {item.tags?.includes('banger') && <BangerBadge />}
         </div>
       </td>
 

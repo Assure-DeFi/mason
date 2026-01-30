@@ -31,6 +31,8 @@ import { runMigrations } from '@/lib/supabase/pg-migrate';
  *   - mason_execution_progress
  *   - mason_pm_restore_feedback
  *   - mason_dependency_analysis
+ *   - mason_autopilot_config
+ *   - mason_autopilot_runs
  */
 const MIGRATION_SQL = `
 --------------------------------------------------------------------------------
@@ -320,6 +322,40 @@ CREATE TABLE IF NOT EXISTS mason_dependency_analysis (
   UNIQUE(item_id)
 );
 
+-- Mason Autopilot Config table (one per repo)
+-- Stores autopilot configuration: schedule, rules, limits
+CREATE TABLE IF NOT EXISTS mason_autopilot_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  repository_id UUID REFERENCES mason_github_repositories(id) ON DELETE CASCADE,
+  enabled BOOLEAN DEFAULT false,
+  schedule_cron TEXT,                    -- e.g., "0 2 * * *" for daily at 2am
+  auto_approval_rules JSONB DEFAULT '{"maxComplexity": 2, "minImpact": 7, "excludedCategories": []}'::jsonb,
+  guardian_rails JSONB DEFAULT '{"maxItemsPerDay": 3, "pauseOnFailure": true, "requireHumanReviewComplexity": 5}'::jsonb,
+  execution_window JSONB DEFAULT '{"startHour": 22, "endHour": 6}'::jsonb,
+  last_heartbeat TIMESTAMPTZ,            -- Daemon pings this to show it's alive
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, repository_id)
+);
+
+-- Mason Autopilot Runs table (execution history)
+-- Tracks each autopilot run (analysis or execution)
+CREATE TABLE IF NOT EXISTS mason_autopilot_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  repository_id UUID REFERENCES mason_github_repositories(id) ON DELETE CASCADE,
+  run_type TEXT NOT NULL CHECK (run_type IN ('analysis', 'execution')),
+  status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed')),
+  items_analyzed INTEGER DEFAULT 0,
+  items_auto_approved INTEGER DEFAULT 0,
+  items_executed INTEGER DEFAULT 0,
+  prs_created INTEGER DEFAULT 0,
+  error_message TEXT,
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
 -- Ensure user_id columns exist in tables that might have been created before user_id was added
 -- This handles upgrades from older schema versions
 ALTER TABLE mason_api_keys ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
@@ -339,6 +375,9 @@ ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS test_coverage_gaps I
 -- Add feature classification columns (for Features + Banger Idea feature)
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS is_new_feature BOOLEAN DEFAULT false;
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS is_banger_idea BOOLEAN DEFAULT false;
+
+-- Add tags column for categorization (e.g., "banger" tag for rotated banger ideas)
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb;
 
 -- Add idempotency_key column for request deduplication
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
@@ -374,6 +413,13 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_filtered_item ON mason_
 CREATE INDEX IF NOT EXISTS idx_mason_dependency_analysis_item ON mason_dependency_analysis(item_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_risk_score ON mason_pm_backlog_items(risk_score) WHERE risk_score IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_features ON mason_pm_backlog_items(is_new_feature, is_banger_idea) WHERE is_new_feature = true OR is_banger_idea = true;
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_tags ON mason_pm_backlog_items USING gin(tags);
+CREATE INDEX IF NOT EXISTS idx_mason_autopilot_config_user_repo ON mason_autopilot_config(user_id, repository_id);
+CREATE INDEX IF NOT EXISTS idx_mason_autopilot_config_enabled ON mason_autopilot_config(enabled) WHERE enabled = true;
+CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_user_id ON mason_autopilot_runs(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_repository_id ON mason_autopilot_runs(repository_id);
+CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_status ON mason_autopilot_runs(status);
+CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_started_at ON mason_autopilot_runs(started_at DESC);
 
 -- Enable Row Level Security
 ALTER TABLE mason_users ENABLE ROW LEVEL SECURITY;
@@ -390,6 +436,8 @@ ALTER TABLE mason_pm_execution_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_execution_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_restore_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_dependency_analysis ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_autopilot_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_autopilot_runs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (BYOD model - users own their database, allow all operations)
 -- Users table
@@ -487,6 +535,20 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_dependency_analysis' AND policyname = 'Allow all on dependency_analysis') THEN
     CREATE POLICY "Allow all on dependency_analysis" ON mason_dependency_analysis FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Autopilot Config table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_autopilot_config' AND policyname = 'Allow all on autopilot_config') THEN
+    CREATE POLICY "Allow all on autopilot_config" ON mason_autopilot_config FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Autopilot Runs table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_autopilot_runs' AND policyname = 'Allow all on autopilot_runs') THEN
+    CREATE POLICY "Allow all on autopilot_runs" ON mason_autopilot_runs FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 

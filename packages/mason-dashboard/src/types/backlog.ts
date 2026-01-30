@@ -100,6 +100,9 @@ export interface BacklogItem {
   // Feature classification
   is_new_feature: boolean;
   is_banger_idea: boolean;
+
+  // Tags for categorization (e.g., "banger" for rotated banger ideas)
+  tags?: string[];
 }
 
 export interface AnalysisRun {

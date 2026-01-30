@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import type { BacklogItem } from '@/types/backlog';
 
+import { BangerBadge } from './BangerBadge';
 import { TypeBadge } from './type-badge';
 
 interface FeatureIdeasSectionProps {
@@ -50,7 +51,10 @@ export function FeatureIdeasSection({
             className="text-left p-4 bg-black/40 border border-gray-700/50 hover:border-gold/40 transition-colors group"
           >
             <div className="flex items-start justify-between mb-2">
-              <TypeBadge type={item.type} isNewFeature />
+              <div className="flex items-center gap-2">
+                <TypeBadge type={item.type} isNewFeature />
+                {item.tags?.includes('banger') && <BangerBadge />}
+              </div>
               <span className="text-xs text-gray-500">
                 Impact: {item.impact_score}/10
               </span>
