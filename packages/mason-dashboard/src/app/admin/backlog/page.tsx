@@ -310,13 +310,42 @@ export default function BacklogPage() {
     return result;
   }, [repoFilteredItems]);
 
-  // Filter items by active status (on top of repo filter)
+  // Filter items by active status (on top of repo filter) and apply sorting
   const filteredItems = useMemo(() => {
-    if (!activeStatus) {
-      return repoFilteredItems;
+    let result = repoFilteredItems;
+
+    // Filter by status
+    if (activeStatus) {
+      result = result.filter((item) => item.status === activeStatus);
     }
-    return repoFilteredItems.filter((item) => item.status === activeStatus);
-  }, [repoFilteredItems, activeStatus]);
+
+    // Apply sorting
+    if (sort) {
+      result = [...result].sort((a, b) => {
+        const aVal = a[sort.field];
+        const bVal = b[sort.field];
+
+        // Handle null/undefined values
+        if (aVal == null && bVal == null) return 0;
+        if (aVal == null) return sort.direction === 'asc' ? 1 : -1;
+        if (bVal == null) return sort.direction === 'asc' ? -1 : 1;
+
+        // Compare based on type
+        let comparison = 0;
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          comparison = aVal.localeCompare(bVal);
+        } else if (typeof aVal === 'number' && typeof bVal === 'number') {
+          comparison = aVal - bVal;
+        } else {
+          comparison = String(aVal).localeCompare(String(bVal));
+        }
+
+        return sort.direction === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    return result;
+  }, [repoFilteredItems, activeStatus, sort]);
 
   // Get approved item IDs for execute button (from repo-filtered items)
   const approvedItemIds = useMemo(() => {
