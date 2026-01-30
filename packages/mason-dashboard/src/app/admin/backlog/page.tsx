@@ -10,6 +10,8 @@ import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
 import { GenerateIdeasModal } from '@/components/backlog/generate-ideas-modal';
+import { BangerIdeaCard } from '@/components/backlog/banger-idea-card';
+import { FeatureIdeasSection } from '@/components/backlog/feature-ideas-section';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import {
   ItemDetailModal,
@@ -95,8 +97,13 @@ export default function BacklogPage() {
   // Global execution listener - auto-shows BuildingTheater when CLI execution starts
   // Works across ALL repos, not filtered by selected repository
   const handleExecutionDetected = useCallback(
-    (progress: { item_id: string }) => {
-      console.log('[Backlog] Execution detected for item:', progress.item_id);
+    (progress: { item_id: string; run_id: string | null }) => {
+      console.log(
+        '[Backlog] Execution detected for item:',
+        progress.item_id,
+        'run_id:',
+        progress.run_id,
+      );
 
       if (!client) {
         console.log('[Backlog] No client available, ignoring execution event');
@@ -123,8 +130,9 @@ export default function BacklogPage() {
         }
 
         console.log('[Backlog] Showing BuildingTheater for item:', item.title);
-        // Show the execution modal
-        setExecutionRunId(`cli-${progress.item_id}`);
+        // Use the real run_id from execution_progress if available, otherwise fallback to cli-{item_id}
+        const runId = progress.run_id || `cli-${progress.item_id}`;
+        setExecutionRunId(runId);
         setExecutingItemId(progress.item_id);
         setExecutingItemTitle(item.title);
       });
@@ -380,6 +388,34 @@ export default function BacklogPage() {
       .filter((item) => item.status === 'approved')
       .map((item) => item.id);
   }, [repoFilteredItems]);
+
+  // Get the banger idea (only one per analysis, highest priority if multiple)
+  const bangerIdea = useMemo(() => {
+    const bangerItems = repoFilteredItems.filter(
+      (item) =>
+        item.is_banger_idea &&
+        item.status !== 'completed' &&
+        item.status !== 'rejected',
+    );
+    if (bangerItems.length === 0) return null;
+    return bangerItems.sort((a, b) => b.priority_score - a.priority_score)[0];
+  }, [repoFilteredItems]);
+
+  // Get feature ideas (new features that aren't the banger idea)
+  const featureIdeas = useMemo(() => {
+    return repoFilteredItems.filter(
+      (item) =>
+        item.is_new_feature &&
+        !item.is_banger_idea &&
+        item.status !== 'completed' &&
+        item.status !== 'rejected',
+    );
+  }, [repoFilteredItems]);
+
+  // Get improvement items (not new features)
+  const improvementItems = useMemo(() => {
+    return filteredItems.filter((item) => !item.is_new_feature);
+  }, [filteredItems]);
 
   // Determine the contextual next step (based on repo-filtered items)
   const nextStepContext = useMemo(() => {
@@ -962,17 +998,52 @@ export default function BacklogPage() {
           // Empty state onboarding
           <EmptyStateOnboarding onRefresh={fetchItems} />
         ) : (
-          // Regular table view
-          <ImprovementsTable
-            items={filteredItems}
-            selectedIds={selectedIds}
-            onSelectItem={handleSelectItem}
-            onSelectAll={handleSelectAll}
-            onItemClick={handleItemClick}
-            onPrdClick={handlePrdClick}
-            sort={sort}
-            onSortChange={handleSortChange}
-          />
+          <div className="space-y-6 p-6">
+            {/* Banger Idea - Featured at top */}
+            {bangerIdea && (
+              <BangerIdeaCard
+                item={bangerIdea}
+                onViewDetails={handleItemClick}
+                onApprove={(id) => void handleUpdateStatus(id, 'approved')}
+                onReject={(id) => void handleUpdateStatus(id, 'rejected')}
+              />
+            )}
+
+            {/* Feature Ideas Section */}
+            {featureIdeas.length > 0 && (
+              <FeatureIdeasSection
+                items={featureIdeas}
+                onViewDetails={handleItemClick}
+                onViewAll={() => {
+                  // Filter to show only features - could add a filter state
+                  // For now, just clicking shows the first one
+                }}
+              />
+            )}
+
+            {/* Improvements Table */}
+            {(bangerIdea || featureIdeas.length > 0) &&
+              improvementItems.length > 0 && (
+                <div className="border-t border-gray-800 pt-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Improvements ({improvementItems.length})
+                  </h3>
+                </div>
+              )}
+            <ImprovementsTable
+              items={
+                improvementItems.length > 0 ? improvementItems : filteredItems
+              }
+              selectedIds={selectedIds}
+              onSelectItem={handleSelectItem}
+              onSelectAll={handleSelectAll}
+              onItemClick={handleItemClick}
+              onPrdClick={handlePrdClick}
+              sort={sort}
+              onSortChange={handleSortChange}
+              activeStatus={activeStatus}
+            />
+          </div>
         )}
       </div>
 
