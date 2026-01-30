@@ -8,6 +8,16 @@ interface StatsBarProps {
   counts: StatusCounts;
   activeStatus?: TabStatus;
   onStatClick?: (status: TabStatus) => void;
+  isLoading?: boolean;
+}
+
+function SkeletonStatCard() {
+  return (
+    <div className="bg-white/5 border border-gray-800/50 p-3 sm:p-4">
+      <div className="h-7 sm:h-9 w-12 bg-gray-700/50 animate-pulse rounded mb-1" />
+      <div className="h-3 w-16 bg-gray-700/30 animate-pulse rounded" />
+    </div>
+  );
 }
 
 const STAT_CONFIG: Array<{
@@ -76,11 +86,30 @@ const STAT_CONFIG: Array<{
   },
 ];
 
-export function StatsBar({ counts, activeStatus, onStatClick }: StatsBarProps) {
+export function StatsBar({
+  counts,
+  activeStatus,
+  onStatClick,
+  isLoading = false,
+}: StatsBarProps) {
+  if (isLoading) {
+    return (
+      <div className="border-b border-gray-800/50 bg-black/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 sm:py-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
+            {STAT_CONFIG.map(({ key }) => (
+              <SkeletonStatCard key={key} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="border-b border-gray-800/50 bg-black/20">
-      <div className="max-w-7xl mx-auto px-8 py-6">
-        <div className="grid grid-cols-7 gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 sm:py-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
           {STAT_CONFIG.map(
             ({ key, tabStatus, label, color, bgColor, activeRing }) => {
               const isActive = activeStatus === tabStatus;
@@ -92,7 +121,7 @@ export function StatsBar({ counts, activeStatus, onStatClick }: StatsBarProps) {
                   type="button"
                   onClick={() => onStatClick?.(tabStatus)}
                   disabled={!isClickable}
-                  className={`${bgColor} border p-4 transition-all text-left ${
+                  className={`${bgColor} border p-3 sm:p-4 transition-all text-left ${
                     isClickable
                       ? 'cursor-pointer hover:border-gray-600 hover:bg-white/5'
                       : ''
@@ -102,10 +131,12 @@ export function StatsBar({ counts, activeStatus, onStatClick }: StatsBarProps) {
                       : 'border-gray-800/50'
                   }`}
                 >
-                  <div className={`text-3xl font-bold ${color} mb-1`}>
+                  <div
+                    className={`text-2xl sm:text-3xl font-bold ${color} mb-1`}
+                  >
                     {counts[key]}
                   </div>
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <div className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     {label}
                   </div>
                 </button>

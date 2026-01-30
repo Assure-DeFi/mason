@@ -14,6 +14,8 @@ import { useState } from 'react';
 
 import type { BacklogItem } from '@/types/backlog';
 
+import { ConfirmationDialog } from './confirmation-dialog';
+
 interface BulkActionsBarProps {
   selectedItems: BacklogItem[];
   onApprove: (ids: string[]) => void;
@@ -44,6 +46,7 @@ export function BulkActionsBar({
   isDeleting,
 }: BulkActionsBarProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const count = selectedItems.length;
   const itemsWithPrd = selectedItems.filter((item) => item.prd_content);
   const itemsNeedingApproval = selectedItems.filter(
@@ -59,6 +62,16 @@ export function BulkActionsBar({
 
   const isAnyLoading =
     isApproving || isRejecting || isRestoring || isCompleting || isDeleting;
+
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+    setShowMoreMenu(false);
+  };
+
+  const handleConfirmDelete = () => {
+    setShowDeleteConfirm(false);
+    onDelete(selectedItems.map((item) => item.id));
+  };
 
   const handleExportPrds = () => {
     if (itemsWithPrd.length === 0) {
@@ -239,7 +252,7 @@ ${item.prd_content}
 
           {/* Delete Button - works on ALL items regardless of status */}
           <button
-            onClick={() => onDelete(selectedItems.map((item) => item.id))}
+            onClick={handleDeleteClick}
             disabled={isAnyLoading || count === 0}
             className="flex items-center gap-2 px-4 py-2 bg-red-600/20 border border-red-600/50 text-red-400 font-medium hover:bg-red-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             title={`Permanently delete ${count} item${count !== 1 ? 's' : ''}`}
@@ -336,10 +349,7 @@ ${item.prd_content}
               {/* Delete */}
               <button
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-left text-red-400 hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => {
-                  onDelete(selectedItems.map((item) => item.id));
-                  setShowMoreMenu(false);
-                }}
+                onClick={handleDeleteClick}
                 disabled={isAnyLoading || count === 0}
               >
                 {isDeleting ? (
@@ -366,6 +376,20 @@ ${item.prd_content}
           <X className="w-4 h-4 sm:hidden" />
         </button>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Items"
+        message="Are you sure you want to delete these items? This action can be undone for 8 seconds after deletion."
+        itemCount={count}
+        itemTitles={selectedItems.map((item) => item.title)}
+        confirmLabel="Delete"
+        confirmVariant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

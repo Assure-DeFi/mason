@@ -864,7 +864,7 @@ export default function BacklogPage() {
       {!isEmpty && (
         <>
           {/* Stats Bar */}
-          <StatsBar counts={counts} />
+          <StatsBar counts={counts} isLoading={isLoading} />
 
           {/* Status Tabs with Unified Execute Button */}
           <div className="border-b border-gray-800">
