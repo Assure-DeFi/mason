@@ -1,11 +1,12 @@
 'use client';
 
-import { RefreshCw, Database, ArrowRight } from 'lucide-react';
+import { RefreshCw, Database, ArrowRight, Undo2 } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import { UserMenu } from '@/components/auth/user-menu';
+import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
@@ -30,6 +31,13 @@ import type {
   SortDirection,
 } from '@/types/backlog';
 
+interface UndoState {
+  action: 'approve' | 'reject' | 'restore' | 'complete';
+  itemIds: string[];
+  previousStatuses: Map<string, BacklogStatus>;
+  message: string;
+}
+
 export default function BacklogPage() {
   const { data: session } = useSession();
   const { client, isConfigured, isLoading: isDbLoading } = useUserDatabase();
@@ -48,6 +56,16 @@ export default function BacklogPage() {
     field: SortField;
     direction: SortDirection;
   } | null>(null);
+
+  // Bulk action loading states
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  // Undo state
+  const [undoState, setUndoState] = useState<UndoState | null>(null);
+  const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleSortChange = useCallback((field: SortField) => {
     setSort((prev) => {
@@ -279,6 +297,171 @@ export default function BacklogPage() {
       setSelectedIds([]);
     } else {
       setSelectedIds(filteredItems.map((item) => item.id));
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds([]);
+  };
+
+  // Get selected items from IDs
+  const selectedItems = useMemo(() => {
+    return items.filter((item) => selectedIds.includes(item.id));
+  }, [items, selectedIds]);
+
+  // Clear any existing undo timeout when component unmounts
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Handle undo action
+  const handleUndo = async () => {
+    if (!undoState || !client) {
+      return;
+    }
+
+    // Clear the timeout
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+
+    // Restore all items to their previous statuses
+    const updates = Array.from(undoState.previousStatuses.entries()).map(
+      async ([id, status]) => {
+        const { data, error } = await client
+          .from('mason_pm_backlog_items')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error(`Failed to undo status for item ${id}:`, error);
+          return null;
+        }
+        return data as BacklogItem;
+      },
+    );
+
+    const results = await Promise.all(updates);
+
+    // Update local state with the restored items
+    setItems((prev) =>
+      prev.map((item) => {
+        const restored = results.find((r) => r?.id === item.id);
+        return restored || item;
+      }),
+    );
+
+    setUndoState(null);
+  };
+
+  // Bulk update status helper
+  const bulkUpdateStatus = async (
+    ids: string[],
+    newStatus: BacklogStatus,
+    action: UndoState['action'],
+    actionMessage: string,
+  ) => {
+    if (!client || ids.length === 0) {
+      return;
+    }
+
+    // Store previous statuses for undo
+    const previousStatuses = new Map<string, BacklogStatus>();
+    ids.forEach((id) => {
+      const item = items.find((i) => i.id === id);
+      if (item) {
+        previousStatuses.set(id, item.status);
+      }
+    });
+
+    // Update all items
+    const updates = ids.map(async (id) => {
+      const { data, error } = await client
+        .from('mason_pm_backlog_items')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error(`Failed to update status for item ${id}:`, error);
+        return null;
+      }
+      return data as BacklogItem;
+    });
+
+    const results = await Promise.all(updates);
+
+    // Update local state
+    setItems((prev) =>
+      prev.map((item) => {
+        const updated = results.find((r) => r?.id === item.id);
+        return updated || item;
+      }),
+    );
+
+    // Clear selection
+    setSelectedIds([]);
+
+    // Set undo state
+    const successCount = results.filter((r) => r !== null).length;
+    setUndoState({
+      action,
+      itemIds: ids,
+      previousStatuses,
+      message: `${actionMessage} ${successCount} item${successCount !== 1 ? 's' : ''}`,
+    });
+
+    // Clear undo state after 8 seconds
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+    }
+    undoTimeoutRef.current = setTimeout(() => {
+      setUndoState(null);
+    }, 8000);
+  };
+
+  // Bulk action handlers
+  const handleBulkApprove = async (ids: string[]) => {
+    setIsApproving(true);
+    try {
+      await bulkUpdateStatus(ids, 'approved', 'approve', 'Approved');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleBulkReject = async (ids: string[]) => {
+    setIsRejecting(true);
+    try {
+      await bulkUpdateStatus(ids, 'rejected', 'reject', 'Rejected');
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
+  const handleBulkRestore = async (ids: string[]) => {
+    setIsRestoring(true);
+    try {
+      await bulkUpdateStatus(ids, 'new', 'restore', 'Restored');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const handleBulkComplete = async (ids: string[]) => {
+    setIsCompleting(true);
+    try {
+      await bulkUpdateStatus(ids, 'completed', 'complete', 'Marked completed');
+    } finally {
+      setIsCompleting(false);
     }
   };
 
@@ -515,6 +698,42 @@ export default function BacklogPage() {
 
       {/* Quick Start FAB */}
       <QuickStartFAB />
+
+      {/* Bulk Actions Bar */}
+      <BulkActionsBar
+        selectedItems={selectedItems}
+        onApprove={handleBulkApprove}
+        onReject={handleBulkReject}
+        onRestore={handleBulkRestore}
+        onComplete={handleBulkComplete}
+        onClearSelection={handleClearSelection}
+        isApproving={isApproving}
+        isRejecting={isRejecting}
+        isRestoring={isRestoring}
+        isCompleting={isCompleting}
+      />
+
+      {/* Undo Toast */}
+      {undoState && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50">
+          <div className="flex items-center gap-3 px-4 py-3 bg-gray-900 border border-gray-700 shadow-2xl">
+            <span className="text-white">{undoState.message}</span>
+            <button
+              onClick={handleUndo}
+              className="flex items-center gap-2 px-3 py-1.5 bg-gold/20 border border-gold/40 text-gold font-medium hover:bg-gold/30 transition-all"
+            >
+              <Undo2 className="w-4 h-4" />
+              Undo
+            </button>
+            <button
+              onClick={() => setUndoState(null)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* First Item Celebration Modal */}
       {showCelebration && items.length > 0 && (
