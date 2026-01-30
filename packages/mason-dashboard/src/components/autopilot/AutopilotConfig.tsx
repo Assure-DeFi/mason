@@ -48,13 +48,119 @@ interface Props {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
-const SCHEDULE_PRESETS = [
-  { label: 'Daily at 2 AM', value: '0 2 * * *' },
-  { label: 'Daily at 6 AM', value: '0 6 * * *' },
-  { label: 'Weekly (Monday 2 AM)', value: '0 2 * * 1' },
-  { label: 'Weekly (Sunday 6 AM)', value: '0 6 * * 0' },
-  { label: 'Custom', value: 'custom' },
+type FrequencyType = 'minutes' | 'hours' | 'daily' | 'weekly';
+
+interface FrequencyConfig {
+  type: FrequencyType;
+  interval: number;
+  timeHour: number;
+  dayOfWeek: number;
+}
+
+const FREQUENCY_OPTIONS: { value: FrequencyType; label: string }[] = [
+  { value: 'minutes', label: 'Every X minutes' },
+  { value: 'hours', label: 'Every X hours' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
 ];
+
+const MINUTE_INTERVALS = [5, 10, 15, 30, 45];
+const HOUR_INTERVALS = [1, 2, 3, 4, 6, 8, 12];
+const DAYS_OF_WEEK = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+];
+
+// Convert frequency config to cron expression
+function frequencyToCron(freq: FrequencyConfig): string {
+  switch (freq.type) {
+    case 'minutes':
+      return `*/${freq.interval} * * * *`;
+    case 'hours':
+      return `0 */${freq.interval} * * *`;
+    case 'daily':
+      return `0 ${freq.timeHour} * * *`;
+    case 'weekly':
+      return `0 ${freq.timeHour} * * ${freq.dayOfWeek}`;
+    default:
+      return '0 2 * * *';
+  }
+}
+
+// Parse cron expression to frequency config
+function cronToFrequency(cron: string | null): FrequencyConfig {
+  if (!cron) {
+    return { type: 'daily', interval: 1, timeHour: 2, dayOfWeek: 1 };
+  }
+
+  const parts = cron.split(' ');
+  if (parts.length !== 5) {
+    return { type: 'daily', interval: 1, timeHour: 2, dayOfWeek: 1 };
+  }
+
+  const [minute, hour, , , dayOfWeek] = parts;
+
+  // Check for minute interval: */X * * * *
+  if (minute.startsWith('*/') && hour === '*') {
+    return {
+      type: 'minutes',
+      interval: parseInt(minute.slice(2)) || 30,
+      timeHour: 2,
+      dayOfWeek: 1,
+    };
+  }
+
+  // Check for hour interval: 0 */X * * *
+  if (minute === '0' && hour.startsWith('*/')) {
+    return {
+      type: 'hours',
+      interval: parseInt(hour.slice(2)) || 1,
+      timeHour: 2,
+      dayOfWeek: 1,
+    };
+  }
+
+  // Check for weekly: 0 X * * Y (where Y is 0-6)
+  if (minute === '0' && !hour.includes('*') && dayOfWeek !== '*') {
+    return {
+      type: 'weekly',
+      interval: 1,
+      timeHour: parseInt(hour) || 2,
+      dayOfWeek: parseInt(dayOfWeek) || 1,
+    };
+  }
+
+  // Default to daily: 0 X * * *
+  return {
+    type: 'daily',
+    interval: 1,
+    timeHour: parseInt(hour) || 2,
+    dayOfWeek: 1,
+  };
+}
+
+// Get human-readable description of frequency
+function getFrequencyDescription(freq: FrequencyConfig): string {
+  switch (freq.type) {
+    case 'minutes':
+      return `Every ${freq.interval} minutes`;
+    case 'hours':
+      return `Every ${freq.interval} hour${freq.interval > 1 ? 's' : ''}`;
+    case 'daily':
+      return `Daily at ${freq.timeHour.toString().padStart(2, '0')}:00`;
+    case 'weekly':
+      const day =
+        DAYS_OF_WEEK.find((d) => d.value === freq.dayOfWeek)?.label || 'Monday';
+      return `Every ${day} at ${freq.timeHour.toString().padStart(2, '0')}:00`;
+    default:
+      return 'Unknown schedule';
+  }
+}
 
 const CATEGORY_OPTIONS = [
   { value: 'dashboard', label: 'Dashboard' },
@@ -86,8 +192,12 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
   });
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const [customCron, setCustomCron] = useState('');
-  const [schedulePreset, setSchedulePreset] = useState('0 2 * * *');
+  const [frequency, setFrequency] = useState<FrequencyConfig>({
+    type: 'daily',
+    interval: 1,
+    timeHour: 2,
+    dayOfWeek: 1,
+  });
 
   // Load config from Supabase
   useEffect(() => {
@@ -105,16 +215,8 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
 
       if (data && !error) {
         setConfig(data as AutopilotConfigData);
-        // Determine if using preset or custom cron
-        const matchedPreset = SCHEDULE_PRESETS.find(
-          (p) => p.value === data.schedule_cron,
-        );
-        if (matchedPreset) {
-          setSchedulePreset(matchedPreset.value);
-        } else if (data.schedule_cron) {
-          setSchedulePreset('custom');
-          setCustomCron(data.schedule_cron);
-        }
+        // Parse cron to human-readable frequency
+        setFrequency(cronToFrequency(data.schedule_cron));
       }
 
       setLoading(false);
@@ -131,7 +233,7 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
 
     setSaveStatus('saving');
 
-    const cronValue = schedulePreset === 'custom' ? customCron : schedulePreset;
+    const cronValue = frequencyToCron(frequency);
 
     const payload = {
       user_id: userId,
@@ -257,35 +359,138 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
               Run Frequency
             </label>
             <select
-              value={schedulePreset}
-              onChange={(e) => setSchedulePreset(e.target.value)}
+              value={frequency.type}
+              onChange={(e) =>
+                setFrequency({
+                  ...frequency,
+                  type: e.target.value as FrequencyType,
+                  interval:
+                    e.target.value === 'minutes'
+                      ? 30
+                      : e.target.value === 'hours'
+                        ? 1
+                        : frequency.interval,
+                })
+              }
               className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-white focus:border-gold focus:outline-none"
             >
-              {SCHEDULE_PRESETS.map((preset) => (
-                <option key={preset.value} value={preset.value}>
-                  {preset.label}
+              {FREQUENCY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
                 </option>
               ))}
             </select>
           </div>
 
-          {schedulePreset === 'custom' && (
+          {/* Minutes interval selector */}
+          {frequency.type === 'minutes' && (
             <div>
               <label className="block text-sm font-medium text-gray-300">
-                Cron Expression
+                Interval
               </label>
-              <input
-                type="text"
-                value={customCron}
-                onChange={(e) => setCustomCron(e.target.value)}
-                placeholder="0 2 * * *"
-                className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-white placeholder-gray-500 focus:border-gold focus:outline-none"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Format: minute hour day-of-month month day-of-week
-              </p>
+              <select
+                value={frequency.interval}
+                onChange={(e) =>
+                  setFrequency({
+                    ...frequency,
+                    interval: parseInt(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-white focus:border-gold focus:outline-none"
+              >
+                {MINUTE_INTERVALS.map((m) => (
+                  <option key={m} value={m}>
+                    Every {m} minutes
+                  </option>
+                ))}
+              </select>
             </div>
           )}
+
+          {/* Hours interval selector */}
+          {frequency.type === 'hours' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300">
+                Interval
+              </label>
+              <select
+                value={frequency.interval}
+                onChange={(e) =>
+                  setFrequency({
+                    ...frequency,
+                    interval: parseInt(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-white focus:border-gold focus:outline-none"
+              >
+                {HOUR_INTERVALS.map((h) => (
+                  <option key={h} value={h}>
+                    Every {h} hour{h > 1 ? 's' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Time of day selector for daily/weekly */}
+          {(frequency.type === 'daily' || frequency.type === 'weekly') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300">
+                Time of Day
+              </label>
+              <select
+                value={frequency.timeHour}
+                onChange={(e) =>
+                  setFrequency({
+                    ...frequency,
+                    timeHour: parseInt(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-white focus:border-gold focus:outline-none"
+              >
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {i.toString().padStart(2, '0')}:00
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Day of week selector for weekly */}
+          {frequency.type === 'weekly' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300">
+                Day of Week
+              </label>
+              <select
+                value={frequency.dayOfWeek}
+                onChange={(e) =>
+                  setFrequency({
+                    ...frequency,
+                    dayOfWeek: parseInt(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-white focus:border-gold focus:outline-none"
+              >
+                {DAYS_OF_WEEK.map((d) => (
+                  <option key={d.value} value={d.value}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Schedule summary */}
+          <div className="rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-3">
+            <p className="text-sm text-gray-400">
+              Schedule:{' '}
+              <span className="font-medium text-gold">
+                {getFrequencyDescription(frequency)}
+              </span>
+            </p>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-300">
