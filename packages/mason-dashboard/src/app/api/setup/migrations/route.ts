@@ -499,6 +499,16 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN
   NULL; -- Table already in publication
 END $$;
+
+-- Enable realtime for execution logs table (CRITICAL for log streaming in BuildingTheater)
+-- This allows the dashboard to receive real-time INSERT events when CLI writes logs
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE mason_execution_logs;
+  END IF;
+EXCEPTION WHEN duplicate_object THEN
+  NULL; -- Table already in publication
+END $$;
 `;
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';

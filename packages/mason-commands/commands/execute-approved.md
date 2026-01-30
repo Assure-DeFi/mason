@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 1.0.0
+version: 1.1.0
 description: Execute Approved Command
 ---
 
@@ -33,12 +33,12 @@ Examples:
 
 ## Process
 
-### Pre-Check: Version Enforcement (BLOCKING)
+### Pre-Check: Version Enforcement (AUTO-UPDATE)
 
 Run this version check **FIRST** before any other operation:
 
 ```bash
-# === VERSION ENFORCEMENT (BLOCKING) ===
+# === VERSION ENFORCEMENT (AUTO-UPDATE) ===
 COMMAND_NAME="execute-approved"
 LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/${COMMAND_NAME}.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
 REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
@@ -46,28 +46,28 @@ REMOTE_VERSION=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".version /
 REQUIRED_MIN=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".required_minimum // \"\"" 2>/dev/null)
 BREAKING_REASON=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".breaking_reason // \"\"" 2>/dev/null)
 
-# Block if below required minimum
+# Check if below required minimum
+VERSION_OUTDATED=false
 if [ -n "$REQUIRED_MIN" ] && [ -n "$LOCAL_VERSION" ]; then
   if [ "$(printf '%s\n' "$REQUIRED_MIN" "$LOCAL_VERSION" | sort -V | head -n1)" = "$LOCAL_VERSION" ] && \
      [ "$LOCAL_VERSION" != "$REQUIRED_MIN" ]; then
-    echo "❌ REQUIRED UPDATE: Your ${COMMAND_NAME} v${LOCAL_VERSION} is below minimum required v${REQUIRED_MIN}"
+    VERSION_OUTDATED=true
+    echo "⚠️  Command outdated: v${LOCAL_VERSION} → v${REQUIRED_MIN} required"
     [ -n "$BREAKING_REASON" ] && echo "   Reason: $BREAKING_REASON"
-    echo ""
-    echo "   Run: /mason-update"
-    echo ""
-    # STOP - do not continue with outdated version
-    return 1 2>/dev/null || exit 1
+    echo "   Auto-updating..."
   fi
-fi
-
-# Notify if optional update available (non-blocking)
-if [ -n "$REMOTE_VERSION" ] && [ -n "$LOCAL_VERSION" ] && [ "$LOCAL_VERSION" != "$REMOTE_VERSION" ]; then
-  echo "📦 Update available: v${LOCAL_VERSION} → v${REMOTE_VERSION}. Run /mason-update to update."
 fi
 # === END VERSION ENFORCEMENT ===
 ```
 
-**If version check blocks execution, STOP and inform the user to run `/mason-update`.**
+**CRITICAL: If `VERSION_OUTDATED=true`, you MUST:**
+
+1. **Immediately invoke `/mason-update`** using the Skill tool
+2. **Wait for update to complete**
+3. **Re-read this command file** (it will have new content)
+4. **Continue execution** with the updated command
+
+Do NOT ask the user - just auto-update and continue.
 
 ---
 
@@ -164,6 +164,27 @@ Naming convention:
 SUPABASE_URL=$(jq -r '.supabaseUrl' mason.config.json)
 SUPABASE_KEY=$(jq -r '.supabaseAnonKey' mason.config.json)
 
+# ==== LOGGING HELPER (MANDATORY) ====
+# Use this function throughout execution to write logs to the dashboard
+log_execution() {
+  local level="$1"   # debug, info, warn, error
+  local message="$2"
+  local metadata="${3:-{}}"  # optional JSON metadata
+
+  curl -s -X POST "${SUPABASE_URL}/rest/v1/mason_execution_logs" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -H "Prefer: return=minimal" \
+    -d '{
+      "execution_run_id": "'"${RUN_ID}"'",
+      "log_level": "'"${level}"'",
+      "message": "'"${message}"'",
+      "metadata": '"${metadata}"'
+    }' > /dev/null 2>&1 &
+}
+# ==== END LOGGING HELPER ====
+
 # Update item status to in_progress
 curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
   -H "apikey: ${SUPABASE_KEY}" \
@@ -199,6 +220,11 @@ This update will appear **immediately** in the dashboard:
 
 - The item moves from "Approved" tab to "In Progress" tab
 - The BuildingTheater modal auto-appears showing the construction animation
+
+```bash
+# Log execution start
+log_execution "info" "Starting execution for: ${itemTitle}" '{"item_id": "'"${itemId}"'", "branch": "mason/'"${slug}"'"}'
+```
 
 ### Step 5.2: Update Progress Throughout Execution (MANDATORY)
 
@@ -237,9 +263,16 @@ update_progress() {
 
 # Example usage during execution:
 update_progress "foundation" 1 "Exploring codebase patterns..." 0 2
+log_execution "info" "Wave 1: Exploring codebase patterns" '{"wave": 1, "phase": "foundation"}'
+
 update_progress "foundation" 1 "Found existing patterns" 1 2
+log_execution "info" "Wave 1 complete: Found existing patterns" '{"wave": 1, "tasks_done": 1}'
+
 update_progress "building" 2 "Implementing changes..." 0 3
+log_execution "info" "Wave 2: Starting implementation" '{"wave": 2, "phase": "building"}'
+
 update_progress "inspection" 3 "Running TypeScript check..." 0 4
+log_execution "info" "Validation: Running TypeScript check" '{"phase": "inspection", "check": "typescript"}'
 ```
 
 **Progress updates at each phase:**
@@ -268,8 +301,16 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${ite
   -H "Authorization: Bearer ${SUPABASE_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"validation_typescript": "pass", "validation_eslint": "running"}'
+log_execution "info" "TypeScript check passed" '{"check": "typescript", "status": "pass"}'
 
 # Continue for each validation check...
+# Log validation results:
+log_execution "info" "ESLint check passed" '{"check": "eslint", "status": "pass"}'
+log_execution "info" "Build completed successfully" '{"check": "build", "status": "pass"}'
+log_execution "info" "All tests passed" '{"check": "tests", "status": "pass"}'
+
+# On validation failure, log with error level:
+log_execution "error" "TypeScript check failed: 3 type errors found" '{"check": "typescript", "status": "fail", "error_count": 3}'
 ```
 
 ### Step 6: Execute Waves
@@ -456,6 +497,8 @@ while (!allPassed && iteration < MAX_FIX_ITERATIONS) {
 }
 
 if (!allPassed) {
+  // Log failure before marking as failed
+  log_execution "error" "Failed after ${MAX_FIX_ITERATIONS} iterations" '{"iterations": '"${MAX_FIX_ITERATIONS}"', "status": "failed"}'
   // Mark item as failed and log detailed error report
   throw new Error(
     `Failed to pass all validations after ${MAX_FIX_ITERATIONS} iterations`,
@@ -574,6 +617,11 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${ite
     "validation_tests": "pass",
     "completed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
   }'
+```
+
+```bash
+# Log successful completion
+log_execution "info" "Execution complete: ${itemTitle}" '{"item_id": "'"${itemId}"'", "status": "completed", "branch": "mason/'"${slug}"'"}'
 ```
 
 This update will appear **immediately** in the dashboard:
@@ -751,6 +799,11 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
   -H "Content-Type: application/json" \
   -H "Prefer: return=minimal" \
   -d '{"status": "rejected", "failure_reason": "<error_summary>", "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+```
+
+```bash
+# Log the permanent failure
+log_execution "error" "Execution failed permanently: ${error_summary}" '{"item_id": "'"${itemId}"'", "status": "rejected", "reason": "'"${error_summary}"'"}'
 ```
 
 This update will appear **immediately** in the dashboard. The item moves to "Rejected" tab with the failure reason.

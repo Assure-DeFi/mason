@@ -8,14 +8,16 @@
       "breaking_reason": "Risk analysis integration - data structure changes"
     },
     "execute-approved": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "1.0.0",
-      "breaking_reason": null
+      "required_minimum": "1.1.0",
+      "breaking_reason": "Execution logging for dashboard log streaming"
     },
     "mason-update": {
       "version": "1.0.0",
-      "file_path": "commands/mason-update.md"
+      "file_path": "commands/mason-update.md",
+      "required_minimum": null,
+      "breaking_reason": null
     }
   }
 }
