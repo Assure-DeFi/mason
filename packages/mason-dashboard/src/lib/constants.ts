@@ -46,6 +46,9 @@ export const TABLES = {
 
   // AI provider keys
   AI_PROVIDER_KEYS: 'mason_ai_provider_keys',
+
+  // Feedback tracking
+  PM_RESTORE_FEEDBACK: 'mason_pm_restore_feedback',
 } as const;
 
 /**

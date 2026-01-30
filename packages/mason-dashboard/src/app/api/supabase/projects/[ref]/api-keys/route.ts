@@ -1,7 +1,26 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs = 30000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 interface RouteParams {
   params: Promise<{ ref: string }>;
@@ -25,7 +44,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${MANAGEMENT_API_BASE}/projects/${projectRef}/api-keys`,
       {
         headers: {
@@ -51,6 +70,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return NextResponse.json(
+        {
+          error:
+            'Request timed out. The Supabase API is taking too long to respond.',
+        },
+        { status: 504 },
+      );
+    }
     console.error('Failed to fetch API keys:', error);
     return NextResponse.json(
       { error: 'Failed to fetch API keys from Supabase' },

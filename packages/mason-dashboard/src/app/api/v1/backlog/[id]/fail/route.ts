@@ -69,37 +69,8 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const supabase = createServiceClient();
 
-    // First, verify the item exists, belongs to this user, and is in 'in_progress' status
-    // SECURITY: Always filter by user_id to ensure data isolation
-    const { data: existingItem, error: fetchError } = await supabase
-      .from('mason_pm_backlog_items')
-      .select('id, status, title, branch_name')
-      .eq('id', itemId)
-      .eq('user_id', user.id)
-      .single();
-
-    if (fetchError || !existingItem) {
-      return NextResponse.json(
-        { error: 'Backlog item not found' },
-        { status: 404 },
-      );
-    }
-
-    // Validate status transition - can fail items that are in_progress
-    if (existingItem.status !== 'in_progress') {
-      return NextResponse.json(
-        {
-          error: `Cannot fail item: status is '${existingItem.status}', must be 'in_progress'`,
-          current_status: existingItem.status,
-        },
-        { status: 400 },
-      );
-    }
-
-    // Update the item to failed status
+    // Build update data
     // Note: We use 'rejected' as the status since the schema doesn't have 'failed'
-    // The error_message can be stored in a comment or we can use the solution field
-    // For now, we'll keep it simple and just update the status
     const updateData: Record<string, unknown> = {
       status: 'rejected', // Maps to 'failed' conceptually
       updated_at: new Date().toISOString(),
@@ -110,23 +81,43 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (error_message) {
       // We'll prepend the error to the solution for now
       // TODO: Add proper error_message column in future migration
-      updateData.solution = `[EXECUTION FAILED: ${error_message}]\n\n${existingItem.title}`;
+      updateData.solution = `[EXECUTION FAILED: ${error_message}]`;
     }
 
-    // SECURITY: Include user_id in update filter
+    // Atomic update: include status check in WHERE clause to prevent race conditions
+    // SECURITY: Always filter by user_id to ensure data isolation
     const { data: updatedItem, error: updateError } = await supabase
       .from('mason_pm_backlog_items')
       .update(updateData)
       .eq('id', itemId)
       .eq('user_id', user.id)
+      .eq('status', 'in_progress') // Only update if status is still 'in_progress'
       .select()
       .single();
 
-    if (updateError) {
-      console.error('Failed to mark backlog item as failed:', updateError);
+    // If no rows matched, either item doesn't exist or status changed
+    if (updateError || !updatedItem) {
+      // Fetch current status to provide helpful error
+      const { data: currentItem } = await supabase
+        .from('mason_pm_backlog_items')
+        .select('status')
+        .eq('id', itemId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (!currentItem) {
+        return NextResponse.json(
+          { error: 'Backlog item not found' },
+          { status: 404 },
+        );
+      }
+
       return NextResponse.json(
-        { error: 'Failed to update backlog item' },
-        { status: 500 },
+        {
+          error: `Cannot fail item: status is '${currentItem.status}', must be 'in_progress'`,
+          current_status: currentItem.status,
+        },
+        { status: 409 }, // 409 Conflict - status changed between request
       );
     }
 

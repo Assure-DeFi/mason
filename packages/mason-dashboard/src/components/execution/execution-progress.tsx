@@ -52,6 +52,14 @@ export function ExecutionProgress({
   const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
+    // CLI executions don't have a logs endpoint - skip SSE connection
+    if (runId.startsWith('cli-')) {
+      console.log(
+        '[ExecutionProgress] CLI execution detected, skipping SSE logs connection',
+      );
+      return;
+    }
+
     // Connect to SSE endpoint for logs
     const eventSource = new EventSource(`/api/execution/${runId}/logs`);
     eventSourceRef.current = eventSource;
@@ -108,7 +116,7 @@ export function ExecutionProgress({
       case 'warn':
         return 'text-yellow-400';
       case 'debug':
-        return 'text-gray-500';
+        return 'text-gray-400';
       default:
         return 'text-gray-300';
     }
@@ -207,7 +215,7 @@ export function ExecutionProgress({
             )}
 
             {logs.length === 0 && !error && (
-              <div className="flex items-center gap-2 text-gray-500">
+              <div className="flex items-center gap-2 text-gray-400">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Waiting for logs...
               </div>

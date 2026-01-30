@@ -6,6 +6,60 @@ import type { User } from '@/types/auth';
 const API_KEY_PREFIX = 'mason_';
 
 /**
+ * Type guard to validate that data conforms to the User interface
+ */
+function isValidUser(data: unknown): data is User {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+
+  const obj = data as Record<string, unknown>;
+
+  // Required string fields
+  if (typeof obj.id !== 'string') {
+    return false;
+  }
+  if (typeof obj.github_id !== 'string') {
+    return false;
+  }
+  if (typeof obj.github_username !== 'string') {
+    return false;
+  }
+
+  // Required boolean field
+  if (typeof obj.is_active !== 'boolean') {
+    return false;
+  }
+
+  // Required string fields (timestamps)
+  if (typeof obj.created_at !== 'string') {
+    return false;
+  }
+  if (typeof obj.updated_at !== 'string') {
+    return false;
+  }
+
+  // Optional fields (can be null or expected type)
+  if (obj.github_email !== null && typeof obj.github_email !== 'string') {
+    return false;
+  }
+  if (
+    obj.github_avatar_url !== null &&
+    typeof obj.github_avatar_url !== 'string'
+  ) {
+    return false;
+  }
+  if (
+    obj.default_repository_id !== null &&
+    typeof obj.default_repository_id !== 'string'
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Generate a SHA-256 hash of an API key
  */
 export function hashApiKey(key: string): string {
@@ -94,7 +148,12 @@ export async function validateApiKey(key: string): Promise<User | null> {
       // Intentionally not awaited - best effort tracking
     });
 
-  return userData as unknown as User;
+  if (!isValidUser(userData)) {
+    console.error('Invalid user data from API key validation:', userData);
+    return null;
+  }
+
+  return userData;
 }
 
 /**

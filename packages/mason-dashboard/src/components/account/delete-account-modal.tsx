@@ -466,7 +466,7 @@ function ConfirmStep({
             'flex-1 px-4 py-2.5 font-medium transition-colors rounded-lg',
             isValid
               ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'bg-gray-800 text-gray-500 cursor-not-allowed',
+              : 'bg-gray-800 text-gray-400 cursor-not-allowed',
           )}
         >
           Delete My Account
@@ -488,7 +488,7 @@ function DeletingStep({ progress }: { progress: DeletionProgress }) {
       case 'completed':
         return <Check className="w-4 h-4 text-green-400" />;
       case 'skipped':
-        return <span className="w-4 h-4 text-gray-500 text-xs">-</span>;
+        return <span className="w-4 h-4 text-gray-400 text-xs">-</span>;
       case 'error':
         return <XCircle className="w-4 h-4 text-red-400" />;
     }
@@ -511,7 +511,7 @@ function DeletingStep({ progress }: { progress: DeletionProgress }) {
                 : progress.supabaseData === 'completed'
                   ? 'text-green-400'
                   : progress.supabaseData === 'skipped'
-                    ? 'text-gray-500'
+                    ? 'text-gray-400'
                     : 'text-gray-400',
             )}
           >
@@ -613,7 +613,7 @@ function SuccessStep() {
         </p>
       </div>
 
-      <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+      <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
         <Loader2 className="w-4 h-4 animate-spin" />
         Redirecting...
       </div>

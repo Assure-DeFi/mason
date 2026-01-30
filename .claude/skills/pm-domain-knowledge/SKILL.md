@@ -86,6 +86,44 @@ Approximately 15571 TODO/FIXME comments found in codebase.
 
 ---
 
+## Validation Blocklist [USER-EDITABLE]
+
+<!-- Optional: Add patterns that should never be flagged as improvements -->
+<!-- Create .claude/pm-blocklist.json for persistent blocklist rules -->
+
+None configured. To add blocklist patterns, create `.claude/pm-blocklist.json`:
+
+```json
+{
+  "patterns": [
+    {
+      "type": "file",
+      "pattern": "legacy/*",
+      "reason": "Legacy code not being maintained"
+    },
+    {
+      "type": "title",
+      "pattern": "*logging*",
+      "reason": "Logging improvements are low priority"
+    }
+  ]
+}
+```
+
+## Acceptance Metrics [AUTO-UPDATED]
+
+<!-- Tracks validation accuracy by domain to tune thresholds -->
+
+| Domain       | Validated | Filtered | Restored | Accept Rate |
+| ------------ | --------- | -------- | -------- | ----------- |
+| security     | 0         | 0        | 0        | -           |
+| reliability  | 0         | 0        | 0        | -           |
+| frontend-ux  | 0         | 0        | 0        | -           |
+| api-backend  | 0         | 0        | 0        | -           |
+| code-quality | 0         | 0        | 0        | -           |
+
+---
+
 ## Notes for PM Agent
 
 When analyzing this codebase:
@@ -95,5 +133,7 @@ When analyzing this codebase:
 3. **User-first**: Prioritize improvements that benefit technical users
 4. **Pragmatic**: Suggest improvements achievable with current resources
 5. **Incremental**: Prefer small, safe changes over big-bang refactors
+6. **Check blocklist**: Respect `.claude/pm-blocklist.json` exclusions
+7. **Learn from restores**: Patterns with high restore rates need adjustment
 
 Remember: The best improvement is one that ships and provides value.
