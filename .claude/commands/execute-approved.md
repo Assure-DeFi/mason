@@ -2,6 +2,54 @@
 
 Execute approved items from the PM backlog using wave-based parallel execution.
 
+---
+
+## CRITICAL RULES - MANDATORY COMPLIANCE
+
+**These rules are NON-NEGOTIABLE. Failure to follow them breaks the system.**
+
+### Rule 1: COMPLETE ALL TASKS
+
+You MUST execute ALL approved items until every single one is complete. Do NOT stop partway through. If you encounter an error, log it, mark the item as failed, and CONTINUE with the next item. Only stop when ALL items have been processed (success or failure).
+
+### Rule 2: NEVER STOP WITHOUT STATUS UPDATE
+
+Before stopping execution for ANY reason, you MUST:
+
+1. Update EVERY item's status in Supabase (completed, rejected, or back to approved)
+2. Update EVERY item's execution_progress record (complete or failed)
+3. Update the execution_run record with final status
+
+### Rule 3: REAL-TIME PROGRESS UPDATES ARE MANDATORY
+
+Update `mason_execution_progress` table at EVERY phase transition:
+
+- `site_review` → Starting execution
+- `foundation` → Code generation complete
+- `building` → Committing changes
+- `inspection` → Creating PR
+- `complete` → Finished (or failed with validation\_\* = 'fail')
+
+These updates drive the BuildingTheater visualization. Missing updates = broken UI.
+
+### Rule 4: CLEANUP ON FAILURE
+
+If execution fails midway:
+
+1. Reset any items stuck in `in_progress` back to `approved`
+2. Mark their execution*progress as failed (validation*\* = 'fail')
+3. Log detailed error message to execution_logs
+
+### Rule 5: VERIFY WRITES SUCCEEDED
+
+After EVERY Supabase write operation, verify it succeeded. If it fails:
+
+1. Retry up to 3 times with exponential backoff
+2. Log the failure
+3. Continue execution (don't block on non-critical writes)
+
+---
+
 ## Overview
 
 This command implements approved improvements from the backlog. It uses the Task tool with appropriate subagent types to execute work in parallel waves for maximum efficiency.
