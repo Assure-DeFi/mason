@@ -69,11 +69,13 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const supabase = createServiceClient();
 
-    // First, verify the item exists and is in 'in_progress' status
+    // First, verify the item exists, belongs to this user, and is in 'in_progress' status
+    // SECURITY: Always filter by user_id to ensure data isolation
     const { data: existingItem, error: fetchError } = await supabase
       .from('mason_pm_backlog_items')
       .select('id, status, title, branch_name')
       .eq('id', itemId)
+      .eq('user_id', user.id)
       .single();
 
     if (fetchError || !existingItem) {
@@ -111,10 +113,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       updateData.solution = `[EXECUTION FAILED: ${error_message}]\n\n${existingItem.title}`;
     }
 
+    // SECURITY: Include user_id in update filter
     const { data: updatedItem, error: updateError } = await supabase
       .from('mason_pm_backlog_items')
       .update(updateData)
       .eq('id', itemId)
+      .eq('user_id', user.id)
       .select()
       .single();
 
