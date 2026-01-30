@@ -14,7 +14,7 @@
 import { useSession } from 'next-auth/react';
 import { useEffect, useState, useCallback } from 'react';
 
-import { STORAGE_KEYS } from '@/lib/constants';
+// Note: STORAGE_KEYS was previously imported but not used - removed to fix lint
 import {
   getOAuthSession,
   hasValidOAuthSession,
@@ -45,7 +45,9 @@ export interface UseAutoMigrationsReturn {
  * Get the timestamp of the last auto-migration run
  */
 function getLastMigrationTime(): number {
-  if (typeof window === 'undefined') return 0;
+  if (typeof window === 'undefined') {
+    return 0;
+  }
   const stored = localStorage.getItem(LAST_MIGRATION_KEY);
   return stored ? parseInt(stored, 10) : 0;
 }
@@ -54,7 +56,9 @@ function getLastMigrationTime(): number {
  * Set the timestamp of the last auto-migration run
  */
 function setLastMigrationTime(timestamp: number): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {
+    return;
+  }
   localStorage.setItem(LAST_MIGRATION_KEY, timestamp.toString());
 }
 
