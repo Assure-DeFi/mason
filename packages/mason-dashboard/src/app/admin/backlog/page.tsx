@@ -399,29 +399,40 @@ export default function BacklogPage() {
   }, [repoFilteredItems]);
 
   // Get the banger idea (only one per analysis, highest priority if multiple)
+  // Respects activeStatus tab filter
   const bangerIdea = useMemo(() => {
-    const bangerItems = repoFilteredItems.filter(
-      (item) =>
-        item.is_banger_idea &&
-        item.status !== 'completed' &&
-        item.status !== 'rejected',
-    );
+    const bangerItems = repoFilteredItems.filter((item) => {
+      if (!item.is_banger_idea) return false;
+      if (item.status === 'rejected') return false;
+
+      // If status tab is active, filter to that status
+      if (activeStatus) {
+        return item.status === activeStatus;
+      }
+      // "All Items" tab - show all non-rejected
+      return true;
+    });
     if (bangerItems.length === 0) {
       return null;
     }
     return bangerItems.sort((a, b) => b.priority_score - a.priority_score)[0];
-  }, [repoFilteredItems]);
+  }, [repoFilteredItems, activeStatus]);
 
   // Get feature ideas (new features that aren't the banger idea)
+  // Respects activeStatus tab filter
   const featureIdeas = useMemo(() => {
-    return repoFilteredItems.filter(
-      (item) =>
-        item.is_new_feature &&
-        !item.is_banger_idea &&
-        item.status !== 'completed' &&
-        item.status !== 'rejected',
-    );
-  }, [repoFilteredItems]);
+    return repoFilteredItems.filter((item) => {
+      if (!item.is_new_feature || item.is_banger_idea) return false;
+      if (item.status === 'rejected') return false;
+
+      // If status tab is active, filter to that status
+      if (activeStatus) {
+        return item.status === activeStatus;
+      }
+      // "All Items" tab - show all non-rejected
+      return true;
+    });
+  }, [repoFilteredItems, activeStatus]);
 
   // Get improvement items (not new features)
   const improvementItems = useMemo(() => {
