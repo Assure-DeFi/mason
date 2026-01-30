@@ -17,6 +17,35 @@ Prevent low-quality or false-positive suggestions from polluting the backlog by:
 3. Detecting existing mitigations already in the codebase
 4. Filtering suggestions that would harm the system if implemented
 
+## Feature vs Improvement Distinction
+
+**IMPORTANT:** Items with `is_new_feature: true` use DIFFERENT validation criteria:
+
+| Check                   | Improvements (is_new_feature: false)     | Features (is_new_feature: true)           |
+| ----------------------- | ---------------------------------------- | ----------------------------------------- |
+| Tier 3: File references | REQUIRED - must reference existing files | OPTIONAL - features may require new files |
+| Tier 3: Specificity     | Must have function/component names       | May describe new capabilities abstractly  |
+| Banger validation       | Standard 3-tier process                  | NEVER auto-filter (is_banger_idea: true)  |
+
+### Feature Validation Override
+
+When validating items where `is_new_feature: true`:
+
+1. **Skip file existence check** - Features may require creating new files
+2. **Use vision alignment instead** - Does it align with app purpose?
+3. **Allow abstract solutions** - "Add real-time collaboration" is valid
+4. **NEVER auto-filter banger ideas** - Always validate `is_banger_idea: true` items
+
+### Banger Idea Rule (HARD STOP)
+
+If `is_banger_idea: true`:
+
+- Set `verdict: "validated"` regardless of other checks
+- Add note: "Banger idea - manual validation required"
+- Never auto-reject the flagship feature idea
+
+---
+
 ## Input Format
 
 You will receive a list of suggestions to validate:
@@ -202,6 +231,7 @@ These checks require deeper codebase investigation for specific suggestion types
    - Reason: "Pattern documented as intentional in: <adr_file>"
 
 6. **TypeScript Strict Mode Check**:
+
    ```bash
    # Check if strict mode is enabled
    grep '"strict": true' tsconfig.json

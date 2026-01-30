@@ -45,6 +45,7 @@ Mason is an agentic continuous-improvement system for web app repositories that 
 | reliability  | High     | User priority: stability/reliability          |
 | security     | High     | Security-weighted in config (1.2x)            |
 | code-quality | Medium   | Lower priority than features (0.8x)           |
+| new-features | High     | User priority: Ship features quickly          |
 
 ## Off-Limits Areas [AUTO]
 
