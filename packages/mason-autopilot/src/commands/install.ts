@@ -107,7 +107,7 @@ async function installMacOS(config: AutopilotConfig): Promise<void> {
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+        <string>${homedir()}/.local/bin:${homedir()}/.nvm/versions/node/v24.12.0/bin:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
     </dict>
 </dict>
 </plist>`;
@@ -180,7 +180,7 @@ Restart=always
 RestartSec=10
 StandardOutput=append:${CONFIG_DIR}/autopilot.log
 StandardError=append:${CONFIG_DIR}/autopilot.error.log
-Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment="PATH=${homedir()}/.local/bin:${homedir()}/.nvm/versions/node/v24.12.0/bin:/usr/local/bin:/usr/bin:/bin"
 
 [Install]
 WantedBy=default.target

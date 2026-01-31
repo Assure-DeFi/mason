@@ -333,7 +333,7 @@ async function runPmReview(
 
   try {
     // Execute claude with pm-review command
-    const result = await executeClaudeCommand('/pm-review --auto', verbose);
+    const result = await executeClaudeCommand('/pm-review', verbose);
 
     // Update run status
     await supabase
@@ -460,10 +460,7 @@ async function executeApprovedItems(
 
   try {
     // Execute claude with execute-approved command
-    const result = await executeClaudeCommand(
-      '/execute-approved --auto',
-      verbose,
-    );
+    const result = await executeClaudeCommand('/execute-approved', verbose);
 
     // Update run status
     await supabase
@@ -527,6 +524,8 @@ async function executeClaudeCommand(
     const child = spawn('claude', args, {
       cwd: localConfig.repositoryPath,
       stdio: verbose ? 'inherit' : 'pipe',
+      env: process.env,
+      shell: true,
     });
 
     let stderr = '';

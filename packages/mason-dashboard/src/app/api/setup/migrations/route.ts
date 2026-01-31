@@ -384,6 +384,11 @@ ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS is_banger_idea BOOLE
 -- Add tags column for categorization (e.g., "banger" tag for rotated banger ideas)
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb;
 
+-- Add source tracking for autopilot visibility
+-- Values: 'manual' (human ran /pm-review) or 'autopilot' (daemon ran it)
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS autopilot_run_id UUID REFERENCES mason_autopilot_runs(id) ON DELETE SET NULL;
+
 -- Add idempotency_key column for request deduplication
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_expires_at TIMESTAMPTZ;
@@ -419,6 +424,8 @@ CREATE INDEX IF NOT EXISTS idx_mason_dependency_analysis_item ON mason_dependenc
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_risk_score ON mason_pm_backlog_items(risk_score) WHERE risk_score IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_features ON mason_pm_backlog_items(is_new_feature, is_banger_idea) WHERE is_new_feature = true OR is_banger_idea = true;
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_tags ON mason_pm_backlog_items USING gin(tags);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_source ON mason_pm_backlog_items(source);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_autopilot_run ON mason_pm_backlog_items(autopilot_run_id) WHERE autopilot_run_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_config_user_repo ON mason_autopilot_config(user_id, repository_id);
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_config_enabled ON mason_autopilot_config(enabled) WHERE enabled = true;
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_user_id ON mason_autopilot_runs(user_id);
