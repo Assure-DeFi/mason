@@ -132,6 +132,9 @@ Query existing items where:
 
 - `type = 'feature'`
 - `is_new_feature = true`
+- **`status IN ('new', 'approved')` ONLY** - Do NOT filter against rejected/deleted items
+
+**IMPORTANT:** Rejected or deleted items should NOT prevent suggestions from being presented again. If a user previously rejected an idea, they may want to reconsider it later. Only dedupe against items currently active in the backlog.
 
 Reject if:
 

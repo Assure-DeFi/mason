@@ -182,16 +182,27 @@ description: Brief description of what this command does.
 **Discovered**: 2026-01-31
 **Context**: Implemented checkpoint progress tracking but forgot to bump command versions, requiring user to remind
 **Pattern**: ANY change to execution engine, progress tracking, dashboard visualization, or schema that affects CLI behavior MUST include:
+
 1. Bump `versions.json` version number
 2. Set `required_minimum` to the new version (forces auto-update)
 3. Update command `.md` file frontmatter version
 4. Update local `.claude/commands/` copy
 
 **Checklist (MANDATORY before committing execution-related changes):**
+
 - [ ] `packages/mason-commands/versions.json` - bump version AND set required_minimum
 - [ ] `packages/mason-commands/commands/<command>.md` - bump frontmatter version
 - [ ] `.claude/commands/<command>.md` - bump frontmatter version to match
 
 **Why**: Users running old command versions won't get new features/fixes. Setting required_minimum forces auto-update on next run. This is NON-NEGOTIABLE for any change that affects how executions work or are displayed.
+
+---
+
+## Deduplication: Only Filter Against Active Backlog Items
+
+**Discovered**: 2026-01-31
+**Context**: User clarified that rejected/deleted items should not prevent suggestions from being presented again
+**Pattern**: When deduplicating PM review suggestions, ONLY check against items with `status IN ('new', 'approved')`. Do NOT filter against rejected or deleted items.
+**Why**: Users may change their minds - just because an item was previously rejected doesn't mean it shouldn't be suggested again in a future review. Completed items don't need checking either - if the problem was fixed, it won't show up as a problem anymore.
 
 ---
