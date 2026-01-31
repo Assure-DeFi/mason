@@ -62,7 +62,7 @@ Data flows between browser, user's Supabase, and central DB based on privacy mod
 |                                            mason_pm_execution_tasks |
 |                                                                     |
 |  5. Real-time updates               <- Supabase realtime -----------+
-|     (BuildingTheater)                                               |
+|     (ExecutionStatusModal)                                               |
 |                                                                     |
 |                                     6. Create commits/PRs           |
 |                                        |                            |
@@ -116,9 +116,9 @@ Dashboard subscribes to:
 +---------------------------------------------------------------------+
 |                                                                     |
 |  mason_execution_progress                                           |
-|  +-- INSERT: New execution started -> Show BuildingTheater          |
+|  +-- INSERT: New execution started -> Show ExecutionStatusModal          |
 |  +-- UPDATE: Progress changed -> Update animation                   |
-|  +-- DELETE: Execution complete -> Hide BuildingTheater             |
+|  +-- DELETE: Execution complete -> Hide ExecutionStatusModal             |
 |                                                                     |
 |  mason_pm_backlog_items                                             |
 |  +-- INSERT: New item from PM review -> Refresh backlog             |

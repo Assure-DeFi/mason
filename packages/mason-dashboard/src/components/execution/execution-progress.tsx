@@ -13,11 +13,12 @@ import {
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { TABLES } from '@/lib/constants';
-import type { ExecutionProgressRecord } from '@/lib/execution/progress';
+import type { ExecutionProgressRecord, ExecutionSummary } from '@/lib/execution/progress';
+import { generateExecutionSummary } from '@/lib/execution/progress';
 import type { RemoteExecutionStatus, ItemResult } from '@/types/auth';
 
-import { BuildingTheater } from './BuildingTheater';
-import { CheckpointPanel } from './CheckpointPanel';
+import { ExecutionStatusModal } from './ExecutionStatusModal';
+import { ExecutionSummaryModal } from './ExecutionSummaryModal';
 
 interface ExecutionLog {
   id: string;
@@ -54,64 +55,46 @@ export function ExecutionProgress({
   const logsEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  // Checkpoint-based progress state (replaces unreliable log streaming)
-  const [checkpointProgress, setCheckpointProgress] =
-    useState<ExecutionProgressRecord | null>(null);
+  // New: Summary modal state
+  const [showSummary, setShowSummary] = useState(false);
+  const [executionSummary, setExecutionSummary] = useState<ExecutionSummary | null>(null);
 
   // Check if this is a CLI execution with a real run_id (UUID format)
   // vs a synthetic "cli-{item_id}" format
   const isRealRunId = runId && !runId.startsWith('cli-');
 
-  // Poll for checkpoint progress (1 second interval)
-  // This replaces unreliable realtime subscriptions
-  const pollCheckpointProgress = useCallback(async () => {
-    if (!client || !itemId) {
-      return;
-    }
+  // Check if we can use the new ExecutionStatusModal
+  // (requires itemId and client for checkpoint-based progress)
+  const useNewModal = itemId && client;
 
-    try {
-      const { data } = await client
-        .from(TABLES.EXECUTION_PROGRESS)
-        .select('*')
-        .eq('item_id', itemId)
-        .single();
-
-      if (data) {
-        setCheckpointProgress(data as ExecutionProgressRecord);
+  // Handle completion from ExecutionStatusModal
+  const handleExecutionComplete = useCallback(
+    async (success: boolean, progress: ExecutionProgressRecord | null) => {
+      if (success && progress && itemId && client) {
+        // Generate summary for celebration modal
+        try {
+          const summary = await generateExecutionSummary(client, itemId, progress);
+          setExecutionSummary(summary);
+          setShowSummary(true);
+        } catch (err) {
+          console.error('[ExecutionProgress] Failed to generate summary:', err);
+          // Fall through to close if summary fails
+          onClose();
+        }
+      } else {
+        // For failures, the ExecutionStatusModal shows the error state
+        // User can close when ready
       }
-    } catch (err) {
-      // Silent fail - polling will retry
-      console.debug('[ExecutionProgress] Checkpoint poll error:', err);
-    }
-  }, [client, itemId]);
-
-  // Start checkpoint polling when component mounts
-  useEffect(() => {
-    if (!client || !itemId || status !== 'in_progress') {
-      return;
-    }
-
-    // Initial fetch
-    void pollCheckpointProgress();
-
-    // Poll every 1 second for responsive updates
-    const pollInterval = setInterval(() => {
-      void pollCheckpointProgress();
-    }, 1000);
-
-    return () => clearInterval(pollInterval);
-  }, [client, itemId, status, pollCheckpointProgress]);
+    },
+    [client, itemId, onClose]
+  );
 
   // Subscribe to execution_logs via Supabase realtime for CLI executions with real run_id
+  // (Legacy: used when we don't have itemId for new modal)
   useEffect(() => {
-    if (!client || !isRealRunId) {
+    if (useNewModal || !client || !isRealRunId) {
       return;
     }
-
-    console.log(
-      '[ExecutionProgress] Subscribing to execution_logs for run_id:',
-      runId,
-    );
 
     // First, fetch existing logs
     const fetchExistingLogs = async () => {
@@ -130,7 +113,6 @@ export function ExecutionProgress({
       }
 
       if (data && data.length > 0) {
-        console.log('[ExecutionProgress] Found', data.length, 'existing logs');
         setLogs(data as ExecutionLog[]);
       }
     };
@@ -149,32 +131,22 @@ export function ExecutionProgress({
           filter: `execution_run_id=eq.${runId}`,
         },
         (payload) => {
-          console.log('[ExecutionProgress] New log received:', payload.new);
           const newLog = payload.new as ExecutionLog;
           setLogs((prev) => [...prev, newLog]);
         },
       )
-      .subscribe((subscriptionStatus) => {
-        console.log(
-          '[ExecutionProgress] Logs subscription status:',
-          subscriptionStatus,
-        );
-      });
+      .subscribe();
 
     return () => {
-      console.log('[ExecutionProgress] Unsubscribing from execution_logs');
       void client.removeChannel(channel);
     };
-  }, [client, runId, isRealRunId]);
+  }, [client, runId, isRealRunId, useNewModal]);
 
-  // Polling fallback for logs - guarantees logs appear even if realtime fails
-  // This is a hybrid approach: realtime for instant updates, polling as safety net
+  // Polling fallback for logs (legacy modal only)
   useEffect(() => {
-    if (!client || !isRealRunId || status !== 'in_progress') {
+    if (useNewModal || !client || !isRealRunId || status !== 'in_progress') {
       return;
     }
-
-    console.log('[ExecutionProgress] Starting polling fallback for logs');
 
     const pollLogs = async () => {
       const { data } = await client
@@ -185,17 +157,11 @@ export function ExecutionProgress({
 
       if (data && data.length > 0) {
         setLogs((prev) => {
-          // Merge and deduplicate by id - prevents duplicates from realtime + polling
           const existingIds = new Set(prev.map((l) => l.id));
           const newLogs = data.filter(
             (l) => !existingIds.has(l.id),
           ) as ExecutionLog[];
           if (newLogs.length > 0) {
-            console.log(
-              '[ExecutionProgress] Polling found',
-              newLogs.length,
-              'new logs',
-            );
             return [...prev, ...newLogs];
           }
           return prev;
@@ -205,21 +171,19 @@ export function ExecutionProgress({
 
     const pollInterval = setInterval(() => {
       void pollLogs();
-    }, 2000); // Poll every 2 seconds
+    }, 2000);
 
     return () => {
-      console.log('[ExecutionProgress] Stopping polling fallback');
       clearInterval(pollInterval);
     };
-  }, [client, runId, isRealRunId, status]);
+  }, [client, runId, isRealRunId, status, useNewModal]);
 
-  // Also check execution run status for completion
+  // Check execution run status for completion (legacy modal only)
   useEffect(() => {
-    if (!client || !isRealRunId) {
+    if (useNewModal || !client || !isRealRunId) {
       return;
     }
 
-    // Subscribe to execution run updates
     const channel = client
       .channel(`execution-run-${runId}`)
       .on(
@@ -231,10 +195,6 @@ export function ExecutionProgress({
           filter: `id=eq.${runId}`,
         },
         (payload) => {
-          console.log(
-            '[ExecutionProgress] Execution run updated:',
-            payload.new,
-          );
           const run = payload.new as {
             status: RemoteExecutionStatus;
             pr_url?: string;
@@ -262,7 +222,7 @@ export function ExecutionProgress({
       )
       .subscribe();
 
-    // Also fetch current status in case we missed the update
+    // Also fetch current status
     const fetchRunStatus = async () => {
       const { data } = await client
         .from(TABLES.REMOTE_EXECUTION_RUNS)
@@ -292,16 +252,14 @@ export function ExecutionProgress({
     return () => {
       void client.removeChannel(channel);
     };
-  }, [client, runId, isRealRunId]);
+  }, [client, runId, isRealRunId, useNewModal]);
 
-  // Connect to SSE endpoint for remote executions (non-CLI)
+  // Connect to SSE endpoint for remote executions (non-CLI, legacy modal only)
   useEffect(() => {
-    // Skip SSE for CLI executions - we use Supabase realtime instead
-    if (runId.startsWith('cli-') || isRealRunId) {
+    if (useNewModal || runId.startsWith('cli-') || isRealRunId) {
       return;
     }
 
-    // Connect to SSE endpoint for logs
     const eventSource = new EventSource(`/api/execution/${runId}/logs`);
     eventSourceRef.current = eventSource;
 
@@ -312,7 +270,6 @@ export function ExecutionProgress({
         if (data.type === 'complete') {
           setStatus(data.status);
           setPrUrl(data.pr_url);
-          // Extract item results for partial success display
           if (data.item_results) {
             setItemResults(data.item_results);
           }
@@ -343,13 +300,37 @@ export function ExecutionProgress({
     return () => {
       eventSource.close();
     };
-  }, [runId, isRealRunId]);
+  }, [runId, isRealRunId, useNewModal]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom (legacy modal only)
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
+  // If showing summary modal, render that instead
+  if (showSummary && executionSummary) {
+    return (
+      <ExecutionSummaryModal
+        summary={executionSummary}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // Use new ExecutionStatusModal when we have itemId and client
+  if (useNewModal) {
+    return (
+      <ExecutionStatusModal
+        itemId={itemId}
+        itemTitle={itemTitle}
+        client={client}
+        onComplete={handleExecutionComplete}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // Legacy modal for non-CLI executions or when missing itemId
   const getLogLevelStyles = (level: string) => {
     switch (level) {
       case 'error':
@@ -397,8 +378,6 @@ export function ExecutionProgress({
 
   const failedItems = itemResults.filter((r) => !r.success);
 
-  const showBuildingTheater = itemId && client;
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
@@ -407,9 +386,7 @@ export function ExecutionProgress({
       aria-labelledby="execution-progress-title"
       aria-busy={status === 'in_progress'}
     >
-      <div
-        className={`flex max-h-[80vh] w-full flex-col overflow-hidden rounded-lg bg-navy shadow-xl ${showBuildingTheater ? 'max-w-6xl' : 'max-w-3xl'}`}
-      >
+      <div className="flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-navy shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-800 p-4">
           <div className="flex items-center gap-3">
@@ -439,72 +416,39 @@ export function ExecutionProgress({
           </button>
         </div>
 
-        {/* Main Content - Two columns when BuildingTheater is shown */}
+        {/* Logs Panel */}
         <div
-          className={`flex-1 overflow-hidden ${showBuildingTheater ? 'grid grid-cols-2 gap-4 p-4' : ''}`}
+          className="flex-1 overflow-y-auto bg-black p-4 font-mono text-sm"
+          role="log"
+          aria-live="polite"
+          aria-label="Execution logs"
         >
-          {/* BuildingTheater (left column) */}
-          {showBuildingTheater && (
-            <div className="overflow-y-auto">
-              <BuildingTheater
-                itemId={itemId}
-                client={client}
-                itemTitle={itemTitle}
-              />
+          {error && (
+            <div className="mb-4 rounded bg-red-900/20 p-3 text-red-400">
+              {error}
             </div>
           )}
 
-          {/* Checkpoint Panel (right column) or Logs (fallback/full width) */}
-          {showBuildingTheater && checkpointProgress ? (
-            <CheckpointPanel
-              checkpointsCompleted={
-                checkpointProgress.checkpoints_completed ?? []
-              }
-              currentCheckpointIndex={checkpointProgress.checkpoint_index ?? 0}
-              totalCheckpoints={checkpointProgress.checkpoint_total ?? 12}
-              currentCheckpointMessage={
-                checkpointProgress.checkpoint_message ?? null
-              }
-              currentFile={checkpointProgress.current_file ?? null}
-              linesChanged={checkpointProgress.lines_changed ?? 0}
-              startedAt={checkpointProgress.started_at}
-              isComplete={checkpointProgress.current_phase === 'complete'}
-            />
-          ) : (
-            <div
-              className={`overflow-y-auto bg-black p-4 font-mono text-sm ${showBuildingTheater ? 'rounded-lg' : 'flex-1'}`}
-              role="log"
-              aria-live="polite"
-              aria-label="Execution logs"
-            >
-              {error && (
-                <div className="mb-4 rounded bg-red-900/20 p-3 text-red-400">
-                  {error}
-                </div>
-              )}
-
-              {logs.length === 0 && !error && (
-                <div className="flex items-center gap-2 text-gray-400">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Waiting for logs...
-                </div>
-              )}
-
-              {logs.map((log) => (
-                <div key={log.id} className="mb-1">
-                  <span className="text-gray-600">
-                    {new Date(log.created_at).toLocaleTimeString()}
-                  </span>{' '}
-                  <span className={getLogLevelStyles(log.log_level)}>
-                    [{log.log_level.toUpperCase()}]
-                  </span>{' '}
-                  <span className="text-gray-300">{log.message}</span>
-                </div>
-              ))}
-
-              <div ref={logsEndRef} />
+          {logs.length === 0 && !error && (
+            <div className="flex items-center gap-2 text-gray-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Waiting for logs...
             </div>
           )}
+
+          {logs.map((log) => (
+            <div key={log.id} className="mb-1">
+              <span className="text-gray-600">
+                {new Date(log.created_at).toLocaleTimeString()}
+              </span>{' '}
+              <span className={getLogLevelStyles(log.log_level)}>
+                [{log.log_level.toUpperCase()}]
+              </span>{' '}
+              <span className="text-gray-300">{log.message}</span>
+            </div>
+          ))}
+
+          <div ref={logsEndRef} />
         </div>
 
         {/* Item Results Section (shown for partial success) */}

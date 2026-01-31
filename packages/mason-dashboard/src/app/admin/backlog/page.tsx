@@ -120,7 +120,7 @@ export default function BacklogPage() {
     titles: string[];
   } | null>(null);
 
-  // Global execution listener - auto-shows BuildingTheater when CLI execution starts
+  // Global execution listener - auto-shows ExecutionStatusModal when CLI execution starts
   // Works across ALL repos, not filtered by selected repository
   const handleExecutionDetected = useCallback(
     (progress: { item_id: string; run_id: string | null }) => {
@@ -155,7 +155,7 @@ export default function BacklogPage() {
           return;
         }
 
-        console.log('[Backlog] Showing BuildingTheater for item:', item.title);
+        console.log('[Backlog] Showing execution modal for item:', item.title);
         // Use the real run_id from execution_progress if available, otherwise fallback to cli-{item_id}
         const runId = progress.run_id || `cli-${progress.item_id}`;
         setExecutionRunId(runId);
@@ -294,7 +294,7 @@ export default function BacklogPage() {
             prevItem?.status !== 'in_progress' &&
             updatedItem.status === 'in_progress'
           ) {
-            // Create execution_progress record for BuildingTheater
+            // Create execution_progress record for ExecutionStatusModal
             void ensureExecutionProgress(client, updatedItem.id, {
               totalWaves: 4,
               initialTask: `Starting: ${updatedItem.title}`,

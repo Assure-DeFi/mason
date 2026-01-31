@@ -7,13 +7,13 @@ import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 
 /**
- * Debug endpoint to test the BuildingTheater auto-show mechanism.
+ * Debug endpoint to test the ExecutionStatusModal auto-show mechanism.
  *
  * POST /api/debug/test-execution
  *
  * Creates a test execution_progress record to verify the entire flow:
  * 1. Dashboard useExecutionListener detects the new record (via realtime or polling)
- * 2. BuildingTheater modal appears with the test progress
+ * 2. ExecutionStatusModal modal appears with the test progress
  * 3. After 30 seconds, the test record is automatically cleaned up
  *
  * This allows verifying the system works without running a real execution.
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       const { data: testItem, error: itemError } = await supabase
         .from(TABLES.PM_BACKLOG_ITEMS)
         .insert({
-          title: '[TEST] BuildingTheater Test Execution',
+          title: '[TEST] ExecutionStatusModal Test Execution',
           problem: 'This is a test item created by the debug endpoint.',
           solution: 'This item will be automatically cleaned up.',
           area: 'frontend',
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         current_wave: 0,
         total_waves: 4,
         wave_status: 'pending',
-        current_task: '[TEST] Verifying BuildingTheater auto-show...',
+        current_task: '[TEST] Verifying ExecutionStatusModal auto-show...',
         tasks_completed: 0,
         tasks_total: 10,
         current_file: null,
@@ -140,10 +140,10 @@ export async function POST(request: NextRequest) {
       itemId: testItemId,
       createdTestItem,
       expectedBehavior:
-        'BuildingTheater should appear in the dashboard within 5 seconds (3s polling interval + processing)',
+        'ExecutionStatusModal should appear in the dashboard within 5 seconds (3s polling interval + processing)',
       cleanupIn: `${cleanupDelay}s`,
       instructions: [
-        '1. Watch the dashboard - BuildingTheater modal should appear automatically',
+        '1. Watch the dashboard - ExecutionStatusModal modal should appear automatically',
         '2. Check browser console for "[ExecutionListener]" logs to see if realtime or polling detected it',
         '3. If it appears, the system is working correctly',
         '4. The test record will be cleaned up manually - use DELETE endpoint or wait',

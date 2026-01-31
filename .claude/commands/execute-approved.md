@@ -407,7 +407,7 @@ Naming convention:
 
 ### Step 5.1: Mark Item In Progress (MANDATORY)
 
-**Before beginning implementation**, update the item status AND create a progress record for the BuildingTheater visualization.
+**Before beginning implementation**, update the item status AND create a progress record for the ExecutionStatusModal visualization.
 
 ```bash
 # Read config
@@ -446,8 +446,8 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
   -H "Prefer: return=minimal" \
   -d '{"status": "in_progress", "branch_name": "mason/<slug>", "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
 
-# Create execution progress record for BuildingTheater visualization
-# This triggers the BuildingTheater to AUTO-APPEAR in the dashboard
+# Create execution progress record for ExecutionStatusModal visualization
+# This triggers the ExecutionStatusModal to AUTO-APPEAR in the dashboard
 curl -X POST "${SUPABASE_URL}/rest/v1/mason_execution_progress" \
   -H "apikey: ${SUPABASE_KEY}" \
   -H "Authorization: Bearer ${SUPABASE_KEY}" \
@@ -472,7 +472,7 @@ curl -X POST "${SUPABASE_URL}/rest/v1/mason_execution_progress" \
 This update will appear **immediately** in the dashboard:
 
 - The item moves from "Approved" tab to "In Progress" tab
-- The BuildingTheater modal auto-appears showing the construction animation
+- The ExecutionStatusModal modal auto-appears showing the construction animation
 
 ```bash
 # Log execution start
@@ -481,7 +481,7 @@ log_execution "info" "Starting execution for: ${itemTitle}" '{"item_id": "'"${it
 
 ### Step 5.2: Update Progress Throughout Execution (MANDATORY)
 
-**Update the execution progress at key milestones** to drive the BuildingTheater visualization:
+**Update the execution progress at key milestones** to drive the ExecutionStatusModal visualization:
 
 ```bash
 # Helper: Update progress at phase transitions
@@ -1449,7 +1449,7 @@ log_execution "info" "Execution complete: ${itemTitle}" '{"item_id": "'"${itemId
 This update will appear **immediately** in the dashboard:
 
 - The item moves from "In Progress" tab to "Completed" tab
-- The BuildingTheater shows completion animation with certificate
+- The ExecutionStatusModal shows completion animation with certificate
 
 ### Step 12: Update Item Status
 

@@ -206,3 +206,18 @@ description: Brief description of what this command does.
 **Why**: Users may change their minds - just because an item was previously rejected doesn't mean it shouldn't be suggested again in a future review. Completed items don't need checking either - if the problem was fixed, it won't show up as a problem anymore.
 
 ---
+
+## UI Visualization: Practical Information Over Entertainment
+
+**Discovered**: 2026-01-31
+**Context**: Replaced BuildingTheater (animated 3D construction site) with ExecutionStatusModal (progress timeline)
+**Pattern**: For execution/progress visualization, prioritize information density over visual entertainment:
+- Show checkpoint timeline with status indicators
+- Display current file and lines changed
+- Show validation status grid (TS, ESLint, Build, Tests)
+- Provide clear error state with actionable next steps
+- Celebration modal for success with confetti + accomplishment summary
+
+**Why**: Users want to understand what Mason is doing at each moment. Anxiety comes from uncertainty, not from lack of pretty animations. A clear timeline with percentage progress is more reassuring than 3D buildings.
+
+---

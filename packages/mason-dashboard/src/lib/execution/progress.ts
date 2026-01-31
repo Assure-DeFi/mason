@@ -2,7 +2,7 @@
  * Execution Progress Utilities
  *
  * Handles creation and management of execution_progress records
- * for the BuildingTheater visualization and CheckpointPanel.
+ * for the ExecutionStatusModal visualization and CheckpointPanel.
  *
  * Uses checkpoint-based updates instead of log streaming for reliability.
  * Each checkpoint is an atomic UPDATE to a single row, avoiding the
@@ -98,7 +98,7 @@ export interface ExecutionProgressRecord {
   id: string;
   item_id: string;
   run_id: string | null;
-  // Legacy phase tracking (kept for BuildingTheater compatibility)
+  // Legacy phase tracking (kept for backward compatibility)
   current_phase:
     | 'site_review'
     | 'foundation'
@@ -134,7 +134,7 @@ export interface ExecutionProgressRecord {
 
 /**
  * Creates an execution_progress record for an item if one doesn't exist.
- * This triggers the BuildingTheater visualization in the dashboard.
+ * This triggers the ExecutionStatusModal visualization in the dashboard.
  *
  * IMPORTANT: This function THROWS on failure to ensure the execution engine
  * can detect and handle failures rather than silently continuing.
@@ -374,7 +374,7 @@ export async function cleanupExecutionProgress(
 
 /**
  * Marks execution progress as failed for an item.
- * Sets phase to 'complete' with failed validation status to show failure in BuildingTheater.
+ * Sets phase to 'complete' with failed validation status to show failure state.
  *
  * @param client - Supabase client
  * @param itemId - The backlog item ID
@@ -512,4 +512,95 @@ export async function setTotalCheckpoints(
   } catch (err) {
     console.error('[ExecutionProgress] Error setting total checkpoints:', err);
   }
+}
+
+/**
+ * Format elapsed time between two timestamps.
+ * @param startedAt - ISO timestamp when execution started
+ * @param completedAt - ISO timestamp when execution completed (optional)
+ * @returns Formatted time string (e.g., "2:45")
+ */
+export function formatElapsedTime(
+  startedAt: string,
+  completedAt?: string | null,
+): string {
+  const start = new Date(startedAt).getTime();
+  const end = completedAt ? new Date(completedAt).getTime() : Date.now();
+  const seconds = Math.floor((end - start) / 1000);
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Summary data for execution completion display.
+ */
+export interface ExecutionSummary {
+  itemTitle: string;
+  itemDescription: string;
+  accomplishments: string[];
+  benefits: string[];
+  filesChanged: { path: string; linesAdded: number }[];
+  totalLinesChanged: number;
+  elapsedTime: string;
+  prUrl?: string;
+}
+
+/**
+ * Generate a summary of the execution for the completion modal.
+ * Pulls data from the backlog item and execution progress.
+ *
+ * @param client - Supabase client
+ * @param itemId - The backlog item ID
+ * @param progress - The execution progress record
+ * @returns ExecutionSummary with accomplishments, benefits, and files changed
+ */
+export async function generateExecutionSummary(
+  client: SupabaseClient,
+  itemId: string,
+  progress: ExecutionProgressRecord,
+): Promise<ExecutionSummary> {
+  // Fetch item with PRD
+  const { data: item } = await client
+    .from(TABLES.PM_BACKLOG_ITEMS)
+    .select('title, description, prd_document, pr_url')
+    .eq('id', itemId)
+    .single();
+
+  // PRD document may have key_features and expected_outcomes
+  const prd = (item?.prd_document as Record<string, unknown>) ?? {};
+
+  // Extract accomplishments from PRD key_features or fallback to description
+  const keyFeatures = prd.key_features as string[] | undefined;
+  const accomplishments: string[] = keyFeatures?.length
+    ? keyFeatures
+    : [item?.description ?? 'Completed task'];
+
+  // Extract benefits from PRD expected_outcomes or provide generic fallback
+  const expectedOutcomes = prd.expected_outcomes as string[] | undefined;
+  const benefits: string[] = expectedOutcomes?.length
+    ? expectedOutcomes
+    : ['Improved your codebase'];
+
+  // Build files changed list
+  const filesTouched = progress.files_touched ?? [];
+  const totalLines = progress.lines_changed ?? 0;
+  const filesChanged = filesTouched.map((path) => ({
+    path,
+    // Distribute lines evenly if we don't have per-file data
+    linesAdded: filesTouched.length > 0
+      ? Math.round(totalLines / filesTouched.length)
+      : 0,
+  }));
+
+  return {
+    itemTitle: item?.title ?? 'Unknown Item',
+    itemDescription: item?.description ?? '',
+    accomplishments,
+    benefits,
+    filesChanged,
+    totalLinesChanged: totalLines,
+    elapsedTime: formatElapsedTime(progress.started_at, progress.completed_at),
+    prUrl: (item?.pr_url as string) ?? undefined,
+  };
 }
