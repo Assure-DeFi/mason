@@ -431,6 +431,19 @@ export default function BacklogPage() {
       .map((item) => item.id);
   }, [repoFilteredItems]);
 
+  // Count stale approved items (approved > 2 days ago without execution)
+  const staleApprovedCount = useMemo(() => {
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    return repoFilteredItems.filter((item) => {
+      if (item.status !== 'approved') {
+        return false;
+      }
+      const updatedAt = new Date(item.updated_at);
+      return updatedAt < twoDaysAgo;
+    }).length;
+  }, [repoFilteredItems]);
+
   // Get the banger idea (only one per analysis, highest priority if multiple)
   // Respects activeStatus tab filter
   const bangerIdea = useMemo(() => {
@@ -569,11 +582,12 @@ export default function BacklogPage() {
     }
   };
 
-  const handleSelectItem = (id: string) => {
+  // Memoized to prevent ItemRow re-renders when parent state changes
+  const handleSelectItem = useCallback((id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
     );
-  };
+  }, []);
 
   const handleSelectAll = () => {
     if (selectedIds.length === filteredItems.length) {
@@ -588,16 +602,18 @@ export default function BacklogPage() {
   };
 
   // Handle clicking on an item row (opens modal with details view)
-  const handleItemClick = (item: BacklogItem) => {
+  // Memoized to prevent ItemRow re-renders when parent state changes
+  const handleItemClick = useCallback((item: BacklogItem) => {
     setModalViewMode('details');
     setSelectedItem(item);
-  };
+  }, []);
 
   // Handle clicking on PRD icon (opens modal with PRD view)
-  const handlePrdClick = (item: BacklogItem) => {
+  // Memoized to prevent ItemRow re-renders when parent state changes
+  const handlePrdClick = useCallback((item: BacklogItem) => {
     setModalViewMode('prd');
     setSelectedItem(item);
-  };
+  }, []);
 
   // Handle clicking on a recommendation (scroll to item and highlight)
   const handleRecommendationClick = (itemId: string) => {
