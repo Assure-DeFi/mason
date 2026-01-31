@@ -82,6 +82,64 @@ These patterns are NEVER real problems - reject immediately:
 | Example/sample data               | `00000000-0000-0000-0000-000000000000` UUIDs |
 | Commented code in examples        | Code examples in markdown or docs            |
 
+### Tier 1.5: Git Tracking Verification (Security Domain)
+
+**CRITICAL: Apply this check when suggestion contains ANY of these trigger keywords:**
+
+- "exposed in git"
+- "committed to repository"
+- "in version control"
+- "git working tree"
+- "credentials in git"
+- "secrets in repository"
+- ".env.local" (almost always gitignored)
+- "tracked in git"
+
+**Detection logic:**
+
+```bash
+# Check if file is actually tracked in git
+FILE_PATH="<path from suggestion>"
+
+# Step 1: Check if file is currently tracked
+if ! git ls-files --error-unmatch "$FILE_PATH" 2>/dev/null; then
+  # File is NOT in git - this is a false positive
+  # Filter with confidence 0.98, reason: "File is not tracked in git (gitignored or never committed)"
+  exit 0  # FILTER
+fi
+
+# Step 2: Also check git history for files that might have been removed
+if ! git log --oneline -1 --all -- "$FILE_PATH" 2>/dev/null | grep -q .; then
+  # File was NEVER committed - definitely a false positive
+  # Filter with confidence 0.98, reason: "File has never been committed to git history"
+  exit 0  # FILTER
+fi
+
+# Step 3: Check .gitignore patterns
+if git check-ignore -q "$FILE_PATH" 2>/dev/null; then
+  # File matches gitignore pattern - false positive
+  # Filter with confidence 0.95, reason: "File is excluded by .gitignore"
+  exit 0  # FILTER
+fi
+
+# File IS tracked - proceed to validate the actual content
+```
+
+**Common files that are ALMOST ALWAYS gitignored (verify before flagging):**
+
+| File Pattern   | Status                          | Action                           |
+| -------------- | ------------------------------- | -------------------------------- |
+| `.env.local`   | 99% gitignored                  | VERIFY with `git ls-files` first |
+| `.env.*.local` | Development-only                | VERIFY before flagging           |
+| `.env`         | Usually gitignored (but check!) | VERIFY - could be real issue     |
+| `*.pem`        | Should be gitignored            | VERIFY tracking status           |
+| `credentials*` | Should be gitignored            | VERIFY tracking status           |
+
+**Action:** If file is NOT tracked in git:
+
+- Set `verdict: "filtered"`, `tier: "tier1.5"`, `confidence: 0.98`
+- Reason: "File '<filename>' is not tracked in git (gitignored)"
+
 #### Extended Tier 1 Patterns
 
 | Pattern          | Detection                                                              | False Positive Example             |
@@ -318,7 +376,39 @@ These rules apply additional scrutiny based on the suggestion's domain:
 | AWS          | `AKIA[A-Z0-9]{16}`               | `AKIAEXAMPLE`, `your-aws-key`            |
 | Generic      | High entropy strings (>4.0 bits) | `TODO`, `PLACEHOLDER`, `example`, `test` |
 
-**Detection logic:**
+**MANDATORY Git Tracking Verification for Security Domain:**
+
+Before flagging ANY "file exposed in git" or "secrets in repository" issue:
+
+1. **Verify git tracking status** with `git ls-files <file>` - if empty, file is NOT tracked
+2. **Check git history** with `git log --oneline -1 -- <file>` - if empty, file was NEVER committed
+3. **Verify .gitignore** patterns don't match the file with `git check-ignore -q <file>`
+4. **If file is NOT tracked**: **FILTER** immediately (confidence 0.98)
+
+```bash
+# MANDATORY: Before flagging any "secrets exposed in git" issue
+FILE_PATH="<file from suggestion>"
+
+# Check if file is tracked in git
+if ! git ls-files --error-unmatch "$FILE_PATH" 2>/dev/null; then
+  # File is NOT in git - FALSE POSITIVE
+  # Filter with confidence 0.98
+  # Reason: "File is not tracked in git (gitignored or untracked)"
+  exit 0
+fi
+
+# Check if file has any git history
+if ! git log --oneline -1 --all -- "$FILE_PATH" 2>/dev/null | grep -q .; then
+  # File was NEVER committed - FALSE POSITIVE
+  # Filter with confidence 0.98
+  # Reason: "File has never been committed to git history"
+  exit 0
+fi
+
+# Only proceed to check content if file IS tracked
+```
+
+**Detection logic for credential patterns:**
 
 ```bash
 # Check if value matches real credential pattern AND is NOT in .env.example

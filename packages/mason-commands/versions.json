@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "commands": {
     "pm-review": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "1.6.0",
-      "breaking_reason": "Evidence-based validation - post-PRD evidence checking filters false positives, REFUTED items removed, INCONCLUSIVE flagged"
+      "required_minimum": "1.7.0",
+      "breaking_reason": "Git tracking verification for security suggestions - prevents false positives about gitignored files being 'exposed in git'"
     },
     "execute-approved": {
       "version": "1.5.0",

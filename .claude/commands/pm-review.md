@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 1.6.0
+version: 1.7.0
 description: PM Review Command
 ---
 
@@ -1703,6 +1703,41 @@ Before flagging security or quality issues, verify they are real problems:
   3. Are the values actual secrets or placeholder text?
 - Only flag if: actual secrets are committed AND .gitignore doesn't exclude them
 
+**MANDATORY: Git Tracking Verification for Security Suggestions**
+
+**BEFORE flagging any "secrets exposed in repository" issue:**
+
+1. Run `git ls-files <file>` - if empty, file is NOT tracked (false positive!)
+2. Check `.gitignore` - if file matches a pattern, it's intentionally excluded
+3. Only flag if file IS tracked AND contains real credentials (not placeholders)
+
+```bash
+# MANDATORY check before flagging security file issues
+FILE_PATH="<file from suggestion>"
+
+# Step 1: Check if file is tracked in git
+if ! git ls-files --error-unmatch "$FILE_PATH" 2>/dev/null; then
+  # File is NOT in git - DO NOT FLAG THIS
+  echo "FALSE POSITIVE: $FILE_PATH is not tracked in git"
+  exit 0
+fi
+
+# Step 2: Check gitignore patterns
+if git check-ignore -q "$FILE_PATH" 2>/dev/null; then
+  # File is excluded by gitignore - DO NOT FLAG THIS
+  echo "FALSE POSITIVE: $FILE_PATH is excluded by .gitignore"
+  exit 0
+fi
+
+# Only proceed if file IS tracked
+```
+
+**Common false positives to avoid:**
+
+- `.env.local` - Almost always gitignored (check before flagging!)
+- `.env.*.local` - Development-only files
+- Files in `.gitignore` that exist locally
+
 **Common False Positives to AVOID:**
 | Pattern | Why It's NOT a Vulnerability |
 |---------|------------------------------|
@@ -1711,11 +1746,12 @@ Before flagging security or quality issues, verify they are real problems:
 | `NEXT_PUBLIC_*` env vars | Intentionally public, not secrets |
 | API keys in test files with `test_` prefix | Test fixtures, not real credentials |
 | Placeholder UUIDs like `00000000-0000-...` | Example values, not real IDs |
+| `.env.local` exists in working tree | Usually gitignored - VERIFY first |
 
 **Real Vulnerabilities to Flag:**
 
 - Actual API keys/tokens committed (look for real patterns: `sk-`, `ghp_`, `eyJ`)
-- `.env.local` or `.env` files tracked in git with real values
+- `.env.local` or `.env` files **tracked in git** (verified with `git ls-files`) with real values
 - Hardcoded credentials in source code (not config files)
 - Missing `.gitignore` patterns for secret files
 
