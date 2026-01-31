@@ -80,6 +80,13 @@ export interface ExecutionLog {
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
+export interface Checkpoint {
+  id: number;
+  name: string;
+  timestamp?: string;
+  completed_at?: string;
+}
+
 // NextAuth session extension
 export interface SessionUser {
   id: string;
