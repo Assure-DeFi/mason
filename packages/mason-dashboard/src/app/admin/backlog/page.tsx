@@ -1234,6 +1234,10 @@ export default function BacklogPage() {
               <FeatureIdeasSection
                 items={featureIdeas}
                 onViewDetails={handleItemClick}
+                onApprove={(id) => void handleUpdateStatus(id, 'approved')}
+                onReject={(id) => void handleUpdateStatus(id, 'rejected')}
+                onComplete={(id) => void handleUpdateStatus(id, 'completed')}
+                onDelete={(id) => void handleBulkDelete([id])}
               />
             )}
 
