@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "commands": {
     "pm-review": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "1.7.0",
-      "breaking_reason": "Git tracking verification for security suggestions - prevents false positives about gitignored files being 'exposed in git'"
+      "required_minimum": "1.8.0",
+      "breaking_reason": "Mandatory deduplication - checks existing backlog before submitting suggestions to prevent duplicate ideas"
     },
     "execute-approved": {
       "version": "1.5.0",

@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 1.7.0
+version: 1.8.0
 description: PM Review Command
 ---
 
@@ -709,16 +709,196 @@ Think: What feature would make users tell their friends about this app? What cap
 
 **IMPORTANT:** Only ONE item per analysis can have `is_banger_idea: true`. This is the flagship transformative feature. All other items (including other features) should have `is_banger_idea: false`.
 
-### Step 5.4: Deduplication Check & Banger Rotation
+### Step 5.4: Deduplication Check & Banger Rotation (MANDATORY - HARD STOP)
 
-Before validation, check for duplicates against existing backlog AND handle banger rotation:
+## ⚠️ HARD REQUIREMENT: THIS CHECK CANNOT BE SKIPPED ⚠️
+
+**Before generating any suggestions, you MUST query existing backlog items and filter duplicates.**
+
+This is NOT optional. Submitting duplicate ideas wastes user time and pollutes the backlog.
+
+**WHY DEDUPLICATION IS MANDATORY:**
+
+- Users don't want to review the same idea twice
+- Duplicate suggestions make the backlog harder to manage
+- The agent should come up with FRESH suggestions each run
+- Completed items don't need checking (if fixed, the problem won't show up)
+
+---
+
+#### Step A: Query Existing Backlog Items
+
+**THIS QUERY MUST RUN BEFORE generating suggestions.**
 
 ```bash
-# Query existing items in backlog (non-completed, non-rejected)
-EXISTING_ITEMS=$(curl -s "${supabaseUrl}/rest/v1/mason_pm_backlog_items?select=id,title,solution,status&status=neq.completed&status=neq.rejected" \
+# Query existing items with status NEW or APPROVED (not completed/rejected)
+EXISTING_ITEMS=$(curl -s "${supabaseUrl}/rest/v1/mason_pm_backlog_items?select=id,title,problem,solution,status,type&or=(status.eq.new,status.eq.approved)&repository_id=eq.${REPOSITORY_ID}" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}")
+
+EXISTING_COUNT=$(echo "$EXISTING_ITEMS" | jq 'length')
+echo "Found $EXISTING_COUNT existing items to check for duplicates"
 ```
+
+**IMPORTANT:** Only check against `new` and `approved` items. Completed items don't matter - if the problem was fixed, it won't show up as a problem anymore.
+
+---
+
+#### Step B: Similarity Detection Algorithm
+
+For EACH candidate suggestion, compare against existing items:
+
+**B.1: Extract Key Terms from Title**
+
+Stop words to remove:
+
+```
+the, a, an, to, for, in, on, at, of, and, or, is, are, be, with, this, that,
+add, update, fix, improve, implement, create, make, use, using, when, if
+```
+
+Example:
+
+- Title: "Add loading states to dashboard cards"
+- Key terms: ["loading", "states", "dashboard", "cards"]
+
+**B.2: Extract Primary File from Solution**
+
+```bash
+# Find file paths in solution text
+PRIMARY_FILE=$(echo "$SOLUTION" | grep -oE '(src|packages|lib|app)/[a-zA-Z0-9/_.-]+\.(ts|tsx|js|jsx)' | head -1)
+```
+
+**B.3: Calculate Similarity Score**
+
+```bash
+# Extract key terms from candidate title
+CANDIDATE_TERMS=$(extract_key_terms "$CANDIDATE_TITLE")
+
+# For each existing item, calculate similarity
+for EXISTING in $EXISTING_ITEMS; do
+  EXISTING_TITLE=$(echo "$EXISTING" | jq -r '.title')
+  EXISTING_TERMS=$(extract_key_terms "$EXISTING_TITLE")
+  EXISTING_SOLUTION=$(echo "$EXISTING" | jq -r '.solution')
+  EXISTING_TYPE=$(echo "$EXISTING" | jq -r '.type')
+
+  # Calculate title word overlap
+  MATCHING_WORDS=$(count_matching_words "$CANDIDATE_TERMS" "$EXISTING_TERMS")
+  TOTAL_WORDS=$(count_words "$CANDIDATE_TERMS")
+  TITLE_SIMILARITY=$((MATCHING_WORDS * 100 / TOTAL_WORDS))
+
+  # Check if same primary file
+  EXISTING_PRIMARY_FILE=$(echo "$EXISTING_SOLUTION" | grep -oE '(src|packages|lib|app)/[a-zA-Z0-9/_.-]+\.(ts|tsx|js|jsx)' | head -1)
+  SAME_FILE=false
+  if [ "$PRIMARY_FILE" = "$EXISTING_PRIMARY_FILE" ] && [ -n "$PRIMARY_FILE" ]; then
+    SAME_FILE=true
+  fi
+
+  # Check if same type/domain
+  SAME_TYPE=false
+  if [ "$CANDIDATE_TYPE" = "$EXISTING_TYPE" ]; then
+    SAME_TYPE=true
+  fi
+done
+```
+
+---
+
+#### Step C: Duplicate Thresholds (Fully Automated - No Manual Review)
+
+| Condition                                    | Action                  | Confidence |
+| -------------------------------------------- | ----------------------- | ---------- |
+| title_similarity >= 70%                      | DUPLICATE - auto-filter | 0.90       |
+| Same primary target file in solution         | DUPLICATE - auto-filter | 0.95       |
+| title_similarity >= 50% AND same type/domain | DUPLICATE - auto-filter | 0.85       |
+
+**All duplicates are automatically filtered. No manual review required.**
+
+**Examples:**
+
+| Candidate                          | Existing                               | Similarity      | Result    |
+| ---------------------------------- | -------------------------------------- | --------------- | --------- |
+| "Add loading states to dashboard"  | "Add loading indicators for KPI cards" | 60% + same type | DUPLICATE |
+| "Fix error handling in API routes" | "Improve error handling in backend"    | 55% + same type | DUPLICATE |
+| "Add real-time notifications"      | "Implement webhook notifications"      | 40%             | UNIQUE    |
+| "Update KPICard.tsx loading state" | "Add skeleton loader to KPICard.tsx"   | Same file       | DUPLICATE |
+
+---
+
+#### Step D: Log Duplicates to Filtered Items
+
+Duplicates MUST be logged to `mason_pm_filtered_items` for transparency:
+
+```bash
+if [ "$IS_DUPLICATE" = true ]; then
+  curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_filtered_items" \
+    -H "apikey: ${supabaseAnonKey}" \
+    -H "Authorization: Bearer ${supabaseAnonKey}" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "repository_id": "'${REPOSITORY_ID}'",
+      "title": "'${CANDIDATE_TITLE}'",
+      "problem": "'${CANDIDATE_PROBLEM}'",
+      "solution": "'${CANDIDATE_SOLUTION}'",
+      "type": "'${CANDIDATE_TYPE}'",
+      "area": "'${CANDIDATE_AREA}'",
+      "filter_reason": "Duplicate of existing item: '"${EXISTING_TITLE}"' (similarity: '"${TITLE_SIMILARITY}"'%)",
+      "filter_tier": "tier2-dedup",
+      "filter_confidence": 0.90
+    }'
+
+  echo "Filtered duplicate: ${CANDIDATE_TITLE} (similar to: ${EXISTING_TITLE})"
+fi
+```
+
+---
+
+#### Step E: Cross-Run Deduplication
+
+Also check for duplicates WITHIN the same analysis run:
+
+```bash
+# Before adding a suggestion to FINAL_SUGGESTIONS, check against others in this run
+for OTHER in $FINAL_SUGGESTIONS; do
+  OTHER_TITLE=$(echo "$OTHER" | jq -r '.title')
+  OTHER_TERMS=$(extract_key_terms "$OTHER_TITLE")
+
+  MATCHING=$(count_matching_words "$CANDIDATE_TERMS" "$OTHER_TERMS")
+  SIMILARITY=$((MATCHING * 100 / TOTAL_WORDS))
+
+  if [ "$SIMILARITY" -ge 70 ]; then
+    # Keep the higher-priority one (higher impact, lower effort)
+    CANDIDATE_PRIORITY=$(( CANDIDATE_IMPACT * 2 - CANDIDATE_EFFORT ))
+    OTHER_PRIORITY=$(echo "$OTHER" | jq -r '(.impact_score * 2) - .effort_score')
+
+    if [ "$CANDIDATE_PRIORITY" -le "$OTHER_PRIORITY" ]; then
+      IS_DUPLICATE=true
+      echo "Cross-run duplicate: ${CANDIDATE_TITLE} (duplicate of: ${OTHER_TITLE}, keeping higher priority)"
+    fi
+  fi
+done
+```
+
+---
+
+#### Step F: Display Deduplication Summary
+
+```
+## Deduplication Check Complete
+- Candidates generated: 25
+- Existing backlog items checked: 12
+- Duplicates found: 4
+  - "Add loading states" → similar to existing "Loading indicators for dashboard"
+  - "Fix API error handling" → same file as existing "Error handling improvements"
+  - "Update validation" → 72% title match with "Input validation for forms"
+  - "Dashboard performance" → same type + 55% match with "Optimize dashboard queries"
+- Unique suggestions: 21
+
+Duplicates logged to Filtered tab in dashboard.
+Proceeding with 21 unique suggestions...
+```
+
+---
 
 #### Banger Rotation Logic
 
@@ -747,24 +927,6 @@ fi
 ```
 
 **Result:** The old banger appears in the feature list with a highlighted "BANGER" badge, while the new banger is the ONLY item in the Banger box.
-
-**Deduplication criteria:**
-
-1. **Title Similarity**: Compare each suggestion title against existing items
-   - Extract key words (nouns, verbs) from both titles
-   - If >80% word overlap: mark as duplicate
-
-2. **Solution Overlap**: Check if same file/area already has an open item
-   - If existing item targets same primary file: mark as duplicate
-
-3. **Cross-Run Duplicates**: Within this analysis run
-   - Compare each suggestion against others in the same batch
-   - If duplicate found, keep the higher-priority one (higher impact, lower effort)
-
-**Action for duplicates:**
-
-- Log to `mason_pm_filtered_items` with tier="tier2", reason="Duplicate of existing item: <title>"
-- Do NOT submit to backlog
 
 ### Step 5.5: Validate Suggestions (Parallel)
 

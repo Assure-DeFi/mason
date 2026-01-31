@@ -196,22 +196,82 @@ cat .claude/skills/pm-domain-knowledge/*.md | grep -A10 "Off-Limits"
 git log --oneline -10 --all -- <file>
 ```
 
-#### History & Deduplication Checks
+#### Tier 2.1: Backlog Deduplication (MANDATORY - HARD STOP)
 
-Before validating, check for duplicates against existing data:
+## ⚠️ HARD REQUIREMENT: THIS CHECK MUST RUN FOR EVERY SUGGESTION ⚠️
 
-1. **Existing Backlog Check**: Query for similar items already in backlog
+**This is NOT optional. Every suggestion MUST be checked against existing backlog items.**
 
-   ```bash
-   # Query for fuzzy title match (>80% similarity via ILIKE patterns)
-   # SELECT id, title, status FROM mason_pm_backlog_items
-   # WHERE title ILIKE '%<key_words>%' AND status NOT IN ('completed', 'rejected')
+**Query for existing items (MUST execute):**
+
+```bash
+# Query existing items with status NEW or APPROVED for this repository
+curl -s "${supabaseUrl}/rest/v1/mason_pm_backlog_items?select=id,title,problem,solution,type&or=(status.eq.new,status.eq.approved)&repository_id=eq.${REPOSITORY_ID}" \
+  -H "apikey: ${supabaseAnonKey}" \
+  -H "Authorization: Bearer ${supabaseAnonKey}"
+```
+
+**IMPORTANT:** Only check against `new` and `approved` items. Completed items don't matter - if the problem was fixed, it won't show up as a problem anymore.
+
+---
+
+**Similarity Matching Logic:**
+
+1. **Extract key words from titles** (remove stop words):
+
+   ```
+   Stop words: the, a, an, to, for, in, on, at, of, and, or, is, are, be, with, this, that,
+               add, update, fix, improve, implement, create, make, use, using, when, if
    ```
 
-   - If similar item exists with status `new`, `approved`, or `in_progress`: **filter** (confidence 0.90)
-   - Reason: "Similar item already exists in backlog: <title>"
+2. **Calculate word overlap percentage:**
 
-2. **Completed Item Memory (7-day window)**:
+   ```bash
+   MATCHING_WORDS=$(count_matching_words "$CANDIDATE_TERMS" "$EXISTING_TERMS")
+   TOTAL_WORDS=$(count_words "$CANDIDATE_TERMS")
+   SIMILARITY=$((MATCHING_WORDS * 100 / TOTAL_WORDS))
+   ```
+
+3. **Check for same target file in solutions:**
+   ```bash
+   PRIMARY_FILE=$(echo "$SOLUTION" | grep -oE '(src|packages|lib|app)/[a-zA-Z0-9/_.-]+\.(ts|tsx|js|jsx)' | head -1)
+   ```
+
+---
+
+**Duplicate Thresholds (Fully Automated):**
+
+| Condition                                    | Action | Confidence |
+| -------------------------------------------- | ------ | ---------- |
+| title_similarity >= 70%                      | FILTER | 0.90       |
+| Same primary target file in solution         | FILTER | 0.95       |
+| title_similarity >= 50% AND same type/domain | FILTER | 0.85       |
+
+**Action for duplicates:**
+
+- Set `verdict: "filtered"`, `tier: "tier2-dedup"`, `confidence: <from table>`
+- Reason: "Duplicate of existing item: <existing_title> (similarity: <X>%)"
+
+---
+
+**Example duplicate detection:**
+
+| Candidate                          | Existing                               | Match Type      | Result |
+| ---------------------------------- | -------------------------------------- | --------------- | ------ |
+| "Add loading states to dashboard"  | "Add loading indicators for KPI cards" | 60% + same type | FILTER |
+| "Fix error handling in API routes" | "Improve error handling in backend"    | 55% + same type | FILTER |
+| "Update KPICard.tsx loading state" | "Add skeleton loader to KPICard.tsx"   | Same file       | FILTER |
+
+---
+
+#### History & Additional Deduplication Checks
+
+1. **Cross-Run Deduplication**: Within the same analysis run, compare each suggestion against others
+   - Extract key words from title (nouns, verbs)
+   - If >70% word overlap with another suggestion in this run: **filter** the lower-priority one
+   - Reason: "Duplicate of higher-priority suggestion: <other_title>"
+
+2. **Recent Completion Check (Optional - 7-day window)**:
 
    ```bash
    # Query for recently completed items in same area
@@ -221,13 +281,8 @@ Before validating, check for duplicates against existing data:
    #   AND (title ILIKE '%<key_words>%' OR solution ILIKE '%<file_path>%')
    ```
 
-   - If match found: **filter** (confidence 0.85)
-   - Reason: "Similar item completed within last 7 days: <title>"
-
-3. **Cross-Run Deduplication**: Within the same analysis run, compare each suggestion against others
-   - Extract key words from title (nouns, verbs)
-   - If >80% word overlap with another suggestion in this run: **filter** the lower-priority one
-   - Reason: "Duplicate of higher-priority suggestion: <other_title>"
+   - If match found AND problem still exists: proceed (may need re-work)
+   - If match found AND problem is resolved: skip (problem was fixed)
 
 #### Extended Tier 2: Contextual Intelligence
 
