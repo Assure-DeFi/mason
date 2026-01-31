@@ -31,6 +31,12 @@ import {
   CompletionCelebration,
 } from './building';
 
+interface Checkpoint {
+  id: number;
+  name: string;
+  completed_at: string | null;
+}
+
 interface ExecutionProgress {
   id: string;
   item_id: string;
@@ -47,6 +53,12 @@ interface ExecutionProgress {
   current_task: string | null;
   tasks_completed: number;
   tasks_total: number;
+  // Checkpoint-based progress tracking
+  checkpoint_index: number;
+  checkpoint_total: number;
+  checkpoint_message: string | null;
+  checkpoints_completed: Checkpoint[];
+  // File-level progress
   current_file: string | null;
   files_touched: string[];
   lines_changed: number;
@@ -60,6 +72,34 @@ interface ExecutionProgress {
   started_at: string;
   updated_at: string;
   completed_at: string | null;
+}
+
+/**
+ * Derive building floor progress from checkpoint data.
+ * Maps checkpoint completion to building floors for visualization.
+ */
+function deriveBuildingProgress(progress: ExecutionProgress): {
+  currentFloor: number;
+  totalFloors: number;
+} {
+  // Use checkpoint data if available
+  if (progress.checkpoint_total > 0) {
+    const completed = progress.checkpoints_completed?.length ?? 0;
+    // Map checkpoints to 4 floors (foundation, building x2, roof)
+    const totalFloors = 4;
+    const percentage = completed / progress.checkpoint_total;
+    const currentFloor = Math.min(
+      totalFloors,
+      Math.floor(percentage * totalFloors) + (percentage > 0 ? 1 : 0),
+    );
+    return { currentFloor, totalFloors };
+  }
+
+  // Fallback to legacy wave system
+  return {
+    currentFloor: progress.current_wave,
+    totalFloors: progress.total_waves,
+  };
 }
 
 const PHASES = [
@@ -222,6 +262,9 @@ export function BuildingTheater({
   const isComplete = phase === 'complete';
   const isBuilding = phase === 'building';
 
+  // Derive floor progress from checkpoints (or fallback to legacy waves)
+  const { currentFloor, totalFloors } = deriveBuildingProgress(progress);
+
   return (
     <div className="bg-navy border border-gray-700 rounded-lg overflow-hidden">
       {/* Main visualization area */}
@@ -236,29 +279,29 @@ export function BuildingTheater({
             {/* Crane */}
             <CraneAnimation
               isActive={isBuilding}
-              currentFloor={progress.current_wave}
-              totalFloors={progress.total_waves}
+              currentFloor={currentFloor}
+              totalFloors={totalFloors}
             />
 
             {/* Scaffolding on current floor */}
             <Scaffolding
-              currentFloor={progress.current_wave}
-              totalFloors={progress.total_waves}
+              currentFloor={currentFloor}
+              totalFloors={totalFloors}
               isVisible={isBuilding}
             />
 
             {/* The building itself */}
             <IsometricBuilding
-              totalFloors={progress.total_waves}
-              currentFloor={progress.current_wave}
+              totalFloors={totalFloors}
+              currentFloor={currentFloor}
               phase={phase}
               lightsOn={lightsOn}
             />
 
             {/* Workers */}
             <ConstructionWorkers
-              currentFloor={progress.current_wave}
-              totalFloors={progress.total_waves}
+              currentFloor={currentFloor}
+              totalFloors={totalFloors}
               phase={phase}
             />
           </div>
@@ -273,8 +316,8 @@ export function BuildingTheater({
         {/* Particle effects */}
         <ParticleSystem
           phase={phase}
-          currentFloor={progress.current_wave}
-          totalFloors={progress.total_waves}
+          currentFloor={currentFloor}
+          totalFloors={totalFloors}
           isComplete={isComplete}
         />
 

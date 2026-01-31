@@ -245,6 +245,12 @@ CREATE TABLE IF NOT EXISTS mason_execution_progress (
   tasks_completed INTEGER DEFAULT 0,
   tasks_total INTEGER DEFAULT 0,
 
+  -- Checkpoint-based progress tracking (replaces unreliable log streaming)
+  checkpoint_index INTEGER DEFAULT 0,
+  checkpoint_total INTEGER DEFAULT 0,
+  checkpoint_message TEXT,
+  checkpoints_completed JSONB DEFAULT '[]'::jsonb,
+
   -- File-level progress
   current_file TEXT,
   files_touched TEXT[] DEFAULT '{}',
@@ -397,6 +403,12 @@ ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_exp
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS item_results JSONB DEFAULT NULL;
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS success_count INTEGER DEFAULT NULL;
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS failure_count INTEGER DEFAULT NULL;
+
+-- Add checkpoint-based progress tracking columns (for existing databases)
+ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_index INTEGER DEFAULT 0;
+ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_total INTEGER DEFAULT 0;
+ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_message TEXT;
+ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoints_completed JSONB DEFAULT '[]'::jsonb;
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_user_id ON mason_api_keys(user_id);

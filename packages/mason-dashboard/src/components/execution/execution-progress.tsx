@@ -10,12 +10,14 @@ import {
   AlertTriangle,
   Filter,
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { TABLES } from '@/lib/constants';
+import type { ExecutionProgressRecord } from '@/lib/execution/progress';
 import type { RemoteExecutionStatus, ItemResult } from '@/types/auth';
 
 import { BuildingTheater } from './BuildingTheater';
+import { CheckpointPanel } from './CheckpointPanel';
 
 interface ExecutionLog {
   id: string;
@@ -52,9 +54,53 @@ export function ExecutionProgress({
   const logsEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  // Checkpoint-based progress state (replaces unreliable log streaming)
+  const [checkpointProgress, setCheckpointProgress] =
+    useState<ExecutionProgressRecord | null>(null);
+
   // Check if this is a CLI execution with a real run_id (UUID format)
   // vs a synthetic "cli-{item_id}" format
   const isRealRunId = runId && !runId.startsWith('cli-');
+
+  // Poll for checkpoint progress (1 second interval)
+  // This replaces unreliable realtime subscriptions
+  const pollCheckpointProgress = useCallback(async () => {
+    if (!client || !itemId) {
+      return;
+    }
+
+    try {
+      const { data } = await client
+        .from(TABLES.EXECUTION_PROGRESS)
+        .select('*')
+        .eq('item_id', itemId)
+        .single();
+
+      if (data) {
+        setCheckpointProgress(data as ExecutionProgressRecord);
+      }
+    } catch (err) {
+      // Silent fail - polling will retry
+      console.debug('[ExecutionProgress] Checkpoint poll error:', err);
+    }
+  }, [client, itemId]);
+
+  // Start checkpoint polling when component mounts
+  useEffect(() => {
+    if (!client || !itemId || status !== 'in_progress') {
+      return;
+    }
+
+    // Initial fetch
+    void pollCheckpointProgress();
+
+    // Poll every 1 second for responsive updates
+    const pollInterval = setInterval(() => {
+      void pollCheckpointProgress();
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [client, itemId, status, pollCheckpointProgress]);
 
   // Subscribe to execution_logs via Supabase realtime for CLI executions with real run_id
   useEffect(() => {
@@ -408,40 +454,57 @@ export function ExecutionProgress({
             </div>
           )}
 
-          {/* Logs (right column or full width) */}
-          <div
-            className={`overflow-y-auto bg-black p-4 font-mono text-sm ${showBuildingTheater ? 'rounded-lg' : 'flex-1'}`}
-            role="log"
-            aria-live="polite"
-            aria-label="Execution logs"
-          >
-            {error && (
-              <div className="mb-4 rounded bg-red-900/20 p-3 text-red-400">
-                {error}
-              </div>
-            )}
+          {/* Checkpoint Panel (right column) or Logs (fallback/full width) */}
+          {showBuildingTheater && checkpointProgress ? (
+            <CheckpointPanel
+              checkpointsCompleted={
+                checkpointProgress.checkpoints_completed ?? []
+              }
+              currentCheckpointIndex={checkpointProgress.checkpoint_index ?? 0}
+              totalCheckpoints={checkpointProgress.checkpoint_total ?? 12}
+              currentCheckpointMessage={
+                checkpointProgress.checkpoint_message ?? null
+              }
+              currentFile={checkpointProgress.current_file ?? null}
+              linesChanged={checkpointProgress.lines_changed ?? 0}
+              startedAt={checkpointProgress.started_at}
+              isComplete={checkpointProgress.current_phase === 'complete'}
+            />
+          ) : (
+            <div
+              className={`overflow-y-auto bg-black p-4 font-mono text-sm ${showBuildingTheater ? 'rounded-lg' : 'flex-1'}`}
+              role="log"
+              aria-live="polite"
+              aria-label="Execution logs"
+            >
+              {error && (
+                <div className="mb-4 rounded bg-red-900/20 p-3 text-red-400">
+                  {error}
+                </div>
+              )}
 
-            {logs.length === 0 && !error && (
-              <div className="flex items-center gap-2 text-gray-400">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Waiting for logs...
-              </div>
-            )}
+              {logs.length === 0 && !error && (
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Waiting for logs...
+                </div>
+              )}
 
-            {logs.map((log) => (
-              <div key={log.id} className="mb-1">
-                <span className="text-gray-600">
-                  {new Date(log.created_at).toLocaleTimeString()}
-                </span>{' '}
-                <span className={getLogLevelStyles(log.log_level)}>
-                  [{log.log_level.toUpperCase()}]
-                </span>{' '}
-                <span className="text-gray-300">{log.message}</span>
-              </div>
-            ))}
+              {logs.map((log) => (
+                <div key={log.id} className="mb-1">
+                  <span className="text-gray-600">
+                    {new Date(log.created_at).toLocaleTimeString()}
+                  </span>{' '}
+                  <span className={getLogLevelStyles(log.log_level)}>
+                    [{log.log_level.toUpperCase()}]
+                  </span>{' '}
+                  <span className="text-gray-300">{log.message}</span>
+                </div>
+              ))}
 
-            <div ref={logsEndRef} />
-          </div>
+              <div ref={logsEndRef} />
+            </div>
+          )}
         </div>
 
         {/* Item Results Section (shown for partial success) */}

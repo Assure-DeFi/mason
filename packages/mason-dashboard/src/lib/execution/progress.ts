@@ -2,7 +2,11 @@
  * Execution Progress Utilities
  *
  * Handles creation and management of execution_progress records
- * for the BuildingTheater visualization.
+ * for the BuildingTheater visualization and CheckpointPanel.
+ *
+ * Uses checkpoint-based updates instead of log streaming for reliability.
+ * Each checkpoint is an atomic UPDATE to a single row, avoiding the
+ * brittleness of individual log INSERTs.
  *
  * IMPORTANT: All functions in this module throw errors on failure.
  * This ensures the execution engine can detect and handle failures
@@ -12,6 +16,68 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { TABLES } from '@/lib/constants';
+
+/**
+ * Checkpoint interface for progress tracking
+ */
+export interface Checkpoint {
+  id: number;
+  name: string;
+  completed_at: string | null;
+}
+
+/**
+ * Standard checkpoint catalog for execution flow.
+ * Static checkpoints are always present; dynamic ones are added for file writes.
+ */
+export const CHECKPOINT_CATALOG = {
+  // Initialization checkpoints (1-2)
+  INITIALIZED: { id: 1, name: 'Initialized execution' },
+  LOADED_PRD: { id: 2, name: 'Loaded PRD' },
+
+  // Analysis checkpoints (3-5)
+  ANALYZING_CODEBASE: { id: 3, name: 'Analyzing codebase' },
+  GENERATED_PLAN: { id: 4, name: 'Generated implementation plan' },
+  CREATED_BRANCH: { id: 5, name: 'Created branch' },
+
+  // Dynamic file checkpoints start at 6
+  // Pattern: { id: 6+n, name: `Writing ${filename}` }
+
+  // Validation checkpoints (100+, after all files)
+  TYPESCRIPT_CHECK: { id: 100, name: 'Running TypeScript check' },
+  ESLINT_CHECK: { id: 101, name: 'Running ESLint' },
+  BUILD_CHECK: { id: 102, name: 'Running build' },
+  TESTS_CHECK: { id: 103, name: 'Running tests' },
+
+  // Final checkpoints
+  COMMITTING: { id: 110, name: 'Committing changes' },
+  CREATING_PR: { id: 111, name: 'Creating pull request' },
+  COMPLETE: { id: 120, name: 'Complete' },
+} as const;
+
+/**
+ * Calculate total checkpoints based on file count.
+ * @param fileCount - Number of files to be written
+ * @returns Total checkpoint count
+ */
+export function calculateTotalCheckpoints(fileCount: number): number {
+  // 5 initial + fileCount files + 4 validation + 2 final + 1 complete
+  return 5 + fileCount + 4 + 2 + 1;
+}
+
+/**
+ * Generate file write checkpoint.
+ * File checkpoints start at ID 6 and increment.
+ */
+export function createFileCheckpoint(
+  fileIndex: number,
+  fileName: string,
+): { id: number; name: string } {
+  return {
+    id: 6 + fileIndex,
+    name: `Writing ${fileName}`,
+  };
+}
 
 /**
  * Custom error for execution progress failures.
@@ -32,6 +98,7 @@ export interface ExecutionProgressRecord {
   id: string;
   item_id: string;
   run_id: string | null;
+  // Legacy phase tracking (kept for BuildingTheater compatibility)
   current_phase:
     | 'site_review'
     | 'foundation'
@@ -44,6 +111,12 @@ export interface ExecutionProgressRecord {
   current_task: string | null;
   tasks_completed: number;
   tasks_total: number;
+  // Checkpoint-based progress (new)
+  checkpoint_index: number;
+  checkpoint_total: number;
+  checkpoint_message: string | null;
+  checkpoints_completed: Checkpoint[];
+  // File-level progress
   current_file: string | null;
   files_touched: string[];
   lines_changed: number;
@@ -78,6 +151,7 @@ export async function ensureExecutionProgress(
   options?: {
     runId?: string;
     totalWaves?: number;
+    totalCheckpoints?: number;
     initialTask?: string;
   },
 ): Promise<ExecutionProgressRecord> {
@@ -126,6 +200,7 @@ export async function ensureExecutionProgress(
   }
 
   // Create new execution_progress record
+  const totalCheckpoints = options?.totalCheckpoints ?? 12; // Default estimate
   const newRecord = {
     item_id: itemId,
     run_id: options?.runId ?? null,
@@ -136,6 +211,12 @@ export async function ensureExecutionProgress(
     current_task: options?.initialTask ?? 'Analyzing PRD and dependencies...',
     tasks_completed: 0,
     tasks_total: 0,
+    // Checkpoint-based progress
+    checkpoint_index: 0,
+    checkpoint_total: totalCheckpoints,
+    checkpoint_message: CHECKPOINT_CATALOG.INITIALIZED.name,
+    checkpoints_completed: [],
+    // File-level progress
     current_file: null,
     files_touched: [],
     lines_changed: 0,
@@ -326,5 +407,109 @@ export async function failExecutionProgress(
       '[ExecutionProgress] Failed to mark progress as failed:',
       updateError,
     );
+  }
+}
+
+/**
+ * Update checkpoint progress for an item.
+ * This is the primary method for updating progress in the new checkpoint system.
+ *
+ * @param client - Supabase client
+ * @param itemId - The backlog item ID
+ * @param checkpoint - The checkpoint to set (id and name)
+ * @param options - Additional options for the update
+ */
+export async function updateCheckpoint(
+  client: SupabaseClient,
+  itemId: string,
+  checkpoint: { id: number; name: string },
+  options?: {
+    currentFile?: string;
+    linesChanged?: number;
+    phase?: ExecutionProgressRecord['current_phase'];
+    wave?: number;
+  },
+): Promise<void> {
+  try {
+    // First get current progress to append to checkpoints_completed
+    const { data: current } = await client
+      .from(TABLES.EXECUTION_PROGRESS)
+      .select('checkpoints_completed, checkpoint_index')
+      .eq('item_id', itemId)
+      .single();
+
+    const previousCheckpoints = (current?.checkpoints_completed ??
+      []) as Checkpoint[];
+
+    // Create completed checkpoint entry
+    const completedCheckpoint: Checkpoint = {
+      id: checkpoint.id,
+      name: checkpoint.name,
+      completed_at: new Date().toISOString(),
+    };
+
+    // Don't duplicate checkpoints
+    const alreadyCompleted = previousCheckpoints.some(
+      (c) => c.id === checkpoint.id,
+    );
+    const updatedCompleted = alreadyCompleted
+      ? previousCheckpoints
+      : [...previousCheckpoints, completedCheckpoint];
+
+    const updateData: Record<string, unknown> = {
+      checkpoint_index: checkpoint.id,
+      checkpoint_message: checkpoint.name,
+      checkpoints_completed: updatedCompleted,
+      current_task: checkpoint.name, // Also update legacy field
+      updated_at: new Date().toISOString(),
+    };
+
+    if (options?.currentFile) {
+      updateData.current_file = options.currentFile;
+    }
+    if (options?.linesChanged !== undefined) {
+      updateData.lines_changed = options.linesChanged;
+    }
+    if (options?.phase) {
+      updateData.current_phase = options.phase;
+    }
+    if (options?.wave !== undefined) {
+      updateData.current_wave = options.wave;
+    }
+
+    const { error } = await client
+      .from(TABLES.EXECUTION_PROGRESS)
+      .update(updateData)
+      .eq('item_id', itemId);
+
+    if (error) {
+      console.error('[ExecutionProgress] Error updating checkpoint:', error);
+      // Non-fatal - log but continue
+    }
+  } catch (err) {
+    console.error('[ExecutionProgress] Error in updateCheckpoint:', err);
+    // Non-fatal - checkpoint updates shouldn't block execution
+  }
+}
+
+/**
+ * Set the total number of checkpoints for an item.
+ * Call this after determining how many files will be written.
+ */
+export async function setTotalCheckpoints(
+  client: SupabaseClient,
+  itemId: string,
+  totalCheckpoints: number,
+): Promise<void> {
+  try {
+    await client
+      .from(TABLES.EXECUTION_PROGRESS)
+      .update({
+        checkpoint_total: totalCheckpoints,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('item_id', itemId);
+  } catch (err) {
+    console.error('[ExecutionProgress] Error setting total checkpoints:', err);
   }
 }
