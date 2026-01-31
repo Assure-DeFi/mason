@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import { apiSuccess, unauthorized, serverError } from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { executeRemotely } from '@/lib/execution/engine';
 import {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     // Rate limit: 10 executions per hour per user (AI-heavy operation)
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       idempotencyKey: idempotencyKey || undefined,
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       runId: result.runId,
       success: result.success,
       prUrl: result.prUrl,
@@ -60,11 +60,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error starting execution:', error);
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Internal server error',
-      },
-      { status: 500 },
+    return serverError(
+      error instanceof Error ? error.message : 'Failed to start execution',
     );
   }
 }

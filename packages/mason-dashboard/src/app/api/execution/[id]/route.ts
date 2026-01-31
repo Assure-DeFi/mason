@@ -1,7 +1,13 @@
-import type { NextRequest} from 'next/server';
-import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import {
+  apiSuccess,
+  unauthorized,
+  notFound,
+  forbidden,
+  serverError,
+} from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { getExecutionRun } from '@/lib/execution/engine';
 
@@ -14,27 +20,26 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     const { id } = await params;
     const run = await getExecutionRun(id);
 
     if (!run) {
-      return NextResponse.json({ error: 'Run not found' }, { status: 404 });
+      return notFound('Execution run not found');
     }
 
     // Verify user owns this run
     if (run.user_id !== session.user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return forbidden('You do not have access to this execution run');
     }
 
-    return NextResponse.json({ run });
+    return apiSuccess({ run });
   } catch (error) {
     console.error('Error fetching execution run:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
+    return serverError(
+      error instanceof Error ? error.message : 'Failed to fetch execution run',
     );
   }
 }
