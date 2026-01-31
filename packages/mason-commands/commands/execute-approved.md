@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.0.1
+version: 2.1.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -812,6 +812,131 @@ if (validatorResult.summary.proceed_with_validation) {
 
 ---
 
+### Step 7.9: MANDATORY PRE-COMMIT VALIDATION GATE
+
+**THIS IS A HARD STOP - DO NOT PROCEED WITHOUT PASSING**
+
+Before ANY commit can be created, you MUST run these validation commands and they MUST ALL pass. This gate is NON-NEGOTIABLE.
+
+#### Run Validation Suite
+
+```bash
+echo "=== MANDATORY VALIDATION GATE ==="
+echo "Running validation suite - ALL checks MUST pass before commit"
+
+VALIDATION_FAILED=false
+
+# 1. TypeScript Check
+echo ""
+echo ">>> Running TypeScript check..."
+update_progress "inspection" 3 "Running TypeScript check..." 0 4
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"validation_typescript": "running"}'
+
+if ! pnpm typecheck; then
+  echo "TYPESCRIPT_CHECK FAILED"
+  VALIDATION_FAILED=true
+  TYPESCRIPT_FAILED=true
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_typescript": "fail"}'
+  log_execution "error" "TypeScript check FAILED" '{"check": "typescript", "status": "fail"}'
+else
+  echo "TypeScript check PASSED"
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_typescript": "pass"}'
+  log_execution "info" "TypeScript check passed" '{"check": "typescript", "status": "pass"}'
+fi
+
+# 2. ESLint Check
+echo ""
+echo ">>> Running ESLint check..."
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"validation_eslint": "running"}'
+
+if ! pnpm lint; then
+  echo "ESLINT_CHECK FAILED"
+  VALIDATION_FAILED=true
+  ESLINT_FAILED=true
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_eslint": "fail"}'
+  log_execution "error" "ESLint check FAILED" '{"check": "eslint", "status": "fail"}'
+else
+  echo "ESLint check PASSED"
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_eslint": "pass"}'
+  log_execution "info" "ESLint check passed" '{"check": "eslint", "status": "pass"}'
+fi
+
+# 3. Build Check
+echo ""
+echo ">>> Running build check..."
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"validation_build": "running"}'
+
+if ! pnpm build; then
+  echo "BUILD_CHECK FAILED"
+  VALIDATION_FAILED=true
+  BUILD_FAILED=true
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_build": "fail"}'
+  log_execution "error" "Build check FAILED" '{"check": "build", "status": "fail"}'
+else
+  echo "Build check PASSED"
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_build": "pass"}'
+  log_execution "info" "Build check passed" '{"check": "build", "status": "pass"}'
+fi
+
+echo ""
+echo "=== END VALIDATION GATE ==="
+```
+
+#### IF ANY CHECK FAILS - MANDATORY ACTIONS
+
+**This is NON-NEGOTIABLE. If `VALIDATION_FAILED=true`:**
+
+1. **DO NOT commit** - No `git commit` command may be executed
+2. **DO NOT create PR** - No PR creation until all checks pass
+3. **Enter auto-fix loop** (Step 9) - MANDATORY
+4. **Re-run this validation gate** after each fix attempt
+5. **Only proceed to commit** when ALL checks pass (VALIDATION_FAILED=false)
+
+**CRITICAL ENFORCEMENT:**
+
+- Never skip this gate
+- Never bypass with `--no-verify`
+- Never commit partial fixes hoping they'll work in CI
+- The Vercel build WILL fail if you skip this - causing user frustration
+
+---
+
 ### Step 8: Testing & Validation Wave (MANDATORY)
 
 **This step is REQUIRED before any commit. Changes must pass 100% of validation checks.**
@@ -883,9 +1008,172 @@ await Task({
 });
 ```
 
-### Step 9: Auto-Fix Iteration Loop
+### Step 9: Auto-Fix Iteration Loop (MANDATORY ON VALIDATION FAILURE)
 
-**If ANY validation check fails, the system MUST automatically iterate until all checks pass.**
+**DO NOT SKIP THIS STEP IF VALIDATION FAILED**
+
+When Step 7.9 validation gate fails, you MUST enter this auto-fix loop. This is not optional.
+
+#### Iteration Loop Implementation
+
+```bash
+MAX_FIX_ITERATIONS=5
+ITERATION=0
+
+while [ "$VALIDATION_FAILED" = true ] && [ $ITERATION -lt $MAX_FIX_ITERATIONS ]; do
+  ITERATION=$((ITERATION + 1))
+  echo ""
+  echo "=============================================="
+  echo "=== FIX ITERATION $ITERATION/$MAX_FIX_ITERATIONS ==="
+  echo "=============================================="
+
+  # Update progress to show fix iteration
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"fix_iteration": '"$ITERATION"', "wave_status": "Fix iteration '"$ITERATION"'/'"$MAX_FIX_ITERATIONS"'..."}'
+
+  log_execution "info" "Starting fix iteration ${ITERATION}" '{"iteration": '"$ITERATION"', "max": '"$MAX_FIX_ITERATIONS"'}'
+
+  # === FIX PRIORITY ORDER ===
+  # Fix in this order to avoid cascading failures:
+  # 1. ESLint auto-fix (handles many issues automatically)
+  # 2. TypeScript errors (often cause other failures)
+  # 3. Build errors
+  # 4. Remaining lint errors (manual fixes)
+
+  # Step 1: Try ESLint auto-fix first (fixes many issues automatically)
+  echo ""
+  echo ">>> Attempting ESLint auto-fix..."
+  pnpm lint:fix || true  # Don't fail if lint:fix has issues
+
+  # Step 2: If TypeScript failed, analyze and fix type errors
+  if [ "$TYPESCRIPT_FAILED" = true ]; then
+    echo ""
+    echo ">>> Fixing TypeScript errors..."
+    # Claude agent analyzes pnpm typecheck output and fixes type issues
+    # This is done by the executing agent, not bash
+  fi
+
+  # Step 3: If Build failed, analyze and fix build errors
+  if [ "$BUILD_FAILED" = true ]; then
+    echo ""
+    echo ">>> Fixing build errors..."
+    # Claude agent analyzes pnpm build output and fixes compilation issues
+  fi
+
+  # === RE-RUN VALIDATION SUITE ===
+  echo ""
+  echo ">>> Re-running validation suite after fixes..."
+
+  VALIDATION_FAILED=false
+  TYPESCRIPT_FAILED=false
+  ESLINT_FAILED=false
+  BUILD_FAILED=false
+
+  # TypeScript re-check
+  if ! pnpm typecheck; then
+    VALIDATION_FAILED=true
+    TYPESCRIPT_FAILED=true
+    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+      -H "apikey: ${SUPABASE_KEY}" \
+      -H "Authorization: Bearer ${SUPABASE_KEY}" \
+      -H "Content-Type: application/json" \
+      -d '{"validation_typescript": "fail"}'
+  else
+    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+      -H "apikey: ${SUPABASE_KEY}" \
+      -H "Authorization: Bearer ${SUPABASE_KEY}" \
+      -H "Content-Type: application/json" \
+      -d '{"validation_typescript": "pass"}'
+  fi
+
+  # ESLint re-check
+  if ! pnpm lint; then
+    VALIDATION_FAILED=true
+    ESLINT_FAILED=true
+    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+      -H "apikey: ${SUPABASE_KEY}" \
+      -H "Authorization: Bearer ${SUPABASE_KEY}" \
+      -H "Content-Type: application/json" \
+      -d '{"validation_eslint": "fail"}'
+  else
+    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+      -H "apikey: ${SUPABASE_KEY}" \
+      -H "Authorization: Bearer ${SUPABASE_KEY}" \
+      -H "Content-Type: application/json" \
+      -d '{"validation_eslint": "pass"}'
+  fi
+
+  # Build re-check
+  if ! pnpm build; then
+    VALIDATION_FAILED=true
+    BUILD_FAILED=true
+    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+      -H "apikey: ${SUPABASE_KEY}" \
+      -H "Authorization: Bearer ${SUPABASE_KEY}" \
+      -H "Content-Type: application/json" \
+      -d '{"validation_build": "fail"}'
+  else
+    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+      -H "apikey: ${SUPABASE_KEY}" \
+      -H "Authorization: Bearer ${SUPABASE_KEY}" \
+      -H "Content-Type: application/json" \
+      -d '{"validation_build": "pass"}'
+  fi
+
+  # Check if all passed
+  if [ "$VALIDATION_FAILED" = false ]; then
+    echo ""
+    echo "ALL VALIDATIONS PASSED on iteration $ITERATION"
+    log_execution "info" "All validations passed" '{"iteration": '"$ITERATION"', "status": "pass"}'
+    break
+  fi
+
+  # If still failing and not at max iterations, continue loop
+  if [ $ITERATION -lt $MAX_FIX_ITERATIONS ]; then
+    echo ""
+    echo "Validation still failing - analyzing errors for next fix attempt..."
+    log_execution "warn" "Validation failed, attempting fixes" '{"iteration": '"$ITERATION"', "typescript_failed": '"$TYPESCRIPT_FAILED"', "eslint_failed": '"$ESLINT_FAILED"', "build_failed": '"$BUILD_FAILED"'}'
+  fi
+done
+
+# === FINAL RESULT CHECK ===
+if [ "$VALIDATION_FAILED" = true ]; then
+  echo ""
+  echo "=============================================="
+  echo "VALIDATION FAILED AFTER $MAX_FIX_ITERATIONS ITERATIONS"
+  echo "=============================================="
+  echo ""
+  echo "DO NOT COMMIT - Marking item as FAILED"
+
+  log_execution "error" "Validation failed after max iterations" '{"iterations": '"$MAX_FIX_ITERATIONS"', "status": "failed"}'
+
+  # Update item status to rejected
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -H "Prefer: return=minimal" \
+    -d '{"status": "rejected", "failure_reason": "Validation failed after '"$MAX_FIX_ITERATIONS"' fix iterations", "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+
+  # DO NOT PROCEED - Exit execution for this item
+  echo "Skipping commit and PR creation for this item"
+  # Continue to next item or end execution
+fi
+```
+
+**CRITICAL: The above loop is MANDATORY when validation fails. The agent must:**
+
+1. Run `pnpm lint:fix` first (auto-fixes many ESLint issues)
+2. Analyze remaining TypeScript errors and fix them
+3. Analyze remaining ESLint errors and fix them manually
+4. Analyze build errors and fix them
+5. Re-run the FULL validation suite (Step 7.9)
+6. Repeat until all pass OR max iterations reached
+
+#### Domain-Aware Fix Strategy
 
 ```typescript
 const MAX_FIX_ITERATIONS = 5;
@@ -895,18 +1183,18 @@ let allPassed = false;
 while (!allPassed && iteration < MAX_FIX_ITERATIONS) {
   iteration++;
 
-  // Run validation suite
+  // Run validation suite (Step 7.9)
   const results = await runValidationSuite();
 
   if (results.allPassed) {
     allPassed = true;
-    console.log(`✅ All validations passed on iteration ${iteration}`);
+    console.log(`All validations passed on iteration ${iteration}`);
     break;
   }
 
   // Analyze failures and create fix tasks
   const failures = results.failures;
-  console.log(`❌ Iteration ${iteration}: ${failures.length} failures found`);
+  console.log(`Iteration ${iteration}: ${failures.length} failures found`);
 
   // Fix each failure using DOMAIN-AWARE agents
   for (const failure of failures) {

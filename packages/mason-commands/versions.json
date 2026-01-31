@@ -8,10 +8,10 @@
       "breaking_reason": "Iterative validation loop - agents must backfill filtered items until target count reached"
     },
     "execute-approved": {
-      "version": "2.0.1",
+      "version": "2.1.0",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "2.0.1",
-      "breaking_reason": "No user confirmation - executes ALL approved items without asking"
+      "required_minimum": "2.1.0",
+      "breaking_reason": "Mandatory pre-commit validation gate enforcement - prevents Vercel build failures"
     },
     "mason-update": {
       "version": "1.0.0",
