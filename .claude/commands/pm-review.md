@@ -1,7 +1,7 @@
 ---
 name: pm-review
-version: 2.1.0
-description: PM Review Command - Agent Swarm Architecture with mode-specific item limits
+version: 2.2.0
+description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
 # PM Review Command
@@ -522,7 +522,7 @@ Use the Task tool ONCE with:
 
 1. Read the agent definition file: `.claude/agents/pm-{category}-agent.md`
 2. The repository_id and supabase credentials (for dedup checks)
-3. **ITEM_LIMIT** - Maximum items this agent should return
+3. **ITEM_TARGET** - Target number of VALIDATED items to return (not a max - this is a TARGET)
 4. **INCLUDE_BANGER** - Whether to generate a banger idea (true for Feature agent in full/quick, false otherwise)
 5. Any focus context from the user
 
@@ -539,40 +539,107 @@ prompt: |
   - Supabase URL: ${supabaseUrl}
   - Focus (if any): ${focus_context}
 
-  **LIMITS (ENFORCED - DO NOT EXCEED):**
-  - ITEM_LIMIT: ${ITEM_LIMIT}  # Maximum items you can return
-  - INCLUDE_BANGER: ${INCLUDE_BANGER}  # true = generate 1 banger idea (Feature agent only)
+  **TARGET (MUST DELIVER EXACTLY THIS MANY VALIDATED ITEMS):**
+  - ITEM_TARGET: ${ITEM_LIMIT}  # You MUST return exactly this many VALIDATED items
+  - INCLUDE_BANGER: ${INCLUDE_BANGER}  # true = also generate 1 banger idea (Feature agent only)
 
-  Your job:
-  1. Explore the codebase for issues in YOUR domain only
-  2. Generate UP TO ${ITEM_LIMIT} improvement recommendations (no more!)
-  3. Validate each recommendation (verify problem exists)
-  4. Check for duplicates against existing backlog items of type "{category}"
-  5. Return JSON with your findings
+  ## CRITICAL: Iterative Validation Loop
 
-  Return format:
-  {
-    "category": "{category}",
-    "recommendations": [
-      // Maximum ${ITEM_LIMIT} items here
-      {
-        "title": "...",
-        "problem": "...",
-        "solution": "...",
-        "type": "{category}",
-        "area": "frontend|backend",
-        "impact_score": 1-10,
-        "effort_score": 1-10,
-        "complexity": 1-5,
-        "is_new_feature": true|false,
-        "is_banger_idea": false,  // Only Feature agent with INCLUDE_BANGER=true sets this to true for 1 item
-        "benefits": [...5 required...],
-        "evidence": {...}
+  You MUST deliver exactly ${ITEM_LIMIT} fully validated recommendations. If some don't pass validation,
+  you MUST generate more and iterate until you have the target number.
+
+  **Validation Loop Process:**
+
+```
+
+validated_items = []
+filtered_items = []
+max_iterations = 5 # Safety limit
+
+while len(validated_items) < ${ITEM_LIMIT} and iteration < max_iterations: # 1. Generate candidates (aim for 2x target to allow for filtering)
+candidates = generate_improvement_candidates(target = ${ITEM_LIMIT} \* 2)
+
+    # 2. Validate each candidate
+    for candidate in candidates:
+      validation_result = validate_candidate(candidate)
+
+      if validation_result.passed:
+        validated_items.append(candidate)
+        if len(validated_items) >= ${ITEM_LIMIT}:
+          break  # Target reached
+      else:
+        filtered_items.append({
+          ...candidate,
+          filter_reason: validation_result.reason,
+          filter_tier: validation_result.tier
+        })
+
+    iteration++
+
+# 3. Return exactly ${ITEM_LIMIT} validated items (or fewer if codebase exhausted)
+
+```
+
+**Validation Criteria (items MUST pass ALL):**
+1. Problem actually exists in codebase (verified with grep/read)
+2. Not a duplicate of existing backlog item (checked against DB)
+3. Solution references specific files that exist
+4. Not a false positive (test files, placeholders, intentional design)
+5. Has all 5 benefits with specific descriptions
+
+**If validation fails:** Log to filtered_items with reason, then generate NEW candidates to backfill.
+**Do NOT return items that failed validation.** Only return fully validated items.
+
+Your job:
+1. Explore the codebase for issues in YOUR domain only
+2. Generate candidate recommendations (overshoot to allow for filtering)
+3. Validate EACH recommendation (verify problem exists, not a false positive)
+4. If any fail validation, generate MORE candidates and repeat
+5. Continue until you have EXACTLY ${ITEM_LIMIT} validated items
+6. Check for duplicates against existing backlog items of type "{category}"
+7. Return JSON with your findings
+
+Return format:
+{
+  "category": "{category}",
+  "recommendations": [
+    // EXACTLY ${ITEM_LIMIT} VALIDATED items here (no more, no less)
+    {
+      "title": "...",
+      "problem": "...",
+      "solution": "...",
+      "type": "{category}",
+      "area": "frontend|backend",
+      "impact_score": 1-10,
+      "effort_score": 1-10,
+      "complexity": 1-5,
+      "is_new_feature": true|false,
+      "is_banger_idea": false,
+      "benefits": [...5 required...],
+      "evidence": {
+        "validation_passed": true,
+        "problem_verified": true,
+        "files_checked": [...],
+        "confidence_score": 0.85
       }
-    ],
-    "duplicates_filtered": [...],
-    "validation_summary": {...}
+    }
+  ],
+  "filtered_items": [
+    // Items that didn't pass validation (for transparency)
+    {
+      "title": "...",
+      "filter_reason": "Duplicate of existing backlog item #123",
+      "filter_tier": "tier2-dedup"
+    }
+  ],
+  "validation_summary": {
+    "candidates_generated": 8,
+    "candidates_validated": 3,
+    "candidates_filtered": 5,
+    "iterations_required": 2,
+    "target_met": true
   }
+}
 ```
 
 **IMPORTANT (Feature Agent Only in Full/Quick Mode):**
@@ -581,6 +648,7 @@ When INCLUDE_BANGER=true, the Feature agent MUST generate:
 
 - ${ITEM_LIMIT} regular feature ideas with `is_new_feature: true`, `is_banger_idea: false`
 - PLUS exactly 1 "Banger Idea" with `is_new_feature: true`, `is_banger_idea: true`
+- The banger idea is SEPARATE from the ${ITEM_LIMIT} count
 
 All other agents set both `is_new_feature` and `is_banger_idea` to `false`.
 

@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "commands": {
     "pm-review": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "2.1.0",
-      "breaking_reason": "Mode-specific item limits: Full=25, Quick=9, Focus=5. 8 specialized agents with enforced limits per mode."
+      "required_minimum": "2.2.0",
+      "breaking_reason": "Iterative validation loop - agents must backfill filtered items until target count reached"
     },
     "execute-approved": {
       "version": "1.5.0",
