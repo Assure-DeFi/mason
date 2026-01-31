@@ -103,6 +103,7 @@ export function ItemDetailModal({
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [closeOnSuccessComplete, setCloseOnSuccessComplete] = useState(false);
 
   // PRD editing state
   const [isEditingPrd, setIsEditingPrd] = useState(false);
@@ -227,7 +228,8 @@ export function ItemDetailModal({
     try {
       await onUpdateStatus(item.id, status);
       if (status === 'approved') {
-        setSuccessMessage('Approved!');
+        setSuccessMessage('Moved to Approved');
+        setCloseOnSuccessComplete(true);
         setShowSuccess(true);
       }
     } finally {
@@ -242,8 +244,8 @@ export function ItemDetailModal({
     try {
       await onUpdateStatus(item.id, 'approved');
       await onGeneratePrd(item.id);
-      setViewMode('prd');
-      setSuccessMessage('Approved & PRD Generated!');
+      setSuccessMessage('Moved to Approved');
+      setCloseOnSuccessComplete(true);
       setShowSuccess(true);
     } finally {
       setIsUpdating(false);
@@ -713,7 +715,12 @@ export function ItemDetailModal({
         show={showSuccess}
         type="checkmark"
         message={successMessage}
-        onComplete={() => setShowSuccess(false)}
+        onComplete={() => {
+          setShowSuccess(false);
+          if (closeOnSuccessComplete) {
+            onClose();
+          }
+        }}
       />
     </>
   );
