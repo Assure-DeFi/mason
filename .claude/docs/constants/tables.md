@@ -25,6 +25,9 @@ import { TABLES } from '@/lib/constants';
 | `EXECUTION_PROGRESS`    | `mason_execution_progress`    | Real-time progress for UI       |
 | `AI_PROVIDER_KEYS`      | `mason_ai_provider_keys`      | User's AI API keys              |
 | `PM_RESTORE_FEEDBACK`   | `mason_pm_restore_feedback`   | Feedback on restored items      |
+| `DEPENDENCY_ANALYSIS`   | `mason_dependency_analysis`   | Risk analysis for items         |
+| `AUTOPILOT_CONFIG`      | `mason_autopilot_config`      | Autopilot daemon configuration  |
+| `AUTOPILOT_RUNS`        | `mason_autopilot_runs`        | Autopilot execution history     |
 
 ## Usage Examples
 

@@ -319,6 +319,8 @@ async function runPmReview(
 ): Promise<void> {
   console.log('Running PM review...');
 
+  const startedAt = new Date().toISOString();
+
   // Record run start
   const { data: run } = await supabase
     .from('mason_autopilot_runs')
@@ -327,27 +329,63 @@ async function runPmReview(
       repository_id: config.repository_id,
       run_type: 'analysis',
       status: 'running',
+      started_at: startedAt,
     })
     .select()
     .single();
 
   try {
-    // Execute claude with pm-review command
-    const result = await executeClaudeCommand('/pm-review', verbose);
+    // Execute claude with pm-review command (--auto flag for non-interactive mode)
+    const result = await executeClaudeCommand('/pm-review --auto', verbose);
 
-    // Update run status
-    await supabase
-      .from('mason_autopilot_runs')
-      .update({
-        status: result.success ? 'completed' : 'failed',
-        error_message: result.error,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', run?.id);
+    if (result.success && run?.id) {
+      // Link newly created items to this autopilot run
+      // Find items created during this run (no autopilot_run_id set yet)
+      const { data: recentItems } = await supabase
+        .from('mason_pm_backlog_items')
+        .select('id')
+        .eq('repository_id', config.repository_id)
+        .is('autopilot_run_id', null)
+        .gte('created_at', startedAt);
 
-    if (result.success) {
+      if (recentItems && recentItems.length > 0) {
+        // Update items with source='autopilot' and link to this run
+        await supabase
+          .from('mason_pm_backlog_items')
+          .update({
+            source: 'autopilot',
+            autopilot_run_id: run.id,
+          })
+          .in(
+            'id',
+            recentItems.map((i) => i.id),
+          );
+
+        console.log(`  Linked ${recentItems.length} items to autopilot run.`);
+      }
+
+      // Update run with item count and mark completed
+      await supabase
+        .from('mason_autopilot_runs')
+        .update({
+          status: 'completed',
+          items_analyzed: recentItems?.length || 0,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', run.id);
+
       console.log('PM review completed successfully.');
     } else {
+      // Update run status on failure
+      await supabase
+        .from('mason_autopilot_runs')
+        .update({
+          status: 'failed',
+          error_message: result.error,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', run?.id);
+
       console.error('PM review failed:', result.error);
     }
   } catch (error) {
@@ -510,6 +548,39 @@ async function executeClaudeCommand(
   verbose: boolean,
 ): Promise<ClaudeResult> {
   return new Promise((resolve) => {
+    // Find claude binary - check common locations
+    const { execSync } = require('node:child_process');
+    let claudePath = 'claude';
+
+    try {
+      // Try to find claude using 'which' with user's shell environment
+      claudePath = execSync('bash -l -c "which claude"', {
+        encoding: 'utf-8',
+        timeout: 5000,
+      }).trim();
+      if (verbose) {
+        console.log(`Found claude at: ${claudePath}`);
+      }
+    } catch {
+      // Fallback to common locations
+      const fs = require('node:fs');
+      const homedir = require('node:os').homedir();
+      const commonPaths = [
+        `${homedir}/.local/bin/claude`,
+        '/usr/local/bin/claude',
+        '/usr/bin/claude',
+      ];
+      for (const p of commonPaths) {
+        if (fs.existsSync(p)) {
+          claudePath = p;
+          if (verbose) {
+            console.log(`Found claude at fallback location: ${claudePath}`);
+          }
+          break;
+        }
+      }
+    }
+
     const args = [
       '-p',
       command,
@@ -518,14 +589,21 @@ async function executeClaudeCommand(
     ];
 
     if (verbose) {
-      console.log(`Executing: claude ${args.join(' ')}`);
+      console.log(`Executing: ${claudePath} ${args.join(' ')}`);
     }
 
-    const child = spawn('claude', args, {
+    // Ensure PATH includes common binary locations
+    const homedir = require('node:os').homedir();
+    const enhancedEnv = {
+      ...process.env,
+      PATH: `${homedir}/.local/bin:/usr/local/bin:${process.env.PATH || ''}`,
+    };
+
+    const child = spawn(claudePath, args, {
       cwd: localConfig.repositoryPath,
       stdio: verbose ? 'inherit' : 'pipe',
-      env: process.env,
-      shell: true,
+      env: enhancedEnv,
+      shell: false, // Don't use shell - we have the full path
     });
 
     let stderr = '';

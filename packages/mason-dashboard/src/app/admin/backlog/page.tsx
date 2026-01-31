@@ -32,6 +32,7 @@ import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton'
 import { MasonMark } from '@/components/brand';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
 import { RepositorySelector } from '@/components/execution/repository-selector';
+import { AutopilotToast } from '@/components/ui/AutopilotToast';
 import { ErrorBanner, ErrorToast } from '@/components/ui/ErrorBanner';
 import { JourneyMap } from '@/components/ui/JourneyMap';
 import { NextStepBanner } from '@/components/ui/NextStepBanner';
@@ -40,6 +41,7 @@ import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { QuickStartFAB } from '@/components/ui/QuickStartFAB';
 import { ImprovementsTableSkeleton } from '@/components/ui/Skeleton';
 import { useAutoMigrations } from '@/hooks/useAutoMigrations';
+import { useAutopilotNotifications } from '@/hooks/useAutopilotNotifications';
 import {
   useExecutionListener,
   fetchItemForExecution,
@@ -81,6 +83,9 @@ export default function BacklogPage() {
   const [error, setError] = useState<string | null>(null);
   const [copiedToast, setCopiedToast] = useState(false);
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<
+    'all' | 'manual' | 'autopilot'
+  >('all');
   const [executionRunId, setExecutionRunId] = useState<string | null>(null);
   const [executingItemId, setExecutingItemId] = useState<string | null>(null);
   const [executingItemTitle, setExecutingItemTitle] = useState<string | null>(
@@ -314,6 +319,13 @@ export default function BacklogPage() {
     enabled: isConfigured && !isDbLoading,
   });
 
+  // Subscribe to autopilot run completions for toast notifications
+  const { notification: autopilotNotification, dismiss: dismissAutopilot } =
+    useAutopilotNotifications({
+      client,
+      enabled: isConfigured && !isDbLoading,
+    });
+
   // Show celebration when items first load
   useEffect(() => {
     if (!isLoading && items.length > 0) {
@@ -324,13 +336,22 @@ export default function BacklogPage() {
     }
   }, [isLoading, items.length]);
 
-  // Filter items by selected repository first
+  // Filter items by selected repository and source filter
   const repoFilteredItems = useMemo(() => {
-    if (!selectedRepoId) {
-      return items;
+    let result = items;
+
+    // Filter by repository
+    if (selectedRepoId) {
+      result = result.filter((item) => item.repository_id === selectedRepoId);
     }
-    return items.filter((item) => item.repository_id === selectedRepoId);
-  }, [items, selectedRepoId]);
+
+    // Filter by source (manual vs autopilot)
+    if (sourceFilter !== 'all') {
+      result = result.filter((item) => item.source === sourceFilter);
+    }
+
+    return result;
+  }, [items, selectedRepoId, sourceFilter]);
 
   // Calculate counts for stats bar (based on repo-filtered items)
   const counts: StatusCounts = useMemo(() => {
@@ -976,6 +997,21 @@ export default function BacklogPage() {
                 />
               )}
 
+              {/* Source Filter Dropdown */}
+              <select
+                value={sourceFilter}
+                onChange={(e) =>
+                  setSourceFilter(
+                    e.target.value as 'all' | 'manual' | 'autopilot',
+                  )
+                }
+                className="px-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm focus:outline-none focus:border-gold"
+              >
+                <option value="all">All Sources</option>
+                <option value="manual">Manual Only</option>
+                <option value="autopilot">Autopilot Only</option>
+              </select>
+
               <button
                 onClick={() => setShowGenerateIdeasModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-gold text-navy font-medium hover:bg-gold/90 transition-colors"
@@ -1177,6 +1213,16 @@ export default function BacklogPage() {
           message={executionError}
           onDismiss={() => setExecutionError(null)}
           duration={8000}
+        />
+      )}
+
+      {/* Autopilot Notification Toast */}
+      {autopilotNotification && (
+        <AutopilotToast
+          type={autopilotNotification.type}
+          title={autopilotNotification.title}
+          message={autopilotNotification.message}
+          onDismiss={dismissAutopilot}
         />
       )}
 

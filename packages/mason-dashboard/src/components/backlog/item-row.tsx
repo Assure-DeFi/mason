@@ -92,6 +92,11 @@ export function ItemRow({
             impactScore={item.impact_score}
             effortScore={item.effort_score}
           />
+          {item.source === 'autopilot' && (
+            <span className="ml-1 rounded bg-purple-900/50 px-1.5 py-0.5 text-xs text-purple-400 border border-purple-700">
+              Autopilot
+            </span>
+          )}
           {(item.is_banger_idea || item.tags?.includes('banger')) && (
             <BangerBadge />
           )}

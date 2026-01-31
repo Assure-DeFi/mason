@@ -601,6 +601,16 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN
   NULL; -- Table already in publication
 END $$;
+
+-- Enable realtime for autopilot runs table (for notification toasts when autopilot completes)
+ALTER TABLE mason_autopilot_runs REPLICA IDENTITY FULL;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE mason_autopilot_runs;
+  END IF;
+EXCEPTION WHEN duplicate_object THEN
+  NULL; -- Table already in publication
+END $$;
 `;
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';

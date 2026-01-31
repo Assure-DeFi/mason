@@ -103,6 +103,10 @@ export interface BacklogItem {
 
   // Tags for categorization (e.g., "banger" for rotated banger ideas)
   tags?: string[];
+
+  // Source tracking for autopilot visibility
+  source?: 'manual' | 'autopilot';
+  autopilot_run_id?: string | null;
 }
 
 export interface AnalysisRun {
