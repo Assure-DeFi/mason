@@ -407,6 +407,10 @@ ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS skip_reason TEXT;
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS autopilot_run_id UUID REFERENCES mason_autopilot_runs(id) ON DELETE SET NULL;
 
+-- Add user_id and repository_id to execution runs for multi-tenant queries
+ALTER TABLE mason_pm_execution_runs ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
+ALTER TABLE mason_pm_execution_runs ADD COLUMN IF NOT EXISTS repository_id UUID REFERENCES mason_github_repositories(id) ON DELETE SET NULL;
+
 -- Add idempotency_key column for request deduplication
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
 ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_expires_at TIMESTAMPTZ;
@@ -479,6 +483,13 @@ CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_user_id ON mason_autopilot_r
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_repository_id ON mason_autopilot_runs(repository_id);
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_status ON mason_autopilot_runs(status);
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_started_at ON mason_autopilot_runs(started_at DESC);
+
+-- Composite index for backlog item filtering (user + status + priority for common dashboard query)
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_user_status_priority ON mason_pm_backlog_items(user_id, status, priority_score DESC);
+
+-- Index for execution runs by user/repository
+CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_runs_user_id ON mason_pm_execution_runs(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_runs_repository_id ON mason_pm_execution_runs(repository_id);
 
 -- Enable Row Level Security
 ALTER TABLE mason_users ENABLE ROW LEVEL SECURITY;
