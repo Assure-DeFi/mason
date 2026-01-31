@@ -25,17 +25,20 @@ interface MasonRecommendsProps {
   recommendations: RecommendedItem[];
   onItemClick: (itemId: string) => void;
   onApprove: (itemId: string) => Promise<void>;
+  onReject: (itemId: string) => Promise<void>;
 }
 
 export function MasonRecommends({
   recommendations,
   onItemClick,
   onApprove,
+  onReject,
 }: MasonRecommendsProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
   const handleApprove = async (e: React.MouseEvent, itemId: string) => {
@@ -45,6 +48,16 @@ export function MasonRecommends({
       await onApprove(itemId);
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const handleReject = async (e: React.MouseEvent, itemId: string) => {
+    e.stopPropagation();
+    setRejectingId(itemId);
+    try {
+      await onReject(itemId);
+    } finally {
+      setRejectingId(null);
     }
   };
 
@@ -226,18 +239,38 @@ export function MasonRecommends({
                             {rec.item.priority_score}
                           </span>
                         </div>
-                        <button
-                          onClick={(e) => handleApprove(e, rec.item.id)}
-                          disabled={approvingId === rec.item.id}
-                          className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-xs font-semibold hover:bg-green-500 transition-all disabled:opacity-50 shadow-lg shadow-green-900/30"
-                        >
-                          {approvingId === rec.item.id ? (
-                            <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          ) : (
-                            <Check className="w-3.5 h-3.5" />
-                          )}
-                          Approve
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => handleReject(e, rec.item.id)}
+                            disabled={
+                              rejectingId === rec.item.id ||
+                              approvingId === rec.item.id
+                            }
+                            className="flex items-center gap-1.5 px-3 py-2 bg-red-600/20 border border-red-600/50 text-red-400 text-xs font-semibold hover:bg-red-600/30 hover:border-red-500 transition-all disabled:opacity-50"
+                          >
+                            {rejectingId === rec.item.id ? (
+                              <span className="w-3 h-3 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                            ) : (
+                              <X className="w-3.5 h-3.5" />
+                            )}
+                            Reject
+                          </button>
+                          <button
+                            onClick={(e) => handleApprove(e, rec.item.id)}
+                            disabled={
+                              approvingId === rec.item.id ||
+                              rejectingId === rec.item.id
+                            }
+                            className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white text-xs font-semibold hover:bg-green-500 transition-all disabled:opacity-50 shadow-lg shadow-green-900/30"
+                          >
+                            {approvingId === rec.item.id ? (
+                              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              <Check className="w-3.5 h-3.5" />
+                            )}
+                            Approve
+                          </button>
+                        </div>
                       </div>
                     </motion.div>
                   ))}

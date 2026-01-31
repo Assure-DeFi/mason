@@ -620,6 +620,11 @@ export default function BacklogPage() {
     await handleUpdateStatus(itemId, 'approved');
   };
 
+  // Handle quick reject from Mason Recommends
+  const handleQuickReject = async (itemId: string) => {
+    await handleUpdateStatus(itemId, 'rejected');
+  };
+
   // Get selected items from IDs
   const selectedItems = useMemo(() => {
     return items.filter((item) => selectedIds.includes(item.id));
@@ -1201,6 +1206,7 @@ export default function BacklogPage() {
               recommendations={recommendations}
               onItemClick={handleRecommendationClick}
               onApprove={handleQuickApprove}
+              onReject={handleQuickReject}
             />
           </div>
         )}
