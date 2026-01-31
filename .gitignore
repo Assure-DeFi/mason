@@ -14,6 +14,9 @@ build/
 # Test coverage
 coverage/
 
+# Test results
+test-results/
+
 # IDE
 .idea/
 .vscode/
@@ -40,15 +43,17 @@ node_modules/**/logs/
 # MCP configuration (contains secrets)
 .mcp.json
 
-# Mason local config (may contain credentials)
+# Mason local config (may contain credentials/API keys)
 mason.config.json
 
 # Lock files (kept in repo but sometimes ignored locally)
 # pnpm-lock.yaml
 packages/mason-dashboard/node_modules/
 packages/mason-dashboard/.next/
-*.env.local
 
-# Mason local config (contains API keys)
-mason.config.json
-.mason/
+# Vercel
+.vercel/
+
+# Python cache
+__pycache__/
+*.pyc

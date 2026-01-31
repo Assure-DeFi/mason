@@ -35,8 +35,8 @@ export function MasonAvatar({
   const dimension = sizeMap[size];
   const imageSrc =
     variant === 'detailed'
-      ? '/brand/mason_logo_v2_icon.png'
-      : '/brand/mason_logo_v5_minimal.png';
+      ? '/brand/mason_icon.png'
+      : '/brand/mason_logo_minimal.png';
 
   return (
     <div

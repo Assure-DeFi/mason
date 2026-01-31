@@ -33,11 +33,11 @@ High-resolution raster images for presentations, social media, and print applica
 
 | File Name                      | Description                      | Dimensions | Best Use Cases                              |
 | ------------------------------ | -------------------------------- | ---------- | ------------------------------------------- |
-| `mason_logo_v1_primary.png`    | Detailed primary logo            | 2048x2048  | High-quality prints, large displays         |
-| `mason_logo_v2_icon.png`       | Detailed icon on dark background | 2048x2048  | App store listings, profile images          |
-| `mason_logo_v3_horizontal.png` | Horizontal layout                | Landscape  | Website banners, presentation headers       |
-| `mason_logo_v4_white.png`      | White logo for dark backgrounds  | 2048x2048  | Dark mode, night themes                     |
-| `mason_logo_v5_minimal.png`    | Simplified flat design           | 2048x2048  | Watermarks, subtle branding, favicon source |
+| `mason_logo_primary.png`       | Detailed primary logo            | 2048x2048  | High-quality prints, large displays         |
+| `mason_icon.png`               | Detailed icon on dark background | 2048x2048  | App store listings, profile images          |
+| `mason_logo_horizontal.png`    | Horizontal layout                | Landscape  | Website banners, presentation headers       |
+| `mason_logo_primary_white.png` | White logo for dark backgrounds  | 2048x2048  | Dark mode, night themes                     |
+| `mason_logo_minimal.png`       | Simplified flat design           | 2048x2048  | Watermarks, subtle branding, favicon source |
 
 ## Favicon Package
 

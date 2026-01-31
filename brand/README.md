@@ -24,8 +24,8 @@ brand/
 | App icon            | `logos/svg/mason_icon.svg`               |
 | Marketing materials | `logos/svg/mason_logo_primary.svg`       |
 | Dark backgrounds    | `logos/svg/mason_logo_primary_white.svg` |
-| High-res print      | `logos/png/mason_logo_v1_primary.png`    |
-| Favicon source      | `logos/png/mason_logo_v5_minimal.png`    |
+| High-res print      | `logos/png/mason_logo_primary.png`       |
+| Favicon source      | `logos/png/mason_logo_minimal.png`       |
 
 ## Brand Colors
 

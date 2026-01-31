@@ -20,7 +20,7 @@ const sizeMap = {
 
 /**
  * Mason Mark - The minimal geometric icon (shield + hooded figure + star)
- * Based on mason_logo_v5_minimal.png design
+ * Based on mason_logo_minimal.png design
  * Uses inline SVG for crisp rendering and animation support
  */
 export function MasonMark({

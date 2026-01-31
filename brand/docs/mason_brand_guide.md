@@ -16,25 +16,25 @@ The Mason logo is the primary identifier of our brand. It combines a mysterious,
 
 The primary logo includes the shield icon with the "MASON" wordmark below it. This is the preferred version for most applications.
 
-![Mason Primary Logo](/home/ubuntu/mason_brand/mason_logo_v1_primary.png)
+![Mason Primary Logo](/home/ubuntu/mason_brand/mason_logo_primary.png)
 
 ### Horizontal Logo
 
 For wide-format applications where the primary logo may not fit well, the horizontal version should be used. It features the icon to the left of the wordmark.
 
-![Mason Horizontal Logo](/home/ubuntu/mason_brand/mason_logo_v3_horizontal.png)
+![Mason Horizontal Logo](/home/ubuntu/mason_brand/mason_logo_horizontal.png)
 
 ### Icon / Brandmark
 
 The icon can be used as a standalone brandmark in situations where the brand is already well-established, such as on app icons, social media profiles, or as a favicon.
 
-![Mason Icon](/home/ubuntu/mason_brand/mason_logo_v2_icon.png)
+![Mason Icon](/home/ubuntu/mason_brand/mason_icon.png)
 
 ### White Logo (for Dark Backgrounds)
 
 A white version of the logo is provided for use on dark backgrounds, such as the official brand navy color.
 
-![Mason White Logo](/home/ubuntu/mason_brand/mason_logo_v4_white.png)
+![Mason White Logo](/home/ubuntu/mason_brand/mason_logo_primary_white.png)
 
 ---
 
@@ -99,7 +99,7 @@ To maintain the integrity and consistency of the Mason brand, it is crucial to u
 
 Always maintain a minimum clear space around the logo to ensure its visibility and impact. The clear space should be equal to the height of the "M" in the MASON wordmark. No other elements, such as text, images, or other graphics, should intrude into this space.
 
-![Logo Clear Space](/home/ubuntu/mason_brand/mason_logo_v1_primary.png)
+![Logo Clear Space](/home/ubuntu/mason_brand/mason_logo_primary.png)
 *(Imagine a border around this image representing the clear space)*
 
 ### Minimum Size
@@ -130,19 +130,19 @@ Brand imagery for Mason should be consistent with the overall brand aesthetic: p
 
 This high-quality rendering of the primary logo is ideal for hero sections, presentations, and other high-impact visual communications.
 
-![Mason Primary Logo Showcase](/home/ubuntu/mason_brand/mason_logo_v1_primary.png)
+![Mason Primary Logo Showcase](/home/ubuntu/mason_brand/mason_logo_primary.png)
 
 ### Icon Showcase
 
 This detailed icon is perfect for social media profiles, app icons, and other contexts where a compact, recognizable brandmark is needed.
 
-![Mason Icon Showcase](/home/ubuntu/mason_brand/mason_logo_v2_icon.png)
+![Mason Icon Showcase](/home/ubuntu/mason_brand/mason_icon.png)
 
 ### Minimalist Brandmark
 
 For a more subtle application, the minimalist brandmark can be used as a watermark or a small decorative element.
 
-![Mason Minimalist Brandmark](/home/ubuntu/mason_brand/mason_logo_v5_minimal.png)
+![Mason Minimalist Brandmark](/home/ubuntu/mason_brand/mason_logo_minimal.png)
 
 ---
 
