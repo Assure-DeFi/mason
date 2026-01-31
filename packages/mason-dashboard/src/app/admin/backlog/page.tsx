@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { UserMenu } from '@/components/auth/user-menu';
 import { BangerIdeaCard } from '@/components/backlog/banger-idea-card';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
+import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { FeatureIdeasSection } from '@/components/backlog/feature-ideas-section';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
@@ -110,6 +111,13 @@ export default function BacklogPage() {
   // Undo state
   const [undoState, setUndoState] = useState<UndoState | null>(null);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Confirmation dialog state
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'approve' | 'reject' | 'restore' | 'complete' | 'delete';
+    ids: string[];
+    titles: string[];
+  } | null>(null);
 
   // Global execution listener - auto-shows BuildingTheater when CLI execution starts
   // Works across ALL repos, not filtered by selected repository
@@ -540,6 +548,26 @@ export default function BacklogPage() {
     }
   };
 
+  const handleUpdatePrd = async (id: string, prdContent: string) => {
+    const response = await fetch(`/api/backlog/${id}/prd`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prd_content: prdContent }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update PRD');
+    }
+
+    const { item: updated } = await response.json();
+
+    setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+
+    if (selectedItem?.id === id) {
+      setSelectedItem(updated);
+    }
+  };
+
   const handleSelectItem = (id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
@@ -888,6 +916,89 @@ export default function BacklogPage() {
     }
   };
 
+  // Confirmation dialog wrapper handlers
+  const showConfirmation = (
+    type: 'approve' | 'reject' | 'restore' | 'complete' | 'delete',
+    ids: string[],
+  ) => {
+    const titles = items
+      .filter((item) => ids.includes(item.id))
+      .map((item) => item.title);
+    setConfirmAction({ type, ids, titles });
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) {
+      return;
+    }
+
+    const { type, ids } = confirmAction;
+    setConfirmAction(null);
+
+    switch (type) {
+      case 'approve':
+        await handleBulkApprove(ids);
+        break;
+      case 'reject':
+        await handleBulkReject(ids);
+        break;
+      case 'restore':
+        await handleBulkRestore(ids);
+        break;
+      case 'complete':
+        await handleBulkComplete(ids);
+        break;
+      case 'delete':
+        await handleBulkDelete(ids);
+        break;
+    }
+  };
+
+  const getConfirmationConfig = () => {
+    if (!confirmAction) {
+      return null;
+    }
+
+    const configs = {
+      approve: {
+        title: 'Approve Items',
+        message:
+          'Are you sure you want to approve these items? They will be moved to the approved queue.',
+        confirmLabel: 'Approve',
+        confirmVariant: 'approve' as const,
+      },
+      reject: {
+        title: 'Reject Items',
+        message:
+          'Are you sure you want to reject these items? They will be moved to the rejected list.',
+        confirmLabel: 'Reject',
+        confirmVariant: 'reject' as const,
+      },
+      restore: {
+        title: 'Restore Items',
+        message:
+          'Are you sure you want to restore these items? They will be moved back to the new queue.',
+        confirmLabel: 'Restore',
+        confirmVariant: 'restore' as const,
+      },
+      complete: {
+        title: 'Mark as Completed',
+        message: 'Are you sure you want to mark these items as completed?',
+        confirmLabel: 'Mark Completed',
+        confirmVariant: 'complete' as const,
+      },
+      delete: {
+        title: 'Delete Items',
+        message:
+          'Are you sure you want to permanently delete these items? This action cannot be undone after the undo period expires.',
+        confirmLabel: 'Delete',
+        confirmVariant: 'danger' as const,
+      },
+    };
+
+    return configs[confirmAction.type];
+  };
+
   const handleExecuteAll = async () => {
     const command = `/execute-approved --ids ${approvedItemIds.join(',')}`;
 
@@ -1159,6 +1270,7 @@ export default function BacklogPage() {
           onClose={() => setSelectedItem(null)}
           onUpdateStatus={handleUpdateStatus}
           onGeneratePrd={handleGeneratePrd}
+          onUpdatePrd={handleUpdatePrd}
           initialViewMode={modalViewMode}
         />
       )}
@@ -1238,17 +1350,39 @@ export default function BacklogPage() {
       {!selectedItem && (
         <BulkActionsBar
           selectedItems={selectedItems}
-          onApprove={handleBulkApprove}
-          onReject={handleBulkReject}
-          onRestore={handleBulkRestore}
-          onComplete={handleBulkComplete}
-          onDelete={handleBulkDelete}
+          onApprove={(ids) => showConfirmation('approve', ids)}
+          onReject={(ids) => showConfirmation('reject', ids)}
+          onRestore={(ids) => showConfirmation('restore', ids)}
+          onComplete={(ids) => showConfirmation('complete', ids)}
+          onDelete={(ids) => showConfirmation('delete', ids)}
           onClearSelection={handleClearSelection}
           isApproving={isApproving}
           isRejecting={isRejecting}
           isRestoring={isRestoring}
           isCompleting={isCompleting}
           isDeleting={isDeleting}
+        />
+      )}
+
+      {/* Bulk Action Confirmation Dialog */}
+      {confirmAction && (
+        <ConfirmationDialog
+          isOpen={true}
+          onClose={() => setConfirmAction(null)}
+          onConfirm={handleConfirmAction}
+          title={getConfirmationConfig()?.title ?? ''}
+          message={getConfirmationConfig()?.message ?? ''}
+          itemCount={confirmAction.ids.length}
+          itemTitles={confirmAction.titles}
+          confirmLabel={getConfirmationConfig()?.confirmLabel ?? 'Confirm'}
+          confirmVariant={getConfirmationConfig()?.confirmVariant ?? 'approve'}
+          isLoading={
+            isApproving ||
+            isRejecting ||
+            isRestoring ||
+            isCompleting ||
+            isDeleting
+          }
         />
       )}
 
