@@ -84,6 +84,7 @@ export interface Checkpoint {
   id: number;
   name: string;
   timestamp?: string;
+  completed_at?: string;
 }
 
 // NextAuth session extension
