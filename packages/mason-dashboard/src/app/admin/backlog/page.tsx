@@ -1236,16 +1236,14 @@ export default function BacklogPage() {
             )}
 
             {/* Feature Ideas Section */}
-            {featureIdeas.length > 0 && (
-              <FeatureIdeasSection
-                items={featureIdeas}
-                onViewDetails={handleItemClick}
-                onApprove={(id) => void handleUpdateStatus(id, 'approved')}
-                onReject={(id) => void handleUpdateStatus(id, 'rejected')}
-                onComplete={(id) => void handleUpdateStatus(id, 'completed')}
-                onDelete={(id) => void handleBulkDelete([id])}
-              />
-            )}
+            <FeatureIdeasSection
+              items={featureIdeas}
+              onViewDetails={handleItemClick}
+              onApprove={(id) => handleUpdateStatus(id, 'approved')}
+              onReject={(id) => handleUpdateStatus(id, 'rejected')}
+              onComplete={(id) => handleUpdateStatus(id, 'completed')}
+              onDelete={(id) => handleBulkDelete([id])}
+            />
 
             {/* Improvements Table */}
             {(bangerIdea || featureIdeas.length > 0) &&
