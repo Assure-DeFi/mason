@@ -1,7 +1,15 @@
 'use client';
 
 import { clsx } from 'clsx';
-import { X, FileText, Check, Clock, ShieldAlert } from 'lucide-react';
+import {
+  X,
+  FileText,
+  Check,
+  Clock,
+  ShieldAlert,
+  Pencil,
+  Save,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState, useEffect } from 'react';
 
@@ -78,6 +86,7 @@ interface ItemDetailModalProps {
   onClose: () => void;
   onUpdateStatus: (id: string, status: BacklogStatus) => Promise<void>;
   onGeneratePrd: (id: string) => Promise<void>;
+  onUpdatePrd?: (id: string, prdContent: string) => Promise<void>;
   initialViewMode?: ViewMode;
 }
 
@@ -86,6 +95,7 @@ export function ItemDetailModal({
   onClose,
   onUpdateStatus,
   onGeneratePrd,
+  onUpdatePrd,
   initialViewMode = 'details',
 }: ItemDetailModalProps) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -93,6 +103,11 @@ export function ItemDetailModal({
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // PRD editing state
+  const [isEditingPrd, setIsEditingPrd] = useState(false);
+  const [editedPrdContent, setEditedPrdContent] = useState('');
+  const [isSavingPrd, setIsSavingPrd] = useState(false);
 
   // Risk analysis state - now pre-populated by /pm-review
   const [riskAnalysis, setRiskAnalysis] = useState<DependencyAnalysis | null>(
@@ -120,33 +135,71 @@ export function ItemDetailModal({
     void fetchRiskAnalysis();
   }, [item.id]);
 
+  // PRD editing handlers
+  const handleStartEditPrd = () => {
+    setEditedPrdContent(item.prd_content || '');
+    setIsEditingPrd(true);
+  };
+
+  const handleCancelEditPrd = () => {
+    setIsEditingPrd(false);
+    setEditedPrdContent('');
+  };
+
+  const handleSavePrd = async () => {
+    if (!onUpdatePrd) {
+      return;
+    }
+
+    setIsSavingPrd(true);
+    try {
+      await onUpdatePrd(item.id, editedPrdContent);
+      setIsEditingPrd(false);
+      setSuccessMessage('PRD Saved!');
+      setShowSuccess(true);
+    } catch (error) {
+      console.error('Failed to save PRD:', error);
+    } finally {
+      setIsSavingPrd(false);
+    }
+  };
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't handle if focused on an input
+      // Don't handle if focused on an input (except Escape)
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
       ) {
+        // Allow Escape to cancel editing
+        if (e.key === 'Escape' && isEditingPrd) {
+          e.preventDefault();
+          handleCancelEditPrd();
+        }
         return;
       }
 
       switch (e.key) {
         case 'Escape':
-          onClose();
+          if (isEditingPrd) {
+            handleCancelEditPrd();
+          } else {
+            onClose();
+          }
           break;
         case 'g':
-          if (!isGenerating && !item.prd_content) {
+          if (!isGenerating && !item.prd_content && !isEditingPrd) {
             void handleGeneratePrd();
           }
           break;
         case 'a':
-          if (item.status === 'new' && !isUpdating) {
+          if (item.status === 'new' && !isUpdating && !isEditingPrd) {
             void handleStatusChange('approved');
           }
           break;
         case 'x':
-          if (item.status === 'new' && !isUpdating) {
+          if (item.status === 'new' && !isUpdating && !isEditingPrd) {
             void handleStatusChange('rejected');
           }
           break;
@@ -155,7 +208,7 @@ export function ItemDetailModal({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [item, isGenerating, isUpdating, onClose]);
+  }, [item, isGenerating, isUpdating, isEditingPrd, onClose]);
 
   const handleGeneratePrd = async () => {
     setIsGenerating(true);
@@ -455,8 +508,54 @@ export function ItemDetailModal({
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
             {viewMode === 'prd' && item.prd_content ? (
-              <div className="prose prose-invert prose-sm max-w-none">
-                {renderPrdContent(item.prd_content)}
+              <div className="space-y-4">
+                {/* PRD Header with Edit Button */}
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                    Product Requirements Document
+                  </h3>
+                  {!isEditingPrd && onUpdatePrd && (
+                    <button
+                      onClick={handleStartEditPrd}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-600 text-gray-300 hover:bg-white/5 transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      Edit PRD
+                    </button>
+                  )}
+                </div>
+
+                {isEditingPrd ? (
+                  <div className="space-y-3">
+                    <textarea
+                      value={editedPrdContent}
+                      onChange={(e) => setEditedPrdContent(e.target.value)}
+                      className="w-full h-96 p-4 bg-black/50 border border-gray-700 text-gray-200 font-mono text-sm resize-y focus:outline-none focus:border-gold/50"
+                      placeholder="Enter PRD content (Markdown supported)..."
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={handleCancelEditPrd}
+                        disabled={isSavingPrd}
+                        className="px-4 py-2 text-sm border border-gray-600 text-gray-300 hover:bg-white/5 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSavePrd}
+                        disabled={isSavingPrd}
+                        className="flex items-center gap-2 px-4 py-2 text-sm bg-gold text-navy font-medium hover:opacity-90 disabled:opacity-50"
+                      >
+                        <Save className="w-4 h-4" />
+                        {isSavingPrd ? 'Saving...' : 'Save PRD'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="prose prose-invert prose-sm max-w-none">
+                    {renderPrdContent(item.prd_content)}
+                  </div>
+                )}
               </div>
             ) : viewMode === 'timeline' ? (
               <ItemTimeline

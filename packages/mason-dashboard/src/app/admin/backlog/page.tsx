@@ -540,6 +540,26 @@ export default function BacklogPage() {
     }
   };
 
+  const handleUpdatePrd = async (id: string, prdContent: string) => {
+    const response = await fetch(`/api/backlog/${id}/prd`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prd_content: prdContent }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update PRD');
+    }
+
+    const { item: updated } = await response.json();
+
+    setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+
+    if (selectedItem?.id === id) {
+      setSelectedItem(updated);
+    }
+  };
+
   const handleSelectItem = (id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
@@ -1159,6 +1179,7 @@ export default function BacklogPage() {
           onClose={() => setSelectedItem(null)}
           onUpdateStatus={handleUpdateStatus}
           onGeneratePrd={handleGeneratePrd}
+          onUpdatePrd={handleUpdatePrd}
           initialViewMode={modalViewMode}
         />
       )}

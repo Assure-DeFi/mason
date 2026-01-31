@@ -1,20 +1,145 @@
 'use client';
 
-import { HelpCircle, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
+import {
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  Terminal,
+  Loader2,
+} from 'lucide-react';
 import { useState } from 'react';
 
 import { MasonAvatar, MasonTagline } from '@/components/brand';
 import { ClaudeCodeExplainer } from '@/components/ui/ClaudeCodeExplainer';
 import { CopyCommand } from '@/components/ui/CopyCommand';
 
-interface EmptyStateOnboardingProps {
-  onRefresh?: () => void;
+interface AnalysisRunInfo {
+  id: string;
+  startedAt: string;
+  repositoryName?: string;
 }
 
-export function EmptyStateOnboarding({ onRefresh }: EmptyStateOnboardingProps) {
+interface EmptyStateOnboardingProps {
+  /** Callback to refresh the items list */
+  onRefresh?: () => void;
+  /** Information about currently running analysis */
+  runningAnalysis?: AnalysisRunInfo | null;
+  /** Whether no repository is selected */
+  noRepoSelected?: boolean;
+  /** Name of selected repository */
+  repositoryName?: string;
+}
+
+export function EmptyStateOnboarding({
+  onRefresh,
+  runningAnalysis,
+  noRepoSelected,
+  repositoryName,
+}: EmptyStateOnboardingProps) {
   const [showClaudeCodeExplainer, setShowClaudeCodeExplainer] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
 
+  // Show "analysis running" state
+  if (runningAnalysis) {
+    return (
+      <div className="mason-entrance flex flex-col items-center justify-center py-16 px-4">
+        {/* Mason Avatar with pulse animation */}
+        <div className="mb-8 relative">
+          <MasonAvatar size="lg" variant="minimal" />
+          <div className="absolute -bottom-2 -right-2 bg-gold rounded-full p-1.5 animate-pulse">
+            <Loader2 className="w-4 h-4 text-navy animate-spin" />
+          </div>
+        </div>
+
+        {/* Heading */}
+        <h2 className="mb-2 text-2xl font-bold text-white text-center">
+          Analysis in progress...
+        </h2>
+        <p className="mb-6 text-gray-400 text-center max-w-md">
+          Mason is analyzing{' '}
+          {runningAnalysis.repositoryName ? (
+            <span className="text-gold">{runningAnalysis.repositoryName}</span>
+          ) : (
+            'your codebase'
+          )}{' '}
+          for potential improvements.
+        </p>
+
+        {/* Progress indicator */}
+        <div className="w-full max-w-xs mb-8">
+          <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-full bg-gold rounded-full animate-progress-indeterminate" />
+          </div>
+        </div>
+
+        {/* What's happening */}
+        <div className="w-full max-w-md p-4 bg-black/30 border border-gray-800 rounded-lg">
+          <p className="text-sm text-gray-400 mb-3">
+            <span className="font-medium text-white">What Mason is doing:</span>
+          </p>
+          <ul className="space-y-2 text-sm text-gray-400">
+            <li className="flex items-center gap-2">
+              <Loader2 className="w-3 h-3 text-gold animate-spin" />
+              Scanning codebase patterns
+            </li>
+            <li className="flex items-center gap-2">
+              <Loader2 className="w-3 h-3 text-gold animate-spin" />
+              Identifying improvement opportunities
+            </li>
+            <li className="flex items-center gap-2">
+              <Loader2 className="w-3 h-3 text-gold animate-spin" />
+              Generating detailed PRDs
+            </li>
+          </ul>
+        </div>
+
+        {/* Time estimate */}
+        <p className="mt-6 text-xs text-gray-500 text-center">
+          This typically takes 2-5 minutes depending on codebase size.
+          <br />
+          Items will appear automatically when ready.
+        </p>
+
+        {/* Refresh Button */}
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            className="mt-6 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            Refresh manually
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Show "no repo selected" state
+  if (noRepoSelected) {
+    return (
+      <div className="mason-entrance flex flex-col items-center justify-center py-16 px-4">
+        {/* Mason Avatar */}
+        <div className="mb-8">
+          <MasonAvatar size="lg" variant="minimal" />
+        </div>
+
+        {/* Heading */}
+        <h2 className="mb-2 text-2xl font-bold text-white text-center">
+          Select a repository
+        </h2>
+        <MasonTagline size="sm" variant="muted" className="mb-4 text-center" />
+        <p className="mb-8 text-gray-400 text-center max-w-md">
+          Choose a repository from the dropdown above to view its backlog items.
+        </p>
+
+        {/* Arrow pointing up */}
+        <div className="animate-bounce text-gold mb-4">
+          <ChevronUp className="w-8 h-8" />
+        </div>
+      </div>
+    );
+  }
+
+  // Default: Show onboarding state (no items yet)
   return (
     <div className="mason-entrance flex flex-col items-center justify-center py-16 px-4">
       {/* Mason Avatar */}
@@ -28,7 +153,15 @@ export function EmptyStateOnboarding({ onRefresh }: EmptyStateOnboardingProps) {
       </h2>
       <MasonTagline size="sm" variant="muted" className="mb-4 text-center" />
       <p className="mb-8 text-gray-400 text-center max-w-md">
-        Copy and paste this command into Claude Code to analyze your codebase.
+        {repositoryName ? (
+          <>
+            No items found for{' '}
+            <span className="text-gold">{repositoryName}</span>. Run a PM review
+            to discover improvement opportunities.
+          </>
+        ) : (
+          'Copy and paste this command into Claude Code to analyze your codebase.'
+        )}
       </p>
 
       {/* Main Command */}
