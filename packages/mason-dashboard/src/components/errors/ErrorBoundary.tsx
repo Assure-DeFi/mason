@@ -1,7 +1,7 @@
 'use client';
 
-import { Component, type ReactNode } from 'react';
 import { AlertTriangle, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Component, type ReactNode } from 'react';
 
 interface ErrorBoundaryProps {
   /** Content to render */

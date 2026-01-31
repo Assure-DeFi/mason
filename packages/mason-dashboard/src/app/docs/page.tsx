@@ -2,152 +2,154 @@
 
 import {
   ArrowRight,
-  Book,
   Terminal,
-  Database,
-  Key,
   LayoutDashboard,
+  Shield,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 
-import { LandingHeader } from '@/components/landing';
-import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
+import { DocsLayout } from '@/components/docs';
 
 export default function DocsPage() {
-  const steps = [
+  const sections = [
     {
-      icon: Database,
-      title: '1. Set up Supabase',
-      description:
-        'Create a free Supabase project. Mason stores all your data there - we never see it.',
-      code: null,
-    },
-    {
-      icon: Key,
-      title: '2. Configure locally',
-      description:
-        'Add your Supabase credentials to the Mason dashboard. They stay in your browser.',
-      code: null,
+      icon: Zap,
+      title: 'Quick Start',
+      description: 'Get Mason running in 5 minutes',
+      href: '/docs/quickstart',
     },
     {
       icon: Terminal,
-      title: '3. Run Mason',
-      description: 'In your project directory, run the PM review command:',
-      code: '/pm-review',
+      title: 'Commands',
+      description: 'Learn about /pm-review and /execute-approved',
+      href: '/docs/commands',
     },
     {
       icon: LayoutDashboard,
-      title: '4. View results',
-      description:
-        'Open the dashboard to see improvements, approve items, and track execution.',
-      code: null,
+      title: 'Dashboard',
+      description: 'Manage your backlog and track execution',
+      href: '/docs/dashboard',
+    },
+    {
+      icon: Shield,
+      title: 'Privacy',
+      description: 'Understand the BYOD architecture',
+      href: '/docs/privacy',
     },
   ];
 
   return (
-    <main className="min-h-screen bg-navy">
-      <LandingHeader />
-
-      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mason-entrance mb-12 text-center">
-          <div className="mb-4 flex justify-center">
-            <div className="rounded-lg bg-gold/10 p-3">
-              <Book className="h-8 w-8 text-gold" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold text-white md:text-4xl">
-            Getting Started with Mason
-          </h1>
-          <p className="mt-4 text-lg text-gray-400">
-            Set up Mason in about 5 minutes. Everything runs locally.
-          </p>
-        </div>
-
-        {/* Steps */}
-        <div
-          className="mason-entrance space-y-6"
-          style={{ animationDelay: '0.1s' }}
-        >
-          {steps.map((step, index) => (
-            <div
-              key={step.title}
-              className="rounded-lg border border-gray-800 bg-black/30 p-6"
-            >
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-gold/10">
-                  <step.icon className="h-6 w-6 text-gold" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-lg font-semibold text-white">
-                    {step.title}
-                  </h2>
-                  <p className="mt-1 text-gray-400">{step.description}</p>
-                  {step.code && (
-                    <code className="mt-3 inline-block rounded bg-black/50 px-3 py-1.5 text-gold">
-                      {step.code}
-                    </code>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* CTA */}
-        <div
-          className="mason-entrance mt-12 text-center"
-          style={{ animationDelay: '0.2s' }}
-        >
+    <DocsLayout
+      title="Mason Documentation"
+      description="Everything you need to know about using Mason to improve your codebase."
+    >
+      {/* Hero card */}
+      <div className="not-prose mb-12 rounded-xl border border-gold/30 bg-gold/5 p-8">
+        <h2 className="mb-4 text-2xl font-bold text-white">What is Mason?</h2>
+        <p className="mb-6 text-gray-300">
+          Mason is an AI-powered codebase improvement tool that runs inside
+          Claude Code. It scans your project, identifies improvements worth
+          making, generates PRDs, and helps you execute them. All your data
+          stays in your own database.
+        </p>
+        <div className="flex flex-wrap gap-4">
           <Link
-            href="/setup"
-            className="group inline-flex items-center gap-2 rounded-lg bg-gold px-6 py-3 font-semibold text-navy transition-all hover:shadow-lg hover:shadow-gold/20"
+            href="/docs/quickstart"
+            className="group flex items-center gap-2 rounded-lg bg-gold px-4 py-2 font-semibold text-navy transition-all hover:shadow-lg hover:shadow-gold/20"
           >
-            Start setup
+            Get Started
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
+          <Link
+            href="/docs/concepts"
+            className="rounded-lg border border-gray-700 px-4 py-2 font-medium text-white transition-colors hover:border-gray-600 hover:bg-white/5"
+          >
+            How it Works
+          </Link>
         </div>
-
-        {/* Commands Reference */}
-        <div
-          className="mason-entrance mt-16 rounded-lg border border-gray-800 bg-black/30 p-6"
-          style={{ animationDelay: '0.3s' }}
-        >
-          <h2 className="mb-4 text-lg font-semibold text-white">
-            Available Commands
-          </h2>
-          <div className="space-y-4">
-            <div>
-              <code className="rounded bg-black/50 px-2 py-1 text-gold">
-                /pm-review
-              </code>
-              <p className="mt-1 text-sm text-gray-400">
-                Analyze your codebase and generate improvement suggestions.
-              </p>
-            </div>
-            <div>
-              <code className="rounded bg-black/50 px-2 py-1 text-gold">
-                /execute-approved
-              </code>
-              <p className="mt-1 text-sm text-gray-400">
-                Execute approved items from your backlog.
-              </p>
-            </div>
-            <div>
-              <code className="rounded bg-black/50 px-2 py-1 text-gold">
-                /mason-update
-              </code>
-              <p className="mt-1 text-sm text-gray-400">
-                Update Mason commands to the latest version.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <footer className="mt-16">
-          <PoweredByFooter className="justify-center" />
-        </footer>
       </div>
-    </main>
+
+      {/* Section cards */}
+      <div className="not-prose grid gap-6 sm:grid-cols-2">
+        {sections.map((section) => (
+          <Link
+            key={section.href}
+            href={section.href}
+            className="group rounded-lg border border-gray-800 bg-black/30 p-6 transition-all hover:border-gold/50"
+          >
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gold/10 transition-colors group-hover:bg-gold/20">
+              <section.icon className="h-5 w-5 text-gold" />
+            </div>
+            <h3 className="mb-2 text-lg font-semibold text-white">
+              {section.title}
+            </h3>
+            <p className="text-sm text-gray-400">{section.description}</p>
+          </Link>
+        ))}
+      </div>
+
+      {/* Quick overview */}
+      <div className="mt-12">
+        <h2>The Mason Workflow</h2>
+        <ol>
+          <li>
+            <strong>Review</strong> - Run <code>/pm-review</code> in Claude Code
+            to analyze your codebase
+          </li>
+          <li>
+            <strong>Triage</strong> - View improvements in your dashboard,
+            approve what you want
+          </li>
+          <li>
+            <strong>Execute</strong> - Run <code>/execute-approved</code> to
+            implement changes
+          </li>
+          <li>
+            <strong>Ship</strong> - Review PRs and merge
+          </li>
+        </ol>
+
+        <h2>Key Features</h2>
+        <ul>
+          <li>
+            <strong>8 Analysis Categories</strong> - Feature, UI, UX, API, Data,
+            Security, Performance, Code Quality
+          </li>
+          <li>
+            <strong>Automatic PRDs</strong> - Every improvement gets a detailed
+            Product Requirements Document
+          </li>
+          <li>
+            <strong>Risk Analysis</strong> - 6-factor risk scoring for informed
+            decisions
+          </li>
+          <li>
+            <strong>Wave-Based Execution</strong> - Parallel implementation with
+            specialized agents
+          </li>
+          <li>
+            <strong>100% Private</strong> - All data stays in YOUR Supabase
+            database
+          </li>
+        </ul>
+
+        <h2>Requirements</h2>
+        <ul>
+          <li>
+            <strong>Claude Code</strong> - Mason runs as commands inside Claude
+            Code
+          </li>
+          <li>
+            <strong>Supabase Account</strong> - Free tier works fine (BYOD
+            model)
+          </li>
+          <li>
+            <strong>GitHub Account</strong> - For repository connection and
+            OAuth
+          </li>
+        </ul>
+      </div>
+    </DocsLayout>
   );
 }
