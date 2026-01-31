@@ -431,6 +431,19 @@ export default function BacklogPage() {
       .map((item) => item.id);
   }, [repoFilteredItems]);
 
+  // Count stale approved items (approved > 2 days ago without execution)
+  const staleApprovedCount = useMemo(() => {
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    return repoFilteredItems.filter((item) => {
+      if (item.status !== 'approved') {
+        return false;
+      }
+      const updatedAt = new Date(item.updated_at);
+      return updatedAt < twoDaysAgo;
+    }).length;
+  }, [repoFilteredItems]);
+
   // Get the banger idea (only one per analysis, highest priority if multiple)
   // Respects activeStatus tab filter
   const bangerIdea = useMemo(() => {
@@ -1176,6 +1189,8 @@ export default function BacklogPage() {
                 onStatusChange={setActiveStatus}
                 onExecuteAll={handleExecuteAll}
                 approvedCount={counts.approved}
+                counts={counts}
+                staleApprovedCount={staleApprovedCount}
               />
 
               {session && counts.approved > 0 && (
