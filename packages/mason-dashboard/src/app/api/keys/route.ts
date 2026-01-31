@@ -9,6 +9,11 @@ import {
 } from '@/lib/api/pagination';
 import { createApiKey, listApiKeys } from '@/lib/auth/api-key';
 import { authOptions } from '@/lib/auth/auth-options';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 
 /**
  * GET /api/keys - List all API keys for the authenticated user
@@ -58,6 +63,8 @@ export async function GET(request: NextRequest) {
  * Body: { name?: string }
  * Response: { key: string, info: ApiKeyInfo }
  * Note: The full key is only returned once - store it immediately
+ *
+ * Rate limited: 5 keys per hour per user (uses 'strict' strategy)
  */
 export async function POST(request: Request) {
   try {
@@ -65,6 +72,16 @@ export async function POST(request: Request) {
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Rate limit API key creation to prevent abuse (5 per hour via 'strict' strategy)
+    const identifier = getRateLimitIdentifier(
+      'api-key-create',
+      session.user.id,
+    );
+    const rateLimit = await checkRateLimit(identifier, 'strict');
+    if (!rateLimit.success) {
+      return createRateLimitResponse(rateLimit);
     }
 
     const body = await request.json().catch(() => ({}));
