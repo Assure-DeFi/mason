@@ -14,10 +14,13 @@ import {
 import { useState, useEffect, useCallback } from 'react';
 
 type DomainFocus =
-  | 'frontend-ux'
-  | 'api-backend'
-  | 'reliability'
+  | 'feature'
+  | 'ui'
+  | 'ux'
+  | 'api'
+  | 'data'
   | 'security'
+  | 'performance'
   | 'code-quality';
 
 interface PMReviewConfig {
@@ -45,31 +48,55 @@ const DOMAIN_OPTIONS: {
   value: DomainFocus;
   label: string;
   description: string;
+  items: string;
 }[] = [
   {
-    value: 'frontend-ux',
-    label: 'Frontend & UX',
-    description: 'UI/UX issues, accessibility, responsive design',
+    value: 'feature',
+    label: 'Feature',
+    description: 'Net-new functionality opportunities',
+    items: '5 items',
   },
   {
-    value: 'api-backend',
-    label: 'API & Backend',
-    description: 'API design, performance, error handling',
+    value: 'ui',
+    label: 'UI',
+    description: 'Visual changes, components, styling',
+    items: '5 items',
   },
   {
-    value: 'reliability',
-    label: 'Reliability',
-    description: 'Error handling, logging, monitoring',
+    value: 'ux',
+    label: 'UX',
+    description: 'User flows, friction reduction',
+    items: '5 items',
+  },
+  {
+    value: 'api',
+    label: 'API',
+    description: 'Endpoints, backend services',
+    items: '5 items',
+  },
+  {
+    value: 'data',
+    label: 'Data',
+    description: 'Database schema, queries, modeling',
+    items: '5 items',
   },
   {
     value: 'security',
     label: 'Security',
-    description: 'Auth issues, input validation, secrets',
+    description: 'Vulnerabilities, auth, hardening',
+    items: '5 items',
+  },
+  {
+    value: 'performance',
+    label: 'Performance',
+    description: 'Speed, optimization, caching',
+    items: '5 items',
   },
   {
     value: 'code-quality',
     label: 'Code Quality',
-    description: 'Duplication, complexity, testing gaps',
+    description: 'Tech debt, refactors, cleanup',
+    items: '5 items',
   },
 ];
 
@@ -145,7 +172,9 @@ export function PMReviewModal({
 
   // Handle keyboard navigation
   useEffect(() => {
-    if (!isOpen) {return;}
+    if (!isOpen) {
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -207,7 +236,9 @@ export function PMReviewModal({
     setHasCopied(false);
   };
 
-  if (!isOpen) {return null;}
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <div
@@ -418,10 +449,10 @@ function ConfigureView({
           }
           className="w-full px-4 py-3 bg-black/50 border border-gray-700 text-white focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/50 transition-all"
         >
-          <option value="">All domains</option>
+          <option value="">All domains (25 items)</option>
           {DOMAIN_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label} - {option.description}
+              {option.label} - {option.description} ({option.items})
             </option>
           ))}
         </select>
@@ -455,7 +486,9 @@ function ConfigureView({
               </div>
               <span className="font-medium">Full</span>
             </div>
-            <p className="text-xs text-gray-500 pl-6">10-20 items</p>
+            <p className="text-xs text-gray-500 pl-6">
+              25 items (3/agent + banger)
+            </p>
           </button>
 
           <button
@@ -480,7 +513,9 @@ function ConfigureView({
               </div>
               <span className="font-medium">Quick Wins</span>
             </div>
-            <p className="text-xs text-gray-500 pl-6">5-7 high-impact items</p>
+            <p className="text-xs text-gray-500 pl-6">
+              9 items (1/agent + banger)
+            </p>
           </button>
         </div>
       </div>

@@ -6,10 +6,13 @@ import { useState, useEffect } from 'react';
 type AnalysisMode =
   | 'full'
   | 'quick'
-  | 'area:frontend-ux'
-  | 'area:api-backend'
-  | 'area:reliability'
+  | 'area:feature'
+  | 'area:ui'
+  | 'area:ux'
+  | 'area:api'
+  | 'area:data'
   | 'area:security'
+  | 'area:performance'
   | 'area:code-quality';
 
 type FocusArea =
@@ -30,41 +33,67 @@ const MODE_OPTIONS: {
   value: AnalysisMode;
   label: string;
   description: string;
+  items?: string;
 }[] = [
   {
     value: 'full',
     label: 'Full Analysis',
-    description: 'Comprehensive scan across all domains',
+    description: 'All 8 agents run in parallel',
+    items: '25 items',
   },
   {
     value: 'quick',
     label: 'Quick Wins',
-    description: 'Low effort, high impact improvements only',
+    description: 'Fast scan, top priorities only',
+    items: '9 items',
   },
   {
-    value: 'area:frontend-ux',
-    label: 'Frontend UX',
-    description: 'UI/UX, accessibility, user flows',
+    value: 'area:feature',
+    label: 'Feature',
+    description: 'Net-new functionality opportunities',
+    items: '5 items',
   },
   {
-    value: 'area:api-backend',
-    label: 'API & Backend',
-    description: 'API design, performance, endpoints',
+    value: 'area:ui',
+    label: 'UI',
+    description: 'Visual changes, components, styling',
+    items: '5 items',
   },
   {
-    value: 'area:reliability',
-    label: 'Reliability',
-    description: 'Error handling, logging, monitoring',
+    value: 'area:ux',
+    label: 'UX',
+    description: 'User flows, friction reduction',
+    items: '5 items',
+  },
+  {
+    value: 'area:api',
+    label: 'API',
+    description: 'Endpoints, backend services',
+    items: '5 items',
+  },
+  {
+    value: 'area:data',
+    label: 'Data',
+    description: 'Database schema, queries, modeling',
+    items: '5 items',
   },
   {
     value: 'area:security',
     label: 'Security',
-    description: 'Auth, validation, vulnerabilities',
+    description: 'Vulnerabilities, auth, hardening',
+    items: '5 items',
+  },
+  {
+    value: 'area:performance',
+    label: 'Performance',
+    description: 'Speed, optimization, caching',
+    items: '5 items',
   },
   {
     value: 'area:code-quality',
     label: 'Code Quality',
-    description: 'Duplication, complexity, testing',
+    description: 'Tech debt, refactors, cleanup',
+    items: '5 items',
   },
 ];
 
@@ -254,8 +283,15 @@ export function GenerateIdeasModal({
                           : ''
                       }`}
                     >
-                      <div className="text-white font-medium">
-                        {option.label}
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-medium">
+                          {option.label}
+                        </span>
+                        {option.items && (
+                          <span className="text-xs text-gray-500">
+                            ({option.items})
+                          </span>
+                        )}
                       </div>
                       <div className="text-sm text-gray-400">
                         {option.description}

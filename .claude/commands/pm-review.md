@@ -1,7 +1,7 @@
 ---
 name: pm-review
-version: 2.0.0
-description: PM Review Command - Agent Swarm Architecture
+version: 2.1.0
+description: PM Review Command - Agent Swarm Architecture with mode-specific item limits
 ---
 
 # PM Review Command
@@ -23,28 +23,48 @@ This command performs a comprehensive analysis of the codebase using 8 specializ
 | **Performance**  | Orange        | Speed, optimization, caching, load times             |
 | **Code Quality** | Gray          | Refactors, cleanup, tech debt, documentation         |
 
-## MANDATORY: Feature Ideas & Banger Idea
+## Item Limits by Mode
 
-**EVERY PM review MUST generate:**
+| Mode               | Agents           | Items per Agent | Banger  | Total Items |
+| ------------------ | ---------------- | --------------- | ------- | ----------- |
+| **Full**           | 8 (all parallel) | 3               | Yes (1) | **25**      |
+| **Quick**          | 8 (all parallel) | 1               | Yes (1) | **9**       |
+| **Focus (area:X)** | 1 (single agent) | 5               | No      | **5**       |
 
-1. **At least 3-5 NEW FEATURE ideas** (things that don't exist yet) with `is_new_feature: true`
-2. **Exactly ONE "Banger Idea"** (the transformative feature) with `is_banger_idea: true`
+**CRITICAL: These limits are enforced. Do NOT exceed them.**
 
-These are **NOT optional**. The PM review is incomplete without them.
+## Banger Idea (Full & Quick modes only)
 
-If you reach Step 6 without these, **STOP** and go back to Step 5.2 and 5.3.
+The banger idea is a transformative feature that would dramatically increase app value:
 
-| Item Type            | is_new_feature | is_banger_idea | Required Count   |
-| -------------------- | -------------- | -------------- | ---------------- |
-| Regular improvements | false          | false          | As many as found |
-| Feature ideas        | true           | false          | **3-5 minimum**  |
-| Banger idea          | true           | true           | **Exactly 1**    |
+- **Always a Feature** - Net-new functionality, not improvements
+- **Ambitious** - Multi-week scope, not a quick fix
+- **Separate from counts** - The +1 banger is in addition to per-agent items
+
+| Mode  | Regular Items     | Banger             |
+| ----- | ----------------- | ------------------ |
+| Full  | 24 (3 × 8 agents) | +1 = **25 total**  |
+| Quick | 8 (1 × 8 agents)  | +1 = **9 total**   |
+| Focus | 5 (from 1 agent)  | None = **5 total** |
 
 ## Modes
 
-- `full` (default): Discover ALL improvements, validate each, generate PRD for EVERY validated item
-- `area:<name>`: Focus on specific area (frontend-ux, api-backend, reliability, security, code-quality)
-- `quick`: Focus on quick wins only (low effort, high impact) - still requires PRD for each
+- `full` (default): All 8 agents run in parallel, 3 items each + 1 banger = **25 items**
+- `quick`: All 8 agents run in parallel, 1 item each + 1 banger = **9 items**
+- `area:<category>`: Single agent runs, **5 items**, no banger
+
+**Available focus areas (maps to single agent):**
+
+| Area Command        | Agent                 | Badge  |
+| ------------------- | --------------------- | ------ |
+| `area:feature`      | pm-feature-agent      | Purple |
+| `area:ui`           | pm-ui-agent           | Gold   |
+| `area:ux`           | pm-ux-agent           | Cyan   |
+| `area:api`          | pm-api-agent          | Green  |
+| `area:data`         | pm-data-agent         | Blue   |
+| `area:security`     | pm-security-agent     | Red    |
+| `area:performance`  | pm-performance-agent  | Orange |
+| `area:code-quality` | pm-code-quality-agent | Gray   |
 
 **CRITICAL: Every item that enters the database MUST have a PRD. No exceptions.**
 
@@ -56,10 +76,11 @@ Usage: `/pm-review [mode] [flags]`
 
 Examples:
 
-- `/pm-review` - Full analysis
-- `/pm-review area:frontend-ux` - Focus on frontend improvements
-- `/pm-review quick` - Quick wins only
-- `/pm-review --auto` - Full analysis in headless mode (for autopilot)
+- `/pm-review` - Full analysis (25 items)
+- `/pm-review quick` - Quick wins (9 items)
+- `/pm-review area:security` - Security focus only (5 items)
+- `/pm-review area:ui` - UI focus only (5 items)
+- `/pm-review --auto` - Full analysis in headless mode
 - `/pm-review quick --auto` - Quick wins in headless mode
 
 ## Context Instructions
@@ -419,35 +440,91 @@ Load the domain-specific knowledge from `.claude/skills/pm-domain-knowledge/SKIL
 - User personas
 - Known pain points
 
-### Step 2: Launch Agent Swarm (PARALLEL EXECUTION)
+### Step 2: Launch Agent Swarm (MODE-BASED EXECUTION)
 
-**CRITICAL: Launch all 8 category agents IN PARALLEL using a single message with 8 Task tool calls.**
+**The swarm launch depends on the mode:**
 
-This is the core of the swarm architecture. Each agent runs independently, exploring their domain and producing recommendations.
+| Mode               | Agents to Launch  | Items per Agent | Banger | Total |
+| ------------------ | ----------------- | --------------- | ------ | ----- |
+| **Full** (default) | All 8 in parallel | 3               | Yes    | 25    |
+| **Quick**          | All 8 in parallel | 1               | Yes    | 9     |
+| **Focus (area:X)** | Single agent only | 5               | No     | 5     |
 
-**If focus context is provided:** Pass the focus context to each agent so they can narrow their analysis.
+---
 
-**Launch the swarm with a single message containing 8 Task tool invocations:**
+#### Mode A: Full Review (8 agents × 3 items + 1 banger = 25 total)
+
+**Launch all 8 category agents IN PARALLEL using a single message with 8 Task tool calls.**
 
 ```
 Use the Task tool 8 times in a SINGLE message with these agents:
 
-1. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-feature-agent.md
-2. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-ui-agent.md
-3. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-ux-agent.md
-4. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-api-agent.md
-5. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-data-agent.md
-6. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-security-agent.md
-7. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-performance-agent.md
-8. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-code-quality-agent.md
+1. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-feature-agent.md, ITEM_LIMIT=3
+2. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-ui-agent.md, ITEM_LIMIT=3
+3. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-ux-agent.md, ITEM_LIMIT=3
+4. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-api-agent.md, ITEM_LIMIT=3
+5. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-data-agent.md, ITEM_LIMIT=3
+6. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-security-agent.md, ITEM_LIMIT=3
+7. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-performance-agent.md, ITEM_LIMIT=3
+8. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-code-quality-agent.md, ITEM_LIMIT=3
 ```
+
+**Feature agent ALSO generates the 1 banger idea (separate from the 3 regular items).**
+
+---
+
+#### Mode B: Quick Review (8 agents × 1 item + 1 banger = 9 total)
+
+**Launch all 8 category agents IN PARALLEL with ITEM_LIMIT=1:**
+
+```
+Use the Task tool 8 times in a SINGLE message with these agents:
+
+1-8. Same as Full mode, but each prompt includes ITEM_LIMIT=1
+```
+
+**Feature agent ALSO generates the 1 banger idea (separate from the 1 regular item).**
+
+---
+
+#### Mode C: Focus Area (1 agent × 5 items, NO banger)
+
+**Launch ONLY the specified agent with ITEM_LIMIT=5.**
+
+Map the area command to the correct agent:
+
+| Area Command        | Agent File                                |
+| ------------------- | ----------------------------------------- |
+| `area:feature`      | `.claude/agents/pm-feature-agent.md`      |
+| `area:ui`           | `.claude/agents/pm-ui-agent.md`           |
+| `area:ux`           | `.claude/agents/pm-ux-agent.md`           |
+| `area:api`          | `.claude/agents/pm-api-agent.md`          |
+| `area:data`         | `.claude/agents/pm-data-agent.md`         |
+| `area:security`     | `.claude/agents/pm-security-agent.md`     |
+| `area:performance`  | `.claude/agents/pm-performance-agent.md`  |
+| `area:code-quality` | `.claude/agents/pm-code-quality-agent.md` |
+
+```
+Use the Task tool ONCE with:
+  subagent_type="general-purpose"
+  prompt includes .claude/agents/pm-{category}-agent.md
+  ITEM_LIMIT=5
+  INCLUDE_BANGER=false
+```
+
+**IMPORTANT: Focus mode does NOT include a banger idea.**
+
+---
+
+#### Agent Prompt Template (All Modes)
 
 **Each agent prompt should include:**
 
 1. Read the agent definition file: `.claude/agents/pm-{category}-agent.md`
 2. The repository_id and supabase credentials (for dedup checks)
-3. Any focus context from the user
-4. Instructions to return JSON with category and recommendations array
+3. **ITEM_LIMIT** - Maximum items this agent should return
+4. **INCLUDE_BANGER** - Whether to generate a banger idea (true for Feature agent in full/quick, false otherwise)
+5. Any focus context from the user
 
 **Example agent invocation:**
 
@@ -462,9 +539,13 @@ prompt: |
   - Supabase URL: ${supabaseUrl}
   - Focus (if any): ${focus_context}
 
+  **LIMITS (ENFORCED - DO NOT EXCEED):**
+  - ITEM_LIMIT: ${ITEM_LIMIT}  # Maximum items you can return
+  - INCLUDE_BANGER: ${INCLUDE_BANGER}  # true = generate 1 banger idea (Feature agent only)
+
   Your job:
   1. Explore the codebase for issues in YOUR domain only
-  2. Generate improvement recommendations with full scoring
+  2. Generate UP TO ${ITEM_LIMIT} improvement recommendations (no more!)
   3. Validate each recommendation (verify problem exists)
   4. Check for duplicates against existing backlog items of type "{category}"
   5. Return JSON with your findings
@@ -473,6 +554,7 @@ prompt: |
   {
     "category": "{category}",
     "recommendations": [
+      // Maximum ${ITEM_LIMIT} items here
       {
         "title": "...",
         "problem": "...",
@@ -483,7 +565,7 @@ prompt: |
         "effort_score": 1-10,
         "complexity": 1-5,
         "is_new_feature": true|false,
-        "is_banger_idea": false,
+        "is_banger_idea": false,  // Only Feature agent with INCLUDE_BANGER=true sets this to true for 1 item
         "benefits": [...5 required...],
         "evidence": {...}
       }
@@ -493,12 +575,14 @@ prompt: |
   }
 ```
 
-**IMPORTANT:** The Feature agent is responsible for generating:
+**IMPORTANT (Feature Agent Only in Full/Quick Mode):**
 
-- 3-5 new feature ideas with `is_new_feature: true`
-- Exactly 1 "Banger Idea" with `is_banger_idea: true`
+When INCLUDE_BANGER=true, the Feature agent MUST generate:
 
-All other agents set both flags to `false`.
+- ${ITEM_LIMIT} regular feature ideas with `is_new_feature: true`, `is_banger_idea: false`
+- PLUS exactly 1 "Banger Idea" with `is_new_feature: true`, `is_banger_idea: true`
+
+All other agents set both `is_new_feature` and `is_banger_idea` to `false`.
 
 ### Step 2.5: Aggregate Agent Results
 
@@ -1054,121 +1138,148 @@ Filtered items logged to dashboard → Filtered tab for review.
 
 Continue to Step 5.6 with validated items only.
 
-### Step 5.6: Prioritization & Cap to 20 Items (MANDATORY)
+### Step 5.6: Prioritization & Cap by Mode (MANDATORY)
 
-**HARD LIMIT:** Maximum 20 items can be submitted per PM review run.
+**Item limits are MODE-SPECIFIC. Do NOT exceed these limits:**
 
-After validation, prioritize and cap the items to ensure the most impactful work is surfaced:
+| Mode               | Max Items | Breakdown                        |
+| ------------------ | --------- | -------------------------------- |
+| **Full**           | **25**    | 24 (3 × 8 agents) + 1 banger     |
+| **Quick**          | **9**     | 8 (1 × 8 agents) + 1 banger      |
+| **Focus (area:X)** | **5**     | 5 (from single agent), no banger |
+
+After validation, prioritize and cap the items based on the current mode:
 
 #### Prioritization Logic
 
 1. **Calculate priority_score** for each item: `(impact_score * 2) - effort_score`
 2. **Sort all validated items** by priority_score (highest first)
-3. **Reserve slots** for mandatory items (banger + features)
-4. **Fill remaining slots** with top regular improvements
+3. **Reserve slots** for banger (Full/Quick modes only)
+4. **Fill remaining slots** with top improvements by category
 
-#### Reserved Slots
+#### Mode-Specific Capping
 
-| Category             | Reserved Slots | Selection Criteria                    |
-| -------------------- | -------------- | ------------------------------------- |
-| Banger idea          | 1              | Mandatory - the ONE transformative    |
-| Feature ideas        | 3              | Top 3 features by priority_score      |
-| Regular improvements | 16             | Top 16 improvements by priority_score |
-| **Total**            | **20**         |                                       |
-
-#### Capping Process
+**Full Mode (25 items):**
 
 ```bash
-# Separate items by type
-BANGER_ITEM=<the single item with is_banger_idea=true>
-FEATURE_ITEMS=<items with is_new_feature=true AND is_banger_idea=false, sorted by priority_score DESC>
-REGULAR_ITEMS=<items with is_new_feature=false AND is_banger_idea=false, sorted by priority_score DESC>
+# Limits for Full mode
+MAX_ITEMS=25
+ITEMS_PER_AGENT=3
+INCLUDE_BANGER=true
 
-# Reserve slots
+# Reserve: 1 banger + 24 regular (3 per agent)
 FINAL_ITEMS=[]
+FINAL_ITEMS.push(BANGER_ITEM)  # 1 banger
+# Each agent contributes up to 3 items (24 total regular)
+```
 
-# 1. Add the banger (1 slot)
-FINAL_ITEMS.push(BANGER_ITEM)
+**Quick Mode (9 items):**
 
-# 2. Add top 3 features (3 slots)
-FINAL_ITEMS.push(FEATURE_ITEMS.slice(0, 3))
+```bash
+# Limits for Quick mode
+MAX_ITEMS=9
+ITEMS_PER_AGENT=1
+INCLUDE_BANGER=true
 
-# 3. Fill remaining with top regular improvements (up to 16 slots)
-REMAINING_SLOTS = 20 - FINAL_ITEMS.length
-FINAL_ITEMS.push(REGULAR_ITEMS.slice(0, REMAINING_SLOTS))
+# Reserve: 1 banger + 8 regular (1 per agent)
+FINAL_ITEMS=[]
+FINAL_ITEMS.push(BANGER_ITEM)  # 1 banger
+# Each agent contributes 1 item (8 total regular)
+```
 
-# Log items that didn't make the cut
-DROPPED_FEATURES = FEATURE_ITEMS.slice(3)
-DROPPED_REGULAR = REGULAR_ITEMS.slice(REMAINING_SLOTS)
+**Focus Mode (5 items):**
+
+```bash
+# Limits for Focus mode
+MAX_ITEMS=5
+ITEMS_PER_AGENT=5
+INCLUDE_BANGER=false
+
+# Single agent contributes 5 items, no banger
+FINAL_ITEMS=[]
+# Only items from the focused agent (5 total)
 ```
 
 #### Display Cap Summary
 
 ```
-## Prioritization Complete
-- Total validated: 35
-- Capped to: 20 (maximum per run)
-- Dropped: 15 (lower priority)
+## Prioritization Complete (${MODE} mode)
+- Mode: ${MODE}
+- Max allowed: ${MAX_ITEMS}
+- Items collected: ${TOTAL_ITEMS}
+- Banger included: ${INCLUDE_BANGER}
 
-### Final 20 Items Breakdown:
-- Banger Idea: 1
-- Feature Ideas: 3 (from 8 validated)
-- Regular Improvements: 16 (from 26 validated)
+### Final ${MAX_ITEMS} Items Breakdown:
+${MODE === 'full' ? '- Banger Idea: 1' : ''}
+${MODE === 'quick' ? '- Banger Idea: 1' : ''}
+- Regular Improvements: ${REGULAR_COUNT}
 
-Dropped items can be rediscovered in future /pm-review runs.
+${DROPPED_COUNT > 0 ? 'Dropped items can be rediscovered in future runs.' : 'All items included.'}
 ```
 
 **IMPORTANT:** Items dropped due to the cap are NOT logged as filtered. They are simply not included in this run. Future `/pm-review` runs may rediscover and prioritize them.
 
-Continue to Pre-Submission Validation with the FINAL 20 items.
+Continue to Pre-Submission Validation with the mode-specific items.
 
 ### Pre-Submission Validation (ENFORCED)
 
 **THIS IS A HARD STOP. Execute the following validation before proceeding:**
 
-Before submitting items, validate ALL requirements:
+Before submitting items, validate ALL requirements based on the current MODE:
 
 ```bash
-# Count feature ideas and banger ideas in your prepared items
-# Parse your items JSON to extract counts
+# Determine mode-specific limits
+case "$MODE" in
+  "full")
+    MAX_ITEMS=25
+    REQUIRE_BANGER=true
+    ;;
+  "quick")
+    MAX_ITEMS=9
+    REQUIRE_BANGER=true
+    ;;
+  "focus"|area:*)
+    MAX_ITEMS=5
+    REQUIRE_BANGER=false
+    ;;
+esac
 
-FEATURE_COUNT=<count items where is_new_feature=true AND is_banger_idea=false>
+# Count items
 BANGER_COUNT=<count items where is_banger_idea=true>
 TOTAL_ITEMS=<count all items>
-MAX_ITEMS=20
 
 # Count items with complete benefits (exactly 5 benefit objects with non-empty descriptions)
 ITEMS_WITH_COMPLETE_BENEFITS=<count items where benefits array has exactly 5 objects AND all descriptions are non-empty and not template text>
 ITEMS_MISSING_BENEFITS=$((TOTAL_ITEMS - ITEMS_WITH_COMPLETE_BENEFITS))
 
-echo "Pre-Submission Validation:"
+echo "Pre-Submission Validation (${MODE} mode):"
 echo "  Total items: $TOTAL_ITEMS (max: $MAX_ITEMS)"
-echo "  Feature ideas (is_new_feature=true, is_banger_idea=false): $FEATURE_COUNT (required: >= 3)"
-echo "  Banger idea (is_banger_idea=true): $BANGER_COUNT (required: = 1)"
+echo "  Banger idea (is_banger_idea=true): $BANGER_COUNT (required: ${REQUIRE_BANGER ? '1' : 'none'})"
 echo "  Items with complete benefits (5 categories): $ITEMS_WITH_COMPLETE_BENEFITS / $TOTAL_ITEMS"
 
-# BLOCKING CHECK 0: Maximum items cap
+# BLOCKING CHECK 0: Maximum items cap (MODE-SPECIFIC)
 if [ "$TOTAL_ITEMS" -gt "$MAX_ITEMS" ]; then
-  echo "BLOCKED: Too many items ($TOTAL_ITEMS). Maximum is $MAX_ITEMS."
-  echo "Go back to Step 5.6 (Prioritization & Cap) and reduce to top 20 items."
+  echo "BLOCKED: Too many items ($TOTAL_ITEMS). Maximum for ${MODE} mode is $MAX_ITEMS."
+  echo "Go back to Step 5.6 (Prioritization & Cap) and reduce items."
   # DO NOT PROCEED - cap items first
 fi
 
-# BLOCKING CHECK 1: Feature ideas
-if [ "$FEATURE_COUNT" -lt 3 ]; then
-  echo "BLOCKED: Missing feature ideas. Go back to Step 2.5 (Creative Ideation Phase)."
-  echo "You MUST generate at least 3 new feature ideas before proceeding."
-  # DO NOT PROCEED - return to Step 2.5
+# BLOCKING CHECK 1: Banger idea (Full/Quick modes ONLY)
+if [ "$REQUIRE_BANGER" = true ]; then
+  if [ "$BANGER_COUNT" -ne 1 ]; then
+    echo "BLOCKED: Missing or multiple banger ideas."
+    echo "Full/Quick modes MUST have exactly 1 banger idea."
+    # DO NOT PROCEED - fix banger first
+  fi
+else
+  # Focus mode - should have NO banger
+  if [ "$BANGER_COUNT" -gt 0 ]; then
+    echo "WARNING: Focus mode should not include a banger idea. Removing banger flag."
+    # Remove is_banger_idea=true from any items
+  fi
 fi
 
-# BLOCKING CHECK 2: Banger idea
-if [ "$BANGER_COUNT" -ne 1 ]; then
-  echo "BLOCKED: Missing or multiple banger ideas. Go back to Step 2.5 (Creative Ideation Phase)."
-  echo "You MUST have exactly 1 banger idea before proceeding."
-  # DO NOT PROCEED - return to Step 2.5
-fi
-
-# BLOCKING CHECK 3: Benefits (MANDATORY)
+# BLOCKING CHECK 2: Benefits (MANDATORY for all modes)
 if [ "$ITEMS_MISSING_BENEFITS" -gt 0 ]; then
   echo "BLOCKED: $ITEMS_MISSING_BENEFITS items are missing complete benefits."
   echo "EVERY item MUST have exactly 5 benefits with specific descriptions."
@@ -1185,21 +1296,20 @@ if [ "$ITEMS_MISSING_BENEFITS" -gt 0 ]; then
   # DO NOT PROCEED - fix benefits first
 fi
 
-echo "PASSED: All validations passed. Proceeding to submission."
+echo "PASSED: All validations passed for ${MODE} mode. Proceeding to submission."
 ```
 
 **If ANY check fails, you MUST fix the issue before proceeding. DO NOT skip this.**
 
-**Required counts:**
+**Mode-Specific Required Counts:**
 
-| Item Type            | is_new_feature | is_banger_idea | Required Count     |
-| -------------------- | -------------- | -------------- | ------------------ |
-| Total items          | -              | -              | **<= 20 max**      |
-| Regular improvements | false          | false          | Up to 16 (capped)  |
-| Feature ideas        | true           | false          | **3** (top 3 only) |
-| Banger idea          | true           | true           | **Exactly 1**      |
+| Mode  | Max Items | Banger Required | Regular Items               |
+| ----- | --------- | --------------- | --------------------------- |
+| Full  | **25**    | **Yes (1)**     | 24 (3 per agent × 8 agents) |
+| Quick | **9**     | **Yes (1)**     | 8 (1 per agent × 8 agents)  |
+| Focus | **5**     | **No**          | 5 (from single agent)       |
 
-**Benefits requirement (ALL items):**
+**Benefits requirement (ALL items in ALL modes):**
 
 | Field    | Requirement                                               |
 | -------- | --------------------------------------------------------- |
@@ -1750,37 +1860,44 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_dependency_analysis" \
 
 ## Output Format
 
-After analysis, provide a summary:
+After analysis, provide a summary (format varies by mode):
 
 ```markdown
 ## PM Review Complete
 
-**Mode**: [full/area:X/quick]
+**Mode**: [full/quick/area:X]
 **Items Discovered**: [count]
 **Items Validated**: [count] (after filtering false positives)
-**Items Submitted**: [count] (max 20, after prioritization)
+**Items Submitted**: [count] (max varies by mode)
 **PRDs Generated**: [count] (MUST equal submitted items count)
 
-### Item Cap Summary
+### Mode-Specific Limits
 
-| Stage      | Count  | Notes                          |
-| ---------- | ------ | ------------------------------ |
-| Discovered | [N]    | Raw candidates                 |
-| Validated  | [N]    | After false positive filtering |
-| Submitted  | [N/20] | After priority cap             |
-| Dropped    | [N]    | Lower priority, not submitted  |
+| Mode  | Max Items | Banger | Actual Submitted |
+| ----- | --------- | ------ | ---------------- |
+| Full  | 25        | Yes    | [N]/25           |
+| Quick | 9         | Yes    | [N]/9            |
+| Focus | 5         | No     | [N]/5            |
 
-### Feature & Banger Summary (MANDATORY)
+### Item Summary (Full/Quick Mode)
 
-| Category             | Count    | Requirement | Status      |
-| -------------------- | -------- | ----------- | ----------- |
-| Banger Idea          | 1        | = 1         | [PASS/FAIL] |
-| Feature Ideas        | 3        | = 3 (top 3) | [PASS/FAIL] |
-| Regular Improvements | [<=16]   | <= 16       | PASS        |
-| **Total**            | **<=20** | **<= 20**   | [PASS/FAIL] |
+| Category             | Count   | Requirement | Status      |
+| -------------------- | ------- | ----------- | ----------- |
+| Banger Idea          | 1       | = 1         | [PASS/FAIL] |
+| Regular Improvements | [N]     | <= 24 or 8  | PASS        |
+| **Total**            | **[N]** | **<= 25/9** | [PASS/FAIL] |
 
 **Banger Idea**: [title of the ONE banger idea]
 **Banger Rotation**: [Previous banger moved to features with BANGER badge / No previous banger]
+
+### Item Summary (Focus Mode - area:X)
+
+| Category             | Count   | Requirement | Status      |
+| -------------------- | ------- | ----------- | ----------- |
+| Regular Improvements | [N]     | <= 5        | PASS        |
+| **Total**            | **[N]** | **<= 5**    | [PASS/FAIL] |
+
+**Note:** Focus mode does not include a banger idea.
 
 ### Top Improvements by Priority
 
