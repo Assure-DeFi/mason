@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 1.4.0
+version: 1.5.0
 description: Execute Approved Command
 ---
 
@@ -130,6 +130,100 @@ For each approved item, verify it has a PRD:
 
 - If `prd_content` is NULL, prompt user to generate PRD first
 - PRD should contain wave-based task breakdown
+
+### Step 2.5: Re-Evaluate INCONCLUSIVE Items (MANDATORY)
+
+**For items with `evidence_status: 'inconclusive'`, perform a pre-execution re-evaluation.**
+
+These items passed initial validation but couldn't be definitively proven as real problems during PM review. Before investing execution resources, verify they provide actual benefit.
+
+#### Re-Evaluation Process
+
+```bash
+# Check for inconclusive items in the approved list
+INCONCLUSIVE_ITEMS=$(echo "$APPROVED_ITEMS" | jq '[.[] | select(.evidence_status == "inconclusive")]')
+INCONCLUSIVE_COUNT=$(echo "$INCONCLUSIVE_ITEMS" | jq 'length')
+
+if [ "$INCONCLUSIVE_COUNT" -gt 0 ]; then
+  echo "Found ${INCONCLUSIVE_COUNT} items with inconclusive evidence - re-evaluating..."
+fi
+```
+
+For each inconclusive item:
+
+**Step A: Re-Evaluate Problem Reality**
+
+Invoke a quick re-evaluation:
+
+```
+Task tool call:
+  subagent_type: "Explore"
+  prompt: |
+    Re-evaluate whether this improvement would provide real benefit:
+
+    Title: ${item.title}
+    Problem: ${item.problem}
+    Solution: ${item.solution}
+    Evidence Summary: ${item.evidence_summary}
+
+    Questions to answer:
+    1. Does the claimed problem actually exist in the current codebase?
+    2. Would implementing this solution provide tangible user/developer benefit?
+    3. Is there evidence this was intentionally designed this way?
+    4. Would execution waste resources on a non-issue?
+
+    Return:
+    - EXECUTE: Problem is real, implementation would provide benefit
+    - SKIP: Problem doesn't exist OR implementation wouldn't help
+
+    Be decisive. If in doubt, lean toward SKIP to avoid wasting execution resources.
+```
+
+**Step B: Handle Re-Evaluation Result**
+
+| Result    | Action                              |
+| --------- | ----------------------------------- |
+| `EXECUTE` | Proceed with normal execution       |
+| `SKIP`    | Move to FILTERED status, log reason |
+
+**Step C: Skip Items That Fail Re-Evaluation**
+
+For items that should be skipped:
+
+```bash
+# Update item status to filtered (skipped during execution)
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  -d '{
+    "status": "deferred",
+    "skip_reason": "Re-evaluation determined no real benefit: ${reason}",
+    "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+  }'
+
+# Log the skip
+log_execution "info" "Skipped inconclusive item: ${itemTitle}" '{"item_id": "'"${itemId}"'", "skip_reason": "'"${reason}"'"}'
+```
+
+**Step D: Display Re-Evaluation Summary**
+
+```
+## Re-Evaluation of Inconclusive Items
+
+Items checked: 2
+- EXECUTE (proceeding): 1
+  - "Improve caching strategy" - Found legitimate performance bottleneck
+- SKIP (deferred): 1
+  - "Add input validation" - Existing validation is sufficient for current use case
+
+Proceeding with X items for execution...
+```
+
+**IMPORTANT:** Skipped items are marked as `deferred` (not `rejected`) so users can manually approve them later if they disagree with the re-evaluation.
+
+---
 
 ### Step 3: Create Execution Run
 

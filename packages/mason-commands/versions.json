@@ -2,16 +2,16 @@
   "manifest_version": 2,
   "commands": {
     "pm-review": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "1.5.0",
-      "breaking_reason": "20-item cap and banger rotation - max 20 items per run, old bangers move to feature list with BANGER badge"
+      "required_minimum": "1.6.0",
+      "breaking_reason": "Evidence-based validation - post-PRD evidence checking filters false positives, REFUTED items removed, INCONCLUSIVE flagged"
     },
     "execute-approved": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "1.4.0",
-      "breaking_reason": "Checkpoint-based progress tracking - dashboard shows real-time checkpoints instead of unreliable logs"
+      "required_minimum": "1.5.0",
+      "breaking_reason": "Re-evaluation for inconclusive items - items with inconclusive evidence are re-evaluated before execution"
     },
     "mason-update": {
       "version": "1.0.0",

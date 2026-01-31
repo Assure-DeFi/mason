@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 1.5.0
+version: 1.6.0
 description: PM Review Command
 ---
 
@@ -1327,6 +1327,177 @@ Task tool call:
   "test_coverage_gaps": 3
 }
 ```
+
+### Step 7.6: Evidence Validation (MANDATORY - Post-PRD)
+
+**This step runs AFTER PRDs are generated but BEFORE submission to user's database.**
+
+PRDs contain specific, verifiable claims. This step extracts and validates those claims against actual codebase evidence.
+
+#### Why Post-PRD Evidence Validation?
+
+PRDs contain concrete assertions like:
+
+- "Current RLS policies allow ALL users to access ALL data"
+- "No user_id filtering exists"
+- "Migration file at X doesn't have proper policies"
+
+These claims can be extracted and verified. The PRD gives us specific assertions to test.
+
+#### Evidence Validation Process
+
+For each improvement with a generated PRD:
+
+**Step A: Extract Verifiable Claims**
+
+Parse the PRD's Problem Statement for concrete assertions:
+
+```bash
+# Example claims to extract:
+# - "RLS policies allow all users" → Search for CREATE POLICY statements
+# - "No error handling exists" → Search for try/catch blocks
+# - "API endpoint lacks validation" → Check for validation code
+```
+
+**Step B: Tiered Evidence Search**
+
+Execute a tiered search approach:
+
+| Tier                      | Scope                 | When to Use                        |
+| ------------------------- | --------------------- | ---------------------------------- |
+| **Tier A (Quick grep)**   | Fast pattern matching | All items                          |
+| **Tier B (Deep Explore)** | Subagent exploration  | High-impact OR Tier A inconclusive |
+
+**Tier A: Quick Pattern Matching (All Items)**
+
+```bash
+# 1. Search for existing implementation that solves the claimed problem
+# Example: If claim is "no RLS policies", search for RLS
+grep -r "ENABLE ROW LEVEL SECURITY" --include="*.sql" --include="*.ts" .
+grep -r "CREATE POLICY" --include="*.sql" --include="*.ts" .
+
+# 2. Search for intentional design comments
+grep -r "// intentional\|// by design\|// BYOD\|// NOTE:" .
+
+# 3. Check architectural docs
+cat .claude/rules/*.md | grep -i "rls\|policy\|security"
+```
+
+**Tier B: Deep Exploration (Escalate When Needed)**
+
+Invoke Explore subagent for:
+
+- High-impact items (impact_score >= 8)
+- Items where Tier A returned INCONCLUSIVE
+- Security-related claims
+
+```
+Task tool call:
+  subagent_type: "Explore"
+  prompt: |
+    Investigate whether this claimed problem actually exists:
+
+    Claim: "${claim_from_prd}"
+    Files mentioned: ${files_from_solution}
+
+    Search for:
+    1. Existing implementations that already solve this
+    2. Architectural decisions documenting this choice
+    3. Comments indicating intentional design (// intentional, // by design)
+    4. Evidence this was already addressed
+
+    Return:
+    - VERIFIED: Problem confirmed to exist
+    - REFUTED: Evidence shows problem doesn't exist or is already solved
+    - INCONCLUSIVE: Cannot determine definitively
+```
+
+**Step C: Assign Evidence Status**
+
+Based on search results, assign one of:
+
+| Status         | Meaning                              | Action                                      |
+| -------------- | ------------------------------------ | ------------------------------------------- |
+| `verified`     | Evidence confirms problem exists     | Keep item, submit normally                  |
+| `refuted`      | Evidence shows problem doesn't exist | **REMOVE item, do NOT submit**              |
+| `inconclusive` | Cannot determine definitively        | Flag with `evidence_status: 'inconclusive'` |
+
+**Step D: Domain-Specific Evidence Patterns**
+
+Use these patterns for common false positive categories:
+
+| Category           | Evidence Checks                                                              |
+| ------------------ | ---------------------------------------------------------------------------- |
+| **RLS/Security**   | Grep for `ENABLE ROW LEVEL SECURITY`, `CREATE POLICY`, check migration files |
+| **Error Handling** | Search for try/catch, ErrorBoundary, existing handlers                       |
+| **Type Safety**    | Check for TypeScript strict mode, existing type definitions                  |
+| **Performance**    | Look for existing caching, memoization, optimization                         |
+| **Authentication** | Search for auth middleware, session checks                                   |
+
+**Step E: Log Evidence Results**
+
+For each item, record the evidence findings:
+
+```json
+{
+  "evidence_status": "verified|refuted|inconclusive",
+  "evidence_summary": "Found existing RLS policies in migrations/001_schema.sql. BYOD architecture is intentional per .claude/rules/privacy-architecture.md",
+  "evidence_checked_at": "2026-01-31T..."
+}
+```
+
+**Step F: Filter REFUTED Items**
+
+Items with `evidence_status: 'refuted'` are **automatically removed** before submission:
+
+```bash
+# Filter out refuted items
+FINAL_ITEMS=$(echo "$ALL_ITEMS" | jq '[.[] | select(.evidence_status != "refuted")]')
+
+# Log filtered items for transparency
+REFUTED_ITEMS=$(echo "$ALL_ITEMS" | jq '[.[] | select(.evidence_status == "refuted")]')
+echo "Evidence Validation: Filtered ${REFUTED_COUNT} items (evidence refuted claimed problems)"
+```
+
+**Step G: Display Evidence Summary**
+
+```
+## Evidence Validation Complete
+- Items checked: 20
+- Verified (problem confirmed): 15
+- Refuted (problem doesn't exist): 3 → REMOVED
+- Inconclusive (flagged for re-evaluation): 2
+
+Refuted items (not submitted):
+1. "Add RLS policies" - Already implemented in migrations/001_schema.sql
+2. "Add error handling to API" - Existing try/catch in api/middleware.ts
+3. "Fix TypeScript strict mode" - Already enabled in tsconfig.json
+
+Inconclusive items (flagged for /execute-approved re-evaluation):
+1. "Improve caching strategy" - Could not determine if current caching is sufficient
+2. "Add input validation" - Partial validation exists, unclear if complete
+
+Proceeding to submit 17 items (15 verified + 2 inconclusive)...
+```
+
+#### Include Evidence Data in Submission
+
+When submitting items in Step 6c, include evidence status:
+
+```json
+{
+  "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+  "repository_id": "${REPOSITORY_ID}",
+  "title": "...",
+  "problem": "...",
+  "solution": "...",
+  "evidence_status": "verified",
+  "evidence_summary": "Confirmed: No existing implementation found after checking src/lib/, src/api/, and migrations/",
+  "evidence_checked_at": "'${TIMESTAMP}'"
+}
+```
+
+---
 
 #### Step 6d: Submit Full Risk Analysis (Optional)
 

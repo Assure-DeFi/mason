@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 1.4.0
+version: 1.5.0
 description: Execute Approved Command
 ---
 
@@ -23,6 +23,7 @@ Options:
 - `--item <id>`: Execute a specific item by ID
 - `--limit <n>`: Maximum number of items to execute (optional, no limit by default)
 - `--dry-run`: Show execution plan without making changes
+- `--auto`: Run in headless mode for autopilot execution (skips confirmations, outputs machine-readable status)
 
 Examples:
 
@@ -30,6 +31,7 @@ Examples:
 - `/execute-approved --item abc123` - Execute specific item
 - `/execute-approved --limit 3` - Execute top 3 approved items
 - `/execute-approved --dry-run` - Preview execution plan
+- `/execute-approved --auto` - Execute all approved items in headless mode (for autopilot)
 
 ## Process
 
@@ -71,6 +73,38 @@ Do NOT ask the user - just auto-update and continue.
 
 ---
 
+### Auto Mode Detection
+
+**Check if `--auto` flag is present in the command arguments.**
+
+```bash
+# Parse arguments for --auto flag
+AUTO_MODE=false
+if echo "$*" | grep -q '\-\-auto'; then
+  AUTO_MODE=true
+  echo "AUTOPILOT_MODE: Running in headless mode"
+fi
+```
+
+**When AUTO_MODE is true:**
+
+- Skip ALL user confirmations
+- Output machine-readable status lines prefixed with `AUTOPILOT_STATUS:`
+- Continue execution without waiting for user input
+- Report detailed progress for dashboard monitoring
+
+**Autopilot Status Line Format:**
+
+```
+AUTOPILOT_STATUS: {"phase": "starting", "items_count": 5}
+AUTOPILOT_STATUS: {"phase": "executing", "item_id": "xxx", "item_title": "...", "progress": "1/5"}
+AUTOPILOT_STATUS: {"phase": "validating", "item_id": "xxx", "check": "typescript"}
+AUTOPILOT_STATUS: {"phase": "complete", "items_executed": 5, "prs_created": 5}
+AUTOPILOT_STATUS: {"phase": "error", "message": "...", "item_id": "xxx"}
+```
+
+---
+
 ### Step 1: Fetch Approved Items
 
 Query Supabase for ALL approved items (no limit unless explicitly specified):
@@ -96,6 +130,100 @@ For each approved item, verify it has a PRD:
 
 - If `prd_content` is NULL, prompt user to generate PRD first
 - PRD should contain wave-based task breakdown
+
+### Step 2.5: Re-Evaluate INCONCLUSIVE Items (MANDATORY)
+
+**For items with `evidence_status: 'inconclusive'`, perform a pre-execution re-evaluation.**
+
+These items passed initial validation but couldn't be definitively proven as real problems during PM review. Before investing execution resources, verify they provide actual benefit.
+
+#### Re-Evaluation Process
+
+```bash
+# Check for inconclusive items in the approved list
+INCONCLUSIVE_ITEMS=$(echo "$APPROVED_ITEMS" | jq '[.[] | select(.evidence_status == "inconclusive")]')
+INCONCLUSIVE_COUNT=$(echo "$INCONCLUSIVE_ITEMS" | jq 'length')
+
+if [ "$INCONCLUSIVE_COUNT" -gt 0 ]; then
+  echo "Found ${INCONCLUSIVE_COUNT} items with inconclusive evidence - re-evaluating..."
+fi
+```
+
+For each inconclusive item:
+
+**Step A: Re-Evaluate Problem Reality**
+
+Invoke a quick re-evaluation:
+
+```
+Task tool call:
+  subagent_type: "Explore"
+  prompt: |
+    Re-evaluate whether this improvement would provide real benefit:
+
+    Title: ${item.title}
+    Problem: ${item.problem}
+    Solution: ${item.solution}
+    Evidence Summary: ${item.evidence_summary}
+
+    Questions to answer:
+    1. Does the claimed problem actually exist in the current codebase?
+    2. Would implementing this solution provide tangible user/developer benefit?
+    3. Is there evidence this was intentionally designed this way?
+    4. Would execution waste resources on a non-issue?
+
+    Return:
+    - EXECUTE: Problem is real, implementation would provide benefit
+    - SKIP: Problem doesn't exist OR implementation wouldn't help
+
+    Be decisive. If in doubt, lean toward SKIP to avoid wasting execution resources.
+```
+
+**Step B: Handle Re-Evaluation Result**
+
+| Result    | Action                              |
+| --------- | ----------------------------------- |
+| `EXECUTE` | Proceed with normal execution       |
+| `SKIP`    | Move to FILTERED status, log reason |
+
+**Step C: Skip Items That Fail Re-Evaluation**
+
+For items that should be skipped:
+
+```bash
+# Update item status to filtered (skipped during execution)
+curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
+  -H "apikey: ${SUPABASE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_KEY}" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  -d '{
+    "status": "deferred",
+    "skip_reason": "Re-evaluation determined no real benefit: ${reason}",
+    "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+  }'
+
+# Log the skip
+log_execution "info" "Skipped inconclusive item: ${itemTitle}" '{"item_id": "'"${itemId}"'", "skip_reason": "'"${reason}"'"}'
+```
+
+**Step D: Display Re-Evaluation Summary**
+
+```
+## Re-Evaluation of Inconclusive Items
+
+Items checked: 2
+- EXECUTE (proceeding): 1
+  - "Improve caching strategy" - Found legitimate performance bottleneck
+- SKIP (deferred): 1
+  - "Add input validation" - Existing validation is sufficient for current use case
+
+Proceeding with X items for execution...
+```
+
+**IMPORTANT:** Skipped items are marked as `deferred` (not `rejected`) so users can manually approve them later if they disagree with the re-evaluation.
+
+---
 
 ### Step 3: Create Execution Run
 

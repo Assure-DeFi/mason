@@ -390,6 +390,15 @@ ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS is_banger_idea BOOLE
 -- Add tags column for categorization (e.g., "banger" tag for rotated banger ideas)
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb;
 
+-- Add evidence validation columns (for false positive prevention via codebase evidence checking)
+-- Values: 'verified' (evidence confirms problem), 'refuted' (evidence shows problem doesn't exist), 'inconclusive' (unclear)
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS evidence_status TEXT CHECK (evidence_status IS NULL OR evidence_status IN ('verified', 'refuted', 'inconclusive'));
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS evidence_summary TEXT;
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS evidence_checked_at TIMESTAMPTZ;
+
+-- Add skip reason for items that were skipped during execution (e.g., re-evaluation determined no benefit)
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS skip_reason TEXT;
+
 -- Add source tracking for autopilot visibility
 -- Values: 'manual' (human ran /pm-review) or 'autopilot' (daemon ran it)
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
@@ -438,6 +447,7 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_features ON mason_pm_backl
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_tags ON mason_pm_backlog_items USING gin(tags);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_source ON mason_pm_backlog_items(source);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_autopilot_run ON mason_pm_backlog_items(autopilot_run_id) WHERE autopilot_run_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_evidence_status ON mason_pm_backlog_items(evidence_status) WHERE evidence_status IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_config_user_repo ON mason_autopilot_config(user_id, repository_id);
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_config_enabled ON mason_autopilot_config(enabled) WHERE enabled = true;
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_user_id ON mason_autopilot_runs(user_id);
