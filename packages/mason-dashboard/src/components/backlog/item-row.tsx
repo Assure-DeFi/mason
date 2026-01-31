@@ -2,6 +2,7 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import { FileText } from 'lucide-react';
+import { memo } from 'react';
 
 import type { ColumnWidths } from '@/hooks/useColumnResize';
 import { getComplexityValue } from '@/types/backlog';
@@ -39,7 +40,7 @@ interface ItemRowProps {
   columnWidths: ColumnWidths;
 }
 
-export function ItemRow({
+function ItemRowComponent({
   item,
   selected,
   onSelect,
@@ -180,3 +181,6 @@ export function ItemRow({
     </tr>
   );
 }
+
+// Memoize to prevent re-renders when parent state changes but item props are the same
+export const ItemRow = memo(ItemRowComponent);
