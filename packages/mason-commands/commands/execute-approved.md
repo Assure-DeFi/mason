@@ -1,7 +1,7 @@
 ---
 name: execute-approved
-version: 1.5.0
-description: Execute Approved Command
+version: 2.0.0
+description: Execute Approved Command with Domain-Aware Agents
 ---
 
 # Execute Approved Command
@@ -225,6 +225,126 @@ Proceeding with X items for execution...
 
 ---
 
+### Step 2.6: Domain-Aware Agent Routing (MANDATORY)
+
+**Route each item to its specialized execution agent based on `item.type`.**
+
+The domain expert that identified the issue during PM review has specialized knowledge that carries over to implementation. Use the appropriate execution agent for each item type:
+
+#### Type-to-Agent Mapping
+
+| Item Type      | Execution Agent                                | Specialization                          |
+| -------------- | ---------------------------------------------- | --------------------------------------- |
+| `ui`           | `.claude/agents/execute-ui-agent.md`           | Design tokens, accessibility, dark mode |
+| `ux`           | `.claude/agents/execute-ux-agent.md`           | Flow continuity, feedback, friction     |
+| `api`          | `.claude/agents/execute-api-agent.md`          | Validation, auth, response consistency  |
+| `data`         | `.claude/agents/execute-data-agent.md`         | Migrations, TABLES constant, RLS        |
+| `security`     | `.claude/agents/execute-security-agent.md`     | OWASP fixes, auth, secrets              |
+| `performance`  | `.claude/agents/execute-performance-agent.md`  | Bundle size, N+1, caching               |
+| `code-quality` | `.claude/agents/execute-code-quality-agent.md` | Type safety, refactoring, dead code     |
+| `feature`      | `.claude/agents/execute-feature-agent.md`      | New capabilities, complete states       |
+
+#### Agent Routing Logic
+
+```bash
+# Determine execution agent based on item type
+get_execution_agent() {
+  local item_type="$1"
+  case "$item_type" in
+    ui)           echo ".claude/agents/execute-ui-agent.md" ;;
+    ux)           echo ".claude/agents/execute-ux-agent.md" ;;
+    api)          echo ".claude/agents/execute-api-agent.md" ;;
+    data)         echo ".claude/agents/execute-data-agent.md" ;;
+    security)     echo ".claude/agents/execute-security-agent.md" ;;
+    performance)  echo ".claude/agents/execute-performance-agent.md" ;;
+    code-quality) echo ".claude/agents/execute-code-quality-agent.md" ;;
+    feature)      echo ".claude/agents/execute-feature-agent.md" ;;
+    *)            echo "general-purpose" ;;  # Fallback for unknown types
+  esac
+}
+
+# For each approved item, determine its execution agent
+EXECUTION_AGENT=$(get_execution_agent "$ITEM_TYPE")
+```
+
+#### Pre-Execution Verification
+
+**Before implementing, verify the problem still exists using the domain agent's verification phase.**
+
+Each execution agent has a "Phase 2: Pre-Implementation Verification" that re-validates the issue:
+
+```
+Task tool call:
+  subagent_type: "Explore"
+  prompt: |
+    Read the execution agent instructions at: ${EXECUTION_AGENT}
+
+    Then perform the Pre-Implementation Verification from Phase 2 for this item:
+
+    Title: ${item.title}
+    Type: ${item.type}
+    File: ${item.file_path}:${item.line_number}
+    Problem: ${item.problem}
+
+    Verify the problem STILL EXISTS before we invest execution resources.
+
+    Return:
+    - PROCEED: Problem confirmed, ready for implementation
+    - SKIP: Problem already resolved or doesn't exist
+    - MODIFIED: Problem exists but different from PRD description (include details)
+```
+
+**Handle verification result:**
+
+| Result     | Action                                           |
+| ---------- | ------------------------------------------------ |
+| `PROCEED`  | Continue to implementation                       |
+| `SKIP`     | Mark as `completed` with note "Already resolved" |
+| `MODIFIED` | Update PRD context before implementing           |
+
+---
+
+### Step 2.7: Extract PRD Context (MANDATORY)
+
+**Parse the PRD to extract domain-specific context for the execution agent.**
+
+Each PRD contains structured information that the execution agent needs:
+
+```bash
+# Extract PRD sections for execution context
+extract_prd_context() {
+  local prd_content="$1"
+
+  # Extract key sections
+  TARGET_FILE=$(echo "$prd_content" | grep -oE 'src/[a-zA-Z0-9/_.-]+:\d+' | head -1)
+  PROBLEM_STATEMENT=$(echo "$prd_content" | grep -A5 '## Problem')
+  SOLUTION_APPROACH=$(echo "$prd_content" | grep -A10 '## Solution')
+  EVIDENCE_SUMMARY=$(echo "$prd_content" | grep -A5 'evidence_summary')
+  WAVE_BREAKDOWN=$(echo "$prd_content" | grep -A30 '## Implementation')
+  SUCCESS_CRITERIA=$(echo "$prd_content" | grep -A5 'success_criteria')
+
+  # Build context object
+  echo "Target: $TARGET_FILE"
+  echo "Problem: $PROBLEM_STATEMENT"
+  echo "Solution: $SOLUTION_APPROACH"
+  echo "Evidence: $EVIDENCE_SUMMARY"
+  echo "Waves: $WAVE_BREAKDOWN"
+  echo "Success: $SUCCESS_CRITERIA"
+}
+
+PRD_CONTEXT=$(extract_prd_context "$ITEM_PRD_CONTENT")
+```
+
+**Pass this context to the execution agent prompt** so it has full awareness of:
+
+- Exact file/line location of the issue
+- Problem description from discovery
+- Evidence collected during PM review
+- Proposed solution approach
+- Success criteria for validation
+
+---
+
 ### Step 3: Create Execution Run
 
 ```sql
@@ -444,36 +564,106 @@ log_execution "info" "All tests passed" '{"check": "tests", "status": "pass"}'
 log_execution "error" "TypeScript check failed: 3 type errors found" '{"check": "typescript", "status": "fail", "error_count": 3}'
 ```
 
-### Step 6: Execute Waves
+### Step 6: Execute Waves with Domain-Aware Agents
 
-Execute each wave using the Task tool:
+Execute each wave using the Task tool with **domain-specialized agents**:
 
 ```typescript
-// Wave 1 - All tasks in parallel
+// Wave 1 - Exploration (parallel) - Use Explore subagent
 await Promise.all([
   Task({ subagent_type: 'Explore', prompt: '...' }),
   Task({ subagent_type: 'Explore', prompt: '...' }),
 ]);
 
-// Wave 2 - Blocked by Wave 1, run in parallel
+// Wave 2 - Implementation (parallel) - Use DOMAIN-SPECIFIC agent
+// Read the execution agent file and include in the prompt
+const agentInstructions = await Read(EXECUTION_AGENT);
 await Promise.all([
-  Task({ subagent_type: 'general-purpose', prompt: '...' }),
-  Task({ subagent_type: 'general-purpose', prompt: '...' }),
+  Task({
+    subagent_type: 'general-purpose',
+    prompt: `
+      You are a domain-specialized execution agent.
+
+      ## Agent Instructions
+      ${agentInstructions}
+
+      ## Item Context
+      Title: ${item.title}
+      Type: ${item.type}
+      PRD Context:
+      ${PRD_CONTEXT}
+
+      ## Task
+      Execute Phase 4 (Implementation) from the agent instructions.
+
+      Focus on:
+      - Following domain-specific patterns
+      - Using existing codebase conventions
+      - Meeting the success criteria from the PRD
+    `,
+  }),
 ]);
 
-// Wave 3 - Blocked by Wave 2
-await Task({ subagent_type: 'code-reviewer', prompt: '...' });
+// Wave 3 - Code Review with domain awareness
+await Task({
+  subagent_type: 'code-reviewer',
+  prompt: `
+    Review the implementation against domain-specific requirements:
+    - Item Type: ${item.type}
+    - Domain validation rules from: ${EXECUTION_AGENT}
+    - Success criteria from PRD
+  `,
+});
 ```
 
-**Subagent Types:**
+**Domain-Aware Subagent Selection:**
 
-| Type              | Use When                                     |
-| ----------------- | -------------------------------------------- |
-| `Explore`         | Finding patterns, understanding architecture |
-| `general-purpose` | Implementation, complex multi-step work      |
-| `Bash`            | Running commands, tests, builds              |
-| `code-reviewer`   | Reviewing changes, checking standards        |
-| `frontend-design` | UI/UX work, component styling                |
+| Wave Purpose      | Subagent Type     | Agent Specialization                    |
+| ----------------- | ----------------- | --------------------------------------- |
+| Exploration       | `Explore`         | Finding patterns, understanding code    |
+| Implementation    | `general-purpose` | With domain agent instructions injected |
+| UI Implementation | `frontend-design` | For `ui`/`ux` item types                |
+| Code Review       | `code-reviewer`   | Domain-aware review checklist           |
+| Validation        | `Bash`            | Running validation commands             |
+
+**CRITICAL: For implementation waves, ALWAYS include the domain agent instructions in the prompt.**
+
+#### Implementation Prompt Template
+
+```
+Task tool call:
+  subagent_type: "general-purpose" (or "frontend-design" for ui/ux types)
+  prompt: |
+    # Domain Execution Agent
+
+    You are executing an improvement identified during PM review.
+
+    ## Agent Instructions
+    Read and follow the instructions at: ${EXECUTION_AGENT}
+
+    ## Item Details
+    - Title: ${item.title}
+    - Type: ${item.type}
+    - Priority: ${item.priority_score}
+
+    ## PRD Context
+    ${item.prd_content}
+
+    ## Implementation Task
+    Execute Phase 4 (Implementation) from the agent instructions.
+
+    Apply domain-specific patterns:
+    - For UI: Design tokens, accessibility, dark mode
+    - For Security: OWASP remediation, auth checks
+    - For Performance: Measurement before/after
+    - For Data: TABLES constant, idempotent migrations
+    - For Code Quality: Behavior preservation, no new `any`
+
+    ## Success Criteria
+    ${SUCCESS_CRITERIA from PRD}
+
+    Report completion status when done.
+```
 
 ### Step 7: Track Task Progress
 
@@ -506,6 +696,119 @@ UPDATE pm_execution_tasks
 SET status = 'completed', completed_at = now()
 WHERE id = $taskId;
 ```
+
+### Step 7.5: Implementation Validator (MANDATORY)
+
+**Run the Implementation Validator AFTER implementation waves but BEFORE TypeScript/ESLint validation.**
+
+The Implementation Validator catches architectural and pattern issues early - before they cause cascading TypeScript errors or subtle bugs that pass linting.
+
+#### Validator Location
+
+`.claude/agents/implementation-validator.md`
+
+#### Invoke the Validator
+
+```
+Task tool call:
+  subagent_type: "Explore"
+  prompt: |
+    # Implementation Validation
+
+    Read the validator instructions at: .claude/agents/implementation-validator.md
+
+    Run the 5-tier validation for this implementation:
+
+    ## Item Context
+    - Title: ${item.title}
+    - Type: ${item.type}
+    - PRD File References: ${PRD_FILES}
+    - Changed Files: $(git diff --name-only HEAD)
+
+    ## Validation Tiers to Check
+
+    1. **Scope Verification**: Only PRD-specified files modified?
+    2. **Pattern Adherence**: Follows existing component/hook/API patterns?
+    3. **Import Graph**: No circular deps, no layer violations?
+    4. **Domain-Specific**: Passes ${item.type} validation rules?
+    5. **Side Effects**: No breaking changes to existing code?
+
+    ## Expected Output
+    Return JSON with validation status for each tier.
+```
+
+#### Handle Validator Results
+
+```typescript
+const validatorResult = await runImplementationValidator();
+
+// Decision matrix
+if (validatorResult.tiers.scope_verification.status === 'fail') {
+  // STOP - out of scope changes detected
+  log_execution('error', 'Scope verification failed', validatorResult);
+  // Revert out-of-scope changes or get explicit approval
+}
+
+if (validatorResult.tiers.pattern_adherence.status === 'fail') {
+  // STOP - pattern violations must be fixed before proceeding
+  log_execution('warn', 'Pattern violations detected', validatorResult);
+  // Route to domain agent for pattern fixes
+}
+
+if (validatorResult.tiers.import_graph.status === 'fail') {
+  // STOP - architectural issues
+  log_execution('error', 'Import graph violations', validatorResult);
+  // Fix circular imports or layer violations
+}
+
+if (validatorResult.summary.proceed_with_validation) {
+  // Proceed to TypeScript/ESLint validation
+  console.log('✅ Implementation validator passed');
+} else {
+  // Fix issues before proceeding
+  await fixImplementationIssues(validatorResult.recommendations);
+}
+```
+
+#### Validator Output Format
+
+```json
+{
+  "validation_status": "pass|warn|fail",
+  "tiers": {
+    "scope_verification": { "status": "pass", "out_of_scope_changes": [] },
+    "pattern_adherence": { "status": "pass", "pattern_violations": [] },
+    "import_graph": {
+      "status": "pass",
+      "circular_imports": [],
+      "layer_violations": []
+    },
+    "domain_specific": { "status": "pass", "domain": "ui", "issues": [] },
+    "side_effects": {
+      "status": "pass",
+      "breaking_changes": [],
+      "affected_files": []
+    }
+  },
+  "summary": {
+    "total_issues": 0,
+    "critical": 0,
+    "warnings": 0,
+    "proceed_with_validation": true
+  }
+}
+```
+
+#### Validator Decision Matrix
+
+| Tier Status          | Action                                             |
+| -------------------- | -------------------------------------------------- |
+| All pass             | Proceed to TypeScript/ESLint validation            |
+| Warnings only        | Proceed with caution, log warnings                 |
+| Any fail in Tier 1-3 | STOP - fix scope/pattern/import issues first       |
+| Fail in Tier 4-5     | Evaluate severity - may need fix before proceeding |
+
+---
 
 ### Step 8: Testing & Validation Wave (MANDATORY)
 
@@ -603,28 +906,126 @@ while (!allPassed && iteration < MAX_FIX_ITERATIONS) {
   const failures = results.failures;
   console.log(`❌ Iteration ${iteration}: ${failures.length} failures found`);
 
-  // Fix each failure
+  // Fix each failure using DOMAIN-AWARE agents
   for (const failure of failures) {
-    await Task({
-      subagent_type: 'general-purpose',
-      prompt: `
-        Fix the following validation failure:
+    // Route to domain expert for intelligent fixes
+    const fixAgent = getDomainFixAgent(failure.type, item.type);
 
+    await Task({
+      subagent_type: fixAgent.subagent,
+      prompt: `
+        # Domain-Aware Fix Task
+
+        You are a ${item.type} domain expert fixing a validation failure.
+
+        ## Domain Agent Instructions
+        Read and follow: ${EXECUTION_AGENT}
+
+        ## Failure Details
         **Check Type**: ${failure.type}
+        **Item Type**: ${item.type}
         **Error Output**:
         \`\`\`
         ${failure.output}
         \`\`\`
 
-        Instructions:
-        1. Analyze the error message carefully
-        2. Identify the root cause
+        ## Domain Context
+        ${PRD_CONTEXT}
+
+        ## Fix Instructions
+        1. Analyze the error through your domain expertise lens
+        2. Identify the root cause considering domain patterns
         3. Make the MINIMAL change needed to fix the issue
-        4. Do NOT introduce new features or refactoring
-        5. Focus only on making the check pass
+        4. Ensure fix follows domain-specific best practices:
+           ${fixAgent.domainChecks}
+        5. Do NOT introduce new features or refactoring
+        6. Focus only on making the check pass
+
+        ## Domain-Specific Fix Guidance
+        ${getDomainFixGuidance(item.type, failure.type)}
       `,
     });
   }
+}
+
+// Domain-aware fix agent selection
+function getDomainFixAgent(failureType, itemType) {
+  // For TypeScript errors, route to appropriate domain
+  if (failureType === 'typescript') {
+    return {
+      subagent: 'general-purpose',
+      domainChecks: getDomainTypeChecks(itemType),
+    };
+  }
+
+  // For ESLint errors related to accessibility, route to UI agent
+  if (failureType === 'eslint' && itemType === 'ui') {
+    return {
+      subagent: 'frontend-design',
+      domainChecks: 'Accessibility rules, ARIA attributes, semantic HTML',
+    };
+  }
+
+  // Default
+  return {
+    subagent: 'general-purpose',
+    domainChecks: 'Standard code quality rules',
+  };
+}
+
+// Domain-specific fix guidance
+function getDomainFixGuidance(itemType, failureType) {
+  const guidance = {
+    ui: `
+      - Use design tokens from brand palette (Navy #0A0724, Gold #E2D243)
+      - Ensure dark mode compatibility (no light-mode defaults)
+      - Add accessibility attributes (aria-label, role, tabIndex)
+      - Use Tailwind classes, not inline styles
+    `,
+    security: `
+      - Never expose sensitive data in error messages
+      - Add auth checks BEFORE data access
+      - Parameterize all database queries
+      - Move secrets to environment variables
+    `,
+    performance: `
+      - Use specific imports, not full library imports
+      - Add useMemo/useCallback for expensive operations
+      - Batch database queries to avoid N+1
+      - Use proper select() columns, not select('*')
+    `,
+    'code-quality': `
+      - Replace 'any' with proper types
+      - Maintain existing behavior (no functional changes)
+      - Follow existing naming conventions
+      - Keep nesting depth ≤ 2 levels
+    `,
+    api: `
+      - Use { data, error } response envelope
+      - Add input validation with Zod schemas
+      - Include proper error status codes
+      - Add auth middleware for protected routes
+    `,
+    data: `
+      - Use TABLES constant from @/lib/constants
+      - Make migrations idempotent (IF NOT EXISTS)
+      - Enable RLS on new tables
+      - Add proper indexes for query patterns
+    `,
+    ux: `
+      - Ensure all actions have user feedback
+      - Add loading states for async operations
+      - Preserve navigation consistency
+      - Reduce friction in user flows
+    `,
+    feature: `
+      - Implement all states (loading, error, empty, success)
+      - Follow existing component patterns
+      - Add proper TypeScript types
+      - Ensure responsive design
+    `,
+  };
+  return guidance[itemType] || 'Follow standard code quality practices';
 }
 
 if (!allPassed) {

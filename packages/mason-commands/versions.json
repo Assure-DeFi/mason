@@ -8,10 +8,10 @@
       "breaking_reason": "Iterative validation loop - agents must backfill filtered items until target count reached"
     },
     "execute-approved": {
-      "version": "1.5.0",
+      "version": "2.0.0",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "1.5.0",
-      "breaking_reason": "Re-evaluation for inconclusive items - items with inconclusive evidence are re-evaluated before execution"
+      "required_minimum": "2.0.0",
+      "breaking_reason": "Domain-aware execution agents - routes items to specialized agents (ui, security, api, etc.) for intelligent implementation"
     },
     "mason-update": {
       "version": "1.0.0",
