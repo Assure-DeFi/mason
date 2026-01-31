@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.0.0
+version: 2.0.1
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -123,6 +123,8 @@ LIMIT $limit;
 ```
 
 **IMPORTANT:** By default, execute ALL approved items. Only apply LIMIT when user explicitly passes `--limit <n>`.
+
+**CRITICAL - NO USER CONFIRMATION:** Do NOT ask the user how many items to execute or whether to execute all items vs a subset. Just execute ALL approved items without any confirmation prompt. The user invoked `/execute-approved` which means they want ALL approved items executed. If they wanted fewer, they would use `--limit`.
 
 ### Step 2: Verify PRDs Exist
 
