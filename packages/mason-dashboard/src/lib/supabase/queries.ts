@@ -26,9 +26,6 @@ export async function fetchBacklogItems(
   if (filters?.status?.length) {
     query = query.in('status', filters.status);
   }
-  if (filters?.area?.length) {
-    query = query.in('area', filters.area);
-  }
   if (filters?.type?.length) {
     query = query.in('type', filters.type);
   }

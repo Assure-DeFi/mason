@@ -136,15 +136,25 @@ export function getCategoryBreakdown(items: BacklogItem[]): CategoryBreakdown {
 }
 
 /**
- * Get breakdown of items by type (dashboard, feature, etc.)
+ * Get breakdown of items by type/category
+ * Includes all 8 new categories plus legacy values for backwards compatibility
  */
 export function getTypeBreakdown(items: BacklogItem[]): TypeBreakdown {
   const breakdown: TypeBreakdown = {
+    // New 8-category system (v2.0)
+    feature: 0,
+    ui: 0,
+    ux: 0,
+    api: 0,
+    data: 0,
+    security: 0,
+    performance: 0,
+    'code-quality': 0,
+    // Legacy values (for backwards compatibility)
     dashboard: 0,
     discovery: 0,
     auth: 0,
     backend: 0,
-    feature: 0,
   };
 
   for (const item of items) {

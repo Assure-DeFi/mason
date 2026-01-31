@@ -92,13 +92,42 @@ type BacklogArea = 'frontend' | 'backend';
 
 ---
 
-## BacklogType
+## BacklogCategory (v2.0)
 
-Type classification within an area.
+New 8-category system for domain-specific classification.
 
 ```typescript
-type BacklogType = 'dashboard' | 'discovery' | 'auth' | 'backend';
+type BacklogCategory =
+  | 'feature' // Net-new functionality (Purple + Star)
+  | 'ui' // Visual changes, components, styling (Gold)
+  | 'ux' // User flows, journey optimization (Cyan)
+  | 'api' // Endpoints, backend services (Green)
+  | 'data' // Database schema, queries (Blue)
+  | 'security' // Vulnerabilities, hardening (Red)
+  | 'performance' // Speed, optimization (Orange)
+  | 'code-quality'; // Refactors, cleanup (Gray)
 ```
+
+---
+
+## BacklogType
+
+Type classification. Includes both new categories and legacy values for backwards compatibility.
+
+```typescript
+type BacklogType =
+  | 'feature' | 'ui' | 'ux' | 'api' | 'data' | 'security' | 'performance' | 'code-quality'
+  // Legacy values (mapped for backwards compat)
+  | 'dashboard' | 'discovery' | 'auth' | 'backend';
+```
+
+**Legacy Mapping:**
+- `dashboard` → `ui`
+- `discovery` → `code-quality`
+- `auth` → `security`
+- `backend` → `api`
+
+Use `mapLegacyTypeToCategory(type)` to convert legacy types to new categories.
 
 ---
 

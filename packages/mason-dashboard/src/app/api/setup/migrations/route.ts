@@ -106,6 +106,9 @@ CREATE TABLE IF NOT EXISTS mason_pm_analysis_runs (
 );
 
 -- Mason PM Backlog Items table
+-- NOTE: type column uses new 8-category system (v2.0):
+--   feature, ui, ux, api, data, security, performance, code-quality
+-- Legacy values (dashboard, discovery, auth, backend) are still accepted for backwards compatibility
 CREATE TABLE IF NOT EXISTS mason_pm_backlog_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -117,7 +120,7 @@ CREATE TABLE IF NOT EXISTS mason_pm_backlog_items (
   problem TEXT NOT NULL,
   solution TEXT NOT NULL,
   area TEXT NOT NULL CHECK (area IN ('frontend', 'backend')),
-  type TEXT NOT NULL CHECK (type IN ('dashboard', 'discovery', 'auth', 'backend')),
+  type TEXT NOT NULL CHECK (type IN ('feature', 'ui', 'ux', 'api', 'data', 'security', 'performance', 'code-quality', 'dashboard', 'discovery', 'auth', 'backend')),
   complexity INTEGER NOT NULL CHECK (complexity BETWEEN 1 AND 5),
   impact_score INTEGER NOT NULL CHECK (impact_score BETWEEN 1 AND 10),
   effort_score INTEGER NOT NULL CHECK (effort_score BETWEEN 1 AND 10),
@@ -418,6 +421,28 @@ ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_index I
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_total INTEGER DEFAULT 0;
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_message TEXT;
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoints_completed JSONB DEFAULT '[]'::jsonb;
+
+-- Update type CHECK constraint to include new 8-category system (v2.0)
+-- This migration updates existing databases to accept new category values
+-- New categories: feature, ui, ux, api, data, security, performance, code-quality
+-- Legacy categories: dashboard->ui, discovery->code-quality, auth->security, backend->api
+DO $$ BEGIN
+  -- Drop old constraint if it exists
+  ALTER TABLE mason_pm_backlog_items DROP CONSTRAINT IF EXISTS mason_pm_backlog_items_type_check;
+  -- Add new constraint with all categories (new + legacy for backwards compat)
+  ALTER TABLE mason_pm_backlog_items ADD CONSTRAINT mason_pm_backlog_items_type_check
+    CHECK (type IN ('feature', 'ui', 'ux', 'api', 'data', 'security', 'performance', 'code-quality', 'dashboard', 'discovery', 'auth', 'backend'));
+EXCEPTION WHEN duplicate_object THEN
+  NULL; -- Constraint already exists with correct values
+END $$;
+
+-- Also update filtered items table to accept new category values
+DO $$ BEGIN
+  ALTER TABLE mason_pm_filtered_items DROP CONSTRAINT IF EXISTS mason_pm_filtered_items_type_check;
+  -- No constraint was originally defined for filtered_items, just ensure it accepts new values
+EXCEPTION WHEN undefined_object THEN
+  NULL; -- No constraint to drop
+END $$;
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_mason_api_keys_user_id ON mason_api_keys(user_id);

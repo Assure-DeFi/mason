@@ -23,12 +23,56 @@ export function getComplexityValue(complexity: string | number): number {
 
 export type BacklogArea = 'frontend' | 'backend';
 
+/**
+ * NEW: Category-based classification system (v2.0)
+ * Replaces the old BacklogType for clearer domain-specific categorization.
+ */
+export type BacklogCategory =
+  | 'feature' // Net-new functionality (Purple + Star)
+  | 'ui' // Visual changes, components, styling (Gold)
+  | 'ux' // User flows, journey optimization (Cyan)
+  | 'api' // Endpoints, backend services (Green)
+  | 'data' // Database schema, queries (Blue)
+  | 'security' // Vulnerabilities, hardening (Red)
+  | 'performance' // Speed, optimization (Orange)
+  | 'code-quality'; // Refactors, cleanup (Gray)
+
+/**
+ * @deprecated Use BacklogCategory instead. Kept for backwards compatibility.
+ * Maps to new categories: dashboard->ui, discovery->code-quality, auth->security, backend->api
+ */
 export type BacklogType =
+  | 'feature'
+  | 'ui'
+  | 'ux'
+  | 'api'
+  | 'data'
+  | 'security'
+  | 'performance'
+  | 'code-quality'
+  // Legacy values (mapped for backwards compatibility)
   | 'dashboard'
   | 'discovery'
   | 'auth'
-  | 'backend'
-  | 'feature';
+  | 'backend';
+
+/**
+ * Maps legacy type values to new categories for backwards compatibility
+ */
+export function mapLegacyTypeToCategory(type: BacklogType): BacklogCategory {
+  switch (type) {
+    case 'dashboard':
+      return 'ui';
+    case 'discovery':
+      return 'code-quality';
+    case 'auth':
+      return 'security';
+    case 'backend':
+      return 'api';
+    default:
+      return type as BacklogCategory;
+  }
+}
 
 export type BacklogStatus =
   | 'new'
@@ -166,7 +210,6 @@ export interface FilteredItem {
 
 export interface BacklogFilters {
   status?: BacklogStatus[];
-  area?: BacklogArea[];
   type?: BacklogType[];
   complexity?: number[];
   search?: string;
@@ -177,7 +220,6 @@ export type SortField =
   | 'type'
   | 'priority_score'
   | 'complexity'
-  | 'area'
   | 'status'
   | 'updated_at'
   | 'impact_score'

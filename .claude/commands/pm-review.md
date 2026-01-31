@@ -1,16 +1,27 @@
 ---
 name: pm-review
-version: 1.8.0
-description: PM Review Command
+version: 2.0.0
+description: PM Review Command - Agent Swarm Architecture
 ---
 
 # PM Review Command
 
-You are a **Product Manager agent** analyzing this codebase for improvement opportunities.
+You are a **Product Manager agent** analyzing this codebase for improvement opportunities using a **swarm of 8 specialized category agents**.
 
 ## Overview
 
-This command performs a comprehensive analysis of the codebase to identify improvements across multiple domains: frontend UX, API/backend, reliability, security, and code quality.
+This command performs a comprehensive analysis of the codebase using 8 specialized agents that run **in parallel**, each focused on a specific category:
+
+| Category         | Badge Color   | Agent Focus                                          |
+| ---------------- | ------------- | ---------------------------------------------------- |
+| **Feature**      | Purple + Star | Net-new functionality opportunities                  |
+| **UI**           | Gold          | Visual changes, components, styling, layout          |
+| **UX**           | Cyan          | User flows, journey optimization, friction reduction |
+| **API**          | Green         | Endpoints, backend services, contracts               |
+| **Data**         | Blue          | Database schema, queries, data modeling              |
+| **Security**     | Red           | Vulnerabilities, hardening, input validation, auth   |
+| **Performance**  | Orange        | Speed, optimization, caching, load times             |
+| **Code Quality** | Gray          | Refactors, cleanup, tech debt, documentation         |
 
 ## MANDATORY: Feature Ideas & Banger Idea
 
@@ -408,93 +419,127 @@ Load the domain-specific knowledge from `.claude/skills/pm-domain-knowledge/SKIL
 - User personas
 - Known pain points
 
-### Step 2: Analyze Codebase
+### Step 2: Launch Agent Swarm (PARALLEL EXECUTION)
 
-**If focus context is provided:** Before exploring all domains, first identify the relevant files/directories based on the "Focus on:" context. Limit your initial exploration to these areas. Only generate improvements that directly relate to the focused area.
+**CRITICAL: Launch all 8 category agents IN PARALLEL using a single message with 8 Task tool calls.**
 
-Explore the codebase systematically across these domains:
+This is the core of the swarm architecture. Each agent runs independently, exploring their domain and producing recommendations.
 
-| Domain           | What to Look For                                                           |
-| ---------------- | -------------------------------------------------------------------------- |
-| **frontend-ux**  | UI/UX issues, accessibility, responsive design, user flow friction         |
-| **api-backend**  | API design, performance, error handling, missing endpoints                 |
-| **reliability**  | Error handling, logging, monitoring, retry logic, graceful degradation     |
-| **security**     | Auth issues, input validation, secrets exposure, OWASP vulnerabilities     |
-| **code-quality** | Code duplication, complexity, naming, testing gaps, technical debt         |
-| **new-features** | New capabilities, integrations, automation opportunities, user-value ideas |
+**If focus context is provided:** Pass the focus context to each agent so they can narrow their analysis.
 
-### Step 2.5: Creative Ideation Phase (MANDATORY - RUNS EVERY TIME)
-
-## ⚠️ HARD REQUIREMENT: THIS STEP CANNOT BE SKIPPED ⚠️
-
-**The feature-ideation agent MUST run on EVERY /pm-review execution.**
-
-This is NOT optional. This is NOT "after issue-finding if you have time."
-This MUST happen EVERY SINGLE RUN.
-
-**WHY THIS IS MANDATORY:**
-
-- Without features and a banger idea, the PM review is INCOMPLETE
-- The pre-submission validation will BLOCK you if these are missing
-- Users expect transformative ideas, not just bug reports
-
----
-
-**CRITICAL: This is a DIFFERENT mindset than issue-finding.**
-
-Issue-finding asks: "What's wrong?"
-Creative ideation asks: "What could be AMAZING?"
-
-**IMMEDIATELY after starting issue-finding agents, ALSO spawn the feature-ideation agent in parallel:**
-
-**Use the Task tool with subagent_type: "feature-ideation":**
+**Launch the swarm with a single message containing 8 Task tool invocations:**
 
 ```
-subagent_type: "feature-ideation"
+Use the Task tool 8 times in a SINGLE message with these agents:
+
+1. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-feature-agent.md
+2. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-ui-agent.md
+3. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-ux-agent.md
+4. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-api-agent.md
+5. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-data-agent.md
+6. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-security-agent.md
+7. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-performance-agent.md
+8. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-code-quality-agent.md
+```
+
+**Each agent prompt should include:**
+
+1. Read the agent definition file: `.claude/agents/pm-{category}-agent.md`
+2. The repository_id and supabase credentials (for dedup checks)
+3. Any focus context from the user
+4. Instructions to return JSON with category and recommendations array
+
+**Example agent invocation:**
+
+```
+subagent_type: "general-purpose"
 prompt: |
-  You are the feature-ideation agent. Analyze this codebase with a PRODUCT VISIONARY mindset.
+  You are the **{CATEGORY} Agent** for PM review. Read your full instructions from:
+  .claude/agents/pm-{category}-agent.md
 
-  Your job is to identify:
-  1. What this app is trying to accomplish
-  2. Who the target user is
-  3. What's missing that would make this AMAZING
+  Context:
+  - Repository ID: ${REPOSITORY_ID}
+  - Supabase URL: ${supabaseUrl}
+  - Focus (if any): ${focus_context}
 
-  Return structured JSON with:
-  - app_understanding (intent, target_user, current_state, gaps)
-  - feature_ideas (3-5 items, each with is_new_feature: true, is_banger_idea: false)
-  - banger_idea (exactly 1 item with is_new_feature: true, is_banger_idea: true)
+  Your job:
+  1. Explore the codebase for issues in YOUR domain only
+  2. Generate improvement recommendations with full scoring
+  3. Validate each recommendation (verify problem exists)
+  4. Check for duplicates against existing backlog items of type "{category}"
+  5. Return JSON with your findings
 
-  Focus on what would make users say 'wow' - NOT on bugs or code quality.
-  Think like a founder who deeply understands target users.
-
-  Read .claude/agents/feature-ideation.md for full instructions.
+  Return format:
+  {
+    "category": "{category}",
+    "recommendations": [
+      {
+        "title": "...",
+        "problem": "...",
+        "solution": "...",
+        "type": "{category}",
+        "area": "frontend|backend",
+        "impact_score": 1-10,
+        "effort_score": 1-10,
+        "complexity": 1-5,
+        "is_new_feature": true|false,
+        "is_banger_idea": false,
+        "benefits": [...5 required...],
+        "evidence": {...}
+      }
+    ],
+    "duplicates_filtered": [...],
+    "validation_summary": {...}
+  }
 ```
 
-The output provides the raw material for the feature items submitted to the database.
+**IMPORTANT:** The Feature agent is responsible for generating:
 
-**EXECUTION ORDER:**
+- 3-5 new feature ideas with `is_new_feature: true`
+- Exactly 1 "Banger Idea" with `is_banger_idea: true`
 
-1. Start issue-finding agents (Step 2) - these can run in parallel
-2. **SIMULTANEOUSLY** start the feature-ideation agent - it runs IN PARALLEL with issue-finding
-3. Wait for ALL agents (issue-finding AND feature-ideation) to complete
-4. Combine results and proceed to scoring
+All other agents set both flags to `false`.
 
-**WHY PARALLEL EXECUTION:**
+### Step 2.5: Aggregate Agent Results
 
-- Feature-ideation requires a completely different mental model
-- Bug-finding mindset suppresses creative thinking
-- Running in parallel saves time
-- The banger idea deserves dedicated focus from a specialized agent
+**Wait for all 8 agents to complete, then aggregate their results.**
 
-**IF YOU FORGET TO RUN FEATURE-IDEATION:**
+The swarm execution will return results from each agent. Combine them:
 
-The Pre-Submission Validation (before Step 6) will BLOCK you with:
+```bash
+# Collect results from all 8 agents
+ALL_RECOMMENDATIONS = []
+ALL_DUPLICATES_FILTERED = []
 
+for agent_result in [feature, ui, ux, api, data, security, performance, code_quality]:
+  ALL_RECOMMENDATIONS.extend(agent_result.recommendations)
+  ALL_DUPLICATES_FILTERED.extend(agent_result.duplicates_filtered)
 ```
-BLOCKED: Missing feature ideas. Go back to Step 2.5 (Creative Ideation Phase).
-```
 
-You will then need to run feature-ideation before proceeding. Save time by running it in parallel from the start.
+**Verify Feature Agent Output:**
+
+The Feature agent MUST have produced:
+
+- At least 3-5 items with `is_new_feature: true`
+- Exactly 1 item with `is_banger_idea: true`
+
+If not, the Pre-Submission Validation will BLOCK you later.
+
+**Cross-Agent Deduplication:**
+
+After aggregation, check for duplicates ACROSS categories:
+
+```bash
+# For each recommendation, check against others in the aggregate
+for rec in ALL_RECOMMENDATIONS:
+  for other in ALL_RECOMMENDATIONS:
+    if rec.id != other.id:
+      similarity = calculate_title_similarity(rec.title, other.title)
+      if similarity >= 70%:
+        # Keep the one with higher priority score, filter the other
+        if rec.priority_score <= other.priority_score:
+          filter_as_cross_category_duplicate(rec)
+```
 
 ### Step 3: Score Each Improvement
 
@@ -526,20 +571,32 @@ For each improvement identified, assign scores:
 
 ### Step 4: Classify Each Improvement
 
-For each improvement, assign these classifications:
+Each agent assigns the correct category based on their domain. The categories are:
 
-**Type** (matches UI badge):
+**Category** (matches UI badge colors):
 
-- `dashboard` - Dashboard/UI improvements (Gold badge)
-- `discovery` - Discovery engine improvements (Purple badge)
-- `auth` - Authentication/authorization (Cyan badge)
-- `backend` - Backend/API improvements (Green badge)
-- `feature` - New feature ideas (Purple/Star badge)
+| Category       | Badge Color   | When to Use                                          |
+| -------------- | ------------- | ---------------------------------------------------- |
+| `feature`      | Purple + Star | Net-new functionality, user capabilities             |
+| `ui`           | Gold          | Visual changes, components, styling, layout          |
+| `ux`           | Cyan          | User flows, journey optimization, friction reduction |
+| `api`          | Green         | Endpoints, backend services, API contracts           |
+| `data`         | Blue          | Database schema, queries, data modeling              |
+| `security`     | Red           | Vulnerabilities, hardening, input validation         |
+| `performance`  | Orange        | Speed, optimization, caching, load times             |
+| `code-quality` | Gray          | Refactors, cleanup, tech debt, documentation         |
 
-**Area**:
+**Area** (kept for backwards compatibility):
 
 - `frontend` - Frontend code changes
 - `backend` - Backend code changes
+
+**NOTE:** Legacy type values (`dashboard`, `discovery`, `auth`, `backend`) are still accepted for backwards compatibility. The dashboard will map them to new categories:
+
+- `dashboard` → `ui`
+- `discovery` → `code-quality`
+- `auth` → `security`
+- `backend` → `api`
 
 ### Step 5: Generate Benefits (MANDATORY - NO EXCEPTIONS)
 

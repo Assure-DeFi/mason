@@ -282,7 +282,7 @@ export function ImprovementsTable({
                 isResizing={resizingColumn === 'title'}
               />
               <SortableHeader
-                label="Type"
+                label="Category"
                 field="type"
                 columnId="type"
                 width={columnWidths.type}
@@ -310,16 +310,6 @@ export function ImprovementsTable({
                 onSort={onSortChange}
                 onResizeStart={handleResizeStart}
                 isResizing={resizingColumn === 'complexity'}
-              />
-              <SortableHeader
-                label="Area"
-                field="area"
-                columnId="area"
-                width={columnWidths.area}
-                currentSort={sort}
-                onSort={onSortChange}
-                onResizeStart={handleResizeStart}
-                isResizing={resizingColumn === 'area'}
               />
               <SortableHeader
                 label="Status"

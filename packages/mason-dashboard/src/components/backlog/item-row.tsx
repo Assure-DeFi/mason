@@ -8,9 +8,9 @@ import { getComplexityValue } from '@/types/backlog';
 import type { BacklogItem, BacklogStatus } from '@/types/backlog';
 
 import { BangerBadge } from './BangerBadge';
+import { CategoryBadge } from './category-badge';
 import { PriorityDots } from './priority-dots';
 import { QuickWinBadge } from './QuickWinBadge';
-import { TypeBadge } from './type-badge';
 
 const STATUS_COLORS: Record<BacklogStatus, { text: string; bg: string }> = {
   new: { text: 'text-cyan-400', bg: 'bg-cyan-500/10' },
@@ -103,9 +103,9 @@ export function ItemRow({
         </div>
       </td>
 
-      {/* Type */}
+      {/* Category (was Type) */}
       <td className="py-3 px-3" style={{ width: `${columnWidths.type}px` }}>
-        <TypeBadge type={item.type} isNewFeature={item.is_new_feature} />
+        <CategoryBadge type={item.type} isNewFeature={item.is_new_feature} />
       </td>
 
       {/* Priority */}
@@ -133,13 +133,6 @@ export function ItemRow({
             {item.complexity}/5
           </span>
         </div>
-      </td>
-
-      {/* Area */}
-      <td className="py-3 px-3" style={{ width: `${columnWidths.area}px` }}>
-        <span className="px-2 py-1 text-xs font-medium bg-black/30 text-gray-400 border border-gray-700">
-          {item.area === 'frontend' ? 'Frontend' : 'Backend'}
-        </span>
       </td>
 
       {/* Status */}

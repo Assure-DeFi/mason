@@ -1,48 +1,38 @@
 'use client';
 
-import type { BacklogArea, BacklogType } from '@/types/backlog';
+import type { BacklogCategory, BacklogType } from '@/types/backlog';
 
 interface BacklogFiltersProps {
-  selectedAreas: BacklogArea[];
   selectedTypes: BacklogType[];
   complexityRange: [number, number];
   effortRange: [number, number];
-  onAreasChange: (areas: BacklogArea[]) => void;
   onTypesChange: (types: BacklogType[]) => void;
   onComplexityChange: (range: [number, number]) => void;
   onEffortChange: (range: [number, number]) => void;
 }
 
-const AREAS: { value: BacklogArea; label: string }[] = [
-  { value: 'frontend', label: 'Frontend' },
-  { value: 'backend', label: 'Backend' },
-];
-
-const TYPES: { value: BacklogType; label: string }[] = [
-  { value: 'dashboard', label: 'Dashboard' },
-  { value: 'discovery', label: 'Discovery' },
-  { value: 'auth', label: 'Auth' },
-  { value: 'backend', label: 'Backend' },
+/**
+ * New 8-category system with colors matching CategoryBadge
+ */
+const CATEGORIES: { value: BacklogCategory; label: string; color: string }[] = [
+  { value: 'feature', label: 'Feature', color: 'purple' },
+  { value: 'ui', label: 'UI', color: 'gold' },
+  { value: 'ux', label: 'UX', color: 'cyan' },
+  { value: 'api', label: 'API', color: 'green' },
+  { value: 'data', label: 'Data', color: 'blue' },
+  { value: 'security', label: 'Security', color: 'red' },
+  { value: 'performance', label: 'Performance', color: 'orange' },
+  { value: 'code-quality', label: 'Code Quality', color: 'gray' },
 ];
 
 export function BacklogFilters({
-  selectedAreas,
   selectedTypes,
   complexityRange,
   effortRange,
-  onAreasChange,
   onTypesChange,
   onComplexityChange,
   onEffortChange,
 }: BacklogFiltersProps) {
-  const toggleArea = (area: BacklogArea) => {
-    if (selectedAreas.includes(area)) {
-      onAreasChange(selectedAreas.filter((a) => a !== area));
-    } else {
-      onAreasChange([...selectedAreas, area]);
-    }
-  };
-
   const toggleType = (type: BacklogType) => {
     if (selectedTypes.includes(type)) {
       onTypesChange(selectedTypes.filter((t) => t !== type));
@@ -52,46 +42,24 @@ export function BacklogFilters({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-      {/* Area Filter */}
-      <div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Category Filter - spans 2 columns on larger screens */}
+      <div className="md:col-span-1">
         <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Area
+          Category
         </label>
-        <div className="space-y-2">
-          {AREAS.map((area) => (
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {CATEGORIES.map((category) => (
             <button
-              key={area.value}
-              onClick={() => toggleArea(area.value)}
+              key={category.value}
+              onClick={() => toggleType(category.value)}
               className={`block w-full text-left px-3 py-2 border transition-all ${
-                selectedAreas.includes(area.value)
+                selectedTypes.includes(category.value)
                   ? 'border-gold bg-gold/20 text-gold font-medium'
                   : 'border-gray-700 bg-black/20 text-gray-300 hover:bg-white/5'
               }`}
             >
-              {area.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Type Filter */}
-      <div>
-        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Type
-        </label>
-        <div className="space-y-2">
-          {TYPES.map((type) => (
-            <button
-              key={type.value}
-              onClick={() => toggleType(type.value)}
-              className={`block w-full text-left px-3 py-2 border transition-all ${
-                selectedTypes.includes(type.value)
-                  ? 'border-gold bg-gold/20 text-gold font-medium'
-                  : 'border-gray-700 bg-black/20 text-gray-300 hover:bg-white/5'
-              }`}
-            >
-              {type.label}
+              {category.label}
             </button>
           ))}
         </div>

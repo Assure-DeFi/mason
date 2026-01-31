@@ -9,7 +9,6 @@ export type ResizableColumnId =
   | 'type'
   | 'priority'
   | 'complexity'
-  | 'area'
   | 'status'
   | 'updated';
 
@@ -19,7 +18,6 @@ export interface ColumnWidths {
   type: number;
   priority: number;
   complexity: number;
-  area: number;
   status: number;
   prd: number;
   updated: number;
@@ -27,11 +25,10 @@ export interface ColumnWidths {
 
 const DEFAULT_WIDTHS: ColumnWidths = {
   checkbox: 48,
-  title: 380,
-  type: 120,
+  title: 420, // Increased since area column removed
+  type: 130, // Increased for longer category names like "Code Quality"
   priority: 100,
   complexity: 110,
-  area: 100,
   status: 120,
   prd: 56,
   updated: 130,
@@ -40,10 +37,9 @@ const DEFAULT_WIDTHS: ColumnWidths = {
 const MIN_WIDTHS: ColumnWidths = {
   checkbox: 48,
   title: 200,
-  type: 80,
+  type: 100,
   priority: 80,
   complexity: 90,
-  area: 80,
   status: 100,
   prd: 56,
   updated: 100,
@@ -55,7 +51,6 @@ const MAX_WIDTHS: ColumnWidths = {
   type: 200,
   priority: 150,
   complexity: 150,
-  area: 150,
   status: 180,
   prd: 56,
   updated: 200,
@@ -99,7 +94,6 @@ function saveWidths(widths: ColumnWidths): void {
     type: widths.type,
     priority: widths.priority,
     complexity: widths.complexity,
-    area: widths.area,
     status: widths.status,
     updated: widths.updated,
   };
@@ -113,7 +107,6 @@ function areWidthsCustomized(widths: ColumnWidths): boolean {
     'type',
     'priority',
     'complexity',
-    'area',
     'status',
     'updated',
   ];
