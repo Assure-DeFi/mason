@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 1.2.0
+version: 1.4.0
 description: Execute Approved Command
 ---
 

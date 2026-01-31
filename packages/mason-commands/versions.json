@@ -8,10 +8,10 @@
       "breaking_reason": "20-item cap and banger rotation - max 20 items per run, old bangers move to feature list with BANGER badge"
     },
     "execute-approved": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "1.2.0",
-      "breaking_reason": "Synchronous logging fix - logs now reliably write to database"
+      "required_minimum": "1.4.0",
+      "breaking_reason": "Checkpoint-based progress tracking - dashboard shows real-time checkpoints instead of unreliable logs"
     },
     "mason-update": {
       "version": "1.0.0",
