@@ -126,3 +126,53 @@ description: Brief description of what this command does.
 **Why**: The MIGRATION_SQL is the single source of truth. Existing users need to run migrations to get new schema. If code references tables that don't exist in migrations, existing users get errors. All migrations must be idempotent (CREATE IF NOT EXISTS pattern).
 
 ---
+
+## Command Versioning: Update ALL THREE Locations
+
+**Discovered**: 2026-01-30
+**Context**: Updated /pm-review command but users didn't get the update because versions.json wasn't bumped
+**Pattern**: When modifying versioned commands (/pm-review, /execute-approved), MUST update:
+
+1. `packages/mason-commands/versions.json` - manifest with version + required_minimum
+2. `packages/mason-commands/commands/<command>.md` - source file
+3. `.claude/commands/<command>.md` - local testing copy
+   Set `required_minimum` to force all users to auto-update before next execution.
+   **Why**: Without setting required_minimum, users continue running outdated commands and miss critical fixes/features.
+
+---
+
+## Feature Ideation: Use Specialized Agent for Creativity
+
+**Discovered**: 2026-01-30
+**Context**: PM review wasn't generating "banger ideas" - creative feature suggestions were flat
+**Pattern**: For creative ideation tasks (feature suggestions, "banger ideas"), use a dedicated `feature-ideation` subagent with founder/product mindset rather than having the main agent generate ideas inline.
+**Why**: Creative ideation benefits from dedicated context and a different thinking mode than systematic code review. Specialized agents produce more innovative suggestions.
+
+---
+
+## API Keys: Per-User Not Per-Repository
+
+**Discovered**: 2026-01-30
+**Context**: API keys were being stored per-repository, causing "Invalid API key" for users with multiple repos
+**Pattern**: API keys should be stored and validated per-user, not per-repository. A user's API key works across all their connected repos.
+**Why**: Users connect multiple repositories - they shouldn't need separate API keys for each. Query by user_id only, not by repository_id.
+
+---
+
+## Supabase Subscriptions: Polling Fallback Required
+
+**Discovered**: 2026-01-30
+**Context**: BuildingTheater logs showed "Waiting for logs..." because Supabase realtime subscription silently failed
+**Pattern**: Always implement polling fallback for Supabase realtime subscriptions. Subscriptions can fail silently due to connection issues, RLS policies, or network problems.
+**Why**: Realtime is not guaranteed. A polling interval (e.g., 3 seconds) ensures data eventually appears even when subscription is broken.
+
+---
+
+## Status Tab Filtering: Features Should Follow Same Rules
+
+**Discovered**: 2026-01-30
+**Context**: "Banger Idea" and "Feature Ideas" sections showed on ALL tabs, not respecting status filtering
+**Pattern**: Special content sections (featured items, banners, highlighted ideas) should respect the same status filtering as regular items. If viewing "Approved" tab, only show approved featured content.
+**Why**: Consistent filtering behavior prevents confusion. Users expect all visible content to match their current filter selection.
+
+---
