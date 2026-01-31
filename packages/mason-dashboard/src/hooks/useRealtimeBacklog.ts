@@ -5,13 +5,20 @@
  *
  * Subscribes to real-time changes on the mason_pm_backlog_items table.
  * Enables the dashboard to update automatically when CLI executes items.
+ * Uses exponential backoff retry for resilient connections.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useEffect, useRef } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 
 import { TABLES, REALTIME_CHANNELS } from '@/lib/constants';
 import type { BacklogItem } from '@/types/backlog';
+
+import {
+  useRealtimeSubscription,
+  type ConnectionState,
+  type SubscriptionConfig,
+} from './useRealtimeSubscription';
 
 interface UseRealtimeBacklogOptions {
   /** Supabase client instance */
@@ -24,14 +31,26 @@ interface UseRealtimeBacklogOptions {
   onItemDelete?: (oldItem: BacklogItem) => void;
   /** Whether to enable the subscription (default: true) */
   enabled?: boolean;
+  /** Called when connection state changes (for UI feedback) */
+  onConnectionStateChange?: (state: ConnectionState) => void;
+}
+
+interface UseRealtimeBacklogReturn {
+  /** Current connection state */
+  connectionState: ConnectionState;
+  /** Number of retry attempts made */
+  retryCount: number;
+  /** Manually trigger a reconnection attempt */
+  reconnect: () => void;
 }
 
 /**
  * Hook for subscribing to real-time backlog item changes.
+ * Features exponential backoff retry for resilient connections.
  *
  * Usage:
  * ```tsx
- * useRealtimeBacklog({
+ * const { connectionState, retryCount } = useRealtimeBacklog({
  *   client,
  *   onItemUpdate: (item) => {
  *     setItems(prev => prev.map(i => i.id === item.id ? item : i));
@@ -40,6 +59,11 @@ interface UseRealtimeBacklogOptions {
  *     setItems(prev => [item, ...prev]);
  *   },
  * });
+ *
+ * // Optional: Show connection status
+ * if (connectionState === 'retrying') {
+ *   console.log(`Reconnecting... attempt ${retryCount}`);
+ * }
  * ```
  */
 export function useRealtimeBacklog({
@@ -48,8 +72,9 @@ export function useRealtimeBacklog({
   onItemInsert,
   onItemDelete,
   enabled = true,
-}: UseRealtimeBacklogOptions): void {
-  // Use refs to avoid recreating subscription when callbacks change
+  onConnectionStateChange,
+}: UseRealtimeBacklogOptions): UseRealtimeBacklogReturn {
+  // Use refs to avoid recreating subscriptions when callbacks change
   const onItemUpdateRef = useRef(onItemUpdate);
   const onItemInsertRef = useRef(onItemInsert);
   const onItemDeleteRef = useRef(onItemDelete);
@@ -61,65 +86,46 @@ export function useRealtimeBacklog({
     onItemDeleteRef.current = onItemDelete;
   }, [onItemUpdate, onItemInsert, onItemDelete]);
 
-  useEffect(() => {
-    if (!client || !enabled) {
-      return;
-    }
-
-    const channel = client
-      .channel(REALTIME_CHANNELS.BACKLOG_CHANGES)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: TABLES.PM_BACKLOG_ITEMS,
-        },
-        (payload) => {
+  // Build subscription configurations
+  const subscriptions = useMemo((): SubscriptionConfig[] => {
+    return [
+      {
+        event: 'UPDATE',
+        table: TABLES.PM_BACKLOG_ITEMS,
+        onPayload: (payload) => {
           if (onItemUpdateRef.current) {
             onItemUpdateRef.current(payload.new as BacklogItem);
           }
         },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: TABLES.PM_BACKLOG_ITEMS,
-        },
-        (payload) => {
+      },
+      {
+        event: 'INSERT',
+        table: TABLES.PM_BACKLOG_ITEMS,
+        onPayload: (payload) => {
           if (onItemInsertRef.current) {
             onItemInsertRef.current(payload.new as BacklogItem);
           }
         },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: TABLES.PM_BACKLOG_ITEMS,
-        },
-        (payload) => {
+      },
+      {
+        event: 'DELETE',
+        table: TABLES.PM_BACKLOG_ITEMS,
+        onPayload: (payload) => {
           if (onItemDeleteRef.current) {
             onItemDeleteRef.current(payload.old as BacklogItem);
           }
         },
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[Realtime] Subscribed to backlog changes');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] Failed to subscribe to backlog changes');
-        }
-      });
+      },
+    ];
+  }, []);
 
-    return () => {
-      console.log('[Realtime] Unsubscribing from backlog changes');
-      void client.removeChannel(channel);
-    };
-  }, [client, enabled]);
+  return useRealtimeSubscription({
+    client,
+    channelName: REALTIME_CHANNELS.BACKLOG_CHANGES,
+    subscriptions,
+    enabled,
+    onConnectionStateChange,
+  });
 }
 
 export default useRealtimeBacklog;
