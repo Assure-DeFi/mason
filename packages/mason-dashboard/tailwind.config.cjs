@@ -12,6 +12,15 @@ module.exports = {
         navy: '#0A0724',
         gold: '#E2D243',
       },
+      animation: {
+        'pulse-gold': 'pulse-gold 2s ease-in-out infinite',
+      },
+      keyframes: {
+        'pulse-gold': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.6' },
+        },
+      },
     },
   },
   plugins: [],

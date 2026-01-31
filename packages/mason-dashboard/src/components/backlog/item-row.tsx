@@ -2,6 +2,7 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import { FileText } from 'lucide-react';
+import { memo } from 'react';
 
 import type { ColumnWidths } from '@/hooks/useColumnResize';
 import { getComplexityValue } from '@/types/backlog';
@@ -39,7 +40,7 @@ interface ItemRowProps {
   columnWidths: ColumnWidths;
 }
 
-export function ItemRow({
+function ItemRowComponent({
   item,
   selected,
   onSelect,
@@ -59,8 +60,15 @@ export function ItemRow({
 
   return (
     <tr
-      className="border-b border-gray-800/30 hover:bg-white/5 cursor-pointer transition-all group"
+      tabIndex={0}
+      className="border-b border-gray-800/30 hover:bg-white/5 cursor-pointer transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 focus-visible:ring-inset focus-visible:bg-white/5"
       onClick={() => onClick(item)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(item);
+        }
+      }}
     >
       {/* Checkbox */}
       <td
@@ -180,3 +188,6 @@ export function ItemRow({
     </tr>
   );
 }
+
+// Memoize to prevent re-renders when parent state changes but item props are the same
+export const ItemRow = memo(ItemRowComponent);
