@@ -42,6 +42,20 @@ DO $$ BEGIN
 END $$;
 ```
 
+### 0.5 ALWAYS Bump Command Versions After Schema Changes
+
+**This is MANDATORY and non-negotiable.**
+
+Schema changes that affect execution behavior MUST include command version bumps:
+
+1. **Bump `versions.json`** - Increment version AND set `required_minimum` to force auto-update
+2. **Update command `.md` files** - Both source and local copies
+3. **Set breaking_reason** - Describe what changed
+
+**Why:** Users with old command versions won't interact correctly with new schema. Auto-updates ensure compatibility.
+
+See `.claude/rules/learned-patterns.md` "MANDATORY: Version Bump on Any Execution/Dashboard Change" for full checklist.
+
 ### 1. NEVER Delete User Data
 
 **Absolutely prohibited in migrations:**
