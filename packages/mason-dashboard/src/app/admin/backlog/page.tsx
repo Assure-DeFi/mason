@@ -31,6 +31,7 @@ import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
 import { MasonMark } from '@/components/brand';
+import { ErrorBoundary } from '@/components/errors';
 import { ExecutionProgress } from '@/components/execution/execution-progress';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { AutopilotToast } from '@/components/ui/AutopilotToast';
@@ -1213,74 +1214,81 @@ export default function BacklogPage() {
 
       {/* Content Area */}
       <div className="max-w-7xl mx-auto">
-        {isLoading ? (
-          // Skeleton loading state matching ImprovementsTable columns
-          <div className="p-6">
-            <ImprovementsTableSkeleton rows={5} />
-          </div>
-        ) : isEmpty ? (
-          // Empty state onboarding
-          <EmptyStateOnboarding onRefresh={fetchItems} />
-        ) : (
-          <div className="space-y-6 p-6">
-            {/* Banger Idea - Featured at top */}
-            {bangerIdea && (
-              <BangerIdeaCard
-                item={bangerIdea}
-                onViewDetails={handleItemClick}
-                onApprove={(id) => void handleUpdateStatus(id, 'approved')}
-                onReject={(id) => void handleUpdateStatus(id, 'rejected')}
-                onComplete={(id) => void handleUpdateStatus(id, 'completed')}
-                onDelete={(id) => void handleBulkDelete([id])}
-              />
-            )}
-
-            {/* Feature Ideas Section */}
-            <FeatureIdeasSection
-              items={featureIdeas}
-              onViewDetails={handleItemClick}
-              onApprove={(id) => handleUpdateStatus(id, 'approved')}
-              onReject={(id) => handleUpdateStatus(id, 'rejected')}
-              onComplete={(id) => handleUpdateStatus(id, 'completed')}
-              onDelete={(id) => handleBulkDelete([id])}
-            />
-
-            {/* Improvements Table */}
-            {(bangerIdea || featureIdeas.length > 0) &&
-              improvementItems.length > 0 && (
-                <div className="border-t border-gray-800 pt-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">
-                    Improvements ({improvementItems.length})
-                  </h3>
-                </div>
+        <ErrorBoundary section="Backlog">
+          {isLoading ? (
+            // Skeleton loading state matching ImprovementsTable columns
+            <div className="p-6">
+              <ImprovementsTableSkeleton rows={5} />
+            </div>
+          ) : isEmpty ? (
+            // Empty state onboarding
+            <EmptyStateOnboarding onRefresh={fetchItems} />
+          ) : (
+            <div className="space-y-6 p-6">
+              {/* Banger Idea - Featured at top */}
+              {bangerIdea && (
+                <BangerIdeaCard
+                  item={bangerIdea}
+                  onViewDetails={handleItemClick}
+                  onApprove={(id) => void handleUpdateStatus(id, 'approved')}
+                  onReject={(id) => void handleUpdateStatus(id, 'rejected')}
+                  onComplete={(id) => void handleUpdateStatus(id, 'completed')}
+                  onDelete={(id) => void handleBulkDelete([id])}
+                />
               )}
-            <ImprovementsTable
-              items={
-                improvementItems.length > 0 ? improvementItems : filteredItems
-              }
-              selectedIds={selectedIds}
-              onSelectItem={handleSelectItem}
-              onSelectAll={handleSelectAll}
-              onItemClick={handleItemClick}
-              onPrdClick={handlePrdClick}
-              sort={sort}
-              onSortChange={handleSortChange}
-              activeStatus={activeStatus}
-            />
-          </div>
-        )}
+
+              {/* Feature Ideas Section */}
+              <FeatureIdeasSection
+                items={featureIdeas}
+                onViewDetails={handleItemClick}
+                onApprove={(id) => handleUpdateStatus(id, 'approved')}
+                onReject={(id) => handleUpdateStatus(id, 'rejected')}
+                onComplete={(id) => handleUpdateStatus(id, 'completed')}
+                onDelete={(id) => handleBulkDelete([id])}
+              />
+
+              {/* Improvements Table */}
+              {(bangerIdea || featureIdeas.length > 0) &&
+                improvementItems.length > 0 && (
+                  <div className="border-t border-gray-800 pt-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">
+                      Improvements ({improvementItems.length})
+                    </h3>
+                  </div>
+                )}
+              <ImprovementsTable
+                items={
+                  improvementItems.length > 0 ? improvementItems : filteredItems
+                }
+                selectedIds={selectedIds}
+                onSelectItem={handleSelectItem}
+                onSelectAll={handleSelectAll}
+                onItemClick={handleItemClick}
+                onPrdClick={handlePrdClick}
+                sort={sort}
+                onSortChange={handleSortChange}
+                activeStatus={activeStatus}
+              />
+            </div>
+          )}
+        </ErrorBoundary>
       </div>
 
       {/* Detail Modal */}
       {selectedItem && (
-        <ItemDetailModal
-          item={selectedItem}
-          onClose={() => setSelectedItem(null)}
-          onUpdateStatus={handleUpdateStatus}
-          onGeneratePrd={handleGeneratePrd}
-          onUpdatePrd={handleUpdatePrd}
-          initialViewMode={modalViewMode}
-        />
+        <ErrorBoundary
+          section="Item Details"
+          onError={() => setSelectedItem(null)}
+        >
+          <ItemDetailModal
+            item={selectedItem}
+            onClose={() => setSelectedItem(null)}
+            onUpdateStatus={handleUpdateStatus}
+            onGeneratePrd={handleGeneratePrd}
+            onUpdatePrd={handleUpdatePrd}
+            initialViewMode={modalViewMode}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Execution Progress Modal */}

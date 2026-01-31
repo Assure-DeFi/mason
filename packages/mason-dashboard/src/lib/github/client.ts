@@ -1,9 +1,16 @@
 import { Octokit } from '@octokit/rest';
 
+// Pagination and timeout protection constants
+const MAX_PAGES = 100; // Maximum pages to fetch (100 repos/page = 10,000 repos max)
+const REQUEST_TIMEOUT_MS = 30000; // 30 second timeout per request
+
 // Create an authenticated Octokit instance
 export function createGitHubClient(accessToken: string): Octokit {
   return new Octokit({
     auth: accessToken,
+    request: {
+      timeout: REQUEST_TIMEOUT_MS,
+    },
   });
 }
 
@@ -29,8 +36,7 @@ export async function listRepositories(
   let page = 1;
   const perPage = 100;
 
-  // eslint-disable-next-line no-constant-condition -- pagination loop that breaks when done
-  while (true) {
+  while (page <= MAX_PAGES) {
     const { data } = await octokit.repos.listForAuthenticatedUser({
       visibility: 'all',
       sort: 'updated',
@@ -39,7 +45,9 @@ export async function listRepositories(
       page,
     });
 
-    if (data.length === 0) {break;}
+    if (data.length === 0) {
+      break;
+    }
 
     repos.push(
       ...data.map((repo) => ({
@@ -56,8 +64,18 @@ export async function listRepositories(
       })),
     );
 
-    if (data.length < perPage) {break;}
+    if (data.length < perPage) {
+      break;
+    }
     page++;
+  }
+
+  // If we hit the page limit, log a warning (but still return what we have)
+  if (page > MAX_PAGES) {
+    console.warn(
+      `GitHub pagination limit reached (${MAX_PAGES} pages, ${repos.length} repos). ` +
+        'Some repositories may not be listed.',
+    );
   }
 
   return repos;

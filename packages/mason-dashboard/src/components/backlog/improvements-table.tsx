@@ -112,16 +112,26 @@ function SortableHeader({
   const isActive = currentSort?.field === field;
   const direction = isActive ? currentSort.direction : null;
 
+  // Determine aria-sort value
+  const ariaSort: 'ascending' | 'descending' | 'none' = isActive
+    ? direction === 'asc'
+      ? 'ascending'
+      : 'descending'
+    : 'none';
+
   return (
     <th
-      className={`relative py-3 px-3 font-semibold text-gray-400 uppercase tracking-wider text-xs cursor-pointer hover:text-white transition-colors select-none ${
+      className={`relative py-3 px-3 font-semibold text-gray-400 uppercase tracking-wider text-xs cursor-pointer hover:text-white transition-all select-none group ${
         align === 'center' ? 'text-center' : 'text-left'
       }`}
       style={{ width: `${width}px` }}
       onClick={() => onSort(field)}
+      title="Click to sort"
+      aria-sort={ariaSort}
+      role="columnheader"
     >
       <div
-        className={`flex items-center gap-1 ${align === 'center' ? 'justify-center' : ''}`}
+        className={`flex items-center gap-1 transition-transform duration-150 group-hover:scale-[1.02] ${align === 'center' ? 'justify-center' : ''}`}
       >
         <span>{label}</span>
         <span className="inline-flex">
@@ -132,7 +142,7 @@ function SortableHeader({
               <ChevronDown className="w-4 h-4 text-gold" />
             )
           ) : (
-            <ChevronsUpDown className="w-4 h-4 text-gray-600" />
+            <ChevronsUpDown className="w-4 h-4 text-gray-500 group-hover:text-gray-300 transition-colors" />
           )}
         </span>
       </div>

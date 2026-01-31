@@ -10,6 +10,9 @@
 
 const API_PROXY_BASE = '/api/supabase';
 
+// Timeout for Supabase Management API calls (60 seconds)
+const MANAGEMENT_API_TIMEOUT_MS = 60_000;
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -39,6 +42,40 @@ export interface ManagementApiError {
 }
 
 // =============================================================================
+// Fetch with Timeout
+// =============================================================================
+
+/**
+ * Fetch with AbortController timeout protection
+ * Prevents hanging indefinitely if Supabase Management API is slow
+ */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number = MANAGEMENT_API_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(
+        `Supabase Management API request timed out after ${timeoutMs / 1000} seconds. Please try again.`,
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// =============================================================================
 // Projects API
 // =============================================================================
 
@@ -48,7 +85,7 @@ export interface ManagementApiError {
 export async function listProjects(
   accessToken: string,
 ): Promise<SupabaseProject[]> {
-  const response = await fetch(`${API_PROXY_BASE}/projects`, {
+  const response = await fetchWithTimeout(`${API_PROXY_BASE}/projects`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
@@ -70,12 +107,15 @@ export async function getProject(
   accessToken: string,
   projectRef: string,
 ): Promise<SupabaseProject> {
-  const response = await fetch(`${API_PROXY_BASE}/projects/${projectRef}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    `${API_PROXY_BASE}/projects/${projectRef}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     const error = await parseError(response);
@@ -99,7 +139,7 @@ export async function runDatabaseQuery(
   query: string,
   readOnly = false,
 ): Promise<DatabaseQueryResult> {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${API_PROXY_BASE}/projects/${projectRef}/query`,
     {
       method: 'POST',
@@ -197,7 +237,7 @@ export async function getApiKeys(
   accessToken: string,
   projectRef: string,
 ): Promise<{ anonKey: string; serviceRoleKey: string }> {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${API_PROXY_BASE}/projects/${projectRef}/api-keys`,
     {
       headers: {

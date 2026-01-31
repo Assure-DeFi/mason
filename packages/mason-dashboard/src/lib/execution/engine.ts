@@ -2,6 +2,10 @@ import AnthropicClient from '@anthropic-ai/sdk';
 
 import { TABLES } from '@/lib/constants';
 import {
+  validateFilePath,
+  auditLogFileOperation,
+} from '@/lib/execution/path-validation';
+import {
   ensureExecutionProgress,
   updateExecutionProgress,
   completeExecutionProgress,
@@ -614,18 +618,56 @@ export async function executeRemotely(
       try {
         const changes = await generateCodeChanges(item, repoContext);
 
-        // Emit file write checkpoints
+        // Validate and emit file write checkpoints
         for (const file of changes.files) {
+          // Validate file path before accepting
+          const pathValidation = validateFilePath(file.path);
+
+          // Audit log all file operations (both valid and invalid)
+          auditLogFileOperation('validate', file.path, {
+            runId,
+            itemId: item.id,
+            success: pathValidation.valid,
+            error: pathValidation.error,
+            contentLength: file.content?.length,
+          });
+
+          if (!pathValidation.valid) {
+            await log(
+              runId,
+              'error',
+              `Path validation failed: ${pathValidation.error}`,
+              {
+                originalPath: file.path,
+                itemId: item.id,
+              },
+            );
+            throw new Error(
+              `Path validation failed for "${file.path}": ${pathValidation.error}`,
+            );
+          }
+
+          // Use normalized path
+          const safePath = pathValidation.normalizedPath!;
+
           allFileChanges.push({
-            path: file.path,
+            path: safePath,
             content: file.content,
           });
 
+          // Audit log the successful file write
+          auditLogFileOperation('write', safePath, {
+            runId,
+            itemId: item.id,
+            success: true,
+            contentLength: file.content.length,
+          });
+
           // Update checkpoint for each file written
-          const fileName = file.path.split('/').pop() || file.path;
+          const fileName = safePath.split('/').pop() || safePath;
           const fileCheckpoint = createFileCheckpoint(fileIndex, fileName);
           await updateCheckpoint(supabase, item.id, fileCheckpoint, {
-            currentFile: file.path,
+            currentFile: safePath,
             linesChanged: file.content.split('\n').length,
           });
           fileIndex++;
