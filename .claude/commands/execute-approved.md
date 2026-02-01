@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.4.0
+version: 2.5.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -529,10 +529,10 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
 # Create execution progress record for ExecutionStatusModal visualization
 # This triggers the ExecutionStatusModal to AUTO-APPEAR in the dashboard
 #
-# Checkpoint total estimate:
-#   Init (4) + Analysis (5) + Impl (~9 for 3 files) + Validation (4) + Final (3) = ~25
-# This will be updated dynamically after determining actual file count
-INITIAL_CHECKPOINT_TOTAL=25
+# Checkpoint total: 12 checkpoints at verified execution points
+#   Init (4) + Waves (4) + Validation (3) + Final (1) = 12
+# This ensures progress percentage increments at actual execution milestones
+INITIAL_CHECKPOINT_TOTAL=12
 
 curl -X POST "${SUPABASE_URL}/rest/v1/mason_execution_progress" \
   -H "apikey: ${SUPABASE_KEY}" \
@@ -583,7 +583,7 @@ update_checkpoint 4 "Loaded PRD content"
 
 ### Step 5.2: Update Progress Throughout Execution (MANDATORY)
 
-**Update the execution progress at key milestones** to drive the ExecutionStatusModal visualization:
+**Update the execution progress at key milestones** to drive the ExecutionStatusModal visualization.
 
 ```bash
 # Helper: Update progress at phase transitions
@@ -608,63 +608,34 @@ update_progress() {
       "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
     }'
 }
-
-# Phase transitions (call these as execution progresses):
-# - "site_review" → Starting, analyzing PRD
-# - "foundation"  → Wave 1 (Explore tasks)
-# - "building"    → Wave 2+ (Implementation tasks)
-# - "inspection"  → Validation phase
-# - "complete"    → Done
-
-# === ANALYSIS PHASE CHECKPOINTS (IDs 5-9) ===
-# Call these during Wave 1 (Explore/Foundation phase)
-
-# Before starting codebase analysis
-update_checkpoint 5 "Analyzing codebase (~1-2 min)" "" "foundation"
-update_progress "foundation" 1 "Exploring codebase patterns..." 0 2
-log_execution "info" "Wave 1: Exploring codebase patterns" '{"wave": 1, "phase": "foundation"}'
-
-# After reading target files
-update_checkpoint 6 "Reading target files"
-
-# After pattern identification
-update_checkpoint 7 "Identifying patterns"
-
-# After plan generation
-update_checkpoint 8 "Generated implementation plan"
-update_progress "foundation" 1 "Found existing patterns" 1 2
-log_execution "info" "Wave 1 complete: Found existing patterns" '{"wave": 1, "tasks_done": 1}'
-
-# After branch creation
-update_checkpoint 9 "Creating branch"
-
-# === IMPLEMENTATION PHASE CHECKPOINTS (IDs 10+) ===
-# Call these during Wave 2+ (Building phase)
-# Dynamically update checkpoint_total based on actual file count
-
-# Before implementation wave
-update_checkpoint 10 "Starting implementation (~2-4 min)" "" "building"
-update_progress "building" 2 "Implementing changes..." 0 3
-log_execution "info" "Wave 2: Starting implementation" '{"wave": 2, "phase": "building"}'
-
-# For each file being modified, call these checkpoints:
-# FILE_INDEX starts at 0
-# update_checkpoint $((11 + FILE_INDEX * 3)) "Analyzing ${filename}" "${filepath}" "building"
-# update_checkpoint $((12 + FILE_INDEX * 3)) "Writing ${filename}" "${filepath}"
-# update_checkpoint $((13 + FILE_INDEX * 3)) "Completed ${filename}" "${filepath}"
-
-# Example for a 3-file implementation:
-# File 1: checkpoints 11, 12, 13
-# File 2: checkpoints 14, 15, 16
-# File 3: checkpoints 17, 18, 19
-
-# === VALIDATION PHASE CHECKPOINTS (IDs 100-103) ===
-# Call these during inspection phase
-
-update_checkpoint 100 "Running TypeScript check (~30s)" "" "inspection"
-update_progress "inspection" 3 "Running TypeScript check..." 0 4
-log_execution "info" "Validation: Running TypeScript check" '{"phase": "inspection", "check": "typescript"}'
 ```
+
+**Phase transitions:**
+
+- `site_review` → Starting, analyzing PRD
+- `foundation` → Wave 1 (Explore tasks)
+- `building` → Wave 2+ (Implementation tasks)
+- `inspection` → Validation phase
+- `complete` → Done
+
+**CRITICAL: Checkpoint Placement**
+
+Checkpoints MUST be called at actual execution points, NOT in documentation blocks. The 12 checkpoints are:
+
+| ID  | Name                    | When to Call                             |
+| --- | ----------------------- | ---------------------------------------- |
+| 1   | Initialized execution   | After progress record created (Step 5.1) |
+| 2   | Loading configuration   | After mason.config.json read (Step 5.1)  |
+| 3   | Fetching approved items | After Supabase query (Step 5.1)          |
+| 4   | Loaded PRD content      | After PRD retrieved (Step 5.1)           |
+| 5   | Analyzing codebase      | BEFORE Wave 1 Task call (Step 6)         |
+| 6   | Analysis complete       | AFTER Wave 1 Task returns (Step 6)       |
+| 7   | Implementing changes    | BEFORE Wave 2 Task call (Step 6)         |
+| 8   | Implementation complete | AFTER Wave 2/3 Task returns (Step 6)     |
+| 100 | TypeScript check        | In validation gate (Step 7.9)            |
+| 101 | ESLint check            | In validation gate (Step 7.9)            |
+| 102 | Build check             | In validation gate (Step 7.9)            |
+| 120 | Execution complete      | After commit/PR creation (Step 11)       |
 
 **Progress updates at each phase:**
 
@@ -706,7 +677,18 @@ log_execution "error" "TypeScript check failed: 3 type errors found" '{"check": 
 
 ### Step 6: Execute Waves with Domain-Aware Agents
 
-Execute each wave using the Task tool with **domain-specialized agents**:
+Execute each wave using the Task tool with **domain-specialized agents**.
+
+**CRITICAL: Call checkpoints at the execution points shown below.**
+
+#### 6.1: Wave 1 - Exploration
+
+```bash
+# === CHECKPOINT 5: Before Wave 1 ===
+update_checkpoint 5 "Analyzing codebase (~1-2 min)" "" "foundation"
+update_progress "foundation" 1 "Exploring codebase patterns..." 0 2
+log_execution "info" "Wave 1: Exploring codebase patterns" '{"wave": 1, "phase": "foundation"}'
+```
 
 ```typescript
 // Wave 1 - Exploration (parallel) - Use Explore subagent
@@ -714,7 +696,25 @@ await Promise.all([
   Task({ subagent_type: 'Explore', prompt: '...' }),
   Task({ subagent_type: 'Explore', prompt: '...' }),
 ]);
+```
 
+```bash
+# === CHECKPOINT 6: After Wave 1 completes ===
+update_checkpoint 6 "Analysis complete - creating branch"
+update_progress "foundation" 1 "Found existing patterns" 2 2
+log_execution "info" "Wave 1 complete: Found existing patterns" '{"wave": 1, "tasks_done": 2}'
+```
+
+#### 6.2: Wave 2 - Implementation
+
+```bash
+# === CHECKPOINT 7: Before Wave 2 ===
+update_checkpoint 7 "Implementing changes (~2-4 min)" "" "building"
+update_progress "building" 2 "Implementing changes..." 0 3
+log_execution "info" "Wave 2: Starting implementation" '{"wave": 2, "phase": "building"}'
+```
+
+```typescript
 // Wave 2 - Implementation (parallel) - Use DOMAIN-SPECIFIC agent
 // Read the execution agent file and include in the prompt
 const agentInstructions = await Read(EXECUTION_AGENT);
@@ -754,6 +754,13 @@ await Task({
     - Success criteria from PRD
   `,
 });
+```
+
+```bash
+# === CHECKPOINT 8: After implementation waves complete ===
+update_checkpoint 8 "Implementation complete"
+update_progress "building" 3 "All changes applied" 3 3
+log_execution "info" "Waves 2-3 complete: Implementation done" '{"wave": 3, "tasks_done": 3}'
 ```
 
 **Domain-Aware Subagent Selection:**
@@ -1676,12 +1683,9 @@ console.log('✅ Final validation passed - proceeding to commit');
 
 ### Step 11: Commit Changes
 
-After ALL validations pass:
+After ALL validations pass, commit the changes:
 
 ```bash
-# === FINALIZATION PHASE CHECKPOINTS (IDs 110-120) ===
-update_checkpoint 110 "Committing changes" "" "complete"
-
 git add .
 git commit -m "feat: [item title]
 
@@ -1729,13 +1733,9 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${ite
 ```
 
 ```bash
-# Checkpoint: Creating PR (if applicable)
-update_checkpoint 111 "Creating pull request"
-
-# (Optional: create PR with gh pr create)
-
-# Final checkpoint: Complete
-update_checkpoint 120 "Execution complete"
+# === CHECKPOINT 120: Execution complete ===
+# This is the final checkpoint - call after commit (and PR if created)
+update_checkpoint 120 "Execution complete" "" "complete"
 
 # Log successful completion
 log_execution "info" "Execution complete: ${itemTitle}" '{"item_id": "'"${itemId}"'", "status": "completed", "branch": "mason/'"${slug}"'"}'
