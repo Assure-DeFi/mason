@@ -103,7 +103,7 @@ ${item.prd_content}
   }
 
   return (
-    <div className="fixed bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)]">
+    <div className="fixed left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)] fixed-bottom-safe md:fixed-bottom-safe-md gpu-accelerated">
       <div className="flex items-center gap-2 md:gap-3 px-4 md:px-6 py-3 md:py-4 bg-black border border-gray-700 shadow-2xl">
         {/* Selection Count */}
         <div className="flex items-center gap-1.5 md:gap-2 pr-3 md:pr-4 border-r border-gray-700">

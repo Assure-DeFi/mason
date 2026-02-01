@@ -119,14 +119,12 @@ export function InstallMasonModal({
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
 
-      const { error: insertError } = await client
-        .from(TABLES.API_KEYS)
-        .insert({
-          user_id: userData.id,
-          name: repoName ? `Install - ${repoName}` : 'CLI Install',
-          key_hash: keyHash,
-          key_prefix: keyPrefix,
-        });
+      const { error: insertError } = await client.from(TABLES.API_KEYS).insert({
+        user_id: userData.id,
+        name: repoName ? `Install - ${repoName}` : 'CLI Install',
+        key_hash: keyHash,
+        key_prefix: keyPrefix,
+      });
 
       if (insertError) {
         throw insertError;
@@ -144,7 +142,9 @@ export function InstallMasonModal({
   }, [client, session, repoName]);
 
   const handleCopy = async () => {
-    if (!installCommand) {return;}
+    if (!installCommand) {
+      return;
+    }
 
     try {
       await navigator.clipboard.writeText(installCommand);
@@ -162,10 +162,12 @@ export function InstallMasonModal({
     onClose();
   };
 
-  if (!isOpen) {return null;}
+  if (!isOpen) {
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm backdrop-blur-fallback">
       <div className="mx-4 w-full max-w-2xl overflow-hidden rounded-lg border border-gray-800 bg-navy shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-800 p-4">

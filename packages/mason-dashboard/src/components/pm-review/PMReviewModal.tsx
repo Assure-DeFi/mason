@@ -242,7 +242,7 @@ export function PMReviewModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm backdrop-blur-fallback animate-fade-in"
       onClick={onClose}
     >
       <div

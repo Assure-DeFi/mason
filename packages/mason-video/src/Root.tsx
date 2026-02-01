@@ -1,7 +1,7 @@
-import React from "react";
-import { Composition } from "remotion";
-import { MasonHypeVideo } from "./MasonHypeVideo";
-import "./styles.css";
+import React from 'react';
+import { Composition } from 'remotion';
+import { MasonHypeVideo } from './MasonHypeVideo';
+import './styles.css';
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -9,7 +9,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="MasonHypeVideo"
         component={MasonHypeVideo}
-        durationInFrames={30 * 45} // 45 seconds at 30fps
+        durationInFrames={30 * 20} // 20 seconds at 30fps - tight, punchy
         fps={30}
         width={1920}
         height={1080}

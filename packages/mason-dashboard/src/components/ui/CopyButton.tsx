@@ -41,7 +41,11 @@ export function CopyButton({
   className,
   disabled = false,
 }: CopyButtonProps) {
-  const { copy, copied, error: copyError } = useCopyToClipboard({ onSuccess: onCopy });
+  const {
+    copy,
+    copied,
+    error: copyError,
+  } = useCopyToClipboard({ onSuccess: onCopy });
   const [showToastState, setShowToastState] = useState(false);
 
   const handleCopy = useCallback(async () => {
@@ -116,7 +120,7 @@ export function CopyButton({
 
       {/* Toast notification */}
       {showToastState && showToast && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-green-600 text-white text-sm shadow-lg">
+        <div className="fixed right-6 z-50 px-4 py-3 bg-green-600 text-white text-sm shadow-lg fixed-bottom-safe gpu-accelerated">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4" />
             {toastMessage}

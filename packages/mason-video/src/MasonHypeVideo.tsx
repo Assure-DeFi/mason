@@ -1,81 +1,53 @@
-import React from "react";
-import {
-  AbsoluteFill,
-  Sequence,
-  useCurrentFrame,
-  useVideoConfig,
-  interpolate,
-  spring,
-} from "remotion";
-import { OpeningScene } from "./scenes/OpeningScene";
-import { ProblemScene } from "./scenes/ProblemScene";
-import { SolutionScene } from "./scenes/SolutionScene";
-import { FeatureShowcase } from "./scenes/FeatureShowcase";
-import { HowItWorksScene } from "./scenes/HowItWorksScene";
-import { CallToActionScene } from "./scenes/CallToActionScene";
+import React from 'react';
+import { AbsoluteFill, Sequence, useVideoConfig } from 'remotion';
+import { HookScene } from './scenes/HookScene';
+import { ValueScene } from './scenes/ValueScene';
+import { FlowScene } from './scenes/FlowScene';
+import { CTAScene } from './scenes/CTAScene';
 
 export const MasonHypeVideo: React.FC = () => {
-  const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Scene timing (in frames at 30fps)
+  // Tight 20-second video structure (600 frames at 30fps)
   const SCENE_TIMING = {
-    opening: { start: 0, duration: fps * 6 }, // 0-6s: Opening hook
-    problem: { start: fps * 6, duration: fps * 7 }, // 6-13s: Problem statement
-    solution: { start: fps * 13, duration: fps * 6 }, // 13-19s: Solution intro
-    features: { start: fps * 19, duration: fps * 12 }, // 19-31s: Feature showcase
-    howItWorks: { start: fps * 31, duration: fps * 8 }, // 31-39s: How it works
-    cta: { start: fps * 39, duration: fps * 6 }, // 39-45s: Call to action
+    hook: { start: 0, duration: fps * 4 }, // 0-4s: Visual hook - code transforming
+    value: { start: fps * 4, duration: fps * 5 }, // 4-9s: Clear value proposition
+    flow: { start: fps * 9, duration: fps * 6 }, // 9-15s: Scan → Approve → Ship
+    cta: { start: fps * 15, duration: fps * 5 }, // 15-20s: CTA + Assure DeFi branding
   };
 
   return (
     <AbsoluteFill className="bg-navy">
-      {/* Scene 1: Opening Hook */}
+      {/* Scene 1: Visual Hook - Show the magic immediately */}
       <Sequence
-        from={SCENE_TIMING.opening.start}
-        durationInFrames={SCENE_TIMING.opening.duration}
+        from={SCENE_TIMING.hook.start}
+        durationInFrames={SCENE_TIMING.hook.duration}
       >
-        <OpeningScene />
+        <HookScene />
       </Sequence>
 
-      {/* Scene 2: Problem Statement */}
+      {/* Scene 2: Value Proposition - One clear message */}
       <Sequence
-        from={SCENE_TIMING.problem.start}
-        durationInFrames={SCENE_TIMING.problem.duration}
+        from={SCENE_TIMING.value.start}
+        durationInFrames={SCENE_TIMING.value.duration}
       >
-        <ProblemScene />
+        <ValueScene />
       </Sequence>
 
-      {/* Scene 3: Solution Introduction */}
+      {/* Scene 3: Flow - Three-step process */}
       <Sequence
-        from={SCENE_TIMING.solution.start}
-        durationInFrames={SCENE_TIMING.solution.duration}
+        from={SCENE_TIMING.flow.start}
+        durationInFrames={SCENE_TIMING.flow.duration}
       >
-        <SolutionScene />
+        <FlowScene />
       </Sequence>
 
-      {/* Scene 4: Feature Showcase */}
-      <Sequence
-        from={SCENE_TIMING.features.start}
-        durationInFrames={SCENE_TIMING.features.duration}
-      >
-        <FeatureShowcase />
-      </Sequence>
-
-      {/* Scene 5: How It Works */}
-      <Sequence
-        from={SCENE_TIMING.howItWorks.start}
-        durationInFrames={SCENE_TIMING.howItWorks.duration}
-      >
-        <HowItWorksScene />
-      </Sequence>
-
-      {/* Scene 6: Call to Action */}
+      {/* Scene 4: CTA with Assure DeFi branding */}
       <Sequence
         from={SCENE_TIMING.cta.start}
         durationInFrames={SCENE_TIMING.cta.duration}
       >
-        <CallToActionScene />
+        <CTAScene />
       </Sequence>
     </AbsoluteFill>
   );

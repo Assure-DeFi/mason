@@ -22,7 +22,7 @@ export function AutopilotToast({
   const isSuccess = type === 'success';
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-right-5 fade-in duration-300">
+    <div className="fixed right-6 z-50 animate-in slide-in-from-right-5 fade-in duration-300 fixed-bottom-safe gpu-accelerated">
       <div
         className={`
           px-4 py-3 shadow-lg border max-w-sm

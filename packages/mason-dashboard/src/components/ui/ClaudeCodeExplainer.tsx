@@ -33,7 +33,7 @@ export function ClaudeCodeExplainer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm backdrop-blur-fallback">
       <div className="mx-4 w-full max-w-lg rounded-lg border border-gray-800 bg-navy shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800">

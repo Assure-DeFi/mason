@@ -133,7 +133,7 @@ export function CopyCommand({
 
       {/* Persistent Toast */}
       {showToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-md mx-4 animate-[slideUp_0.3s_ease-out]">
+        <div className="fixed left-1/2 -translate-x-1/2 z-50 w-full max-w-md mx-4 animate-[slideUp_0.3s_ease-out] fixed-bottom-safe gpu-accelerated">
           <div className="bg-green-600 text-white rounded-lg shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">

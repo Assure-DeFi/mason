@@ -36,7 +36,7 @@ export function LandingHeader({
   return (
     <header
       className={clsx(
-        'sticky top-0 z-50 border-b border-gray-800/50 bg-navy/95 backdrop-blur-sm',
+        'sticky top-0 z-50 border-b border-gray-800/50 bg-navy/95 backdrop-blur-sm backdrop-blur-fallback safe-area-inset-top gpu-accelerated',
         className,
       )}
     >

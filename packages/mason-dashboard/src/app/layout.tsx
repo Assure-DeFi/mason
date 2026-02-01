@@ -6,6 +6,11 @@ import './globals.css';
 
 export const viewport: Viewport = {
   themeColor: '#0A0724',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: 'cover', // Required for safe area insets on notched iPhones
 };
 
 export const metadata: Metadata = {

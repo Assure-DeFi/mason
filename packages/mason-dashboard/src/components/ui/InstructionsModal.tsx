@@ -113,7 +113,7 @@ export function InstructionsModal({ isOpen, onClose }: InstructionsModalProps) {
   const SectionComponent = sectionComponents[activeSection];
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm backdrop-blur-fallback">
       <div className="mx-4 flex h-[85vh] w-full max-w-5xl overflow-hidden rounded-lg border border-gray-800 bg-navy shadow-2xl">
         {/* Sidebar */}
         <div className="w-64 flex-shrink-0 border-r border-gray-800 bg-black/30">

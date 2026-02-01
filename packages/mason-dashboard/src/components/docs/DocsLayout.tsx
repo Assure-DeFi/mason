@@ -177,7 +177,7 @@ export function DocsLayout({ children, title, description }: DocsLayoutProps) {
           {/* Mobile sidebar toggle */}
           <button
             type="button"
-            className="fixed bottom-4 right-4 z-50 rounded-lg bg-gold p-3 text-navy shadow-lg lg:hidden"
+            className="fixed right-4 z-50 rounded-lg bg-gold p-3 text-navy shadow-lg lg:hidden fixed-bottom-safe gpu-accelerated"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
             {sidebarOpen ? (

@@ -31,7 +31,7 @@ export function QuickStartFAB({ className }: QuickStartFABProps) {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={clsx(
-          'fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gold text-navy shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center',
+          'fixed right-6 z-40 w-14 h-14 rounded-full bg-gold text-navy shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center fixed-bottom-safe gpu-accelerated',
           isOpen && 'bg-gray-800 text-white',
           className,
         )}
@@ -46,7 +46,12 @@ export function QuickStartFAB({ className }: QuickStartFABProps) {
 
       {/* Quick Reference Panel */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-40 w-80 bg-navy border border-gray-800 rounded-lg shadow-2xl overflow-hidden animate-[slideUp_0.2s_ease-out]">
+        <div
+          className="fixed right-6 z-40 w-80 bg-navy border border-gray-800 rounded-lg shadow-2xl overflow-hidden animate-[slideUp_0.2s_ease-out] gpu-accelerated"
+          style={{
+            bottom: 'calc(max(1.5rem, env(safe-area-inset-bottom)) + 4rem)',
+          }}
+        >
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-800 bg-black/20">
             <h3 className="font-semibold text-white">Quick Reference</h3>
