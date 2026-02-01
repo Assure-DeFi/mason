@@ -14,6 +14,7 @@ import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import { UserMenu } from '@/components/auth/user-menu';
+import { BangerIdeaCard } from '@/components/backlog/banger-idea-card';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
@@ -446,6 +447,13 @@ export default function BacklogPage() {
   // Get recommended items (strategic next steps)
   const recommendations = useMemo(() => {
     return getRecommendedItems(repoFilteredItems);
+  }, [repoFilteredItems]);
+
+  // Get banger idea (featured new idea) - only show NEW status bangers
+  const bangerIdea = useMemo(() => {
+    return repoFilteredItems.find(
+      (item) => item.is_banger_idea && item.status === 'new',
+    );
   }, [repoFilteredItems]);
 
   // Determine the contextual next step (based on repo-filtered items)
@@ -1175,6 +1183,18 @@ export default function BacklogPage() {
             />
           </div>
         )}
+
+      {/* Banger Idea Section - only on NEW tab */}
+      {!isEmpty && !isLoading && bangerIdea && activeStatus === 'new' && (
+        <div className="max-w-7xl mx-auto px-6 pt-6">
+          <BangerIdeaCard
+            item={bangerIdea}
+            onViewDetails={handleItemClick}
+            onApprove={handleQuickApprove}
+            onReject={handleQuickReject}
+          />
+        </div>
+      )}
 
       {/* Content Area */}
       <div className="max-w-7xl mx-auto">
