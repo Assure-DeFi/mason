@@ -10,114 +10,120 @@ export default function ExecuteApprovedPage() {
     >
       <h2>Overview</h2>
       <p>
-        The <code>/execute-approved</code> command fetches all approved items
-        from your backlog and implements them using wave-based parallel
-        execution. It creates branches, makes changes, and opens pull requests.
+        The <code>/execute-approved</code> command brings your approved
+        improvements to life. It fetches items from your backlog and implements
+        each one using wave-based parallel execution — creating branches, making
+        changes, running validations, and opening pull requests automatically.
       </p>
 
       <h2>Basic Usage</h2>
+      <p>Execute all approved items in your backlog:</p>
       <pre>
         <code>/execute-approved</code>
       </pre>
       <p>
-        This executes ALL approved items with no limit. Items are processed in
-        priority order.
+        Items are processed in priority order (highest priority first). There is
+        no default limit — Mason will work through your entire approved queue.
       </p>
 
       <h2>Flags</h2>
+      <p>Control what gets executed and how:</p>
 
       <h3>--item &lt;id&gt;</h3>
-      <p>Execute a specific item by ID:</p>
+      <p>Execute a specific item by ID (useful for retrying failed items):</p>
       <pre>
         <code>/execute-approved --item abc123</code>
       </pre>
 
       <h3>--limit &lt;n&gt;</h3>
-      <p>Cap execution at N items:</p>
+      <p>Cap execution at N items (good for testing your first run):</p>
       <pre>
         <code>/execute-approved --limit 3</code>
       </pre>
 
       <h3>--dry-run</h3>
-      <p>Preview what would be executed without making changes:</p>
+      <p>Preview what would be executed without making any changes:</p>
       <pre>
         <code>/execute-approved --dry-run</code>
       </pre>
 
       <h3>--auto</h3>
-      <p>Headless mode for automated/scheduled runs:</p>
+      <p>Headless mode for CI/CD pipelines and scheduled runs:</p>
       <pre>
         <code>/execute-approved --auto</code>
       </pre>
 
       <h2>Wave-Based Execution</h2>
       <p>
-        Items are implemented in waves using specialized subagents. This allows
-        parallel work while respecting dependencies.
+        Each item is implemented in three waves using specialized agents. This
+        structure ensures quality while allowing parallel work on different
+        items.
       </p>
 
       <h3>Wave 1: Exploration</h3>
+      <p>Understanding before action:</p>
       <ul>
         <li>Analyze existing code patterns</li>
-        <li>Understand architecture</li>
-        <li>Identify dependencies</li>
-        <li>Plan implementation approach</li>
+        <li>Map the relevant architecture</li>
+        <li>Identify dependencies and integration points</li>
+        <li>Plan the implementation approach</li>
       </ul>
 
       <h3>Wave 2: Implementation</h3>
+      <p>Making the changes:</p>
       <ul>
-        <li>Make code changes</li>
-        <li>Write tests</li>
-        <li>Update documentation</li>
+        <li>Write or modify code</li>
+        <li>Add tests for new functionality</li>
+        <li>Update documentation as needed</li>
         <li>Handle edge cases</li>
       </ul>
 
       <h3>Wave 3: Validation</h3>
+      <p>Ensuring quality:</p>
       <ul>
-        <li>Run tests</li>
-        <li>Code review</li>
-        <li>Quality checks</li>
-        <li>Create pull request</li>
+        <li>Run the test suite</li>
+        <li>Perform code review checks</li>
+        <li>Verify build and lint pass</li>
+        <li>Create the pull request</li>
       </ul>
 
       <h2>Pre-Execution Checks</h2>
-      <p>Before executing each item, Mason verifies:</p>
+      <p>Before starting work on each item, Mason verifies prerequisites:</p>
       <ul>
         <li>
-          <strong>PRD exists</strong> - Items without PRDs are skipped
+          <strong>PRD exists</strong> — Items without PRDs are skipped
         </li>
         <li>
-          <strong>PRD has task breakdown</strong> - Ensures proper wave planning
+          <strong>PRD has task breakdown</strong> — Needed for wave planning
         </li>
         <li>
-          <strong>Item is still approved</strong> - Status hasn&apos;t changed
+          <strong>Item is still approved</strong> — Status hasn&apos;t changed
+          since you queued it
         </li>
       </ul>
 
       <h2>Branch Strategy</h2>
       <p>
         Each item gets its own branch named{' '}
-        <code>mason/&lt;item-title-slug&gt;</code>. The branch is created from
-        your current branch (usually <code>main</code>).
+        <code>mason/&lt;item-title-slug&gt;</code>. Branches are created from
+        your current branch (usually <code>main</code>), keeping changes
+        isolated until you&apos;re ready to merge.
       </p>
 
       <h2>Pull Request Creation</h2>
-      <p>After implementation, Mason creates a PR with:</p>
+      <p>After implementation completes, Mason opens a PR with:</p>
       <ul>
-        <li>Descriptive title from item</li>
-        <li>Summary of changes</li>
-        <li>Link to original backlog item</li>
-        <li>Test plan</li>
+        <li>Descriptive title based on the item</li>
+        <li>Summary of changes made</li>
+        <li>Link back to the original backlog item</li>
+        <li>Test plan for verification</li>
       </ul>
 
       <h2>Progress Tracking</h2>
-      <p>
-        Execution progress is tracked in real-time and visible in your
-        dashboard:
-      </p>
+      <p>Watch execution progress in real-time from your dashboard:</p>
       <ul>
         <li>
-          <strong>Status updates</strong> - pending → in_progress → completed
+          <strong>Status updates</strong> — pending → in_progress → completed
         </li>
         <li>
           <strong>Log streaming</strong> - See what Mason is doing

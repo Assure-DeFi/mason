@@ -13,8 +13,9 @@ export default function ConceptsPage() {
       <h2>The Big Picture</h2>
       <p>
         Mason is a continuous improvement system for codebases. It combines AI
-        analysis with a human-in-the-loop workflow to find and fix issues worth
-        addressing.
+        analysis with a human-in-the-loop workflow to surface issues worth
+        fixing, generate detailed plans, and execute changes — all while keeping
+        you in control.
       </p>
 
       <div className="not-prose my-8 rounded-xl border border-gold/30 bg-gold/5 p-6">
@@ -124,41 +125,56 @@ export default function ConceptsPage() {
       <h2>Architecture</h2>
 
       <h3>Where Things Run</h3>
+      <p>Mason splits work across three locations:</p>
       <ul>
         <li>
-          <strong>Commands</strong> - Run locally in Claude Code
+          <strong>Commands</strong> — Run locally in Claude Code on your machine
         </li>
         <li>
-          <strong>Dashboard</strong> - Hosted web app at mason.assuredefi.com
+          <strong>Dashboard</strong> — Hosted web app at mason.assuredefi.com
         </li>
         <li>
-          <strong>Data</strong> - Your own Supabase database
+          <strong>Data</strong> — Your own Supabase database (you control it)
         </li>
       </ul>
 
       <h3>Data Flow</h3>
+      <p>Here&apos;s how information moves through the system:</p>
       <ol>
         <li>
-          You run <code>/pm-review</code> locally
+          You run <code>/pm-review</code> in Claude Code
         </li>
-        <li>Mason analyzes your code (stays local)</li>
-        <li>Improvements are written to YOUR Supabase</li>
-        <li>Dashboard reads from YOUR Supabase</li>
+        <li>Mason analyzes your code locally (nothing leaves your machine)</li>
+        <li>Improvements are written to YOUR Supabase database</li>
         <li>
-          You approve items, <code>/execute-approved</code> reads them
+          Dashboard reads from YOUR Supabase using credentials stored in your
+          browser
         </li>
-        <li>Changes are made locally, PRs pushed to GitHub</li>
+        <li>
+          You approve items, and <code>/execute-approved</code> reads them
+        </li>
+        <li>Changes are made locally, then PRs are pushed to GitHub</li>
       </ol>
 
       <h2>Privacy Model</h2>
       <p>
-        Mason uses a &quot;Bring Your Own Database&quot; (BYOD) architecture.
-        See <Link href="/docs/privacy">Privacy & Security</Link> for details.
+        Mason uses a <strong>&quot;Bring Your Own Database&quot;</strong> (BYOD)
+        architecture. See <Link href="/docs/privacy">Privacy & Security</Link>{' '}
+        for the full details.
       </p>
       <ul>
-        <li>Your code never leaves your machine</li>
-        <li>All improvement data stored in YOUR database</li>
-        <li>We only store your GitHub identity</li>
+        <li>
+          <strong>Your code never leaves your machine</strong> — analysis
+          happens locally in Claude Code
+        </li>
+        <li>
+          <strong>All improvement data lives in YOUR database</strong> — we
+          can&apos;t access it
+        </li>
+        <li>
+          <strong>We only store your GitHub identity</strong> — username and
+          connected repo list
+        </li>
       </ul>
     </DocsLayout>
   );

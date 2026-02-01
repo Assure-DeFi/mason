@@ -11,9 +11,10 @@ export default function CommandsPage() {
       description="Mason commands you can run in Claude Code."
     >
       <p>
-        Mason provides three commands that run inside Claude Code. These
-        commands analyze your codebase, execute improvements, and keep
-        everything up to date.
+        Mason provides three slash commands that run inside Claude Code. These
+        commands work together to form a complete codebase improvement workflow:
+        analyze your project, implement approved changes, and stay current with
+        the latest features.
       </p>
 
       <div className="not-prose my-8 space-y-4">
@@ -68,31 +69,33 @@ export default function CommandsPage() {
 
       <h2>Command Location</h2>
       <p>
-        Mason commands are stored in <code>.claude/commands/</code> in your
+        Mason commands live in <code>.claude/commands/</code> within your
         project directory. They&apos;re automatically installed during setup and
-        kept up to date via version enforcement.
+        kept current through version enforcement.
       </p>
 
       <h2>Auto-Update Behavior</h2>
       <p>
-        Commands check for updates before each run. If a required minimum
+        Commands check for updates before each run. When a required minimum
         version is set (for breaking changes or critical fixes), the command
-        automatically updates itself before executing.
+        automatically updates itself before executing — no manual intervention
+        needed.
       </p>
-      <p>You can manually update all commands with:</p>
+      <p>To manually update all commands at once:</p>
       <pre>
         <code>/mason-update</code>
       </pre>
 
       <h2>Common Flags</h2>
-      <p>Most commands support these common flags:</p>
+      <p>Most commands support these flags for automation and safety:</p>
       <ul>
         <li>
-          <code>--auto</code> - Headless mode for automated/scheduled runs
+          <code>--auto</code> — Headless mode for CI/CD pipelines and scheduled
+          runs (skips interactive prompts)
         </li>
         <li>
-          <code>--dry-run</code> - Preview what would happen without making
-          changes
+          <code>--dry-run</code> — Preview what would happen without making any
+          actual changes
         </li>
       </ul>
     </DocsLayout>

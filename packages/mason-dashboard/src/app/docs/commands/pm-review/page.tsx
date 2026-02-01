@@ -10,18 +10,21 @@ export default function PmReviewPage() {
     >
       <h2>Overview</h2>
       <p>
-        The <code>/pm-review</code> command analyzes your codebase across 8
-        specialized categories, identifies improvements worth making, generates
-        PRDs, and submits findings to your dashboard.
+        The <code>/pm-review</code> command is your primary tool for discovering
+        improvements. It analyzes your codebase across 8 specialized categories,
+        surfaces issues worth fixing, generates complete PRDs for each one, and
+        submits everything to your dashboard for review.
       </p>
 
       <h2>Basic Usage</h2>
+      <p>Run a full analysis with sensible defaults:</p>
       <pre>
         <code>/pm-review</code>
       </pre>
       <p>
-        This runs a full analysis with default settings (8 agents, 3 items each,
-        plus 1 banger idea = 25 items).
+        This launches 8 specialized agents in parallel, each generating up to 3
+        items, plus 1 &quot;banger idea&quot; — yielding up to 25 improvements
+        per review.
       </p>
 
       <h2>Modes</h2>
@@ -175,69 +178,88 @@ export default function PmReviewPage() {
 
       <h2>Domain Knowledge</h2>
       <p>
-        On your first run, Mason will ask questions about your project to
-        provide more relevant suggestions:
+        On your first run, Mason asks about your project to generate more
+        relevant suggestions:
       </p>
       <ul>
-        <li>Project description</li>
-        <li>Target users</li>
-        <li>Current priorities</li>
-        <li>Off-limits areas</li>
+        <li>
+          <strong>Project description</strong> — What does your application do?
+        </li>
+        <li>
+          <strong>Target users</strong> — Who are you building for?
+        </li>
+        <li>
+          <strong>Current priorities</strong> — What are you focused on
+          shipping?
+        </li>
+        <li>
+          <strong>Off-limits areas</strong> — Code Mason should avoid touching
+        </li>
       </ul>
       <p>
-        These answers are saved in <code>.mason/domain-knowledge.md</code> and
-        can be edited manually.
+        Answers are saved in <code>.mason/domain-knowledge.md</code> — edit this
+        file anytime to update your project context.
       </p>
 
       <h2>Validation Process</h2>
-      <p>Every suggestion goes through validation:</p>
+      <p>
+        Every suggestion goes through a multi-tier validation process before
+        reaching your dashboard:
+      </p>
       <ol>
         <li>
-          <strong>Tier 1: Pattern Matching</strong> - Verifies the issue exists
-          in your code
+          <strong>Tier 1: Pattern Matching</strong> — Verifies the issue
+          actually exists in your codebase
         </li>
         <li>
-          <strong>Tier 2: Contextual Investigation</strong> - Confirms the
-          suggestion makes sense
+          <strong>Tier 2: Contextual Investigation</strong> — Confirms the
+          suggestion makes sense given your project context
         </li>
         <li>
-          <strong>Deduplication</strong> - Checks against existing backlog items
+          <strong>Deduplication</strong> — Checks against existing backlog items
+          to avoid duplicates
         </li>
       </ol>
       <p>
-        Invalid or duplicate suggestions are discarded. The validation loop may
-        regenerate items if needed.
+        Invalid or duplicate suggestions are discarded automatically. If too
+        many fail validation, the loop may regenerate items.
       </p>
 
       <h2>Output</h2>
-      <p>Each item includes:</p>
+      <p>
+        Each validated item arrives in your dashboard with a complete package:
+      </p>
       <ul>
         <li>
-          <strong>Title</strong> - Clear, actionable description
+          <strong>Title</strong> — Clear, actionable description
         </li>
         <li>
-          <strong>Problem</strong> - What issue this addresses
+          <strong>Problem</strong> — The issue this improvement addresses
         </li>
         <li>
-          <strong>Solution</strong> - Proposed fix
+          <strong>Solution</strong> — The proposed approach
         </li>
         <li>
-          <strong>Impact Score (1-10)</strong> - Value added
+          <strong>Impact Score (1-10)</strong> — How much value this adds
         </li>
         <li>
-          <strong>Effort Score (1-10)</strong> - Work required
+          <strong>Effort Score (1-10)</strong> — Implementation complexity
         </li>
         <li>
-          <strong>Priority Score</strong> - (Impact &times; 2) - Effort
+          <strong>Priority Score</strong> — Calculated as (Impact × 2) - Effort
+          to surface quick wins
         </li>
         <li>
-          <strong>PRD</strong> - Full Product Requirements Document
+          <strong>Full PRD</strong> — Complete Product Requirements Document
+          with user stories, task breakdown, and success criteria
         </li>
         <li>
-          <strong>Risk Analysis</strong> - 6-factor risk assessment
+          <strong>Risk Analysis</strong> — 6-factor assessment (technical,
+          integration, performance, security, scope, testing)
         </li>
         <li>
-          <strong>Benefits</strong> - 5-category benefit breakdown
+          <strong>Benefits</strong> — 5-category breakdown (UX, sales, ops,
+          performance, reliability)
         </li>
       </ul>
     </DocsLayout>

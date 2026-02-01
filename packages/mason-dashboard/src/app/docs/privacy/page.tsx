@@ -19,39 +19,47 @@ export default function PrivacyPage() {
 
       <h2>What is BYOD?</h2>
       <p>
-        BYOD (Bring Your Own Database) means YOUR data stays in YOUR database.
-        Mason is designed so we can&apos;t access your data even if we wanted
-        to.
+        <strong>BYOD (Bring Your Own Database)</strong> means YOUR data stays in
+        YOUR database. Mason is architecturally designed so we can&apos;t access
+        your data even if we wanted to — it&apos;s not stored on our servers.
       </p>
 
       <h2>Architecture Overview</h2>
 
       <h3>What WE Store (Central Database)</h3>
+      <p>
+        Our central database contains only the minimum needed to identify you:
+      </p>
       <ul>
         <li>Your GitHub ID and username</li>
         <li>List of repositories you&apos;ve connected</li>
-        <li>API key hashes (for authentication)</li>
+        <li>
+          API key hashes (for authentication — we can&apos;t see the actual
+          keys)
+        </li>
       </ul>
       <p>
         <strong>That&apos;s it.</strong> No code, no improvements, no PRDs, no
-        execution history.
+        execution history, no credentials.
       </p>
 
       <h3>What YOU Store (Your Supabase)</h3>
+      <p>Everything valuable lives in YOUR database:</p>
       <ul>
         <li>All backlog items and PRDs</li>
         <li>Risk analysis and benefit data</li>
         <li>Execution runs and logs</li>
-        <li>AI provider API keys</li>
+        <li>AI provider API keys (if configured)</li>
         <li>Domain knowledge configuration</li>
       </ul>
 
       <h3>What Stays Local</h3>
+      <p>Some things never leave your machine at all:</p>
       <ul>
-        <li>Your codebase (never sent anywhere)</li>
-        <li>Supabase credentials (browser localStorage)</li>
-        <li>GitHub OAuth tokens (browser localStorage)</li>
-        <li>Mason config file</li>
+        <li>Your codebase (analysis happens locally in Claude Code)</li>
+        <li>Supabase credentials (stored in your browser localStorage)</li>
+        <li>GitHub OAuth tokens (stored in your browser localStorage)</li>
+        <li>The mason.config.json file</li>
       </ul>
 
       <h2>Data Flow</h2>
@@ -83,18 +91,23 @@ export default function PrivacyPage() {
       </div>
 
       <h2>Why This Matters</h2>
+      <p>The BYOD architecture provides real, practical benefits:</p>
       <ul>
         <li>
-          <strong>Data breach?</strong> We don&apos;t have your data to breach
+          <strong>Data breach?</strong> — We don&apos;t have your data to
+          breach. It&apos;s not on our servers.
         </li>
         <li>
-          <strong>Shutdown?</strong> Your data is already in your database
+          <strong>Service shutdown?</strong> — Your data is already in your own
+          database. Export it anytime.
         </li>
         <li>
-          <strong>Compliance?</strong> You control where data is stored
+          <strong>Compliance requirements?</strong> — You control exactly where
+          your data lives.
         </li>
         <li>
-          <strong>Trust?</strong> Code is open source - verify it yourself
+          <strong>Don&apos;t trust us?</strong> — The entire codebase is open
+          source. Verify for yourself.
         </li>
       </ul>
 

@@ -9,7 +9,10 @@ export default function DataPage() {
       description="Detailed breakdown of where your data is stored."
     >
       <h2>Data Location Reference</h2>
-      <p>Complete breakdown of every piece of data and where it lives:</p>
+      <p>
+        Here&apos;s a complete breakdown of every piece of data Mason handles
+        and exactly where it lives:
+      </p>
 
       <div className="not-prose my-6 overflow-x-auto">
         <table className="w-full text-sm">

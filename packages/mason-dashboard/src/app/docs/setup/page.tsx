@@ -11,14 +11,22 @@ export default function SetupPage() {
       <h2>Overview</h2>
       <p>
         Mason uses a <strong>BYOD (Bring Your Own Database)</strong>{' '}
-        architecture. This means all your data - improvements, PRDs, execution
-        history - lives in YOUR Supabase database. We only store your GitHub
-        identity and connected repository list.
+        architecture. This means all your data — improvements, PRDs, risk
+        analysis, execution history — lives in YOUR Supabase database. We only
+        store your GitHub identity and a list of connected repositories.
+      </p>
+      <p>
+        This design ensures complete privacy: we can&apos;t access your data
+        even if we wanted to. You own everything.
       </p>
 
       <h2>1. Supabase Setup</h2>
 
       <h3>Create a Project</h3>
+      <p>
+        If you don&apos;t already have a Supabase account, the free tier
+        provides more than enough resources for Mason:
+      </p>
       <ol>
         <li>
           Go to{' '}
@@ -27,34 +35,45 @@ export default function SetupPage() {
         <li>
           Click <strong>New Project</strong>
         </li>
-        <li>Choose a name and region (any region works)</li>
-        <li>Set a database password (save it somewhere safe)</li>
-        <li>Wait for the project to finish provisioning (~2 minutes)</li>
+        <li>
+          Choose a name (like &quot;mason-data&quot;) and any region close to
+          you
+        </li>
+        <li>Set a strong database password and save it somewhere secure</li>
+        <li>Wait for provisioning to complete (typically under 2 minutes)</li>
       </ol>
 
       <h3>Get Your Credentials</h3>
+      <p>
+        You&apos;ll need two pieces of information from your Supabase project:
+      </p>
       <ol>
         <li>
-          In your Supabase project, go to <strong>Settings &gt; API</strong>
+          Navigate to <strong>Settings → API</strong> in your Supabase dashboard
         </li>
         <li>
-          Copy the <strong>Project URL</strong> - looks like{' '}
+          Copy the <strong>Project URL</strong> — it looks like{' '}
           <code>https://xxxxx.supabase.co</code>
         </li>
         <li>
-          Copy the <strong>anon public</strong> key - starts with{' '}
-          <code>eyJ</code>
+          Copy the <strong>anon public</strong> key — it&apos;s a long string
+          starting with <code>eyJ</code>
         </li>
       </ol>
 
       <div className="not-prose my-6 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4">
         <p className="text-yellow-200">
-          <strong>Important:</strong> Never share your service_role key. Mason
-          only needs the anon/public key.
+          <strong>Security Note:</strong> Never share or use your{' '}
+          <code>service_role</code> key with Mason. The anon/public key is all
+          you need, and it&apos;s safe to use client-side.
         </p>
       </div>
 
       <h3>Initialize the Database</h3>
+      <p>
+        Mason needs to create several tables in your database. This is a
+        one-click process:
+      </p>
       <ol>
         <li>
           Go to{' '}
@@ -62,67 +81,81 @@ export default function SetupPage() {
             mason.assuredefi.com/setup
           </a>
         </li>
-        <li>Enter your Supabase URL and anon key</li>
+        <li>Paste your Supabase URL and anon key</li>
         <li>
           Click <strong>Update Database Schema</strong>
         </li>
       </ol>
       <p>
-        This creates all the required tables with proper indexes and Row Level
-        Security policies.
+        This creates all required tables with proper indexes and Row Level
+        Security policies. The migration is idempotent — you can safely run it
+        again anytime to pick up schema updates.
       </p>
 
       <h2>2. GitHub Integration</h2>
 
       <h3>Install the Mason GitHub App</h3>
+      <p>Connect Mason to your repositories through the GitHub App:</p>
       <ol>
         <li>
           In Mason Setup, click <strong>Connect Repository</strong>
         </li>
-        <li>You&apos;ll be redirected to GitHub to install the Mason app</li>
-        <li>Choose which repositories to give Mason access to</li>
-        <li>Complete the installation</li>
+        <li>You&apos;ll be redirected to GitHub to authorize the Mason app</li>
+        <li>
+          Select which repositories Mason can access (you can modify this later)
+        </li>
+        <li>Complete the installation and return to Mason</li>
       </ol>
 
       <h3>Repository Permissions</h3>
-      <p>Mason requests minimal permissions:</p>
+      <p>Mason requests only the minimal permissions needed:</p>
       <ul>
         <li>
-          <strong>Read access</strong> to repository metadata
+          <strong>Read access to metadata</strong> — repository names and basic
+          info for the dashboard
         </li>
         <li>
-          <strong>Read access</strong> to code (for PR creation)
+          <strong>Read access to code</strong> — only used for PR link
+          generation, not analysis
         </li>
       </ul>
       <p>
-        Mason does NOT access your code through GitHub. Analysis happens locally
-        in Claude Code.
+        <strong>Your code stays local.</strong> Mason does NOT access your code
+        through GitHub. All analysis happens in Claude Code on your machine.
       </p>
 
       <h2>3. API Key Generation</h2>
 
       <h3>Create a Key</h3>
+      <p>API keys authenticate CLI commands with your Mason account:</p>
       <ol>
         <li>
-          In Mason Setup, go to the <strong>API Keys</strong> section
+          In Mason Setup, scroll to the <strong>API Keys</strong> section
         </li>
         <li>
           Click <strong>Generate New Key</strong>
         </li>
-        <li>Copy the key immediately - it won&apos;t be shown again</li>
+        <li>
+          <strong>Copy the key immediately</strong> — it&apos;s only displayed
+          once
+        </li>
       </ol>
 
       <h3>Key Format</h3>
       <p>
-        API keys follow the format: <code>mason_xxxxxxxxxxxx</code>
+        API keys follow a simple format: <code>mason_xxxxxxxxxxxx</code>
       </p>
-      <p>Keys are tied to your user account, not individual repositories.</p>
+      <p>
+        Keys are tied to your user account, not individual repositories. One key
+        works across all your connected repos.
+      </p>
 
       <h2>4. Local Configuration</h2>
 
       <h3>Configuration File</h3>
       <p>
-        Create <code>mason.config.json</code> in your project root:
+        Create a <code>mason.config.json</code> file in your project root
+        directory:
       </p>
       <pre>
         <code>{`{
@@ -135,7 +168,8 @@ export default function SetupPage() {
 
       <h3>Add to .gitignore</h3>
       <p>
-        The config file contains sensitive credentials. Add it to your{' '}
+        <strong>This is important</strong> — the config file contains sensitive
+        credentials that should never be committed. Add it to your{' '}
         <code>.gitignore</code>:
       </p>
       <pre>
@@ -144,31 +178,38 @@ mason.config.json`}</code>
       </pre>
 
       <h2>5. Verify Setup</h2>
-      <p>Test your configuration by running:</p>
+      <p>Test your configuration by running a quick analysis:</p>
       <pre>
         <code>/pm-review --mode quick</code>
       </pre>
       <p>
-        This runs a quick analysis (fewer items) to verify everything is
-        connected.
+        Quick mode generates fewer items and completes in 1-2 minutes — perfect
+        for verifying everything is connected properly.
       </p>
 
       <h2>Troubleshooting</h2>
+      <p>If you run into issues, here are the most common causes and fixes:</p>
 
       <h3>&quot;Invalid API key&quot;</h3>
       <ul>
         <li>
           Verify the key starts with <code>mason_</code>
         </li>
-        <li>Check there are no extra spaces</li>
-        <li>Generate a new key if needed</li>
+        <li>Check for extra spaces or line breaks around the key</li>
+        <li>Try generating a fresh key in the dashboard</li>
       </ul>
 
       <h3>&quot;Database connection failed&quot;</h3>
       <ul>
-        <li>Verify your Supabase URL is correct</li>
-        <li>Check the anon key is complete (they&apos;re long)</li>
-        <li>Ensure the Supabase project is active (not paused)</li>
+        <li>
+          Double-check your Supabase URL is correct and includes{' '}
+          <code>https://</code>
+        </li>
+        <li>Verify the anon key is complete (they&apos;re quite long)</li>
+        <li>
+          Make sure your Supabase project is active (free tier projects pause
+          after inactivity)
+        </li>
       </ul>
 
       <h3>&quot;Repository not found&quot;</h3>

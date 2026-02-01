@@ -10,13 +10,14 @@ export default function PRDsPage() {
     >
       <h2>What is a PRD?</h2>
       <p>
-        A Product Requirements Document (PRD) is generated for every improvement
-        item. It contains everything needed to understand and implement the
-        change.
+        A <strong>Product Requirements Document (PRD)</strong> is generated
+        automatically for every improvement item. It contains everything needed
+        to understand the change and implement it correctly — from user stories
+        to task breakdown to success criteria.
       </p>
 
       <h2>PRD Structure</h2>
-      <p>Each PRD includes:</p>
+      <p>Each PRD is organized into clear sections:</p>
 
       <h3>Overview</h3>
       <ul>
@@ -94,33 +95,45 @@ export default function PRDsPage() {
       </p>
 
       <h2>PRD Generation</h2>
-      <p>PRDs are generated during PM review:</p>
+      <p>PRDs are generated automatically during the PM review process:</p>
       <ol>
         <li>Item is identified and validated</li>
-        <li>PRD is generated with full context</li>
-        <li>PRD is stored alongside the item</li>
-        <li>Available in dashboard detail view</li>
+        <li>PRD is generated with full codebase context</li>
+        <li>PRD is stored alongside the item in your database</li>
+        <li>Available in the dashboard detail view</li>
       </ol>
 
       <h2>PRD Requirements</h2>
       <p>
-        Items cannot be executed without a PRD. The{' '}
+        Items cannot be executed without a complete PRD. The{' '}
         <code>/execute-approved</code> command verifies:
       </p>
       <ul>
-        <li>PRD exists</li>
-        <li>PRD has task breakdown</li>
-        <li>Tasks are wave-compatible</li>
+        <li>
+          <strong>PRD exists</strong> — Items without PRDs are skipped
+        </li>
+        <li>
+          <strong>PRD has task breakdown</strong> — Needed for wave planning
+        </li>
+        <li>
+          <strong>Tasks are wave-compatible</strong> — Can be executed in the
+          exploration → implementation → validation sequence
+        </li>
       </ul>
 
       <h2>Regenerating PRDs</h2>
-      <p>If a PRD needs updating:</p>
+      <p>
+        If your codebase has changed significantly or you want a fresh analysis,
+        you can regenerate a PRD:
+      </p>
       <ol>
-        <li>Open item detail in dashboard</li>
-        <li>Go to PRD tab</li>
-        <li>Click &quot;Regenerate PRD&quot;</li>
+        <li>Open the item detail modal in your dashboard</li>
+        <li>Navigate to the PRD tab</li>
+        <li>
+          Click <strong>&quot;Regenerate PRD&quot;</strong>
+        </li>
       </ol>
-      <p>This creates a fresh PRD with current codebase context.</p>
+      <p>This creates a fresh PRD based on your current codebase context.</p>
     </DocsLayout>
   );
 }

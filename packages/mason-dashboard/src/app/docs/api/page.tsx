@@ -11,8 +11,9 @@ export default function APIPage() {
       description="Programmatic access to Mason functionality."
     >
       <p>
-        Mason provides API endpoints for programmatic access. These are
-        primarily used by CLI commands but can be used for custom integrations.
+        Mason provides API endpoints for programmatic access. These endpoints
+        power the CLI commands but are also available for building custom
+        integrations or automation workflows.
       </p>
 
       <div className="not-prose my-6 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4">
@@ -100,17 +101,22 @@ export default function APIPage() {
       </pre>
 
       <h2>Rate Limiting</h2>
-      <p>API requests are rate-limited. Current limits:</p>
+      <p>API requests are rate-limited to ensure fair usage:</p>
       <ul>
-        <li>100 requests per minute per API key</li>
-        <li>1000 requests per hour per API key</li>
+        <li>
+          <strong>100 requests per minute</strong> per API key
+        </li>
+        <li>
+          <strong>1000 requests per hour</strong> per API key
+        </li>
       </ul>
 
       <h2>Direct Supabase Access</h2>
       <p>
-        Remember: your actual data is in YOUR Supabase. The Mason API is only
-        for identity/key validation. For data operations, query your Supabase
-        directly using the credentials in your config.
+        Remember: your actual data lives in YOUR Supabase database. The Mason
+        API only handles identity validation and key verification. For direct
+        data operations, query your Supabase using the credentials in your
+        config file.
       </p>
     </DocsLayout>
   );
