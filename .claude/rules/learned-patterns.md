@@ -212,6 +212,7 @@ description: Brief description of what this command does.
 **Discovered**: 2026-01-31
 **Context**: Replaced BuildingTheater (animated 3D construction site) with ExecutionStatusModal (progress timeline)
 **Pattern**: For execution/progress visualization, prioritize information density over visual entertainment:
+
 - Show checkpoint timeline with status indicators
 - Display current file and lines changed
 - Show validation status grid (TS, ESLint, Build, Tests)
@@ -219,5 +220,52 @@ description: Brief description of what this command does.
 - Celebration modal for success with confetti + accomplishment summary
 
 **Why**: Users want to understand what Mason is doing at each moment. Anxiety comes from uncertainty, not from lack of pretty animations. A clear timeline with percentage progress is more reassuring than 3D buildings.
+
+---
+
+## Video Content: Screen-Filling Text, No Tiny Elements
+
+**Discovered**: 2026-01-31
+**Context**: Mason demo video went through 3 iterations - tiny dashboard screenshots were unreadable on small screens
+**Pattern**: For promotional/demo videos:
+
+- Use massive text sizes (90-140px for key messages)
+- Never include tiny dashboard screenshots that won't render at video size
+- Clean typography beats trying to show actual UI
+- All text must be legible on mobile/embedded players
+- Test at smallest expected viewing size before finalizing
+
+**Why**: Videos are often viewed embedded at small sizes. Tiny text and dashboard previews become illegible noise. Large, bold typography with focused messaging has more impact.
+
+---
+
+## Auth Flow: State Machine for Transitions
+
+**Discovered**: 2026-01-31
+**Context**: Landing page flickered between states for authenticated users
+**Pattern**: Use explicit state machines for auth transitions:
+
+- Define phases: checking → detected → signing_in → complete
+- Show branded splash/loading states during transitions
+- New users should see content immediately (no loading state)
+- Returning users get smooth transition sequence
+
+**Why**: Auth state changes cause re-renders. Without explicit transition phases, users see jarring flickers between landing page and dashboard. A state machine with intentional loading states creates polished experience.
+
+---
+
+## Table Cleanup: Remove From ALL Locations
+
+**Discovered**: 2026-01-31
+**Context**: Removed deprecated tables (AI_PROVIDER_KEYS, REMOTE_EXECUTION_RUNS, EXECUTION_LOGS)
+**Pattern**: When removing database tables, update ALL of these locations:
+
+1. `TABLES` constant in `constants.ts`
+2. `MIGRATION_SQL` in migrations route (remove CREATE, indexes, RLS, policies)
+3. Required tables check in `user-client.ts`
+4. Any REPLICA IDENTITY or realtime publication settings
+5. Any components/hooks that reference the table
+
+**Why**: Partial removal causes TypeScript errors or runtime failures. The TABLES constant is the source of truth - if it's not there, nothing should reference it.
 
 ---
