@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowRight, Play } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 import { MasonAvatar } from '@/components/brand';
@@ -18,6 +19,20 @@ export function HeroSection() {
   return (
     <section className="mason-entrance px-4 py-16 sm:px-6 md:py-24 lg:px-8">
       <div className="mx-auto max-w-4xl text-center">
+        {/* Assure DeFi branding */}
+        <div className="mb-6 flex items-center justify-center gap-2">
+          <Image
+            src="/assure-defi-logo.svg"
+            alt="Assure DeFi"
+            width={24}
+            height={24}
+            className="h-6 w-6"
+          />
+          <span className="text-sm tracking-wide text-gray-400">
+            A product of Assure DeFi<sup className="text-[10px]">&reg;</sup>
+          </span>
+        </div>
+
         {/* Avatar - smaller than before */}
         <div className="mb-8 flex justify-center">
           <MasonAvatar size="lg" variant="detailed" priority />
