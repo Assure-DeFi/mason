@@ -14,11 +14,9 @@ import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import { UserMenu } from '@/components/auth/user-menu';
-import { BangerIdeaCard } from '@/components/backlog/banger-idea-card';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
-import { FeatureIdeasSection } from '@/components/backlog/feature-ideas-section';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
 import { GenerateIdeasModal } from '@/components/backlog/generate-ideas-modal';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
@@ -443,56 +441,6 @@ export default function BacklogPage() {
       return updatedAt < twoDaysAgo;
     }).length;
   }, [repoFilteredItems]);
-
-  // Get the banger idea (only one per analysis, highest priority if multiple)
-  // Respects activeStatus tab filter
-  const bangerIdea = useMemo(() => {
-    const bangerItems = repoFilteredItems.filter((item) => {
-      if (!item.is_banger_idea) {
-        return false;
-      }
-      // Completed/rejected bangers should appear as normal items, not in the featured card
-      if (item.status === 'rejected' || item.status === 'completed') {
-        return false;
-      }
-
-      // If status tab is active, filter to that status
-      if (activeStatus) {
-        return item.status === activeStatus;
-      }
-      // "All Items" tab - show all active (new/approved/in_progress) bangers
-      return true;
-    });
-    if (bangerItems.length === 0) {
-      return null;
-    }
-    return bangerItems.sort((a, b) => b.priority_score - a.priority_score)[0];
-  }, [repoFilteredItems, activeStatus]);
-
-  // Get feature ideas (new features that aren't the banger idea)
-  // Respects activeStatus tab filter
-  const featureIdeas = useMemo(() => {
-    return repoFilteredItems.filter((item) => {
-      if (!item.is_new_feature || item.is_banger_idea) {
-        return false;
-      }
-      if (item.status === 'rejected') {
-        return false;
-      }
-
-      // If status tab is active, filter to that status
-      if (activeStatus) {
-        return item.status === activeStatus;
-      }
-      // "All Items" tab - show all non-rejected
-      return true;
-    });
-  }, [repoFilteredItems, activeStatus]);
-
-  // Get improvement items (not new features)
-  const improvementItems = useMemo(() => {
-    return filteredItems.filter((item) => !item.is_new_feature);
-  }, [filteredItems]);
 
   // Get recommended items (strategic next steps)
   const recommendations = useMemo(() => {
@@ -1018,18 +966,6 @@ export default function BacklogPage() {
     return configs[confirmAction.type];
   };
 
-  const handleExecuteAll = async () => {
-    const command = `/execute-approved --ids ${approvedItemIds.join(',')}`;
-
-    try {
-      await navigator.clipboard.writeText(command);
-      setCopiedToast(true);
-      setTimeout(() => setCopiedToast(false), 3000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
-
   const _handleRemoteExecute = (itemIds: string[], itemTitle?: string) => {
     // Start remote execution - handled by the UnifiedExecuteButton modal
     // This would integrate with the existing RemoteExecuteButton logic
@@ -1198,8 +1134,6 @@ export default function BacklogPage() {
               <StatusTabs
                 activeStatus={activeStatus}
                 onStatusChange={setActiveStatus}
-                onExecuteAll={handleExecuteAll}
-                approvedCount={counts.approved}
                 counts={counts}
                 staleApprovedCount={staleApprovedCount}
               />
@@ -1251,41 +1185,9 @@ export default function BacklogPage() {
             <EmptyStateOnboarding onRefresh={fetchItems} />
           ) : (
             <div className="space-y-6 p-6">
-              {/* Banger Idea - Featured at top */}
-              {bangerIdea && (
-                <BangerIdeaCard
-                  item={bangerIdea}
-                  onViewDetails={handleItemClick}
-                  onApprove={(id) => void handleUpdateStatus(id, 'approved')}
-                  onReject={(id) => void handleUpdateStatus(id, 'rejected')}
-                  onComplete={(id) => void handleUpdateStatus(id, 'completed')}
-                  onDelete={(id) => void handleBulkDelete([id])}
-                />
-              )}
-
-              {/* Feature Ideas Section */}
-              <FeatureIdeasSection
-                items={featureIdeas}
-                onViewDetails={handleItemClick}
-                onApprove={(id) => handleUpdateStatus(id, 'approved')}
-                onReject={(id) => handleUpdateStatus(id, 'rejected')}
-                onComplete={(id) => handleUpdateStatus(id, 'completed')}
-                onDelete={(id) => handleBulkDelete([id])}
-              />
-
-              {/* Improvements Table */}
-              {(bangerIdea || featureIdeas.length > 0) &&
-                improvementItems.length > 0 && (
-                  <div className="border-t border-gray-800 pt-6">
-                    <h3 className="text-lg font-semibold text-white mb-4">
-                      Improvements ({improvementItems.length})
-                    </h3>
-                  </div>
-                )}
+              {/* All items in unified table - Features and Bangers shown with badges */}
               <ImprovementsTable
-                items={
-                  improvementItems.length > 0 ? improvementItems : filteredItems
-                }
+                items={filteredItems}
                 selectedIds={selectedIds}
                 onSelectItem={handleSelectItem}
                 onSelectAll={handleSelectAll}

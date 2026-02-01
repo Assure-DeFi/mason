@@ -11,8 +11,6 @@ export type TabStatus = BacklogStatus | 'filtered' | null;
 interface StatusTabsProps {
   activeStatus: TabStatus;
   onStatusChange: (status: TabStatus) => void;
-  onExecuteAll?: () => void;
-  approvedCount: number;
   filteredCount?: number;
   /** Item counts per status for badges */
   counts?: StatusCounts;
@@ -52,8 +50,6 @@ function getCountForStatus(
 export function StatusTabs({
   activeStatus,
   onStatusChange,
-  onExecuteAll,
-  approvedCount,
   filteredCount = 0,
   counts,
   staleApprovedCount = 0,
@@ -127,16 +123,6 @@ export function StatusTabs({
           </button>
         );
       })}
-
-      {activeStatus === 'approved' && approvedCount > 0 && onExecuteAll && (
-        <button
-          onClick={onExecuteAll}
-          className="ml-auto flex items-center gap-2 px-4 py-2 border border-gray-700 text-gray-300 text-sm hover:bg-white/5 hover:border-gray-600 transition-all font-medium"
-          title="Copy command to clipboard"
-        >
-          Copy CLI Command
-        </button>
-      )}
     </div>
   );
 }

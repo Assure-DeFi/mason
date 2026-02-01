@@ -10,6 +10,7 @@ import type { BacklogItem, BacklogStatus } from '@/types/backlog';
 
 import { BangerBadge } from './BangerBadge';
 import { CategoryBadge } from './category-badge';
+import { FeatureBadge } from './FeatureBadge';
 import { PriorityDots } from './priority-dots';
 import { QuickWinBadge } from './QuickWinBadge';
 
@@ -138,6 +139,7 @@ function ItemRowComponent({
               Autopilot
             </span>
           )}
+          {item.is_new_feature && !item.is_banger_idea && <FeatureBadge />}
           {(item.is_banger_idea || item.tags?.includes('banger')) && (
             <BangerBadge />
           )}
@@ -234,7 +236,9 @@ function ItemRowComponent({
               aria-label="Approve"
               title="Approve"
             >
-              <Check className={`w-4 h-4 ${isApproving ? 'animate-pulse' : ''}`} />
+              <Check
+                className={`w-4 h-4 ${isApproving ? 'animate-pulse' : ''}`}
+              />
             </button>
             <button
               onClick={handleReject}
