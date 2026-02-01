@@ -1,5 +1,6 @@
 import { getServerSession } from 'next-auth';
 
+import { createAuditLogger } from '@/lib/api/audit';
 import {
   apiSuccess,
   unauthorized,
@@ -9,6 +10,7 @@ import {
 } from '@/lib/api-response';
 import { deleteApiKey } from '@/lib/auth/api-key';
 import { authOptions } from '@/lib/auth/auth-options';
+import { createServiceClient } from '@/lib/supabase/client';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -17,7 +19,7 @@ interface RouteParams {
 /**
  * DELETE /api/keys/[id] - Revoke an API key
  */
-export async function DELETE(_request: Request, { params }: RouteParams) {
+export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -39,6 +41,16 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
     if (result === 'error') {
       return serverError('Failed to delete API key');
+    }
+
+    // Audit log the API key deletion (fire-and-forget)
+    try {
+      const supabase = createServiceClient();
+      const audit = createAuditLogger(supabase, request, session.user.id);
+      // Fire and forget to not impact response time
+      void audit.apiKeyDeleted(id);
+    } catch {
+      // Audit logging failure should never break the operation
     }
 
     return apiSuccess({ deleted: true });
