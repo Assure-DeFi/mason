@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.2.0
+version: 2.3.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -24,7 +24,8 @@ Options:
 - `--limit <n>`: Maximum number of items to execute (optional, no limit by default)
 - `--dry-run`: Show execution plan without making changes
 - `--auto`: Run in headless mode for autopilot execution (skips confirmations, outputs machine-readable status)
-- `--smoke-test`: Run optional E2E smoke test after all items complete to verify app boots without crashes
+- `--smoke-test`: Run quick E2E smoke test (~30s) to verify app boots without crashes
+- `--e2e`: Run full E2E test suite (~2-3min) for comprehensive browser testing (includes smoke test)
 
 Examples:
 
@@ -34,6 +35,7 @@ Examples:
 - `/execute-approved --dry-run` - Preview execution plan
 - `/execute-approved --auto` - Execute all approved items in headless mode (for autopilot)
 - `/execute-approved --smoke-test` - Execute with quick runtime smoke test
+- `/execute-approved --e2e` - Execute with full E2E browser testing
 
 ## Process
 
@@ -91,7 +93,15 @@ fi
 SMOKE_TEST_ENABLED=false
 if echo "$*" | grep -q '\-\-smoke-test'; then
   SMOKE_TEST_ENABLED=true
-  echo "SMOKE_TEST: Enabled - will run E2E smoke test after all validations"
+  echo "SMOKE_TEST: Enabled - will run quick smoke test after all validations"
+fi
+
+# Parse arguments for --e2e flag (full E2E includes smoke test)
+E2E_TEST_ENABLED=false
+if echo "$*" | grep -q '\-\-e2e'; then
+  E2E_TEST_ENABLED=true
+  SMOKE_TEST_ENABLED=false  # E2E includes smoke test functionality
+  echo "E2E_TEST: Enabled - will run full E2E test suite after all validations"
 fi
 ```
 
@@ -1088,6 +1098,75 @@ fi
 - The code is verified safe to commit
 - Smoke test failure indicates potential runtime issues that may need investigation
 - User is informed but execution continues
+
+---
+
+#### 8.6: Optional Full E2E Test (When --e2e flag is used)
+
+**This step only runs if `E2E_TEST_ENABLED=true`.**
+
+When the user invokes `/execute-approved --e2e`, run the comprehensive E2E test suite after all standard validations pass. This provides higher confidence for UI changes but takes longer.
+
+```bash
+# === OPTIONAL FULL E2E TEST (Step 8.6) ===
+if [ "$E2E_TEST_ENABLED" = "true" ]; then
+  echo ""
+  echo "=== RUNNING FULL E2E TEST SUITE ==="
+  echo "Starting comprehensive E2E tests (this may take 2-3 minutes)..."
+
+  # Update progress to show E2E test running
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_smoke_test": "running"}'
+
+  log_execution "info" "Running full E2E test suite" '{"check": "e2e", "status": "running"}'
+
+  # Run the full E2E test suite
+  cd packages/mason-dashboard
+  if npx playwright test --reporter=line 2>&1; then
+    echo "E2E tests PASSED"
+    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+      -H "apikey: ${SUPABASE_KEY}" \
+      -H "Authorization: Bearer ${SUPABASE_KEY}" \
+      -H "Content-Type: application/json" \
+      -d '{"validation_smoke_test": "pass"}'
+    log_execution "info" "Full E2E tests passed" '{"check": "e2e", "status": "pass"}'
+  else
+    echo "E2E tests FAILED - check test output for details"
+    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+      -H "apikey: ${SUPABASE_KEY}" \
+      -H "Authorization: Bearer ${SUPABASE_KEY}" \
+      -H "Content-Type: application/json" \
+      -d '{"validation_smoke_test": "fail"}'
+    log_execution "warn" "E2E tests failed - check test output for details" '{"check": "e2e", "status": "fail"}'
+    # NOTE: E2E failure is a WARNING, not a blocking failure
+    # The item still proceeds to commit since all mandatory validations passed
+  fi
+  cd ../..
+
+  echo "=== END E2E TEST SUITE ==="
+fi
+# === END OPTIONAL FULL E2E TEST ===
+```
+
+**E2E Test Behavior:**
+
+| Scenario             | Action                                                  |
+| -------------------- | ------------------------------------------------------- |
+| `--e2e` not provided | E2E not run (smoke test runs if `--smoke-test` was set) |
+| E2E tests pass       | Status shows "Pass", proceed to commit                  |
+| E2E tests fail       | Status shows "Fail" as WARNING, still proceed to commit |
+
+**E2E vs Smoke Test:**
+
+| Aspect      | Smoke Test (`--smoke-test`) | Full E2E (`--e2e`)                 |
+| ----------- | --------------------------- | ---------------------------------- |
+| Time        | ~30 seconds                 | ~2-3 minutes                       |
+| Coverage    | App boots, no crashes       | All routes, interactions, UI       |
+| Use case    | Quick sanity check          | Comprehensive UI change validation |
+| When to use | Most executions             | UI-heavy changes, before release   |
 
 ### Step 9: Auto-Fix Iteration Loop (MANDATORY ON VALIDATION FAILURE)
 

@@ -11,8 +11,10 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
+  Zap,
+  TestTube,
 } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 import { ClaudeCodeExplainer } from '@/components/ui/ClaudeCodeExplainer';
 
@@ -34,7 +36,29 @@ export function UnifiedExecuteButton({
   const [showClaudeCodeExplainer, setShowClaudeCodeExplainer] = useState(false);
   const [showToast, setShowToast] = useState(false);
 
-  const command = `/execute-approved --ids ${itemIds.join(',')}`;
+  // Test options - both off by default
+  const [smokeTestEnabled, setSmokeTestEnabled] = useState(false);
+  const [e2eTestEnabled, setE2eTestEnabled] = useState(false);
+
+  // Build command based on options
+  const command = useMemo(() => {
+    let cmd = `/execute-approved --ids ${itemIds.join(',')}`;
+    // E2E includes smoke test, so only add one flag
+    if (e2eTestEnabled) {
+      cmd += ' --e2e';
+    } else if (smokeTestEnabled) {
+      cmd += ' --smoke-test';
+    }
+    return cmd;
+  }, [itemIds, smokeTestEnabled, e2eTestEnabled]);
+
+  // When E2E is enabled, smoke test is automatically disabled
+  const handleE2eToggle = useCallback((enabled: boolean) => {
+    setE2eTestEnabled(enabled);
+    if (enabled) {
+      setSmokeTestEnabled(false);
+    }
+  }, []);
 
   const handleCopyCommand = useCallback(async () => {
     try {
@@ -142,6 +166,92 @@ export function UnifiedExecuteButton({
                   Copy failed. Try selecting the command and copying manually.
                 </p>
               )}
+
+              {/* Test Options */}
+              <div className="pt-4 border-t border-gray-800 space-y-3">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Optional Testing
+                </p>
+
+                {/* Smoke Test Toggle */}
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => setSmokeTestEnabled(!smokeTestEnabled)}
+                    disabled={e2eTestEnabled}
+                    className={clsx(
+                      'relative w-10 h-5 rounded-full transition-colors flex-shrink-0 mt-0.5',
+                      e2eTestEnabled
+                        ? 'bg-gray-800 cursor-not-allowed opacity-50'
+                        : smokeTestEnabled
+                          ? 'bg-gold'
+                          : 'bg-gray-700 hover:bg-gray-600',
+                    )}
+                    aria-label="Toggle smoke test"
+                  >
+                    <span
+                      className={clsx(
+                        'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+                        smokeTestEnabled ? 'left-5' : 'left-0.5',
+                      )}
+                    />
+                  </button>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-gold" />
+                      <span className="text-sm font-medium text-white">
+                        Smoke Test
+                      </span>
+                      <span className="text-xs text-gray-500">~30s</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Quick check that the app boots without crashes. Catches
+                      catastrophic failures.
+                    </p>
+                    {e2eTestEnabled && (
+                      <p className="text-xs text-gray-600 mt-1 italic">
+                        Included in full E2E testing
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* E2E Test Toggle */}
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => handleE2eToggle(!e2eTestEnabled)}
+                    className={clsx(
+                      'relative w-10 h-5 rounded-full transition-colors flex-shrink-0 mt-0.5',
+                      e2eTestEnabled
+                        ? 'bg-gold'
+                        : 'bg-gray-700 hover:bg-gray-600',
+                    )}
+                    aria-label="Toggle E2E test"
+                  >
+                    <span
+                      className={clsx(
+                        'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+                        e2eTestEnabled ? 'left-5' : 'left-0.5',
+                      )}
+                    />
+                  </button>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <TestTube className="w-4 h-4 text-gold" />
+                      <span className="text-sm font-medium text-white">
+                        Full E2E Test
+                      </span>
+                      <span className="text-xs text-gray-500">~2-3min</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Comprehensive browser tests on affected routes. Catches UI
+                      bugs and runtime errors.
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Adds time but provides highest confidence for UI changes.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               {/* What's Claude Code link */}
               <button
