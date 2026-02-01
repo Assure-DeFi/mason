@@ -544,9 +544,7 @@ END $$;
 -- Enable REPLICA IDENTITY FULL for realtime tables (REQUIRED for postgres_changes)
 -- Without this, Postgres only tracks primary key changes, not full row data
 -- This ensures realtime subscriptions receive complete row data on INSERT/UPDATE
-ALTER TABLE mason_execution_logs REPLICA IDENTITY FULL;
 ALTER TABLE mason_execution_progress REPLICA IDENTITY FULL;
-ALTER TABLE mason_remote_execution_runs REPLICA IDENTITY FULL;
 ALTER TABLE mason_pm_backlog_items REPLICA IDENTITY FULL;
 
 -- Enable realtime for execution progress table (CRITICAL for ExecutionStatusModal auto-show)
@@ -554,16 +552,6 @@ ALTER TABLE mason_pm_backlog_items REPLICA IDENTITY FULL;
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE mason_execution_progress;
-  END IF;
-EXCEPTION WHEN duplicate_object THEN
-  NULL; -- Table already in publication
-END $$;
-
--- Enable realtime for execution logs table (CRITICAL for log streaming in ExecutionStatusModal)
--- This allows the dashboard to receive real-time INSERT events when CLI writes logs
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE mason_execution_logs;
   END IF;
 EXCEPTION WHEN duplicate_object THEN
   NULL; -- Table already in publication

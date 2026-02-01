@@ -229,8 +229,6 @@ export async function checkTablesExist(
     TABLES.GITHUB_REPOSITORIES,
     TABLES.PM_BACKLOG_ITEMS,
     TABLES.PM_ANALYSIS_RUNS,
-    TABLES.REMOTE_EXECUTION_RUNS,
-    TABLES.EXECUTION_LOGS,
   ];
 
   const missing: string[] = [];
