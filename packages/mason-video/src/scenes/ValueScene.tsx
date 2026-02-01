@@ -5,6 +5,8 @@ import {
   useVideoConfig,
   interpolate,
   spring,
+  Img,
+  staticFile,
 } from 'remotion';
 
 /**
@@ -58,6 +60,25 @@ export const ValueScene: React.FC = () => {
   const subtextY = interpolate(frame, [75, 95], [30, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
+  });
+
+  // Mason character - slides in from right when subtext appears
+  const masonSpring = spring({
+    frame: frame - 80,
+    fps,
+    config: { damping: 12, stiffness: 100 },
+  });
+  const masonX = interpolate(masonSpring, [0, 1], [300, 0]);
+  const masonOpacity = interpolate(masonSpring, [0, 1], [0, 1]);
+  const masonScale = interpolate(masonSpring, [0, 1], [0.6, 1]);
+
+  // Mason "working" bob animation - subtle up/down like he's hammering
+  const masonBob = Math.sin((frame - 80) * 0.25) * 8;
+  const masonRotate = Math.sin((frame - 80) * 0.15) * 2; // subtle rotation
+
+  // Mason glow pulse matching the gold theme
+  const masonGlow = interpolate((frame - 80) % 30, [0, 15, 30], [0.3, 0.7, 0.3], {
+    extrapolateLeft: 'clamp',
   });
 
   // Background particles
@@ -185,6 +206,35 @@ export const ValueScene: React.FC = () => {
             While you sleep.
           </span>
         </div>
+      </div>
+
+      {/* Mason character - the builder at work */}
+      <div
+        className="absolute"
+        style={{
+          right: 80,
+          bottom: 60,
+          opacity: masonOpacity,
+          transform: `translateX(${masonX}px) translateY(${masonBob}px) scale(${masonScale}) rotate(${masonRotate}deg)`,
+        }}
+      >
+        {/* Glow behind Mason */}
+        <div
+          className="absolute inset-0 rounded-full blur-3xl"
+          style={{
+            background: `rgba(226, 210, 67, ${masonGlow})`,
+            transform: 'scale(1.5)',
+          }}
+        />
+        {/* Mason icon */}
+        <Img
+          src={staticFile('mason_icon.png')}
+          style={{
+            width: 200,
+            height: 200,
+            filter: `drop-shadow(0 0 30px rgba(226, 210, 67, ${masonGlow + 0.3}))`,
+          }}
+        />
       </div>
     </AbsoluteFill>
   );
