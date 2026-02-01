@@ -1,7 +1,7 @@
 'use client';
 
-import { formatDistanceToNow } from 'date-fns';
-import { FileText, Check, X } from 'lucide-react';
+import { formatDistanceToNow, differenceInHours } from 'date-fns';
+import { FileText, Check, X, Clock } from 'lucide-react';
 import { memo, useState } from 'react';
 
 import type { ColumnWidths } from '@/hooks/useColumnResize';
@@ -13,6 +13,8 @@ import { CategoryBadge } from './category-badge';
 import { FeatureBadge } from './FeatureBadge';
 import { PriorityDots } from './priority-dots';
 import { QuickWinBadge } from './QuickWinBadge';
+
+type TabStatus = BacklogStatus | 'filtered' | null;
 
 const STATUS_COLORS: Record<BacklogStatus, { text: string; bg: string }> = {
   new: { text: 'text-cyan-400', bg: 'bg-cyan-500/10' },
@@ -32,6 +34,38 @@ const STATUS_LABELS: Record<BacklogStatus, string> = {
   rejected: 'Rejected',
 };
 
+/**
+ * Get the approval age color based on hours since approval.
+ * - Green (<24h): Fresh approval
+ * - Yellow (1-2 days): Getting stale
+ * - Orange (>2 days): Needs attention
+ */
+function getApprovalAgeColor(hoursAgo: number): {
+  text: string;
+  bg: string;
+  border: string;
+} {
+  if (hoursAgo < 24) {
+    return {
+      text: 'text-green-400',
+      bg: 'bg-green-500/10',
+      border: 'border-green-500/30',
+    };
+  }
+  if (hoursAgo < 48) {
+    return {
+      text: 'text-yellow-400',
+      bg: 'bg-yellow-500/10',
+      border: 'border-yellow-500/30',
+    };
+  }
+  return {
+    text: 'text-orange-400',
+    bg: 'bg-orange-500/10',
+    border: 'border-orange-500/30',
+  };
+}
+
 interface ItemRowProps {
   item: BacklogItem;
   selected: boolean;
@@ -41,6 +75,7 @@ interface ItemRowProps {
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;
   columnWidths: ColumnWidths;
+  activeStatus?: TabStatus;
 }
 
 function ItemRowComponent({
@@ -52,6 +87,7 @@ function ItemRowComponent({
   onApprove,
   onReject,
   columnWidths,
+  activeStatus,
 }: ItemRowProps) {
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -213,12 +249,39 @@ function ItemRowComponent({
         )}
       </td>
 
-      {/* Last edited */}
+      {/* Last edited / Approval age */}
       <td
-        className="py-3 px-3 text-gray-500 text-xs whitespace-nowrap"
+        className="py-3 px-3 text-xs whitespace-nowrap"
         style={{ width: `${columnWidths.updated}px` }}
       >
-        {formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}
+        {activeStatus === 'approved' && item.status === 'approved' ? (
+          (() => {
+            const hoursAgo = differenceInHours(
+              new Date(),
+              new Date(item.updated_at),
+            );
+            const colors = getApprovalAgeColor(hoursAgo);
+            return (
+              <div className="flex items-center gap-1.5">
+                <Clock className={`w-3.5 h-3.5 ${colors.text}`} />
+                <span
+                  className={`px-1.5 py-0.5 text-xs font-medium ${colors.bg} ${colors.text} border ${colors.border} rounded`}
+                  title={`Approved ${formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}`}
+                >
+                  {formatDistanceToNow(new Date(item.updated_at), {
+                    addSuffix: false,
+                  })}
+                </span>
+              </div>
+            );
+          })()
+        ) : (
+          <span className="text-gray-500">
+            {formatDistanceToNow(new Date(item.updated_at), {
+              addSuffix: true,
+            })}
+          </span>
+        )}
       </td>
 
       {/* Quick Actions - visible on mobile, hover on desktop */}
