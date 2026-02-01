@@ -10,6 +10,7 @@ import {
   X,
   Search,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -20,19 +21,14 @@ import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
-import { GenerateIdeasModal } from '@/components/backlog/generate-ideas-modal';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
-import {
-  ItemDetailModal,
-  type ViewMode,
-} from '@/components/backlog/item-detail-modal';
+import type { ViewMode } from '@/components/backlog/item-detail-modal';
 import { MasonRecommends } from '@/components/backlog/mason-recommends';
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
 import { MasonMark } from '@/components/brand';
 import { ErrorBoundary } from '@/components/errors';
-import { ExecutionRunModal } from '@/components/execution/ExecutionRunModal';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { AutopilotToast } from '@/components/ui/AutopilotToast';
 import { ErrorBanner, ErrorToast } from '@/components/ui/ErrorBanner';
@@ -61,6 +57,41 @@ import type {
   SortField,
   SortDirection,
 } from '@/types/backlog';
+
+// Dynamically import heavy modal components to reduce initial bundle size
+const ItemDetailModal = dynamic(
+  () =>
+    import('@/components/backlog/item-detail-modal').then(
+      (mod) => mod.ItemDetailModal,
+    ),
+  {
+    loading: () => (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+        <div className="animate-pulse text-gray-400">Loading...</div>
+      </div>
+    ),
+  },
+);
+
+const ExecutionRunModal = dynamic(
+  () =>
+    import('@/components/execution/ExecutionRunModal').then(
+      (mod) => mod.ExecutionRunModal,
+    ),
+  {
+    loading: () => null,
+  },
+);
+
+const GenerateIdeasModal = dynamic(
+  () =>
+    import('@/components/backlog/generate-ideas-modal').then(
+      (mod) => mod.GenerateIdeasModal,
+    ),
+  {
+    loading: () => null,
+  },
+);
 
 interface UndoState {
   action: 'approve' | 'reject' | 'restore' | 'complete' | 'delete';
@@ -203,7 +234,10 @@ export default function BacklogPage() {
 
     // Rate limit retries after errors
     const now = Date.now();
-    if (lastFetchErrorRef.current && now - lastFetchErrorRef.current < FETCH_RETRY_DELAY) {
+    if (
+      lastFetchErrorRef.current &&
+      now - lastFetchErrorRef.current < FETCH_RETRY_DELAY
+    ) {
       return;
     }
 
