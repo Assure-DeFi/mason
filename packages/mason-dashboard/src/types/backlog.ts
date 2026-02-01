@@ -114,8 +114,8 @@ export interface BacklogItem {
   effort_score: number;
   priority_score: number; // Computed: (impact * 2) - effort
 
-  // Benefits (structured array)
-  benefits: Benefit[];
+  // Benefits (structured array) - optional as it may be excluded from list queries for performance
+  benefits?: Benefit[];
 
   // Status
   status: BacklogStatus;

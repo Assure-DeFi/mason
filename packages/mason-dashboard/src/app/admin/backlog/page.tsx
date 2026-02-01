@@ -31,7 +31,7 @@ import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
 import { MasonMark } from '@/components/brand';
 import { ErrorBoundary } from '@/components/errors';
-import { ExecutionStatusModal } from '@/components/execution/ExecutionStatusModal';
+import { ExecutionRunModal } from '@/components/execution/ExecutionRunModal';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { AutopilotToast } from '@/components/ui/AutopilotToast';
 import { ErrorBanner, ErrorToast } from '@/components/ui/ErrorBanner';
@@ -120,7 +120,7 @@ export default function BacklogPage() {
     items?: BacklogItem[];
   } | null>(null);
 
-  // Global execution listener - auto-shows ExecutionStatusModal when CLI execution starts
+  // Global execution listener - auto-shows ExecutionRunModal when CLI execution starts
   // Works across ALL repos, not filtered by selected repository
   const handleExecutionDetected = useCallback(
     (progress: { item_id: string; run_id: string | null }) => {
@@ -250,10 +250,19 @@ export default function BacklogPage() {
           .in('id', orphanedIds);
       }
 
-      // Now fetch all items for this user
+      // Fetch items with selective columns for performance
+      // Excludes large fields like benefits (JSON array) that are only needed in detail modal
       const { data, error: fetchError } = await client
         .from(TABLES.PM_BACKLOG_ITEMS)
-        .select('*')
+        .select(
+          'id,title,problem,solution,type,status,area,complexity,' +
+            'impact_score,effort_score,priority_score,' +
+            'is_new_feature,is_banger_idea,tags,source,' +
+            'updated_at,created_at,repository_id,' +
+            'prd_content,branch_name,pr_url,' +
+            'risk_score,has_breaking_changes,files_affected_count,test_coverage_gaps,' +
+            'user_id,analysis_run_id',
+        )
         .eq('user_id', userData.id)
         .order('priority_score', { ascending: false });
 
@@ -261,7 +270,7 @@ export default function BacklogPage() {
         throw fetchError;
       }
 
-      setItems(data || []);
+      setItems((data as unknown as BacklogItem[]) || []);
     } catch (err) {
       console.error('Error fetching backlog:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -294,7 +303,7 @@ export default function BacklogPage() {
             prevItem?.status !== 'in_progress' &&
             updatedItem.status === 'in_progress'
           ) {
-            // Create execution_progress record for ExecutionStatusModal
+            // Create execution_progress record for ExecutionRunModal
             void ensureExecutionProgress(client, updatedItem.id, {
               totalWaves: 4,
               initialTask: `Starting: ${updatedItem.title}`,
@@ -1245,11 +1254,12 @@ export default function BacklogPage() {
         </ErrorBoundary>
       )}
 
-      {/* Execution Progress Modal */}
-      {executingItemId && client && (
-        <ExecutionStatusModal
-          itemId={executingItemId}
-          itemTitle={executingItemTitle ?? undefined}
+      {/* Execution Progress Modal - Shows all items in the run */}
+      {executingItemId && executionRunId && client && (
+        <ExecutionRunModal
+          runId={executionRunId}
+          initialItemId={executingItemId}
+          initialItemTitle={executingItemTitle ?? undefined}
           client={client}
           onComplete={() => {
             setExecutionRunId(null);
