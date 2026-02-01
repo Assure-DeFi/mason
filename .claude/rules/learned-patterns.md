@@ -212,6 +212,7 @@ description: Brief description of what this command does.
 **Discovered**: 2026-01-31
 **Context**: Replaced BuildingTheater (animated 3D construction site) with ExecutionStatusModal (progress timeline)
 **Pattern**: For execution/progress visualization, prioritize information density over visual entertainment:
+
 - Show checkpoint timeline with status indicators
 - Display current file and lines changed
 - Show validation status grid (TS, ESLint, Build, Tests)
@@ -219,5 +220,25 @@ description: Brief description of what this command does.
 - Celebration modal for success with confetti + accomplishment summary
 
 **Why**: Users want to understand what Mason is doing at each moment. Anxiety comes from uncertainty, not from lack of pretty animations. A clear timeline with percentage progress is more reassuring than 3D buildings.
+
+---
+
+## Command Step Ordering: Prerequisite Steps MUST Come First
+
+**Discovered**: 2026-02-01
+**Context**: pm-review was submitting items WITHOUT PRDs because PRD generation (Step 7) was numbered AFTER submission (Step 6)
+**Pattern**: When a command has steps with dependencies (e.g., "generate PRD" must happen before "submit to database"), the NUMERICAL ORDERING of steps must match the EXECUTION ORDER. Agents follow step numbers sequentially.
+
+**Bad example (causes bugs):**
+
+- Step 6: Submit to database
+- Step 7: Generate PRDs (says "include PRD in Step 6")
+
+**Good example (correct ordering):**
+
+- Step 6: Generate PRDs, risk analysis, evidence
+- Step 7: Submit to database (ONLY after Step 6 completes)
+
+**Why**: Agents read commands linearly and execute steps in numerical order. If Step 7 says "include this in Step 6", but Step 6 already executed, the data won't be included. The step that produces data MUST be numbered BEFORE the step that consumes it.
 
 ---

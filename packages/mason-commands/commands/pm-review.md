@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.2.0
+version: 2.3.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -1385,193 +1385,25 @@ echo "PASSED: All validations passed for ${MODE} mode. Proceeding to submission.
 | Each     | Must have category, icon, title, AND specific description |
 | Quality  | Descriptions must be improvement-specific, not templates  |
 
-### Step 6: Submit Results Directly to User's Supabase
+### Step 6: Generate PRDs, Risk Analysis & Evidence (MANDATORY - BEFORE Submission)
 
-**Privacy Architecture:** Data is written DIRECTLY to the user's own Supabase database, never to the central server. The central server only validates the API key for identity.
+## ⚠️ HARD STOP: NO SUBMISSION WITHOUT PRDS ⚠️
 
-Read the configuration from `mason.config.json`:
+**This step MUST be completed BEFORE any items are submitted to the database.**
 
-```json
-{
-  "version": "2.0",
-  "apiKey": "mason_xxxxx",
-  "dashboardUrl": "https://mason.assuredefi.com",
-  "supabaseUrl": "https://xxx.supabase.co",
-  "supabaseAnonKey": "eyJ..."
-}
-```
+Items without PRDs are INCOMPLETE and BLOCKED from submission. The execution order is:
 
-**Required fields:**
+1. Steps 1-5.6: Discovery, validation, scoring, benefits
+2. **Step 6: Generate PRDs, risk analysis, evidence** ← YOU ARE HERE
+3. Step 7: Submit to Supabase (ONLY items with complete PRDs)
 
-- `apiKey`: Your Mason API key (for identity validation)
-- `supabaseUrl`: Your Supabase project URL
-- `supabaseAnonKey`: Your Supabase anon (public) key
+---
 
-**Optional fields:**
+#### Step 6a: Generate PRD for EACH Validated Item
 
-- `dashboardUrl`: Dashboard URL (defaults to `https://mason.assuredefi.com`)
+**BLOCKING REQUIREMENT: You MUST generate a PRD for EVERY validated item.**
 
-**Submission Process (3 Steps):**
-
-#### Step 6a: Validate API Key and Get Repositories (Central Server)
-
-First, validate the API key and retrieve connected repositories:
-
-```bash
-DASHBOARD_URL="${dashboardUrl:-https://mason.assuredefi.com}"
-
-VALIDATION=$(curl -s -X POST "${DASHBOARD_URL}/api/v1/analysis" \
-  -H "Authorization: Bearer ${apiKey}" \
-  -H "Content-Type: application/json")
-
-# Check if valid
-if [ "$(echo "$VALIDATION" | jq -r '.valid')" != "true" ]; then
-  echo "Error: Invalid API key"
-  exit 1
-fi
-
-USER_ID=$(echo "$VALIDATION" | jq -r '.user_id')
-DASHBOARD_BACKLOG_URL=$(echo "$VALIDATION" | jq -r '.dashboard_url')
-# Get connected repositories for matching
-REPOSITORIES=$(echo "$VALIDATION" | jq -r '.repositories')
-```
-
-#### Step 6b: Match Current Repository
-
-Get the current git remote and match it to find the repository_id:
-
-```bash
-# Get the current git remote URL
-GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
-
-# Extract owner/repo from git remote URL (handles both HTTPS and SSH)
-# Examples:
-#   https://github.com/owner/repo.git -> owner/repo
-#   git@github.com:owner/repo.git -> owner/repo
-REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/.*github\.com[:/]([^/]+\/[^/]+)(\.git)?$/\1/')
-
-# Find matching repository_id from the validation response
-REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select(.github_full_name == $name) | .id // empty')
-
-if [ -z "$REPOSITORY_ID" ]; then
-  echo "Warning: Repository '$REPO_FULL_NAME' not connected in Mason dashboard."
-  echo "Items will be created without repository association."
-  echo "To enable multi-repo filtering, connect this repository at: ${DASHBOARD_URL}/settings/github"
-fi
-```
-
-#### Step 6c: Write Data Directly to User's Supabase
-
-Then, write the improvements directly to the user's own Supabase using the REST API:
-
-```bash
-# Generate a UUID for the analysis run
-ANALYSIS_RUN_ID=$(uuidgen)
-TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-# Step 1: Create analysis run record (include repository_id if available)
-curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
-  -H "apikey: ${supabaseAnonKey}" \
-  -H "Authorization: Bearer ${supabaseAnonKey}" \
-  -H "Content-Type: application/json" \
-  -H "Prefer: return=minimal" \
-  -d '{
-    "id": "'${ANALYSIS_RUN_ID}'",
-    "mode": "full",
-    "items_found": 15,
-    "started_at": "'${TIMESTAMP}'",
-    "completed_at": "'${TIMESTAMP}'",
-    "status": "completed",
-    "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")'
-  }'
-
-# Step 2: Insert backlog items with repository_id for multi-repo support
-# CRITICAL: EVERY item MUST include:
-# - is_new_feature and is_banger_idea fields (see rules below)
-# - benefits array with EXACTLY 5 benefit objects (NO EXCEPTIONS)
-#
-# Feature flags:
-# - Regular improvements: is_new_feature: false, is_banger_idea: false
-# - New features: is_new_feature: true, is_banger_idea: false
-# - The ONE banger idea: is_new_feature: true, is_banger_idea: true
-curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
-  -H "apikey: ${supabaseAnonKey}" \
-  -H "Authorization: Bearer ${supabaseAnonKey}" \
-  -H "Content-Type: application/json" \
-  -H "Prefer: return=minimal" \
-  -d '[
-    {
-      "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
-      "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
-      "title": "Add data freshness timestamps",
-      "problem": "Executives cannot tell when data was updated...",
-      "solution": "Add visible timestamps...",
-      "type": "dashboard",
-      "area": "frontend",
-      "impact_score": 9,
-      "effort_score": 2,
-      "complexity": 2,
-      "benefits": [
-        {"category": "user_experience", "icon": "user", "title": "USER EXPERIENCE", "description": "Clear visibility into data freshness increases trust and reduces confusion about stale data"},
-        {"category": "sales_team", "icon": "users", "title": "SALES TEAM", "description": "Executives gain confidence in data currency for real-time decision-making during calls"},
-        {"category": "operations", "icon": "settings", "title": "OPERATIONS", "description": "Reduces support tickets about data staleness by proactively showing freshness indicators"},
-        {"category": "performance", "icon": "chart", "title": "PERFORMANCE", "description": "Minimal performance impact - timestamps already exist in data, just need display"},
-        {"category": "reliability", "icon": "wrench", "title": "RELIABILITY", "description": "Helps users identify when manual refresh is needed, preventing decisions on stale data"}
-      ],
-      "is_new_feature": false,
-      "is_banger_idea": false,
-      "status": "new"
-    },
-    {
-      "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
-      "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
-      "title": "Real-Time Collaborative Editing",
-      "problem": "Users work in isolation...",
-      "solution": "Transform the app to multiplayer with real-time sync...",
-      "type": "backend",
-      "area": "backend",
-      "impact_score": 10,
-      "effort_score": 8,
-      "complexity": 4,
-      "benefits": [
-        {"category": "user_experience", "icon": "user", "title": "USER EXPERIENCE", "description": "Users can collaborate in real-time, seeing each other's changes instantly without refresh"},
-        {"category": "sales_team", "icon": "users", "title": "SALES TEAM", "description": "Enables live demos with prospects, showcasing modern collaboration capabilities"},
-        {"category": "operations", "icon": "settings", "title": "OPERATIONS", "description": "Eliminates merge conflicts and reduces support requests about lost changes"},
-        {"category": "performance", "icon": "chart", "title": "PERFORMANCE", "description": "WebSocket-based sync provides sub-100ms latency for collaborative updates"},
-        {"category": "reliability", "icon": "wrench", "title": "RELIABILITY", "description": "Conflict resolution ensures no data loss even with concurrent edits"}
-      ],
-      "is_new_feature": true,
-      "is_banger_idea": true,
-      "status": "new"
-    }
-  ]'
-```
-
-**Privacy Guarantee:** The central server (Assure DeFi) NEVER sees your backlog items. Data goes directly from your CLI to YOUR Supabase.
-
-After successful submission, show:
-
-```
-Analysis submitted successfully!
-Items created: 15
-Data stored in: YOUR Supabase (not central server)
-View in Dashboard: https://mason.assuredefi.com/admin/backlog
-```
-
-### Step 7: Generate PRDs (MANDATORY - ALL Items)
-
-**BLOCKING REQUIREMENT: You MUST generate a PRD for EVERY validated item before submission.**
-
-This is NOT optional. The process is:
-
-1. Discover improvements (as many as are real problems)
-2. Validate each improvement (filter false positives)
-3. Generate a PRD for EACH validated item (no limit on count)
-4. Submit ALL items with their PRDs to the database
-
-**If you have 15 validated improvements, you generate 15 PRDs. If you have 25, you generate 25. There is NO cap.**
-
-An item without a PRD is incomplete and MUST NOT be submitted to the database.
+This is NOT optional. For each of your validated items, generate a complete PRD:
 
 **PRD Structure:**
 
@@ -1625,29 +1457,6 @@ An item without a PRD is incomplete and MUST NOT be submitted to the database.
 - [Explicitly excluded items to prevent scope creep]
 ```
 
-**Include PRD in submission payload:**
-
-When submitting backlog items in Step 6c, include the PRD content:
-
-```json
-{
-  "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
-  "repository_id": "${REPOSITORY_ID}",
-  "title": "...",
-  "problem": "...",
-  "solution": "...",
-  "type": "...",
-  "area": "...",
-  "impact_score": 8,
-  "effort_score": 3,
-  "complexity": 2,
-  "benefits": [...],
-  "status": "new",
-  "prd_content": "# PRD: [Title]\n\n## Problem Statement\n...",
-  "prd_generated_at": "'${TIMESTAMP}'"
-}
-```
-
 **PRD Quality Guidelines:**
 
 1. **Problem Statement**: Expand on `item.problem` with user impact and business context
@@ -1657,11 +1466,19 @@ When submitting backlog items in Step 6c, include the PRD content:
 5. **Risks**: Scale complexity based on item's `complexity` score (1-5)
 6. **Out of Scope**: Prevent scope creep by explicitly listing what won't be addressed
 
-### Step 7.5: Risk Analysis (MANDATORY)
+**Store the PRD content with each item:**
+
+```javascript
+// For each validated item, add PRD fields
+item.prd_content = generatedPrdMarkdown;
+item.prd_generated_at = new Date().toISOString();
+```
+
+---
+
+#### Step 6b: Risk Analysis (For Each Item)
 
 **After PRD generation, analyze risk for EVERY validated item.**
-
-This step pre-populates risk data so the dashboard displays it without manual triggering.
 
 For each item, invoke the risk-analyzer agent:
 
@@ -1683,135 +1500,38 @@ Task tool call:
     Return JSON:
     {
       "overall_risk_score": <1-10>,
-      "file_count_score": <1-10>,
-      "dependency_depth_score": <1-10>,
-      "test_coverage_score": <1-10>,
-      "cascade_potential_score": <1-10>,
-      "api_surface_score": <1-10>,
-      "target_files": [...],
-      "upstream_dependencies": [...],
-      "affected_files": [...],
-      "files_without_tests": [...],
+      "files_affected_count": <number>,
       "has_breaking_changes": <boolean>,
-      "breaking_changes": [...],
-      "migration_needed": <boolean>,
-      "api_changes_detected": <boolean>
+      "test_coverage_gaps": <number>
     }
 ```
 
-**Include risk data in Step 6c submission payload:**
+**Store risk data with each item:**
 
-```json
-{
-  "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
-  "repository_id": "${REPOSITORY_ID}",
-  "title": "...",
-  "problem": "...",
-  "solution": "...",
-  "type": "...",
-  "area": "...",
-  "impact_score": 8,
-  "effort_score": 3,
-  "complexity": 2,
-  "benefits": [...],
-  "status": "new",
-  "prd_content": "...",
-  "prd_generated_at": "'${TIMESTAMP}'",
-  "risk_score": 6,
-  "risk_analyzed_at": "'${TIMESTAMP}'",
-  "files_affected_count": 12,
-  "has_breaking_changes": false,
-  "test_coverage_gaps": 3
-}
+```javascript
+item.risk_score = riskResult.overall_risk_score;
+item.risk_analyzed_at = new Date().toISOString();
+item.files_affected_count = riskResult.files_affected_count;
+item.has_breaking_changes = riskResult.has_breaking_changes;
+item.test_coverage_gaps = riskResult.test_coverage_gaps;
 ```
 
-### Step 7.6: Evidence Validation (MANDATORY - Post-PRD)
+---
 
-**This step runs AFTER PRDs are generated but BEFORE submission to user's database.**
+#### Step 6c: Evidence Validation (For Each Item)
 
-PRDs contain specific, verifiable claims. This step extracts and validates those claims against actual codebase evidence.
+**Validate PRD claims against actual codebase evidence.**
 
-#### Why Post-PRD Evidence Validation?
+For each item with a generated PRD:
 
-PRDs contain concrete assertions like:
-
-- "Current RLS policies allow ALL users to access ALL data"
-- "No user_id filtering exists"
-- "Migration file at X doesn't have proper policies"
-
-These claims can be extracted and verified. The PRD gives us specific assertions to test.
-
-#### Evidence Validation Process
-
-For each improvement with a generated PRD:
-
-**Step A: Extract Verifiable Claims**
-
-Parse the PRD's Problem Statement for concrete assertions:
-
-```bash
-# Example claims to extract:
-# - "RLS policies allow all users" → Search for CREATE POLICY statements
-# - "No error handling exists" → Search for try/catch blocks
-# - "API endpoint lacks validation" → Check for validation code
-```
-
-**Step B: Tiered Evidence Search**
-
-Execute a tiered search approach:
+**Tiered Evidence Search:**
 
 | Tier                      | Scope                 | When to Use                        |
 | ------------------------- | --------------------- | ---------------------------------- |
 | **Tier A (Quick grep)**   | Fast pattern matching | All items                          |
 | **Tier B (Deep Explore)** | Subagent exploration  | High-impact OR Tier A inconclusive |
 
-**Tier A: Quick Pattern Matching (All Items)**
-
-```bash
-# 1. Search for existing implementation that solves the claimed problem
-# Example: If claim is "no RLS policies", search for RLS
-grep -r "ENABLE ROW LEVEL SECURITY" --include="*.sql" --include="*.ts" .
-grep -r "CREATE POLICY" --include="*.sql" --include="*.ts" .
-
-# 2. Search for intentional design comments
-grep -r "// intentional\|// by design\|// BYOD\|// NOTE:" .
-
-# 3. Check architectural docs
-cat .claude/rules/*.md | grep -i "rls\|policy\|security"
-```
-
-**Tier B: Deep Exploration (Escalate When Needed)**
-
-Invoke Explore subagent for:
-
-- High-impact items (impact_score >= 8)
-- Items where Tier A returned INCONCLUSIVE
-- Security-related claims
-
-```
-Task tool call:
-  subagent_type: "Explore"
-  prompt: |
-    Investigate whether this claimed problem actually exists:
-
-    Claim: "${claim_from_prd}"
-    Files mentioned: ${files_from_solution}
-
-    Search for:
-    1. Existing implementations that already solve this
-    2. Architectural decisions documenting this choice
-    3. Comments indicating intentional design (// intentional, // by design)
-    4. Evidence this was already addressed
-
-    Return:
-    - VERIFIED: Problem confirmed to exist
-    - REFUTED: Evidence shows problem doesn't exist or is already solved
-    - INCONCLUSIVE: Cannot determine definitively
-```
-
-**Step C: Assign Evidence Status**
-
-Based on search results, assign one of:
+**Assign Evidence Status:**
 
 | Status         | Meaning                              | Action                                      |
 | -------------- | ------------------------------------ | ------------------------------------------- |
@@ -1819,111 +1539,227 @@ Based on search results, assign one of:
 | `refuted`      | Evidence shows problem doesn't exist | **REMOVE item, do NOT submit**              |
 | `inconclusive` | Cannot determine definitively        | Flag with `evidence_status: 'inconclusive'` |
 
-**Step D: Domain-Specific Evidence Patterns**
+**Store evidence data with each item:**
 
-Use these patterns for common false positive categories:
-
-| Category           | Evidence Checks                                                              |
-| ------------------ | ---------------------------------------------------------------------------- |
-| **RLS/Security**   | Grep for `ENABLE ROW LEVEL SECURITY`, `CREATE POLICY`, check migration files |
-| **Error Handling** | Search for try/catch, ErrorBoundary, existing handlers                       |
-| **Type Safety**    | Check for TypeScript strict mode, existing type definitions                  |
-| **Performance**    | Look for existing caching, memoization, optimization                         |
-| **Authentication** | Search for auth middleware, session checks                                   |
-
-**Step E: Log Evidence Results**
-
-For each item, record the evidence findings:
-
-```json
-{
-  "evidence_status": "verified|refuted|inconclusive",
-  "evidence_summary": "Found existing RLS policies in migrations/001_schema.sql. BYOD architecture is intentional per .claude/rules/privacy-architecture.md",
-  "evidence_checked_at": "2026-01-31T..."
-}
+```javascript
+item.evidence_status = 'verified'; // or 'refuted' or 'inconclusive'
+item.evidence_summary = 'Confirmed: No existing implementation found...';
+item.evidence_checked_at = new Date().toISOString();
 ```
 
-**Step F: Filter REFUTED Items**
+**Filter REFUTED Items:**
 
-Items with `evidence_status: 'refuted'` are **automatically removed** before submission:
-
-```bash
-# Filter out refuted items
-FINAL_ITEMS=$(echo "$ALL_ITEMS" | jq '[.[] | select(.evidence_status != "refuted")]')
-
-# Log filtered items for transparency
-REFUTED_ITEMS=$(echo "$ALL_ITEMS" | jq '[.[] | select(.evidence_status == "refuted")]')
-echo "Evidence Validation: Filtered ${REFUTED_COUNT} items (evidence refuted claimed problems)"
-```
-
-**Step G: Display Evidence Summary**
-
-```
-## Evidence Validation Complete
-- Items checked: 20
-- Verified (problem confirmed): 15
-- Refuted (problem doesn't exist): 3 → REMOVED
-- Inconclusive (flagged for re-evaluation): 2
-
-Refuted items (not submitted):
-1. "Add RLS policies" - Already implemented in migrations/001_schema.sql
-2. "Add error handling to API" - Existing try/catch in api/middleware.ts
-3. "Fix TypeScript strict mode" - Already enabled in tsconfig.json
-
-Inconclusive items (flagged for /execute-approved re-evaluation):
-1. "Improve caching strategy" - Could not determine if current caching is sufficient
-2. "Add input validation" - Partial validation exists, unclear if complete
-
-Proceeding to submit 17 items (15 verified + 2 inconclusive)...
-```
-
-#### Include Evidence Data in Submission
-
-When submitting items in Step 6c, include evidence status:
-
-```json
-{
-  "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
-  "repository_id": "${REPOSITORY_ID}",
-  "title": "...",
-  "problem": "...",
-  "solution": "...",
-  "evidence_status": "verified",
-  "evidence_summary": "Confirmed: No existing implementation found after checking src/lib/, src/api/, and migrations/",
-  "evidence_checked_at": "'${TIMESTAMP}'"
-}
+```javascript
+// Remove refuted items BEFORE submission
+validatedItems = validatedItems.filter(
+  (item) => item.evidence_status !== 'refuted',
+);
 ```
 
 ---
 
-#### Step 6d: Submit Full Risk Analysis (Optional)
+#### Step 6d: Pre-Submission Validation Gate
 
-For detailed risk tracking, also write to `mason_dependency_analysis` table:
+**BLOCKING CHECK: Verify ALL items have complete data before proceeding to submission.**
 
 ```bash
-curl -s -X POST "${supabaseUrl}/rest/v1/mason_dependency_analysis" \
+ITEMS_WITHOUT_PRD=0
+ITEMS_WITHOUT_BENEFITS=0
+
+for item in VALIDATED_ITEMS; do
+  if [ -z "${item.prd_content}" ]; then
+    ITEMS_WITHOUT_PRD=$((ITEMS_WITHOUT_PRD + 1))
+    echo "BLOCKED: Item '${item.title}' missing PRD"
+  fi
+
+  BENEFIT_COUNT=$(echo "${item.benefits}" | jq 'length')
+  if [ "$BENEFIT_COUNT" -ne 5 ]; then
+    ITEMS_WITHOUT_BENEFITS=$((ITEMS_WITHOUT_BENEFITS + 1))
+    echo "BLOCKED: Item '${item.title}' has ${BENEFIT_COUNT} benefits (need 5)"
+  fi
+done
+
+if [ "$ITEMS_WITHOUT_PRD" -gt 0 ] || [ "$ITEMS_WITHOUT_BENEFITS" -gt 0 ]; then
+  echo "HARD STOP: Cannot proceed to submission"
+  echo "  - Items missing PRD: $ITEMS_WITHOUT_PRD"
+  echo "  - Items missing benefits: $ITEMS_WITHOUT_BENEFITS"
+  echo "Go back and complete ALL items before submission."
+  # DO NOT PROCEED TO STEP 7
+fi
+
+echo "All items validated. Proceeding to submission..."
+```
+
+---
+
+### Step 7: Submit Results to User's Supabase
+
+**This step ONLY executes after Step 6 completes successfully with ALL items having PRDs.**
+
+**Privacy Architecture:** Data is written DIRECTLY to the user's own Supabase database, never to the central server. The central server only validates the API key for identity.
+
+Read the configuration from `mason.config.json`:
+
+```json
+{
+  "version": "2.0",
+  "apiKey": "mason_xxxxx",
+  "dashboardUrl": "https://mason.assuredefi.com",
+  "supabaseUrl": "https://xxx.supabase.co",
+  "supabaseAnonKey": "eyJ..."
+}
+```
+
+**Required fields:**
+
+- `apiKey`: Your Mason API key (for identity validation)
+- `supabaseUrl`: Your Supabase project URL
+- `supabaseAnonKey`: Your Supabase anon (public) key
+
+**Optional fields:**
+
+- `dashboardUrl`: Dashboard URL (defaults to `https://mason.assuredefi.com`)
+
+**Submission Process (3 Steps):**
+
+#### Step 7a: Validate API Key and Get Repositories (Central Server)
+
+First, validate the API key and retrieve connected repositories:
+
+```bash
+DASHBOARD_URL="${dashboardUrl:-https://mason.assuredefi.com}"
+
+VALIDATION=$(curl -s -X POST "${DASHBOARD_URL}/api/v1/analysis" \
+  -H "Authorization: Bearer ${apiKey}" \
+  -H "Content-Type: application/json")
+
+# Check if valid
+if [ "$(echo "$VALIDATION" | jq -r '.valid')" != "true" ]; then
+  echo "Error: Invalid API key"
+  exit 1
+fi
+
+USER_ID=$(echo "$VALIDATION" | jq -r '.user_id')
+DASHBOARD_BACKLOG_URL=$(echo "$VALIDATION" | jq -r '.dashboard_url')
+# Get connected repositories for matching
+REPOSITORIES=$(echo "$VALIDATION" | jq -r '.repositories')
+```
+
+#### Step 7b: Match Current Repository
+
+Get the current git remote and match it to find the repository_id:
+
+```bash
+# Get the current git remote URL
+GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+
+# Extract owner/repo from git remote URL (handles both HTTPS and SSH)
+# Examples:
+#   https://github.com/owner/repo.git -> owner/repo
+#   git@github.com:owner/repo.git -> owner/repo
+REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/.*github\.com[:/]([^/]+\/[^/]+)(\.git)?$/\1/')
+
+# Find matching repository_id from the validation response
+REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select(.github_full_name == $name) | .id // empty')
+
+if [ -z "$REPOSITORY_ID" ]; then
+  echo "Warning: Repository '$REPO_FULL_NAME' not connected in Mason dashboard."
+  echo "Items will be created without repository association."
+  echo "To enable multi-repo filtering, connect this repository at: ${DASHBOARD_URL}/settings/github"
+fi
+```
+
+#### Step 7c: Write Data Directly to User's Supabase
+
+Write the improvements directly to the user's own Supabase using the REST API.
+
+**CRITICAL: Every item MUST include prd_content. This is NON-NEGOTIABLE.**
+
+```bash
+# Generate a UUID for the analysis run
+ANALYSIS_RUN_ID=$(uuidgen)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Step 1: Create analysis run record (include repository_id if available)
+curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
   -H "Content-Type: application/json" \
   -H "Prefer: return=minimal" \
   -d '{
-    "item_id": "'${ITEM_ID}'",
-    "overall_risk_score": 6,
-    "file_count_score": 4,
-    "dependency_depth_score": 5,
-    "test_coverage_score": 7,
-    "cascade_potential_score": 5,
-    "api_surface_score": 4,
-    "target_files": [...],
-    "upstream_dependencies": [...],
-    "affected_files": [...],
-    "files_without_tests": [...],
-    "has_breaking_changes": false,
-    "breaking_changes": [],
-    "migration_needed": false,
-    "api_changes_detected": false,
-    "analyzed_at": "'${TIMESTAMP}'"
+    "id": "'${ANALYSIS_RUN_ID}'",
+    "mode": "full",
+    "items_found": 15,
+    "items_validated": 15,
+    "started_at": "'${TIMESTAMP}'",
+    "completed_at": "'${TIMESTAMP}'",
+    "status": "completed",
+    "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")'
   }'
+
+# Step 2: Insert backlog items WITH PRDs
+# CRITICAL: EVERY item MUST include:
+# - prd_content (MANDATORY - NO EXCEPTIONS)
+# - prd_generated_at (MANDATORY)
+# - is_new_feature and is_banger_idea fields
+# - benefits array with EXACTLY 5 benefit objects
+# - risk_score, evidence_status fields
+#
+# Feature flags:
+# - Regular improvements: is_new_feature: false, is_banger_idea: false
+# - New features: is_new_feature: true, is_banger_idea: false
+# - The ONE banger idea: is_new_feature: true, is_banger_idea: true
+curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
+  -H "apikey: ${supabaseAnonKey}" \
+  -H "Authorization: Bearer ${supabaseAnonKey}" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  -d '[
+    {
+      "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
+      "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
+      "title": "Add data freshness timestamps",
+      "problem": "Executives cannot tell when data was updated...",
+      "solution": "Add visible timestamps...",
+      "type": "dashboard",
+      "area": "frontend",
+      "impact_score": 9,
+      "effort_score": 2,
+      "complexity": 2,
+      "benefits": [
+        {"category": "user_experience", "icon": "user", "title": "USER EXPERIENCE", "description": "Clear visibility into data freshness increases trust"},
+        {"category": "sales_team", "icon": "users", "title": "SALES TEAM", "description": "Executives gain confidence in data currency"},
+        {"category": "operations", "icon": "settings", "title": "OPERATIONS", "description": "Reduces support tickets about data staleness"},
+        {"category": "performance", "icon": "chart", "title": "PERFORMANCE", "description": "Minimal performance impact"},
+        {"category": "reliability", "icon": "wrench", "title": "RELIABILITY", "description": "Helps users identify when refresh needed"}
+      ],
+      "is_new_feature": false,
+      "is_banger_idea": false,
+      "status": "new",
+      "prd_content": "# PRD: Add data freshness timestamps\n\n## Problem Statement\nExecutives cannot tell when snapshot data was last updated...\n\n## Proposed Solution\nAdd visible timestamps showing when each section was last refreshed...\n\n## Success Criteria\n- [ ] All KPI cards show last updated timestamp\n- [ ] Global data freshness indicator in header\n\n## Technical Approach\n### Wave 1: Foundation\n| # | Subagent | Task |\n|---|----------|------|\n| 1.1 | Explore | Find existing timestamp patterns |\n\n### Wave 2: Implementation\n| # | Subagent | Task |\n|---|----------|------|\n| 2.1 | general-purpose | Add timestamp display components |\n\n## Risks & Mitigations\n| Risk | Mitigation |\n|------|------------|\n| Timezone confusion | Use relative time (2 min ago) |\n\n## Out of Scope\n- Auto-refresh functionality",
+      "prd_generated_at": "'${TIMESTAMP}'",
+      "risk_score": 3,
+      "risk_analyzed_at": "'${TIMESTAMP}'",
+      "files_affected_count": 4,
+      "has_breaking_changes": false,
+      "test_coverage_gaps": 0,
+      "evidence_status": "verified",
+      "evidence_summary": "Confirmed no existing timestamps in KPI components",
+      "evidence_checked_at": "'${TIMESTAMP}'"
+    }
+  ]'
+```
+
+**Privacy Guarantee:** The central server (Assure DeFi) NEVER sees your backlog items. Data goes directly from your CLI to YOUR Supabase.
+
+After successful submission, show:
+
+```
+Analysis submitted successfully!
+Items created: 15
+PRDs generated: 15 (100%)
+Data stored in: YOUR Supabase (not central server)
+View in Dashboard: https://mason.assuredefi.com/admin/backlog
 ```
 
 ## Output Format
