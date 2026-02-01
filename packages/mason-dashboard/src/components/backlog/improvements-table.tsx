@@ -379,6 +379,7 @@ export function ImprovementsTable({
                 onApprove={onApprove}
                 onReject={onReject}
                 columnWidths={columnWidths}
+                activeStatus={activeStatus}
               />
             ))}
           </tbody>
