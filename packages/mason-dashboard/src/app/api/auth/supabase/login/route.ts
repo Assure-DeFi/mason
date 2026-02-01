@@ -11,6 +11,55 @@ import {
 } from '@/lib/supabase/oauth';
 
 /**
+ * Allowed paths for post-OAuth redirect.
+ * Only internal paths are permitted to prevent open redirect attacks.
+ */
+const ALLOWED_RETURN_PATHS = [
+  '/setup',
+  '/settings',
+  '/admin',
+  '/admin/backlog',
+  '/admin/analytics',
+];
+
+/**
+ * Validates and sanitizes the return_to parameter to prevent open redirect attacks.
+ * Only allows known internal paths; rejects absolute URLs or protocol prefixes.
+ */
+function validateReturnTo(returnTo: string | null): string {
+  // Default to /setup if not provided
+  if (!returnTo) {
+    return '/setup';
+  }
+
+  // Reject if it contains protocol prefix (http://, https://, //, etc.)
+  if (
+    returnTo.includes('://') ||
+    returnTo.startsWith('//') ||
+    returnTo.startsWith('\\')
+  ) {
+    return '/setup';
+  }
+
+  // Must start with /
+  if (!returnTo.startsWith('/')) {
+    return '/setup';
+  }
+
+  // Check if it matches an allowed path (or starts with one for nested routes)
+  const isAllowed = ALLOWED_RETURN_PATHS.some(
+    (allowedPath) =>
+      returnTo === allowedPath || returnTo.startsWith(allowedPath + '/'),
+  );
+
+  if (!isAllowed) {
+    return '/setup';
+  }
+
+  return returnTo;
+}
+
+/**
  * GET /api/auth/supabase/login
  *
  * Initiates Supabase OAuth flow with PKCE.
@@ -19,14 +68,15 @@ import {
  *
  * Optional query parameters:
  * - return_to: URL path to redirect to after OAuth callback (default: /setup)
+ *              Only internal paths are allowed to prevent open redirect attacks.
  */
 export async function GET(request: Request) {
   const clientId = process.env.SUPABASE_OAUTH_CLIENT_ID;
   const redirectUri = process.env.NEXT_PUBLIC_SUPABASE_OAUTH_REDIRECT_URI;
 
-  // Get optional return_to parameter (defaults to /setup)
+  // Get and validate return_to parameter (defaults to /setup, rejects external URLs)
   const url = new URL(request.url);
-  const returnTo = url.searchParams.get('return_to') || '/setup';
+  const returnTo = validateReturnTo(url.searchParams.get('return_to'));
 
   if (!clientId || !redirectUri) {
     return serverError(

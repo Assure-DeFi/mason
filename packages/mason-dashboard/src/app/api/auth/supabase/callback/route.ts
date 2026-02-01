@@ -1,8 +1,57 @@
 import { cookies } from 'next/headers';
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { exchangeCodeForTokens, OAUTH_COOKIES } from '@/lib/supabase/oauth';
+
+/**
+ * Allowed paths for post-OAuth redirect.
+ * Only internal paths are permitted to prevent open redirect attacks.
+ */
+const ALLOWED_RETURN_PATHS = [
+  '/setup',
+  '/settings',
+  '/admin',
+  '/admin/backlog',
+  '/admin/analytics',
+];
+
+/**
+ * Validates and sanitizes the return_to parameter to prevent open redirect attacks.
+ * Defense-in-depth: even if the cookie was somehow tampered, we validate here too.
+ */
+function validateReturnTo(returnTo: string | null | undefined): string {
+  // Default to /setup if not provided
+  if (!returnTo) {
+    return '/setup';
+  }
+
+  // Reject if it contains protocol prefix (http://, https://, //, etc.)
+  if (
+    returnTo.includes('://') ||
+    returnTo.startsWith('//') ||
+    returnTo.startsWith('\\')
+  ) {
+    return '/setup';
+  }
+
+  // Must start with /
+  if (!returnTo.startsWith('/')) {
+    return '/setup';
+  }
+
+  // Check if it matches an allowed path (or starts with one for nested routes)
+  const isAllowed = ALLOWED_RETURN_PATHS.some(
+    (allowedPath) =>
+      returnTo === allowedPath || returnTo.startsWith(allowedPath + '/'),
+  );
+
+  if (!isAllowed) {
+    return '/setup';
+  }
+
+  return returnTo;
+}
 
 /**
  * GET /api/auth/supabase/callback
@@ -37,8 +86,10 @@ export async function GET(request: NextRequest) {
   const cookieStore = cookies();
   const storedState = cookieStore.get(OAUTH_COOKIES.STATE)?.value;
   const codeVerifier = cookieStore.get(OAUTH_COOKIES.CODE_VERIFIER)?.value;
-  const returnTo =
-    cookieStore.get('supabase_oauth_return_to')?.value || '/setup';
+  // Validate returnTo from cookie - defense in depth against cookie tampering
+  const returnTo = validateReturnTo(
+    cookieStore.get('supabase_oauth_return_to')?.value,
+  );
 
   // Helper to build redirect URL based on returnTo
   const buildRedirectUrl = (path: string, params: Record<string, string>) => {
