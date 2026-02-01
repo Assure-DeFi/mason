@@ -13,8 +13,8 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-import { STORAGE_KEYS, API_ROUTES } from '@/lib/constants';
-import type { GitHubRepository } from '@/types/auth';
+import { useRepositories } from '@/hooks/useRepositories';
+import { STORAGE_KEYS } from '@/lib/constants';
 
 interface RepositorySelectorProps {
   value: string | null;
@@ -57,11 +57,15 @@ export function RepositorySelector({
   compact = false,
 }: RepositorySelectorProps) {
   const searchParams = useSearchParams();
-  const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
+  const {
+    repositories,
+    isLoading,
+    error,
+    mutate,
+    isValidating,
+  } = useRepositories();
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Refresh trigger from URL param (e.g., after setup wizard completion)
@@ -108,59 +112,33 @@ export function RepositorySelector({
 
   // Re-fetch when refreshTrigger changes (e.g., after setup wizard completion)
   useEffect(() => {
-    void fetchRepositories();
-  }, [refreshTrigger]);
-
-  const fetchRepositories = async () => {
-    setError(null);
-    setIsLoading(true);
-    try {
-      const response = await fetch(API_ROUTES.GITHUB_REPOSITORIES);
-      if (!response.ok) {
-        const errorText =
-          response.status === 401
-            ? 'GitHub authentication expired. Click your profile avatar and select "Reconnect GitHub" to fix this.'
-            : response.status === 403
-              ? 'GitHub access denied. You may need to grant additional permissions. Click your profile avatar and select "Reconnect GitHub".'
-              : 'Failed to load repositories. Check your internet connection and try refreshing the page.';
-        setError(errorText);
-        return;
-      }
-
-      const data = await response.json();
-      const repositories = data.data?.repositories ?? [];
-      setRepositories(repositories);
-
-      // Smart auto-selection priority:
-      // 1. If value already set, keep it
-      // 2. Try last used repository from localStorage
-      // 3. Fall back to first repository
-      if (!value && repositories.length > 0) {
-        const lastUsed = getLastUsedRepository();
-        const lastUsedRepo = lastUsed
-          ? repositories.find((r: GitHubRepository) => r.id === lastUsed)
-          : null;
-
-        if (lastUsedRepo) {
-          onChange(lastUsedRepo.id);
-        } else {
-          onChange(repositories[0].id);
-          saveLastUsedRepository(repositories[0].id);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching repositories:', err);
-      setError('Unable to connect. Check your network and try again.');
-    } finally {
-      setIsLoading(false);
+    if (refreshTrigger) {
+      void mutate();
     }
-  };
+  }, [refreshTrigger, mutate]);
+
+  // Auto-select repository when data loads
+  useEffect(() => {
+    if (!value && repositories.length > 0) {
+      const lastUsed = getLastUsedRepository();
+      const lastUsedRepo = lastUsed
+        ? repositories.find((r) => r.id === lastUsed)
+        : null;
+
+      if (lastUsedRepo) {
+        onChange(lastUsedRepo.id);
+      } else {
+        onChange(repositories[0].id);
+        saveLastUsedRepository(repositories[0].id);
+      }
+    }
+  }, [repositories, value, onChange]);
 
   const selectedRepo = repositories.find((r) => r.id === value);
 
   const handleRetry = async () => {
     setIsRetrying(true);
-    await fetchRepositories();
+    await mutate();
     setIsRetrying(false);
   };
 
@@ -172,14 +150,14 @@ export function RepositorySelector({
     return (
       <div className="flex items-center gap-2 rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm">
         <AlertCircle className="h-4 w-4 text-red-400" />
-        <span className="text-red-400">{error}</span>
+        <span className="text-red-400">Failed to load repositories</span>
         <button
           onClick={handleRetry}
-          disabled={isRetrying}
+          disabled={isRetrying || isValidating}
           className="ml-1 p-1 text-gray-400 hover:text-white disabled:opacity-50"
           title="Retry"
         >
-          {isRetrying ? (
+          {isRetrying || isValidating ? (
             <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
             <RotateCcw className="h-3 w-3" />
@@ -229,6 +207,10 @@ export function RepositorySelector({
         <ChevronDown
           className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
+        {/* Subtle indicator when revalidating in background */}
+        {isValidating && !isLoading && (
+          <Loader2 className="h-3 w-3 animate-spin text-gray-500" />
+        )}
       </button>
 
       {isOpen && (

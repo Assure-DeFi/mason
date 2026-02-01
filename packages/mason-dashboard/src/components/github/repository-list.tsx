@@ -8,8 +8,9 @@ import {
   ExternalLink,
   RefreshCw,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
+import { useRepositories } from '@/hooks/useRepositories';
 import type { GitHubRepository } from '@/types/auth';
 
 interface RepositoryListProps {
@@ -17,35 +18,9 @@ interface RepositoryListProps {
 }
 
 export function RepositoryList({ onDisconnect }: RepositoryListProps) {
-  const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { repositories, isLoading, error, mutate, isValidating } =
+    useRepositories();
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
-
-  const fetchRepositories = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/github/repositories');
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch repositories');
-      }
-
-      const data = await response.json();
-      setRepositories(data.data?.repositories ?? []);
-    } catch (err) {
-      console.error('Error fetching repositories:', err);
-      setError('Failed to load repositories');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void fetchRepositories();
-  }, []);
 
   const handleDisconnect = async (repository: GitHubRepository) => {
     setDisconnectingId(repository.id);
@@ -60,11 +35,11 @@ export function RepositoryList({ onDisconnect }: RepositoryListProps) {
         throw new Error('Failed to disconnect repository');
       }
 
-      setRepositories((prev) => prev.filter((r) => r.id !== repository.id));
+      // Revalidate the cache to reflect the disconnection
+      await mutate();
       onDisconnect?.(repository);
     } catch (err) {
       console.error('Error disconnecting repository:', err);
-      setError('Failed to disconnect repository');
     } finally {
       setDisconnectingId(null);
     }
@@ -73,9 +48,9 @@ export function RepositoryList({ onDisconnect }: RepositoryListProps) {
   if (error) {
     return (
       <div className="rounded-lg bg-red-900/20 p-4 text-red-400">
-        <p>{error}</p>
+        <p>Failed to load repositories</p>
         <button
-          onClick={fetchRepositories}
+          onClick={() => mutate()}
           className="mt-2 flex items-center gap-2 text-sm text-red-300 hover:text-red-200"
         >
           <RefreshCw className="h-4 w-4" />
@@ -109,6 +84,13 @@ export function RepositoryList({ onDisconnect }: RepositoryListProps) {
 
   return (
     <div className="space-y-3">
+      {/* Show subtle indicator when revalidating in background */}
+      {isValidating && (
+        <div className="flex items-center justify-end gap-2 text-xs text-gray-500">
+          <RefreshCw className="h-3 w-3 animate-spin" />
+          Updating...
+        </div>
+      )}
       {repositories.map((repo) => (
         <div
           key={repo.id}

@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { SessionProvider } from '@/components/auth/session-provider';
 import { AutoMigrationProvider } from '@/components/providers/AutoMigrationProvider';
 import { NetworkStatusProvider } from '@/components/ui/NetworkStatusProvider';
+import { SWRProvider } from '@/lib/swr/provider';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -45,9 +46,11 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="min-h-screen bg-navy text-white">
         <SessionProvider>
-          <AutoMigrationProvider>
-            <NetworkStatusProvider>{children}</NetworkStatusProvider>
-          </AutoMigrationProvider>
+          <SWRProvider>
+            <AutoMigrationProvider>
+              <NetworkStatusProvider>{children}</NetworkStatusProvider>
+            </AutoMigrationProvider>
+          </SWRProvider>
         </SessionProvider>
       </body>
     </html>
