@@ -11,8 +11,9 @@ export default function DashboardPage() {
       description="Navigate and use the Mason dashboard effectively."
     >
       <p>
-        The Mason dashboard is where you manage your improvement backlog, review
-        PRDs, track execution, and configure settings. Access it at{' '}
+        The Mason dashboard is your command center for managing improvements.
+        Here you can browse your backlog, review detailed PRDs, approve items
+        for execution, and track progress in real-time. Access it at{' '}
         <a href="https://mason.assuredefi.com/admin/backlog">
           mason.assuredefi.com/admin/backlog
         </a>
@@ -70,55 +71,55 @@ export default function DashboardPage() {
       <h2>Main Sections</h2>
 
       <h3>Status Tabs</h3>
-      <p>Items are organized by status:</p>
+      <p>Items are organized by their workflow status:</p>
       <ul>
         <li>
-          <strong>New</strong> - Fresh suggestions from PM review
+          <strong>New</strong> — Fresh suggestions waiting for your review
         </li>
         <li>
-          <strong>Approved</strong> - Ready for execution
+          <strong>Approved</strong> — Ready for execution via{' '}
+          <code>/execute-approved</code>
         </li>
         <li>
-          <strong>Completed</strong> - Successfully implemented
+          <strong>Completed</strong> — Successfully implemented with PRs merged
         </li>
         <li>
-          <strong>Rejected</strong> - Declined items
+          <strong>Rejected</strong> — Declined items (can be restored later)
         </li>
       </ul>
 
       <h3>Mason Recommends</h3>
       <p>
-        A curated section showing the highest-priority items based on the
-        priority score formula: (Impact &times; 2) - Effort. Quick wins (high
-        impact, low effort) appear here.
+        A curated section highlighting your highest-priority items based on the
+        priority formula: (Impact × 2) - Effort. This surfaces &quot;quick
+        wins&quot; — high-value improvements that don&apos;t take long to build.
       </p>
 
       <h3>Banger Idea</h3>
       <p>
-        A highlighted card showing the current &quot;banger&quot; - a
-        transformative feature suggestion. Only one banger exists at a time.
+        A prominent card showcasing the current &quot;banger&quot; — a
+        transformative feature suggestion that could significantly improve your
+        product. Only one active banger exists per repository.
       </p>
 
       <h3>Feature Ideas</h3>
       <p>
-        New feature suggestions (is_new_feature: true) are displayed separately
-        from improvements and bug fixes.
+        New feature suggestions are displayed separately from improvements and
+        bug fixes, making it easy to review them as a category.
       </p>
 
       <h2>Repository Selector</h2>
       <p>
-        If you have multiple repositories connected, use the dropdown to filter
-        items by repository. Each repository has its own separate backlog.
+        If you have multiple repositories connected, use the dropdown to switch
+        between them. Each repository maintains its own separate backlog.
       </p>
 
       <h2>Real-Time Updates</h2>
-      <p>
-        The dashboard updates in real-time when items change. This includes:
-      </p>
+      <p>The dashboard updates automatically as things change:</p>
       <ul>
-        <li>New items from PM review</li>
-        <li>Status changes during execution</li>
-        <li>Changes from other browser tabs</li>
+        <li>New items appear immediately after PM review completes</li>
+        <li>Status changes are reflected during execution</li>
+        <li>Changes sync across browser tabs and devices</li>
       </ul>
     </DocsLayout>
   );

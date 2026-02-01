@@ -10,37 +10,47 @@ export default function BacklogPage() {
     >
       <h2>Item List</h2>
       <p>
-        The backlog displays items in a table with key information at a glance:
+        The backlog displays items in a table with key information visible at a
+        glance:
       </p>
       <ul>
         <li>
-          <strong>Title</strong> - Brief description of the improvement
+          <strong>Title</strong> — Brief description of the improvement
         </li>
         <li>
-          <strong>Category</strong> - Color-coded by type (Feature, UI, etc.)
+          <strong>Category</strong> — Color-coded by type (Feature, UI,
+          Security, etc.)
         </li>
         <li>
-          <strong>Impact</strong> - Score from 1-10
+          <strong>Impact</strong> — Value score from 1-10
         </li>
         <li>
-          <strong>Effort</strong> - Score from 1-10
+          <strong>Effort</strong> — Complexity score from 1-10
         </li>
         <li>
-          <strong>Priority</strong> - Calculated score
+          <strong>Priority</strong> — Calculated as (Impact × 2) - Effort
         </li>
         <li>
-          <strong>Created</strong> - When the item was added
+          <strong>Created</strong> — When the item was added
         </li>
       </ul>
 
       <h2>Sorting</h2>
-      <p>Click column headers to sort by:</p>
+      <p>Click any column header to sort. Common sorts include:</p>
       <ul>
-        <li>Title (alphabetical)</li>
-        <li>Priority (highest first)</li>
-        <li>Impact (highest first)</li>
-        <li>Effort (lowest first)</li>
-        <li>Created date (newest first)</li>
+        <li>
+          <strong>Priority</strong> (highest first) — Surface the best
+          opportunities
+        </li>
+        <li>
+          <strong>Impact</strong> (highest first) — Find highest-value items
+        </li>
+        <li>
+          <strong>Effort</strong> (lowest first) — Find quick wins
+        </li>
+        <li>
+          <strong>Created date</strong> (newest first) — See recent suggestions
+        </li>
       </ul>
 
       <h2>Filtering</h2>

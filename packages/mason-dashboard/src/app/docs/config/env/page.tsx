@@ -10,8 +10,10 @@ export default function EnvPage() {
     >
       <h2>Overview</h2>
       <p>
-        Mason primarily uses <code>mason.config.json</code>, but some settings
-        can be configured via environment variables.
+        While Mason primarily uses <code>mason.config.json</code> for
+        configuration, you can also use environment variables. This is
+        especially useful for CI/CD pipelines or when you want to keep
+        credentials out of config files.
       </p>
 
       <h2>Available Variables</h2>

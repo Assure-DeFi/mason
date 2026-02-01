@@ -9,50 +9,55 @@ export default function ScoringPage() {
       description="How Mason prioritizes and ranks improvements."
     >
       <h2>Core Scores</h2>
-      <p>Every item receives three scores:</p>
+      <p>
+        Every improvement item receives three scores that help you prioritize
+        what to build:
+      </p>
 
       <h3>Impact Score (1-10)</h3>
-      <p>How much value this improvement adds:</p>
+      <p>How much value this improvement adds to your product:</p>
       <ul>
         <li>
-          <strong>1-3</strong> - Minor improvement, nice to have
+          <strong>1-3</strong> — Minor improvement, nice to have
         </li>
         <li>
-          <strong>4-6</strong> - Meaningful improvement, noticeable benefit
+          <strong>4-6</strong> — Meaningful improvement, noticeable benefit
         </li>
         <li>
-          <strong>7-8</strong> - Significant improvement, major benefit
+          <strong>7-8</strong> — Significant improvement, major benefit
         </li>
         <li>
-          <strong>9-10</strong> - Critical improvement, transformative
+          <strong>9-10</strong> — Critical improvement, potentially
+          transformative
         </li>
       </ul>
 
       <h3>Effort Score (1-10)</h3>
-      <p>How much work this requires:</p>
+      <p>Implementation complexity and time investment:</p>
       <ul>
         <li>
-          <strong>1-3</strong> - Quick fix, under an hour
+          <strong>1-3</strong> — Quick fix, under an hour
         </li>
         <li>
-          <strong>4-6</strong> - Half day to a few days
+          <strong>4-6</strong> — Half day to a few days
         </li>
         <li>
-          <strong>7-8</strong> - Week of work
+          <strong>7-8</strong> — About a week of work
         </li>
         <li>
-          <strong>9-10</strong> - Multi-week project
+          <strong>9-10</strong> — Multi-week project
         </li>
       </ul>
 
       <h3>Priority Score (Calculated)</h3>
-      <p>Determines item ranking:</p>
+      <p>This determines how items are ranked in your backlog:</p>
       <pre>
         <code>Priority = (Impact × 2) - Effort</code>
       </pre>
       <p>
-        This formula favors high-impact, low-effort items (&quot;quick
-        wins&quot;).
+        The formula weights impact more heavily than effort, surfacing
+        &quot;quick wins&quot; — high-value improvements that don&apos;t take
+        long to build.
       </p>
 
       <div className="not-prose my-6 overflow-x-auto">
@@ -101,81 +106,88 @@ export default function ScoringPage() {
       </div>
 
       <h2>Complexity Score</h2>
-      <p>Technical difficulty (1-5 scale):</p>
+      <p>Technical difficulty on a 1-5 scale:</p>
       <ul>
         <li>
-          <strong>1</strong> - Trivial, config change
+          <strong>1</strong> — Trivial change, like a config update
         </li>
         <li>
-          <strong>2</strong> - Simple, single file
+          <strong>2</strong> — Simple change, single file affected
         </li>
         <li>
-          <strong>3</strong> - Moderate, multiple files
+          <strong>3</strong> — Moderate complexity, multiple files
         </li>
         <li>
-          <strong>4</strong> - Complex, architectural changes
+          <strong>4</strong> — Complex work, architectural changes
         </li>
         <li>
-          <strong>5</strong> - Very complex, system-wide
+          <strong>5</strong> — Very complex, system-wide impact
         </li>
       </ul>
 
       <h2>Risk Analysis</h2>
-      <p>6-factor risk assessment (each 1-10):</p>
+      <p>Every item gets a 6-factor risk assessment, each scored 1-10:</p>
       <ul>
         <li>
-          <strong>Technical Risk</strong> - Implementation difficulty
+          <strong>Technical Risk</strong> — Implementation difficulty and
+          unknowns
         </li>
         <li>
-          <strong>Integration Risk</strong> - Impact on existing code
+          <strong>Integration Risk</strong> — Impact on existing code and
+          systems
         </li>
         <li>
-          <strong>Performance Risk</strong> - Potential slowdowns
+          <strong>Performance Risk</strong> — Potential for slowdowns or
+          resource issues
         </li>
         <li>
-          <strong>Security Risk</strong> - New vulnerability potential
+          <strong>Security Risk</strong> — Chance of introducing vulnerabilities
         </li>
         <li>
-          <strong>Scope Risk</strong> - Scope creep likelihood
+          <strong>Scope Risk</strong> — Likelihood of scope creep or
+          underestimation
         </li>
         <li>
-          <strong>Testing Risk</strong> - QA difficulty
+          <strong>Testing Risk</strong> — Difficulty verifying the
+          implementation works
         </li>
       </ul>
 
       <h2>Benefits Categories</h2>
-      <p>5 mandatory benefit areas:</p>
+      <p>Each item is scored across 5 mandatory benefit areas:</p>
       <ul>
         <li>
-          <strong>User Experience</strong> - End-user benefit
+          <strong>User Experience</strong> — Direct benefit to end users
         </li>
         <li>
-          <strong>Sales Team</strong> - Business/revenue impact
+          <strong>Sales Team</strong> — Business and revenue impact
         </li>
         <li>
-          <strong>Operations</strong> - Support/maintenance benefit
+          <strong>Operations</strong> — Support and maintenance improvements
         </li>
         <li>
-          <strong>Performance</strong> - Technical performance
+          <strong>Performance</strong> — Technical speed and efficiency gains
         </li>
         <li>
-          <strong>Reliability</strong> - System stability
+          <strong>Reliability</strong> — System stability and uptime
+          improvements
         </li>
       </ul>
 
       <h2>Quick Wins</h2>
       <p>
-        Items with high priority scores (typically 10+) are marked as
-        &quot;Quick Wins&quot; and highlighted in the Mason Recommends section.
-        These are good candidates to approve first.
+        Items with high priority scores (typically 10+) are marked as{' '}
+        <strong>&quot;Quick Wins&quot;</strong> and highlighted in the Mason
+        Recommends section. These are excellent candidates to approve first —
+        high value, low effort.
       </p>
 
       <h2>Score Validation</h2>
-      <p>Mason validates scores are reasonable:</p>
+      <p>Mason validates that scores are reasonable and consistent:</p>
       <ul>
-        <li>Impact must align with described benefits</li>
-        <li>Effort must match task breakdown complexity</li>
-        <li>Scores are consistent across similar items</li>
+        <li>Impact must align with the described benefits</li>
+        <li>Effort must match the complexity of the task breakdown</li>
+        <li>Scores are calibrated to be consistent across similar items</li>
       </ul>
     </DocsLayout>
   );

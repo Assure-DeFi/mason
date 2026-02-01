@@ -9,24 +9,33 @@ export default function AuthPage() {
       description="How Mason handles authentication without compromising privacy."
     >
       <h2>Authentication Flow</h2>
-      <p>Mason uses two separate authentication systems:</p>
+      <p>
+        Mason uses two separate authentication systems, each optimized for
+        privacy:
+      </p>
 
       <h3>1. GitHub OAuth (Dashboard)</h3>
       <p>For accessing the web dashboard:</p>
       <ol>
         <li>You click &quot;Sign in with GitHub&quot;</li>
         <li>GitHub authenticates you and returns a token</li>
-        <li>Token is stored in your browser only</li>
-        <li>We receive only your GitHub ID (no token)</li>
+        <li>
+          The token is stored in <strong>your browser only</strong>
+        </li>
+        <li>We receive only your GitHub ID — we never see the OAuth token</li>
       </ol>
 
       <h3>2. API Key (CLI)</h3>
       <p>For CLI commands to communicate with your database:</p>
       <ol>
         <li>You generate an API key in the dashboard</li>
-        <li>Key is shown once, then hashed and stored</li>
-        <li>You add the key to your local config</li>
-        <li>Commands send the key to validate identity</li>
+        <li>
+          The key is shown once, then <strong>hashed</strong> before storage
+        </li>
+        <li>
+          You add the key to your local <code>mason.config.json</code>
+        </li>
+        <li>Commands send the key to validate your identity</li>
       </ol>
 
       <h2>What Each Auth Method Allows</h2>

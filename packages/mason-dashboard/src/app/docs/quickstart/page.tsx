@@ -26,6 +26,9 @@ export default function QuickStartPage() {
       </div>
 
       <h2>Step 1: Sign in to Mason</h2>
+      <p>
+        Head to the Mason dashboard and authenticate with your GitHub account:
+      </p>
       <ol>
         <li>
           Go to <a href="https://mason.assuredefi.com">mason.assuredefi.com</a>
@@ -33,61 +36,73 @@ export default function QuickStartPage() {
         <li>
           Click <strong>Start with Mason</strong>
         </li>
-        <li>Sign in with GitHub</li>
+        <li>Sign in with GitHub (we only receive your public profile info)</li>
       </ol>
 
       <h2>Step 2: Connect Your Supabase Database</h2>
       <p>
-        Mason uses a &quot;Bring Your Own Database&quot; model. Your data stays
-        in YOUR Supabase project - we never see it.
+        Mason uses a <strong>&quot;Bring Your Own Database&quot;</strong>{' '}
+        architecture. All your improvement data, PRDs, and execution history
+        live in YOUR Supabase project — we never see it.
       </p>
       <ol>
         <li>
-          Create a new Supabase project at{' '}
-          <a href="https://supabase.com/dashboard">supabase.com/dashboard</a>
+          Create a new project at{' '}
+          <a href="https://supabase.com/dashboard">supabase.com/dashboard</a>{' '}
+          (free tier works great)
         </li>
         <li>
-          In your Supabase project, go to <strong>Settings &gt; API</strong>
+          Navigate to <strong>Settings → API</strong> in your Supabase project
         </li>
         <li>
-          Copy your <strong>Project URL</strong> and{' '}
+          Copy two values: your <strong>Project URL</strong> and the{' '}
           <strong>anon/public key</strong>
         </li>
         <li>
           In the Mason dashboard, go to <strong>Setup</strong> and paste these
-          values
+          credentials
         </li>
         <li>
-          Click <strong>Update Database Schema</strong> to create the required
-          tables
+          Click <strong>Update Database Schema</strong> — this creates all
+          required tables automatically
         </li>
       </ol>
 
       <h2>Step 3: Connect a GitHub Repository</h2>
+      <p>Link Mason to the repositories you want to improve:</p>
       <ol>
         <li>
           In Mason Setup, click <strong>Connect Repository</strong>
         </li>
-        <li>Install the Mason GitHub App on your repository</li>
-        <li>Select which repositories to connect</li>
+        <li>
+          Install the Mason GitHub App when prompted (minimal permissions
+          required)
+        </li>
+        <li>Select which repositories to connect — you can add more later</li>
       </ol>
 
       <h2>Step 4: Generate an API Key</h2>
+      <p>
+        Create an API key so the CLI commands can authenticate with your
+        account:
+      </p>
       <ol>
         <li>
-          In Mason Setup, go to the <strong>API Keys</strong> section
+          In Mason Setup, scroll to the <strong>API Keys</strong> section
         </li>
         <li>
           Click <strong>Generate New Key</strong>
         </li>
         <li>
-          Copy the key - it starts with <code>mason_</code>
+          Copy the key immediately — it starts with <code>mason_</code> and is
+          only shown once
         </li>
       </ol>
 
       <h2>Step 5: Configure Claude Code</h2>
       <p>
-        Create a <code>mason.config.json</code> file in your project root:
+        Create a <code>mason.config.json</code> file in your project root with
+        your credentials:
       </p>
       <pre>
         <code>{`{
@@ -97,18 +112,24 @@ export default function QuickStartPage() {
   "supabaseAnonKey": "eyJ..."
 }`}</code>
       </pre>
+      <p>
+        <strong>Important:</strong> Add this file to your{' '}
+        <code>.gitignore</code> — it contains sensitive credentials.
+      </p>
 
       <h2>Step 6: Run Your First Review</h2>
-      <p>In Claude Code, run:</p>
+      <p>Open Claude Code in your project directory and run:</p>
       <pre>
         <code>/pm-review</code>
       </pre>
       <p>
-        Mason will analyze your codebase and submit improvements to your
-        dashboard. This typically takes 2-5 minutes depending on codebase size.
+        Mason will analyze your codebase across 8 categories and submit
+        improvement suggestions to your dashboard. A full review typically takes
+        2-5 minutes depending on codebase size.
       </p>
 
-      <h2>Step 7: View Results</h2>
+      <h2>Step 7: Review and Approve</h2>
+      <p>Head to your dashboard to triage the suggestions:</p>
       <ol>
         <li>
           Go to{' '}
@@ -117,22 +138,24 @@ export default function QuickStartPage() {
           </a>
         </li>
         <li>
-          You&apos;ll see your improvement suggestions organized by category
+          Browse improvement suggestions organized by category — each includes a
+          full PRD and risk analysis
         </li>
         <li>
-          Review items and click <strong>Approve</strong> on ones you want to
-          implement
+          Click <strong>Approve</strong> on items you want to implement, or{' '}
+          <strong>Reject</strong> to dismiss
         </li>
       </ol>
 
       <h2>Step 8: Execute Approved Items</h2>
-      <p>Back in Claude Code, run:</p>
+      <p>Back in Claude Code, implement your approved improvements:</p>
       <pre>
         <code>/execute-approved</code>
       </pre>
       <p>
-        Mason will implement approved items, create branches, and open pull
-        requests.
+        Mason implements each approved item using wave-based execution, creates
+        branches, and opens pull requests. You can watch progress in real-time
+        from your dashboard.
       </p>
 
       <div className="not-prose mt-8 rounded-lg border border-gray-800 bg-black/30 p-6">

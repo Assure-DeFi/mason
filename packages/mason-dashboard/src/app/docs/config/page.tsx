@@ -10,7 +10,8 @@ export default function ConfigPage() {
     >
       <h2>Location</h2>
       <p>
-        Create <code>mason.config.json</code> in your project root directory:
+        Create a <code>mason.config.json</code> file in your project root
+        directory:
       </p>
       <pre>
         <code>{`your-project/
@@ -31,51 +32,59 @@ export default function ConfigPage() {
       </pre>
 
       <h2>Fields</h2>
+      <p>Each field serves a specific purpose:</p>
 
       <h3>apiKey (required)</h3>
       <p>
-        Your Mason API key for authentication. Generate this in the dashboard at
-        Settings &gt; API Keys.
+        Your Mason API key for authenticating CLI commands. Generate this in the
+        dashboard at Settings → API Keys.
       </p>
       <ul>
         <li>
           Format: <code>mason_xxxxxxxxxxxx</code>
         </li>
-        <li>Used to validate your identity when running commands</li>
+        <li>
+          Validates your identity when running <code>/pm-review</code> or{' '}
+          <code>/execute-approved</code>
+        </li>
       </ul>
 
       <h3>dashboardUrl (required)</h3>
-      <p>The Mason dashboard URL.</p>
+      <p>The Mason dashboard URL for API calls and links.</p>
       <ul>
         <li>
           Default: <code>https://mason.assuredefi.com</code>
         </li>
-        <li>Used for API calls and links</li>
+        <li>Used for API communication and dashboard links in outputs</li>
       </ul>
 
       <h3>supabaseUrl (required)</h3>
-      <p>Your Supabase project URL.</p>
+      <p>Your Supabase project URL where all your Mason data is stored.</p>
       <ul>
         <li>
           Format: <code>https://xxxxx.supabase.co</code>
         </li>
-        <li>Find in Supabase: Settings &gt; API</li>
+        <li>Find it in Supabase: Settings → API → Project URL</li>
       </ul>
 
       <h3>supabaseAnonKey (required)</h3>
-      <p>Your Supabase anon/public key.</p>
+      <p>Your Supabase anon/public key for database access.</p>
       <ul>
         <li>
-          Starts with <code>eyJ</code>
+          Starts with <code>eyJ</code> (it&apos;s a JWT token)
         </li>
-        <li>Find in Supabase: Settings &gt; API &gt; anon public</li>
-        <li>Never use the service_role key</li>
+        <li>Find it in Supabase: Settings → API → anon public</li>
+        <li>
+          <strong>Never</strong> use the service_role key — it has too much
+          access
+        </li>
       </ul>
 
       <h2>Security</h2>
       <p>
-        <strong>Add to .gitignore!</strong> This file contains sensitive
-        credentials.
+        <strong>Important:</strong> Add this file to your{' '}
+        <code>.gitignore</code>! It contains sensitive credentials that should
+        never be committed.
       </p>
       <pre>
         <code>{`# .gitignore

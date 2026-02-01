@@ -48,10 +48,11 @@ export default function DocsPage() {
       <div className="not-prose mb-12 rounded-xl border border-gold/30 bg-gold/5 p-8">
         <h2 className="mb-4 text-2xl font-bold text-white">What is Mason?</h2>
         <p className="mb-6 text-gray-300">
-          Mason is an AI-powered codebase improvement tool that runs inside
-          Claude Code. It scans your project, identifies improvements worth
-          making, generates PRDs, and helps you execute them. All your data
-          stays in your own database.
+          Mason is an AI-powered codebase improvement system that runs inside
+          Claude Code. It scans your project, surfaces improvements worth
+          making, generates detailed PRDs for each one, and helps you execute
+          them with wave-based parallel implementation. Your code never leaves
+          your machine, and all data stays in your own database.
         </p>
         <div className="flex flex-wrap gap-4">
           <Link
@@ -92,61 +93,70 @@ export default function DocsPage() {
       {/* Quick overview */}
       <div className="mt-12">
         <h2>The Mason Workflow</h2>
+        <p>
+          Mason follows a simple four-step cycle that puts you in control at
+          every stage:
+        </p>
         <ol>
           <li>
-            <strong>Review</strong> - Run <code>/pm-review</code> in Claude Code
-            to analyze your codebase
+            <strong>Review</strong> — Run <code>/pm-review</code> in Claude Code
+            to scan your codebase for improvements across 8 categories
           </li>
           <li>
-            <strong>Triage</strong> - View improvements in your dashboard,
-            approve what you want
+            <strong>Triage</strong> — Browse suggestions in your dashboard, read
+            the auto-generated PRDs, and approve the ones worth building
           </li>
           <li>
-            <strong>Execute</strong> - Run <code>/execute-approved</code> to
-            implement changes
+            <strong>Execute</strong> — Run <code>/execute-approved</code> and
+            watch Mason implement your approved items with wave-based execution
           </li>
           <li>
-            <strong>Ship</strong> - Review PRs and merge
+            <strong>Ship</strong> — Review the pull requests, run your tests,
+            and merge when ready
           </li>
         </ol>
 
         <h2>Key Features</h2>
+        <p>Everything you need to continuously improve your codebase:</p>
         <ul>
           <li>
-            <strong>8 Analysis Categories</strong> - Feature, UI, UX, API, Data,
-            Security, Performance, Code Quality
+            <strong>8 Analysis Categories</strong> — Feature, UI, UX, API, Data,
+            Security, Performance, and Code Quality specialists working in
+            parallel
           </li>
           <li>
-            <strong>Automatic PRDs</strong> - Every improvement gets a detailed
-            Product Requirements Document
+            <strong>Automatic PRDs</strong> — Every improvement comes with a
+            complete Product Requirements Document including user stories, task
+            breakdown, and success criteria
           </li>
           <li>
-            <strong>Risk Analysis</strong> - 6-factor risk scoring for informed
-            decisions
+            <strong>Risk Analysis</strong> — 6-factor risk scoring helps you
+            make informed decisions about what to build first
           </li>
           <li>
-            <strong>Wave-Based Execution</strong> - Parallel implementation with
-            specialized agents
+            <strong>Wave-Based Execution</strong> — Specialized agents handle
+            exploration, implementation, and validation in parallel
           </li>
           <li>
-            <strong>100% Private</strong> - All data stays in YOUR Supabase
-            database
+            <strong>100% Private</strong> — All your data stays in YOUR Supabase
+            database. We never see your code or improvements.
           </li>
         </ul>
 
         <h2>Requirements</h2>
+        <p>Getting started takes just a few minutes with these three tools:</p>
         <ul>
           <li>
-            <strong>Claude Code</strong> - Mason runs as commands inside Claude
-            Code
+            <strong>Claude Code</strong> — Mason runs as slash commands inside
+            the Claude Code CLI
           </li>
           <li>
-            <strong>Supabase Account</strong> - Free tier works fine (BYOD
-            model)
+            <strong>Supabase Account</strong> — Your private database for all
+            Mason data (free tier works perfectly)
           </li>
           <li>
-            <strong>GitHub Account</strong> - For repository connection and
-            OAuth
+            <strong>GitHub Account</strong> — For OAuth sign-in and repository
+            connections
           </li>
         </ul>
       </div>

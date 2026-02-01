@@ -10,46 +10,55 @@ export default function BangersPage() {
     >
       <h2>What is a Banger?</h2>
       <p>
-        A &quot;Banger Idea&quot; is a transformative feature suggestion -
-        something that could significantly improve your product rather than just
-        fix an issue. Bangers are larger scope (typically multi-week projects)
-        and represent strategic opportunities.
+        A <strong>&quot;Banger Idea&quot;</strong> is a transformative feature
+        suggestion — something that could significantly improve your product
+        rather than just fix an issue. Bangers are larger scope (typically
+        multi-week projects) and represent strategic opportunities worth serious
+        consideration.
       </p>
 
       <h2>Banger Characteristics</h2>
+      <p>What makes something a banger rather than a regular feature:</p>
       <ul>
         <li>
-          <strong>Transformative</strong> - Changes how users interact with your
+          <strong>Transformative</strong> — Changes how users interact with your
           product
         </li>
         <li>
-          <strong>Larger scope</strong> - Multi-week implementation
+          <strong>Larger scope</strong> — Multi-week implementation, not a quick
+          fix
         </li>
         <li>
-          <strong>High impact</strong> - Significant user/business value
+          <strong>High impact</strong> — Delivers significant user or business
+          value
         </li>
         <li>
-          <strong>Strategic</strong> - Aligns with product direction
+          <strong>Strategic</strong> — Aligns with where your product is headed
         </li>
       </ul>
 
       <h2>One Banger at a Time</h2>
       <p>
-        Mason maintains only ONE active banger per repository. This ensures
-        focus on the most impactful opportunity rather than accumulating a
-        backlog of big ideas.
+        Mason maintains only <strong>ONE active banger per repository</strong>.
+        This ensures focus on the most impactful opportunity rather than
+        accumulating a backlog of big ideas that never get built.
       </p>
 
       <h2>Banger Rotation</h2>
       <p>When a new banger is discovered during PM review:</p>
       <ol>
-        <li>The current banger is evaluated against the new one</li>
-        <li>If the new one is better, it becomes the active banger</li>
+        <li>The current banger is evaluated against the new candidate</li>
         <li>
-          The old banger moves to the Feature Ideas section with a
+          If the new one is genuinely better, it becomes the active banger
+        </li>
+        <li>
+          The previous banger moves to the Feature Ideas section with a
           &quot;BANGER&quot; badge
         </li>
-        <li>You don&apos;t lose old bangers - they become regular features</li>
+        <li>
+          You don&apos;t lose old bangers — they&apos;re just regular features
+          now
+        </li>
       </ol>
 
       <h2>Dashboard Display</h2>

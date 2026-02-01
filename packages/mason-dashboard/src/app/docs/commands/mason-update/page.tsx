@@ -11,40 +11,46 @@ export default function MasonUpdatePage() {
       <h2>Overview</h2>
       <p>
         The <code>/mason-update</code> command checks for and installs updates
-        to your Mason commands. It ensures you always have the latest features
-        and fixes.
+        to all your Mason commands. It ensures you always have the latest
+        features, improvements, and bug fixes.
       </p>
 
       <h2>Usage</h2>
+      <p>Update all Mason commands at once:</p>
       <pre>
         <code>/mason-update</code>
       </pre>
-      <p>This checks all commands and updates any that have newer versions.</p>
+      <p>
+        This checks each command against the remote version manifest and updates
+        any that have newer versions available.
+      </p>
 
       <h2>Automatic Updates</h2>
       <p>
-        Most of the time, you don&apos;t need to run this command manually.
-        Mason commands check for updates automatically before each run:
+        In most cases, you don&apos;t need to run this command manually. Mason
+        commands check for updates automatically before each run:
       </p>
       <ol>
-        <li>Command checks its version against the remote manifest</li>
+        <li>Command checks its local version against the remote manifest</li>
         <li>
-          If below <code>required_minimum</code>, auto-updates before executing
+          If below <code>required_minimum</code>, it auto-updates before
+          executing
         </li>
         <li>
-          If a newer version exists but isn&apos;t required, shows notification
+          If a newer optional version exists, it shows a notification (but
+          continues running)
         </li>
       </ol>
 
       <h2>Version Enforcement</h2>
       <p>
-        Critical updates set a <code>required_minimum</code> version. When this
-        happens:
+        When we release critical updates or breaking changes, we set a{' '}
+        <code>required_minimum</code> version:
       </p>
       <ul>
-        <li>The command automatically updates before running</li>
-        <li>No user action required</li>
-        <li>Ensures everyone has important fixes</li>
+        <li>The command updates itself before running — automatically</li>
+        <li>No manual action required on your part</li>
+        <li>Ensures everyone has important fixes and compatibility</li>
       </ul>
 
       <h2>Command Files</h2>
