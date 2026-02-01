@@ -20,7 +20,8 @@ interface UseExecutionListenerOptions {
 }
 
 // Polling interval in milliseconds
-const POLLING_INTERVAL_MS = 3000;
+const BASE_POLLING_INTERVAL_MS = 3000;
+const MAX_POLLING_INTERVAL_MS = 15000; // Cap backoff at 15 seconds
 // How far back to look on initial mount (in milliseconds)
 const INITIAL_LOOKBACK_MS = 30000;
 
@@ -142,14 +143,19 @@ export function useExecutionListener({
   }, [client, enabled, processExecution]);
 
   // POLLING: Guaranteed fallback that runs regardless of realtime status
+  // Uses dynamic interval with backoff on errors to prevent resource exhaustion
   useEffect(() => {
     if (!client || !enabled) {
       return;
     }
 
+    let currentInterval = BASE_POLLING_INTERVAL_MS;
+    let consecutiveErrors = 0;
+    let intervalId: NodeJS.Timeout | null = null;
+
     console.log(
       '[ExecutionListener] Starting polling fallback (every',
-      POLLING_INTERVAL_MS / 1000,
+      currentInterval / 1000,
       'seconds)',
     );
 
@@ -168,14 +174,40 @@ export function useExecutionListener({
 
         if (error) {
           // Check for schema errors and log more helpful message
-          if (error.message?.includes('column') || error.message?.includes('does not exist')) {
+          if (
+            error.message?.includes('column') ||
+            error.message?.includes('does not exist')
+          ) {
             console.error(
-              '[ExecutionListener] Schema issue detected. User should update database schema in Settings.'
+              '[ExecutionListener] Schema issue detected. User should update database schema in Settings.',
             );
           } else {
             console.error('[ExecutionListener] Polling error:', error.message);
           }
+          // Backoff on error
+          consecutiveErrors++;
+          const newInterval = Math.min(
+            BASE_POLLING_INTERVAL_MS * Math.pow(2, consecutiveErrors),
+            MAX_POLLING_INTERVAL_MS,
+          );
+          if (newInterval !== currentInterval) {
+            currentInterval = newInterval;
+            if (intervalId) {
+              clearInterval(intervalId);
+              intervalId = setInterval(() => void poll(), currentInterval);
+            }
+          }
           return;
+        }
+
+        // Reset backoff on success
+        if (consecutiveErrors > 0) {
+          consecutiveErrors = 0;
+          currentInterval = BASE_POLLING_INTERVAL_MS;
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = setInterval(() => void poll(), currentInterval);
+          }
         }
 
         if (data && data.length > 0) {
@@ -201,20 +233,35 @@ export function useExecutionListener({
         lastCheckTimeRef.current = new Date().toISOString();
       } catch (err) {
         console.error('[ExecutionListener] Polling exception:', err);
+        // Backoff on exception
+        consecutiveErrors++;
+        const newInterval = Math.min(
+          BASE_POLLING_INTERVAL_MS * Math.pow(2, consecutiveErrors),
+          MAX_POLLING_INTERVAL_MS,
+        );
+        if (newInterval !== currentInterval) {
+          currentInterval = newInterval;
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = setInterval(() => void poll(), currentInterval);
+          }
+        }
       }
     };
 
     // Poll immediately on mount to catch any executions that started before we were ready
     void poll();
 
-    // Then poll every POLLING_INTERVAL_MS
-    const interval = setInterval(() => {
+    // Then poll at the current interval
+    intervalId = setInterval(() => {
       void poll();
-    }, POLLING_INTERVAL_MS);
+    }, currentInterval);
 
     return () => {
       console.log('[ExecutionListener] Stopping polling fallback');
-      clearInterval(interval);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
     };
   }, [client, enabled, processExecution]);
 }
