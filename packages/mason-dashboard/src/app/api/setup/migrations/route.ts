@@ -35,6 +35,7 @@ import { runMigrations } from '@/lib/supabase/pg-migrate';
  *   - mason_dependency_analysis
  *   - mason_autopilot_config
  *   - mason_autopilot_runs
+ *   - mason_audit_logs
  *
  * Realtime-enabled tables (for dashboard live updates):
  *   - mason_execution_progress (ExecutionStatusModal visualization)
@@ -330,6 +331,35 @@ CREATE TABLE IF NOT EXISTS mason_autopilot_runs (
   completed_at TIMESTAMPTZ
 );
 
+-- Mason Audit Logs table (security event tracking)
+-- Captures authentication events, API key lifecycle, and sensitive operations
+CREATE TABLE IF NOT EXISTS mason_audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  user_id UUID REFERENCES mason_users(id) ON DELETE SET NULL,
+  -- Event categorization
+  event_type TEXT NOT NULL CHECK (event_type IN (
+    'auth.login', 'auth.logout', 'auth.login_failed',
+    'api_key.created', 'api_key.deleted', 'api_key.used',
+    'account.deleted', 'account.updated',
+    'repository.connected', 'repository.disconnected',
+    'data.export', 'data.delete',
+    'admin.action'
+  )),
+  -- Resource being acted upon
+  resource_type TEXT,
+  resource_id TEXT,
+  -- Request context
+  ip_address TEXT,
+  user_agent TEXT,
+  -- Action details
+  action TEXT NOT NULL,
+  details JSONB DEFAULT '{}'::jsonb,
+  -- Outcome
+  success BOOLEAN DEFAULT true,
+  error_message TEXT
+);
+
 -- Ensure user_id columns exist in tables that might have been created before user_id was added
 -- This handles upgrades from older schema versions
 ALTER TABLE mason_api_keys ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
@@ -431,6 +461,9 @@ CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_user_id ON mason_autopilot_r
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_repository_id ON mason_autopilot_runs(repository_id);
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_status ON mason_autopilot_runs(status);
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_started_at ON mason_autopilot_runs(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mason_audit_logs_user_id ON mason_audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_audit_logs_event_type ON mason_audit_logs(event_type);
+CREATE INDEX IF NOT EXISTS idx_mason_audit_logs_created_at ON mason_audit_logs(created_at DESC);
 
 -- Composite index for backlog item filtering (user + status + priority for common dashboard query)
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_user_status_priority ON mason_pm_backlog_items(user_id, status, priority_score DESC);
@@ -453,6 +486,7 @@ ALTER TABLE mason_pm_restore_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_dependency_analysis ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_autopilot_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_autopilot_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (BYOD model - users own their database, allow all operations)
 -- Users table
@@ -543,6 +577,13 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_autopilot_runs' AND policyname = 'Allow all on autopilot_runs') THEN
     CREATE POLICY "Allow all on autopilot_runs" ON mason_autopilot_runs FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Audit Logs table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_audit_logs' AND policyname = 'Allow all on audit_logs') THEN
+    CREATE POLICY "Allow all on audit_logs" ON mason_audit_logs FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 

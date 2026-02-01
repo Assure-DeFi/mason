@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import { createAuditLogger } from '@/lib/api/audit';
 import {
   parsePaginationParams,
   createPaginationMeta,
@@ -14,6 +15,7 @@ import {
   createRateLimitResponse,
   getRateLimitIdentifier,
 } from '@/lib/rate-limit/middleware';
+import { createServiceClient } from '@/lib/supabase/client';
 
 /**
  * GET /api/keys - List all API keys for the authenticated user
@@ -88,6 +90,16 @@ export async function POST(request: Request) {
 
     if (!result) {
       return serverError('Failed to create API key');
+    }
+
+    // Audit log the API key creation (fire-and-forget)
+    try {
+      const supabase = createServiceClient();
+      const audit = createAuditLogger(supabase, request, session.user.id);
+      // Fire and forget to not impact response time
+      void audit.apiKeyCreated(result.info.id, name);
+    } catch {
+      // Audit logging failure should never break the operation
     }
 
     return apiSuccess({

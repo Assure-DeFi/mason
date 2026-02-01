@@ -51,6 +51,9 @@ export const TABLES = {
   // Autopilot tables
   AUTOPILOT_CONFIG: 'mason_autopilot_config',
   AUTOPILOT_RUNS: 'mason_autopilot_runs',
+
+  // Security/Audit tables
+  AUDIT_LOGS: 'mason_audit_logs',
 } as const;
 
 /**
