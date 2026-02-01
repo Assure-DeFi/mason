@@ -12,8 +12,8 @@ export default function PrivacyPage() {
     >
       <div className="not-prose mb-8 rounded-xl border border-gold/30 bg-gold/5 p-6">
         <p className="text-lg italic text-gray-300">
-          &quot;If you wouldn&apos;t paste it into ChatGPT, Mason doesn&apos;t
-          need it.&quot;
+          &quot;We don&apos;t want your data. Literally can&apos;t access
+          it.&quot;
         </p>
       </div>
 

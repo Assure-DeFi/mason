@@ -81,8 +81,8 @@ export default function SecurityPage() {
           style={{ animationDelay: '0.1s' }}
         >
           <p className="text-lg italic text-gray-300">
-            &ldquo;If you wouldn&apos;t paste it into ChatGPT, Mason
-            doesn&apos;t need it.&rdquo;
+            &ldquo;We don&apos;t want your data. Literally can&apos;t access
+            it.&rdquo;
           </p>
         </div>
 

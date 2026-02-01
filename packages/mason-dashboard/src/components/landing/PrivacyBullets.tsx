@@ -54,8 +54,8 @@ export function PrivacyBullets() {
 
           {/* Quote */}
           <p className="border-l-2 border-gold/30 pl-4 text-sm italic text-gray-400">
-            &ldquo;If you wouldn&apos;t paste it into ChatGPT, Mason
-            doesn&apos;t need it.&rdquo;
+            &ldquo;We don&apos;t want your data. Literally can&apos;t access
+            it.&rdquo;
           </p>
         </div>
       </div>
