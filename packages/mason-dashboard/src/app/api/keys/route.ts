@@ -15,6 +15,7 @@ import {
   createRateLimitResponse,
   getRateLimitIdentifier,
 } from '@/lib/rate-limit/middleware';
+import { apiKeyCreateSchema, validateRequest } from '@/lib/schemas';
 import { createServiceClient } from '@/lib/supabase/client';
 
 /**
@@ -83,8 +84,12 @@ export async function POST(request: Request) {
       return createRateLimitResponse(rateLimit);
     }
 
-    const body = await request.json().catch(() => ({}));
-    const name = body.name || 'Default';
+    // Validate request body
+    const validation = await validateRequest(request, apiKeyCreateSchema);
+    if (!validation.success) {
+      return validation.error;
+    }
+    const name = validation.data.name ?? 'Default';
 
     const result = await createApiKey(session.user.id, name);
 

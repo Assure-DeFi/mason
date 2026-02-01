@@ -103,3 +103,17 @@ export const accountDeleteSchema = z.object({
 });
 
 export type AccountDeleteRequest = z.infer<typeof accountDeleteSchema>;
+
+/**
+ * API key creation schema
+ * Used by POST /api/keys
+ */
+export const apiKeyCreateSchema = z.object({
+  name: z
+    .string()
+    .max(100, 'Name must be 100 characters or less')
+    .optional()
+    .default('Default'),
+});
+
+export type ApiKeyCreateRequest = z.infer<typeof apiKeyCreateSchema>;
