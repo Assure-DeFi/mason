@@ -11,15 +11,18 @@ export default function APIPage() {
       description="Programmatic access to Mason functionality."
     >
       <p>
-        Mason provides API endpoints for programmatic access. These endpoints
-        power the CLI commands but are also available for building custom
-        integrations or automation workflows.
+        Mason provides API endpoints for programmatic access. These are the same
+        endpoints that power the CLI commands — but they&apos;re also available
+        directly for building custom integrations, automation workflows, or
+        extending Mason&apos;s functionality in ways we haven&apos;t imagined.
       </p>
 
       <div className="not-prose my-6 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4">
         <p className="text-yellow-200">
-          <strong>Note:</strong> Most users don&apos;t need to use the API
-          directly. The CLI commands handle all API communication.
+          <strong>Note:</strong> Most users won&apos;t need to interact with the
+          API directly — the CLI commands handle all communication behind the
+          scenes. This reference is here for those building custom tooling or
+          debugging integration issues.
         </p>
       </div>
 
@@ -29,12 +32,20 @@ export default function APIPage() {
       </pre>
 
       <h2>Authentication</h2>
-      <p>All API requests require a Bearer token:</p>
+      <p>
+        Every API request requires authentication via a Bearer token. Use the
+        API key from your <code>mason.config.json</code> file.
+      </p>
       <pre>
         <code>{`Authorization: Bearer mason_your_api_key`}</code>
       </pre>
 
       <h2>Endpoints</h2>
+      <p>
+        The API is organized into logical groups — authentication, backlog
+        management, and execution tracking. Click any endpoint below for
+        detailed documentation.
+      </p>
 
       <div className="not-prose my-6 space-y-4">
         <Link
@@ -84,7 +95,11 @@ export default function APIPage() {
       </div>
 
       <h2>Response Format</h2>
-      <p>All responses are JSON:</p>
+      <p>
+        All responses follow a consistent JSON structure with a{' '}
+        <code>success</code> boolean and either <code>data</code> or{' '}
+        <code>error</code> fields.
+      </p>
       <pre>
         <code>{`{
   "success": true,
@@ -101,22 +116,28 @@ export default function APIPage() {
       </pre>
 
       <h2>Rate Limiting</h2>
-      <p>API requests are rate-limited to ensure fair usage:</p>
+      <p>
+        To ensure fair usage and system stability, API requests are
+        rate-limited. These limits are generous for normal usage — you&apos;d
+        have to be doing something unusual to hit them.
+      </p>
       <ul>
         <li>
-          <strong>100 requests per minute</strong> per API key
+          <strong>100 requests per minute</strong> — burst limit per API key
         </li>
         <li>
-          <strong>1000 requests per hour</strong> per API key
+          <strong>1000 requests per hour</strong> — sustained limit per API key
         </li>
       </ul>
 
       <h2>Direct Supabase Access</h2>
       <p>
-        Remember: your actual data lives in YOUR Supabase database. The Mason
-        API only handles identity validation and key verification. For direct
-        data operations, query your Supabase using the credentials in your
-        config file.
+        An important distinction: the Mason API only handles{' '}
+        <strong>identity validation</strong> and{' '}
+        <strong>key verification</strong>. Your actual data — backlog items,
+        PRDs, execution logs — lives in YOUR Supabase database. For direct data
+        operations, query your Supabase using the credentials in your config
+        file. You own that data completely.
       </p>
     </DocsLayout>
   );

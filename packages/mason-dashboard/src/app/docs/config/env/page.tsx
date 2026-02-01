@@ -11,55 +11,78 @@ export default function EnvPage() {
       <h2>Overview</h2>
       <p>
         While Mason primarily uses <code>mason.config.json</code> for
-        configuration, you can also use environment variables. This is
-        especially useful for CI/CD pipelines or when you want to keep
-        credentials out of config files.
+        configuration, you can also use environment variables. This approach is
+        especially useful in two scenarios — <strong>CI/CD pipelines</strong>{' '}
+        where config files aren&apos;t practical, and{' '}
+        <strong>security-conscious setups</strong> where you want to keep
+        credentials out of version-controlled files entirely.
       </p>
 
       <h2>Available Variables</h2>
+      <p>
+        Mason recognizes the following environment variables. Each one maps
+        directly to a field in <code>mason.config.json</code>, giving you
+        flexibility in how you configure your setup.
+      </p>
 
       <h3>MASON_API_KEY</h3>
-      <p>Alternative to apiKey in config file.</p>
+      <p>
+        Your Mason API key — the same value you&apos;d put in the{' '}
+        <code>apiKey</code> field of your config file.
+      </p>
       <pre>
         <code>export MASON_API_KEY=mason_your_api_key</code>
       </pre>
 
       <h3>MASON_DASHBOARD_URL</h3>
-      <p>Override the dashboard URL.</p>
+      <p>
+        Override the default dashboard URL — useful for self-hosted deployments
+        or development environments.
+      </p>
       <pre>
         <code>export MASON_DASHBOARD_URL=https://mason.assuredefi.com</code>
       </pre>
 
       <h3>SUPABASE_URL</h3>
-      <p>Your Supabase project URL.</p>
+      <p>Your Supabase project URL — the base URL where your database lives.</p>
       <pre>
         <code>export SUPABASE_URL=https://xxxxx.supabase.co</code>
       </pre>
 
       <h3>SUPABASE_ANON_KEY</h3>
-      <p>Your Supabase anon key.</p>
+      <p>
+        Your Supabase anonymous key — the public key used for client-side
+        database access with Row Level Security.
+      </p>
       <pre>
         <code>export SUPABASE_ANON_KEY=eyJ...</code>
       </pre>
 
       <h2>Priority</h2>
-      <p>Configuration sources are checked in this order:</p>
+      <p>
+        When multiple configuration sources exist, Mason checks them in a
+        specific order. Higher-priority sources override lower ones, giving you
+        fine-grained control over which values take effect.
+      </p>
       <ol>
         <li>
-          <strong>Environment variables</strong> (highest priority)
+          <strong>Environment variables</strong> — highest priority, always wins
         </li>
         <li>
-          <strong>mason.config.json</strong> in project root
+          <strong>mason.config.json</strong> — project-specific settings in your
+          repo root
         </li>
         <li>
-          <strong>Global config</strong> in ~/.mason/config.json (lowest)
+          <strong>Global config</strong> — user-wide defaults in
+          ~/.mason/config.json
         </li>
       </ol>
 
       <h2>CI/CD Usage</h2>
       <p>
-        Environment variables are useful for CI/CD pipelines where you
-        can&apos;t store a config file.
+        Environment variables shine in CI/CD pipelines where you can&apos;t — or
+        don&apos;t want to — commit a config file. Simply inject your
+        credentials as secrets, and Mason will pick them up automatically.
       </p>
 
       <h3>GitHub Actions Example</h3>
@@ -87,8 +110,9 @@ jobs:
 
       <h2>.env Files</h2>
       <p>
-        You can use <code>.env</code> files with dotenv if your environment
-        supports it:
+        For local development, you can use <code>.env</code> files with dotenv
+        if your environment supports it. This keeps credentials out of your main
+        config while still being easy to manage.
       </p>
       <pre>
         <code>{`# .env.local

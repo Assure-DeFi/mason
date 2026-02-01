@@ -10,8 +10,10 @@ export default function DataPage() {
     >
       <h2>Data Location Reference</h2>
       <p>
-        Here&apos;s a complete breakdown of every piece of data Mason handles
-        and exactly where it lives:
+        Transparency is fundamental to trust. Here&apos;s a complete breakdown
+        of every piece of data Mason handles and exactly where it lives —
+        color-coded so you can see at a glance what stays private (green),
+        what&apos;s browser-only (blue), and what we can access (gold).
       </p>
 
       <div className="not-prose my-6 overflow-x-auto">
@@ -95,56 +97,92 @@ export default function DataPage() {
       </div>
 
       <h2>Database Tables</h2>
-      <p>Tables created in YOUR Supabase:</p>
+      <p>
+        When you run the setup migrations, Mason creates these tables in{' '}
+        <strong>your</strong> Supabase project. All your work product — the
+        backlog, PRDs, execution history — lives here under your control.
+      </p>
 
       <h3>mason_pm_backlog_items</h3>
       <p>
-        Stores all improvement items with their scores, descriptions, and
-        metadata.
+        The heart of Mason — stores all improvement items with their impact and
+        effort scores, detailed descriptions, PRD content, and status metadata.
       </p>
 
       <h3>mason_pm_analysis_runs</h3>
-      <p>Records of each PM review run with timestamps and status.</p>
+      <p>
+        A historical record of each PM review run, including timestamps, item
+        counts, and completion status.
+      </p>
 
       <h3>mason_pm_execution_runs</h3>
-      <p>Execution tracking with progress and outcomes.</p>
+      <p>
+        Tracks execution sessions — which items were attempted, their progress
+        through each phase, and final outcomes.
+      </p>
 
       <h3>mason_execution_logs</h3>
-      <p>Detailed logs from execution for debugging and history.</p>
+      <p>
+        Detailed execution logs for debugging and history — every checkpoint,
+        validation result, and commit captured for your reference.
+      </p>
 
       <h3>mason_ai_provider_keys</h3>
-      <p>Encrypted storage for your AI provider API keys.</p>
+      <p>
+        Secure storage for your AI provider API keys — encrypted and accessible
+        only through your Supabase credentials.
+      </p>
 
       <h3>mason_pm_filtered_items</h3>
-      <p>Items filtered out during validation (for reference).</p>
+      <p>
+        Items filtered out during validation — kept for reference so you can
+        understand what didn&apos;t make the cut and why.
+      </p>
 
       <h3>mason_pm_restore_feedback</h3>
-      <p>Tracking for restored items.</p>
+      <p>
+        Tracks restored items — when you bring back a previously rejected item,
+        this logs that decision.
+      </p>
 
       <h2>Row Level Security</h2>
       <p>
-        All tables have RLS (Row Level Security) enabled. Even if someone had
-        your Supabase credentials, they&apos;d need proper authentication to
-        access data.
+        All Mason tables have <strong>Row Level Security (RLS)</strong> enabled
+        by default. This means even if someone somehow obtained your Supabase
+        credentials, they&apos;d still need proper authentication to access any
+        data — an extra layer of protection built into the database itself.
       </p>
 
       <h2>Deleting Your Data</h2>
-      <p>To completely remove Mason data:</p>
+      <p>
+        You own your data, which means you can delete it completely whenever you
+        choose. Here&apos;s how to remove all traces of Mason.
+      </p>
       <ol>
         <li>
-          Drop the <code>mason_*</code> tables in your Supabase
+          <strong>Drop the tables</strong> — Remove all <code>mason_*</code>{' '}
+          tables from your Supabase project
         </li>
-        <li>Clear browser localStorage</li>
-        <li>Delete mason.config.json from projects</li>
+        <li>
+          <strong>Clear browser storage</strong> — Delete localStorage entries
+          from your browser
+        </li>
+        <li>
+          <strong>Remove config files</strong> — Delete{' '}
+          <code>mason.config.json</code> from any projects
+        </li>
       </ol>
       <p>
-        We have nothing to delete - your identity info can be removed by
-        revoking the GitHub OAuth connection.
+        On our end, there&apos;s nothing substantial to delete — just your
+        GitHub identity link. Revoke the OAuth connection from your GitHub
+        settings, and that&apos;s gone too.
       </p>
 
       <h2>Open Source Verification</h2>
       <p>
-        Don&apos;t take our word for it. The entire codebase is open source:
+        Don&apos;t take our word for any of this — verify it yourself. The
+        entire Mason codebase is open source, so you can inspect exactly how
+        data is handled, where it flows, and what we can (and can&apos;t) see.
       </p>
       <ul>
         <li>
@@ -158,7 +196,8 @@ export default function DataPage() {
         </li>
       </ul>
       <p>
-        Audit the data handling yourself or have someone you trust review it.
+        Audit the code yourself, or have someone you trust review it. Privacy
+        claims are only as good as their verifiability.
       </p>
     </DocsLayout>
   );

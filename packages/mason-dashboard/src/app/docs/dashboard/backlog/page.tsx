@@ -10,8 +10,9 @@ export default function BacklogPage() {
     >
       <h2>Item List</h2>
       <p>
-        The backlog displays items in a table with key information visible at a
-        glance:
+        The backlog is the central hub for all your improvement items. Each item
+        displays key information at a glance — designed so you can quickly scan
+        and prioritize without diving into details.
       </p>
       <ul>
         <li>
@@ -36,7 +37,10 @@ export default function BacklogPage() {
       </ul>
 
       <h2>Sorting</h2>
-      <p>Click any column header to sort. Common sorts include:</p>
+      <p>
+        Click any column header to sort by that field. Different sorts surface
+        different opportunities — here are the most useful patterns.
+      </p>
       <ul>
         <li>
           <strong>Priority</strong> (highest first) — Surface the best
@@ -54,97 +58,141 @@ export default function BacklogPage() {
       </ul>
 
       <h2>Filtering</h2>
+      <p>
+        As your backlog grows, filtering becomes essential. Mason provides
+        multiple ways to narrow down what you&apos;re looking at.
+      </p>
 
       <h3>By Status</h3>
-      <p>Use the tabs to filter by status:</p>
+      <p>
+        The status tabs at the top let you focus on items at different stages of
+        the workflow.
+      </p>
       <ul>
         <li>
-          <strong>New</strong> - Items awaiting review
+          <strong>New</strong> — Fresh items awaiting your review and decision
         </li>
         <li>
-          <strong>Approved</strong> - Items ready for execution
+          <strong>Approved</strong> — Items you&apos;ve greenlit, ready for
+          execution
         </li>
         <li>
-          <strong>Completed</strong> - Successfully implemented items
+          <strong>Completed</strong> — Successfully implemented items (your
+          wins)
         </li>
         <li>
-          <strong>Rejected</strong> - Declined items
+          <strong>Rejected</strong> — Items you&apos;ve declined (kept for
+          reference)
         </li>
       </ul>
 
       <h3>By Repository</h3>
       <p>
-        Use the repository dropdown to view items for a specific connected
-        repository.
+        When you have multiple connected repositories, use the repository
+        dropdown to focus on items for a specific project.
       </p>
 
       <h3>By Search</h3>
-      <p>Use the search box to find items by title or description.</p>
+      <p>
+        The search box filters items by title and description — useful when you
+        remember what you&apos;re looking for but not where it is.
+      </p>
 
       <h2>Bulk Actions</h2>
-      <p>Select multiple items using checkboxes to perform bulk operations:</p>
+      <p>
+        When you need to process many items at once, bulk actions save
+        significant time. Select multiple items and apply the same action to all
+        of them.
+      </p>
 
       <h3>Select Items</h3>
+      <p>
+        There are several ways to build your selection — choose the approach
+        that fits your workflow.
+      </p>
       <ul>
-        <li>Click individual checkboxes</li>
-        <li>Click &quot;Select All&quot; to select all visible items</li>
-        <li>Shift+click to select a range</li>
+        <li>
+          <strong>Individual selection</strong> — Click checkboxes one by one
+        </li>
+        <li>
+          <strong>Select all</strong> — Click &quot;Select All&quot; to grab
+          everything visible
+        </li>
+        <li>
+          <strong>Range selection</strong> — Shift+click to select a contiguous
+          range
+        </li>
       </ul>
 
       <h3>Available Actions</h3>
+      <p>
+        Once you have items selected, these bulk operations become available.
+      </p>
       <ul>
         <li>
-          <strong>Approve</strong> - Move selected items to &quot;Approved&quot;
+          <strong>Approve</strong> — Move all selected items to the Approved
+          queue
         </li>
         <li>
-          <strong>Reject</strong> - Move selected items to &quot;Rejected&quot;
+          <strong>Reject</strong> — Move all selected items to Rejected
         </li>
         <li>
-          <strong>Delete</strong> - Remove items permanently
+          <strong>Delete</strong> — Permanently remove selected items
         </li>
         <li>
-          <strong>Restore</strong> - Bring back rejected items
+          <strong>Restore</strong> — Bring rejected items back to New status
         </li>
       </ul>
 
       <h3>Undo</h3>
       <p>
-        After bulk actions, an &quot;Undo&quot; button appears briefly. Click it
-        to revert the action.
+        Made a mistake? After any bulk action, an &quot;Undo&quot; button
+        appears briefly — click it to revert the action before it disappears.
       </p>
 
       <h2>Individual Actions</h2>
-      <p>Each item row has action buttons:</p>
+      <p>
+        Every item row includes quick-action buttons for common operations —
+        letting you manage items without leaving the list view.
+      </p>
       <ul>
         <li>
-          <strong>View</strong> - Open item details modal
+          <strong>View</strong> — Open the full item details in a modal
         </li>
         <li>
-          <strong>Approve/Reject</strong> - Change status
+          <strong>Approve/Reject</strong> — Change the item&apos;s status with
+          one click
         </li>
         <li>
-          <strong>Menu</strong> - Additional options (edit, delete)
+          <strong>Menu</strong> — Access additional options like edit and delete
         </li>
       </ul>
 
       <h2>Quick Wins</h2>
       <p>
-        Items with high impact and low effort are marked as &quot;Quick
-        Wins&quot; and highlighted in the Mason Recommends section. These are
-        good candidates to approve first.
+        Mason automatically identifies items with <strong>high impact</strong>{' '}
+        and <strong>low effort</strong> — these &quot;Quick Wins&quot; are
+        highlighted in the Mason Recommends section. They represent the best
+        return on investment and are excellent candidates to approve first.
       </p>
 
       <h2>Item Badges</h2>
-      <p>Special badges indicate:</p>
+      <p>
+        Visual badges help you quickly identify special items without reading
+        every detail.
+      </p>
       <ul>
         <li>
-          <strong>BANGER</strong> - The current or former banger idea
+          <strong>BANGER</strong> — The standout idea from each review (current
+          or former)
         </li>
         <li>
-          <strong>FEATURE</strong> - A new feature (vs improvement/fix)
+          <strong>FEATURE</strong> — A new feature request (as opposed to
+          improvements or fixes)
         </li>
         <li>
-          <strong>Category color</strong> - Visual indicator of item type
+          <strong>Category color</strong> — Color-coded indicator of the item
+          type (Feature, UI, Security, etc.)
         </li>
       </ul>
     </DocsLayout>
