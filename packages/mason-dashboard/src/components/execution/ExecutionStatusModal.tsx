@@ -80,9 +80,15 @@ export function ExecutionStatusModal({
 
       if (fetchError && fetchError.code !== 'PGRST116') {
         // Check for schema errors
-        if (fetchError.message?.includes('column') || fetchError.message?.includes('does not exist')) {
+        if (
+          fetchError.message?.includes('column') ||
+          fetchError.message?.includes('does not exist')
+        ) {
           setConnectionError(
-            'Database schema needs to be updated. Go to Settings and click "Update Database Schema".'
+            'Database schema is out of date. To fix this:\n' +
+              '1. Go to Settings (gear icon in top navigation)\n' +
+              '2. Click "Update Database Schema" button\n' +
+              '3. Wait for confirmation, then retry this action',
           );
           console.error('[ExecutionStatusModal] Schema error:', fetchError);
           return;
@@ -108,14 +114,22 @@ export function ExecutionStatusModal({
       } else if (pollAttempts >= CONNECTION_TIMEOUT_POLLS && isConnecting) {
         // Timeout - no data found after many attempts
         setConnectionError(
-          'Could not find execution progress. The CLI may not have started writing progress yet.'
+          'No execution progress found after 15 seconds. Possible causes:\n' +
+            '• The CLI command may have errored before starting execution\n' +
+            '• The item may not have been selected for execution\n\n' +
+            'Try running /execute-approved again from your terminal.',
         );
       }
     } catch (err) {
       console.error('[ExecutionStatusModal] Poll exception:', err);
       if (pollAttempts >= CONNECTION_TIMEOUT_POLLS) {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
         setConnectionError(
-          `Connection error: ${err instanceof Error ? err.message : 'Unknown error'}`
+          `Unable to connect to database: ${errorMsg}\n\n` +
+            'Troubleshooting steps:\n' +
+            '1. Check your internet connection\n' +
+            '2. Verify Supabase is configured in Settings\n' +
+            '3. Try refreshing the page',
         );
       }
     }

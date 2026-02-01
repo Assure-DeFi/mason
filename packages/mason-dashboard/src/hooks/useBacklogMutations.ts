@@ -124,7 +124,12 @@ export function useBacklogMutations({
         .single();
 
       if (error) {
-        throw new Error('Failed to update status');
+        const errorMessage = error.message || 'Unknown database error';
+        throw new Error(
+          `Failed to update item status: ${errorMessage}. ` +
+            'Try refreshing the page and attempting again. ' +
+            'If the problem persists, check your database connection in Settings.',
+        );
       }
 
       // Record status change event (fire-and-forget)
@@ -149,7 +154,12 @@ export function useBacklogMutations({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate PRD');
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(
+          `Failed to generate PRD: ${errorText}. ` +
+            'This may be due to missing AI provider configuration. ' +
+            'Check your API keys in Settings > AI Providers.',
+        );
       }
 
       const updated = await response.json();
