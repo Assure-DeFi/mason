@@ -8,10 +8,10 @@
       "breaking_reason": "Iterative validation loop - agents must backfill filtered items until target count reached"
     },
     "execute-approved": {
-      "version": "2.5.0",
+      "version": "2.5.1",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "2.5.0",
-      "breaking_reason": "Fix checkpoint placement - checkpoints now fire at actual execution points"
+      "required_minimum": "2.5.1",
+      "breaking_reason": "Checkpoints use explicit MANDATORY instructions with numbered steps"
     },
     "mason-update": {
       "version": "1.0.0",

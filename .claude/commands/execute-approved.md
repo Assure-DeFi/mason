@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.5.0
+version: 2.5.1
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -677,29 +677,23 @@ log_execution "error" "TypeScript check failed: 3 type errors found" '{"check": 
 
 ### Step 6: Execute Waves with Domain-Aware Agents
 
-Execute each wave using the Task tool with **domain-specialized agents**.
-
-**CRITICAL: Call checkpoints at the execution points shown below.**
+Execute waves using the Task tool. **YOU MUST run checkpoint bash commands before and after each wave.**
 
 #### 6.1: Wave 1 - Exploration
 
+**STEP 6.1.1 - MANDATORY: Use Bash tool to run this command NOW before starting Wave 1:**
+
 ```bash
-# === CHECKPOINT 5: Before Wave 1 ===
 update_checkpoint 5 "Analyzing codebase (~1-2 min)" "" "foundation"
 update_progress "foundation" 1 "Exploring codebase patterns..." 0 2
 log_execution "info" "Wave 1: Exploring codebase patterns" '{"wave": 1, "phase": "foundation"}'
 ```
 
-```typescript
-// Wave 1 - Exploration (parallel) - Use Explore subagent
-await Promise.all([
-  Task({ subagent_type: 'Explore', prompt: '...' }),
-  Task({ subagent_type: 'Explore', prompt: '...' }),
-]);
-```
+**STEP 6.1.2:** Execute Wave 1 using Task tool with Explore subagents for codebase analysis.
+
+**STEP 6.1.3 - MANDATORY: Use Bash tool to run this command NOW after Wave 1 Task returns:**
 
 ```bash
-# === CHECKPOINT 6: After Wave 1 completes ===
 update_checkpoint 6 "Analysis complete - creating branch"
 update_progress "foundation" 1 "Found existing patterns" 2 2
 log_execution "info" "Wave 1 complete: Found existing patterns" '{"wave": 1, "tasks_done": 2}'
@@ -707,57 +701,25 @@ log_execution "info" "Wave 1 complete: Found existing patterns" '{"wave": 1, "ta
 
 #### 6.2: Wave 2 - Implementation
 
+**STEP 6.2.1 - MANDATORY: Use Bash tool to run this command NOW before starting Wave 2:**
+
 ```bash
-# === CHECKPOINT 7: Before Wave 2 ===
 update_checkpoint 7 "Implementing changes (~2-4 min)" "" "building"
 update_progress "building" 2 "Implementing changes..." 0 3
 log_execution "info" "Wave 2: Starting implementation" '{"wave": 2, "phase": "building"}'
 ```
 
-```typescript
-// Wave 2 - Implementation (parallel) - Use DOMAIN-SPECIFIC agent
-// Read the execution agent file and include in the prompt
-const agentInstructions = await Read(EXECUTION_AGENT);
-await Promise.all([
-  Task({
-    subagent_type: 'general-purpose',
-    prompt: `
-      You are a domain-specialized execution agent.
+**STEP 6.2.2:** Execute Wave 2 using Task tool with domain-specific agents:
 
-      ## Agent Instructions
-      ${agentInstructions}
+- Read the execution agent file at `${EXECUTION_AGENT}`
+- Include agent instructions and PRD context in the prompt
+- Use `general-purpose` subagent (or `frontend-design` for ui/ux types)
 
-      ## Item Context
-      Title: ${item.title}
-      Type: ${item.type}
-      PRD Context:
-      ${PRD_CONTEXT}
+**STEP 6.2.3:** Execute Wave 3 (Code Review) using `code-reviewer` subagent.
 
-      ## Task
-      Execute Phase 4 (Implementation) from the agent instructions.
-
-      Focus on:
-      - Following domain-specific patterns
-      - Using existing codebase conventions
-      - Meeting the success criteria from the PRD
-    `,
-  }),
-]);
-
-// Wave 3 - Code Review with domain awareness
-await Task({
-  subagent_type: 'code-reviewer',
-  prompt: `
-    Review the implementation against domain-specific requirements:
-    - Item Type: ${item.type}
-    - Domain validation rules from: ${EXECUTION_AGENT}
-    - Success criteria from PRD
-  `,
-});
-```
+**STEP 6.2.4 - MANDATORY: Use Bash tool to run this command NOW after Waves 2-3 complete:**
 
 ```bash
-# === CHECKPOINT 8: After implementation waves complete ===
 update_checkpoint 8 "Implementation complete"
 update_progress "building" 3 "All changes applied" 3 3
 log_execution "info" "Waves 2-3 complete: Implementation done" '{"wave": 3, "tasks_done": 3}'
