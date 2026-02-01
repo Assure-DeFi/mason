@@ -16,7 +16,7 @@ export function AudienceSection() {
   return (
     <section
       className="mason-entrance px-4 py-12 sm:px-6 lg:px-8"
-      style={{ animationDelay: '0.8s' }}
+      style={{ animationDelay: '0.5s' }}
     >
       <div className="mx-auto max-w-3xl">
         <h2 className="mb-6 text-center text-xl font-semibold text-white">

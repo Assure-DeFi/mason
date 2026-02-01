@@ -121,7 +121,7 @@ export function HeroSection() {
           </p>
 
           {/* CTA */}
-          <div className="mb-6 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="mb-4 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/setup"
               className="group flex items-center gap-2 rounded-lg bg-gold px-8 py-3.5 text-base font-semibold text-navy transition-all hover:shadow-lg hover:shadow-gold/25 sm:text-lg"
@@ -137,9 +137,11 @@ export function HeroSection() {
             </Link>
           </div>
 
-          {/* Tagline */}
-          <p className="text-sm text-gray-600">
-            Zero maintenance. Rock solid by design.
+          {/* Time estimate + Tagline */}
+          <p className="text-sm text-gray-500">
+            Get started in ~5 minutes
+            <span className="mx-2 text-gray-700">·</span>
+            <span className="text-gray-600">Zero maintenance. Rock solid by design.</span>
           </p>
         </div>
       </div>

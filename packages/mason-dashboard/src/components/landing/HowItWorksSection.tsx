@@ -17,7 +17,7 @@ export function HowItWorksSection() {
     <section
       id="how-it-works"
       className="mason-entrance scroll-mt-20 px-4 py-12 sm:px-6 lg:px-8"
-      style={{ animationDelay: '0.7s' }}
+      style={{ animationDelay: '0.4s' }}
     >
       <div className="mx-auto max-w-3xl">
         <div className="rounded-xl border border-gray-800 bg-black/30 p-6 sm:p-8">

@@ -27,7 +27,7 @@ export function ValuePropsSection() {
   return (
     <section
       className="mason-entrance px-4 py-12 sm:px-6 lg:px-8"
-      style={{ animationDelay: '0.6s' }}
+      style={{ animationDelay: '0.2s' }}
     >
       <div className="mx-auto max-w-5xl">
         <h2 className="mb-8 text-center text-2xl font-bold text-white">

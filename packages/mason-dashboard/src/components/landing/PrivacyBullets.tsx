@@ -28,7 +28,7 @@ export function PrivacyBullets() {
   return (
     <section
       className="mason-entrance px-4 py-12 sm:px-6 lg:px-8"
-      style={{ animationDelay: '0.5s' }}
+      style={{ animationDelay: '0.3s' }}
     >
       <div className="mx-auto max-w-3xl">
         <div className="rounded-xl border border-gray-800 bg-black/30 p-6 sm:p-8">

@@ -10,7 +10,7 @@ export function FinalCTASection() {
   return (
     <section
       className="mason-entrance px-4 py-16 sm:px-6 lg:px-8"
-      style={{ animationDelay: '0.9s' }}
+      style={{ animationDelay: '0.6s' }}
     >
       <div className="mx-auto max-w-2xl text-center">
         <h2 className="text-2xl font-bold text-white md:text-3xl">

@@ -5,141 +5,134 @@ import {
   useVideoConfig,
   interpolate,
   spring,
-  Img,
-  staticFile,
 } from 'remotion';
 
 /**
  * Scene 3: Flow (9-15s)
- * ITERATION 3: Connected flow with animations, dashboard preview, larger text
+ * V3: Big bold steps with connected animated pipeline, no tiny elements
  */
 export const FlowScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const stepDelay = 25;
+  // Title animation
+  const titleOpacity = interpolate(frame, [0, 15], [0, 1], {
+    extrapolateRight: 'clamp',
+  });
 
-  // Step 1: SCAN - appears first
+  // Step 1: SCAN
   const scanSpring = spring({
-    frame: frame - 5,
+    frame: frame - 10,
     fps,
     config: { damping: 12, stiffness: 100 },
   });
-  const scanScale = interpolate(scanSpring, [0, 1], [0.6, 1]);
+  const scanScale = interpolate(scanSpring, [0, 1], [0.5, 1]);
   const scanOpacity = interpolate(scanSpring, [0, 1], [0, 1]);
+  const scanActive = frame >= 15 && frame < 50;
+  const scanDone = frame >= 50;
 
   // Flow line 1: SCAN to APPROVE
-  const flow1Start = 25;
-  const flow1Progress = interpolate(
-    frame,
-    [flow1Start, flow1Start + 20],
-    [0, 1],
-    {
-      extrapolateLeft: 'clamp',
-      extrapolateRight: 'clamp',
-    },
-  );
+  const flow1Progress = interpolate(frame, [40, 60], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
 
-  // Step 2: APPROVE - appears after flow line
+  // Step 2: APPROVE
   const approveSpring = spring({
-    frame: frame - flow1Start - 15,
+    frame: frame - 50,
     fps,
     config: { damping: 12, stiffness: 100 },
   });
-  const approveScale = interpolate(approveSpring, [0, 1], [0.6, 1]);
+  const approveScale = interpolate(approveSpring, [0, 1], [0.5, 1]);
   const approveOpacity = interpolate(approveSpring, [0, 1], [0, 1]);
+  const approveActive = frame >= 55 && frame < 90;
+  const approveDone = frame >= 90;
 
   // Flow line 2: APPROVE to SHIP
-  const flow2Start = 55;
-  const flow2Progress = interpolate(
-    frame,
-    [flow2Start, flow2Start + 20],
-    [0, 1],
-    {
-      extrapolateLeft: 'clamp',
-      extrapolateRight: 'clamp',
-    },
-  );
+  const flow2Progress = interpolate(frame, [80, 100], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
 
-  // Step 3: SHIP - appears after second flow line
+  // Step 3: SHIP
   const shipSpring = spring({
-    frame: frame - flow2Start - 15,
+    frame: frame - 90,
     fps,
     config: { damping: 12, stiffness: 100 },
   });
-  const shipScale = interpolate(shipSpring, [0, 1], [0.6, 1]);
+  const shipScale = interpolate(shipSpring, [0, 1], [0.5, 1]);
   const shipOpacity = interpolate(shipSpring, [0, 1], [0, 1]);
+  const shipActive = frame >= 95 && frame < 130;
+  const shipDone = frame >= 130;
 
-  // Checkmark animation after SHIP
-  const checkmarkSpring = spring({
-    frame: frame - 90,
+  // Big checkmark celebration
+  const checkSpring = spring({
+    frame: frame - 130,
     fps,
-    config: { damping: 8, stiffness: 120 },
+    config: { damping: 8, stiffness: 100 },
   });
-  const checkmarkScale = interpolate(checkmarkSpring, [0, 1], [0, 1.2]);
-  const checkmarkOpacity = interpolate(checkmarkSpring, [0, 1], [0, 1]);
+  const checkScale = interpolate(checkSpring, [0, 1], [0, 1.2]);
+  const checkOpacity = interpolate(checkSpring, [0, 1], [0, 1]);
 
-  // "DONE" burst effect
-  const doneBurst = interpolate(frame, [95, 110], [0, 1], {
+  // "Repeat forever" text
+  const repeatOpacity = interpolate(frame, [145, 160], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const infinityRotate = interpolate(frame, [145, 180], [0, 360], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
 
-  // Dashboard preview - slides up from bottom
-  const dashboardOpacity = interpolate(frame, [110, 130], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const dashboardY = interpolate(frame, [110, 135], [60, 0], {
-    extrapolateLeft: 'clamp',
+  // Background glow
+  const bgGlow = interpolate(frame, [0, 100], [0.03, 0.2], {
     extrapolateRight: 'clamp',
   });
 
-  // Active glow effects
-  const scanGlow = frame > 10 && frame < 40 ? 40 : 0;
-  const approveGlow = frame > 45 && frame < 70 ? 40 : 0;
-  const shipGlow = frame > 75 && frame < 100 ? 40 : 0;
-
-  // Background glow intensifies
-  const bgGlow = interpolate(frame, [0, 100], [0.02, 0.15], {
-    extrapolateRight: 'clamp',
+  const getStepStyle = (isActive: boolean, isDone: boolean, color: string) => ({
+    backgroundColor: isDone
+      ? color
+      : isActive
+        ? `${color}20`
+        : 'rgba(255, 255, 255, 0.05)',
+    borderColor: isActive || isDone ? color : 'rgba(255, 255, 255, 0.2)',
+    boxShadow: isActive
+      ? `0 0 60px ${color}60`
+      : isDone
+        ? `0 0 40px ${color}40`
+        : 'none',
   });
 
   return (
     <AbsoluteFill className="bg-navy flex items-center justify-center overflow-hidden">
-      {/* Subtle radial background */}
+      {/* Background glow */}
       <div
         className="absolute"
         style={{
-          width: 1400,
-          height: 700,
+          width: 1600,
+          height: 900,
           background: `radial-gradient(ellipse, rgba(226, 210, 67, ${bgGlow}) 0%, transparent 70%)`,
         }}
       />
 
-      {/* Title - larger */}
+      {/* Title - BIG */}
       <div
         className="absolute"
         style={{
           top: 80,
-          opacity: interpolate(frame, [0, 10], [0, 1], {
-            extrapolateRight: 'clamp',
-          }),
+          opacity: titleOpacity,
         }}
       >
         <span
-          className="font-inter font-medium"
-          style={{ fontSize: 32, color: 'rgba(255, 255, 255, 0.6)' }}
+          className="font-inter font-bold"
+          style={{ fontSize: 56, color: 'rgba(255, 255, 255, 0.8)' }}
         >
-          How it works
+          How Mason Works
         </span>
       </div>
 
-      {/* Flow container - positioned in upper-middle area */}
-      <div
-        className="absolute flex items-center gap-4"
-        style={{ top: '35%', transform: 'translateY(-50%)' }}
-      >
+      {/* Flow container - large steps */}
+      <div className="flex items-center gap-6">
         {/* SCAN */}
         <div
           className="flex flex-col items-center"
@@ -149,53 +142,72 @@ export const FlowScene: React.FC = () => {
           }}
         >
           <div
-            className="flex items-center justify-center rounded-2xl"
+            className="flex items-center justify-center rounded-3xl border-4"
             style={{
-              width: 160,
-              height: 100,
-              backgroundColor: 'rgba(96, 165, 250, 0.15)',
-              border: '3px solid #60A5FA',
-              boxShadow: `0 0 ${scanGlow}px #60A5FA`,
+              width: 220,
+              height: 140,
+              ...getStepStyle(scanActive, scanDone, '#60A5FA'),
+              transition: 'all 0.3s ease',
             }}
           >
-            <span
-              className="font-inter font-bold"
-              style={{ fontSize: 42, color: '#60A5FA' }}
-            >
-              Scan
-            </span>
+            {scanDone ? (
+              <span style={{ fontSize: 64, color: '#0A0724' }}>✓</span>
+            ) : (
+              <span
+                className="font-inter font-black"
+                style={{
+                  fontSize: 52,
+                  color: scanActive ? '#60A5FA' : 'rgba(255, 255, 255, 0.5)',
+                }}
+              >
+                SCAN
+              </span>
+            )}
           </div>
           <span
-            className="mt-3 font-inter"
-            style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.5)' }}
+            className="mt-4 font-inter font-medium"
+            style={{ fontSize: 24, color: 'rgba(255, 255, 255, 0.6)' }}
           >
             Find improvements
           </span>
         </div>
 
-        {/* Flow line 1 - animated */}
-        <div className="flex items-center" style={{ width: 100 }}>
+        {/* Flow line 1 */}
+        <div style={{ width: 120, height: 8, position: 'relative' }}>
           <div
             style={{
-              width: `${flow1Progress * 70}px`,
-              height: 4,
-              background: 'linear-gradient(90deg, #60A5FA, #E2D243)',
-              borderRadius: 2,
-              boxShadow:
-                flow1Progress > 0.5
-                  ? '0 0 15px rgba(226, 210, 67, 0.5)'
-                  : 'none',
+              position: 'absolute',
+              width: '100%',
+              height: '100%',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: 4,
             }}
           />
           <div
             style={{
-              opacity: flow1Progress > 0.8 ? 1 : 0,
-              transform: `translateX(${flow1Progress > 0.8 ? 0 : -10}px)`,
-              transition: 'all 0.2s',
+              position: 'absolute',
+              width: `${flow1Progress * 100}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #60A5FA, #E2D243)',
+              borderRadius: 4,
+              boxShadow: flow1Progress > 0 ? '0 0 20px #E2D243' : 'none',
             }}
-          >
-            <span style={{ fontSize: 32, color: '#E2D243' }}>→</span>
-          </div>
+          />
+          {flow1Progress > 0 && flow1Progress < 1 && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${flow1Progress * 100}%`,
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                backgroundColor: '#E2D243',
+                boxShadow: '0 0 25px #E2D243',
+              }}
+            />
+          )}
         </div>
 
         {/* APPROVE */}
@@ -207,191 +219,159 @@ export const FlowScene: React.FC = () => {
           }}
         >
           <div
-            className="flex items-center justify-center rounded-2xl"
+            className="flex items-center justify-center rounded-3xl border-4"
             style={{
-              width: 180,
-              height: 100,
-              backgroundColor: 'rgba(226, 210, 67, 0.15)',
-              border: '3px solid #E2D243',
-              boxShadow: `0 0 ${approveGlow}px #E2D243`,
+              width: 260,
+              height: 140,
+              ...getStepStyle(approveActive, approveDone, '#E2D243'),
+              transition: 'all 0.3s ease',
             }}
           >
-            <span
-              className="font-inter font-bold"
-              style={{ fontSize: 42, color: '#E2D243' }}
-            >
-              Approve
-            </span>
+            {approveDone ? (
+              <span style={{ fontSize: 64, color: '#0A0724' }}>✓</span>
+            ) : (
+              <span
+                className="font-inter font-black"
+                style={{
+                  fontSize: 48,
+                  color: approveActive ? '#E2D243' : 'rgba(255, 255, 255, 0.5)',
+                }}
+              >
+                APPROVE
+              </span>
+            )}
           </div>
           <span
-            className="mt-3 font-inter"
-            style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.5)' }}
+            className="mt-4 font-inter font-medium"
+            style={{ fontSize: 24, color: 'rgba(255, 255, 255, 0.6)' }}
           >
             One click
           </span>
         </div>
 
-        {/* Flow line 2 - animated */}
-        <div className="flex items-center" style={{ width: 100 }}>
+        {/* Flow line 2 */}
+        <div style={{ width: 120, height: 8, position: 'relative' }}>
           <div
             style={{
-              width: `${flow2Progress * 70}px`,
-              height: 4,
-              background: 'linear-gradient(90deg, #E2D243, #34D399)',
-              borderRadius: 2,
-              boxShadow:
-                flow2Progress > 0.5
-                  ? '0 0 15px rgba(52, 211, 153, 0.5)'
-                  : 'none',
+              position: 'absolute',
+              width: '100%',
+              height: '100%',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: 4,
             }}
           />
           <div
             style={{
-              opacity: flow2Progress > 0.8 ? 1 : 0,
-              transform: `translateX(${flow2Progress > 0.8 ? 0 : -10}px)`,
-              transition: 'all 0.2s',
+              position: 'absolute',
+              width: `${flow2Progress * 100}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #E2D243, #34D399)',
+              borderRadius: 4,
+              boxShadow: flow2Progress > 0 ? '0 0 20px #34D399' : 'none',
             }}
-          >
-            <span style={{ fontSize: 32, color: '#34D399' }}>→</span>
-          </div>
+          />
+          {flow2Progress > 0 && flow2Progress < 1 && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${flow2Progress * 100}%`,
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                backgroundColor: '#34D399',
+                boxShadow: '0 0 25px #34D399',
+              }}
+            />
+          )}
         </div>
 
         {/* SHIP */}
         <div
-          className="flex flex-col items-center relative"
+          className="flex flex-col items-center"
           style={{
             transform: `scale(${shipScale})`,
             opacity: shipOpacity,
           }}
         >
           <div
-            className="flex items-center justify-center rounded-2xl relative"
+            className="flex items-center justify-center rounded-3xl border-4"
             style={{
-              width: 160,
-              height: 100,
-              backgroundColor: 'rgba(52, 211, 153, 0.15)',
-              border: '3px solid #34D399',
-              boxShadow: `0 0 ${shipGlow}px #34D399`,
+              width: 200,
+              height: 140,
+              ...getStepStyle(shipActive, shipDone, '#34D399'),
+              transition: 'all 0.3s ease',
             }}
           >
-            <span
-              className="font-inter font-bold"
-              style={{ fontSize: 42, color: '#34D399' }}
-            >
-              Ship
-            </span>
-
-            {/* Checkmark overlay */}
-            <div
-              className="absolute -top-3 -right-3 flex items-center justify-center rounded-full"
-              style={{
-                width: 40,
-                height: 40,
-                backgroundColor: '#34D399',
-                transform: `scale(${checkmarkScale})`,
-                opacity: checkmarkOpacity,
-                boxShadow: '0 0 20px #34D399',
-              }}
-            >
-              <span style={{ fontSize: 24, color: '#0A0724' }}>✓</span>
-            </div>
+            {shipDone ? (
+              <span style={{ fontSize: 64, color: '#0A0724' }}>✓</span>
+            ) : (
+              <span
+                className="font-inter font-black"
+                style={{
+                  fontSize: 52,
+                  color: shipActive ? '#34D399' : 'rgba(255, 255, 255, 0.5)',
+                }}
+              >
+                SHIP
+              </span>
+            )}
           </div>
           <span
-            className="mt-3 font-inter"
-            style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.5)' }}
+            className="mt-4 font-inter font-medium"
+            style={{ fontSize: 24, color: 'rgba(255, 255, 255, 0.6)' }}
           >
             Auto-merged
           </span>
         </div>
       </div>
 
-      {/* "DONE" celebration text */}
+      {/* Big celebration checkmark */}
       <div
         className="absolute"
         style={{
-          top: '55%',
-          opacity: doneBurst,
-          transform: `scale(${0.8 + doneBurst * 0.2})`,
+          bottom: 180,
+          opacity: checkOpacity,
+          transform: `scale(${checkScale})`,
         }}
       >
-        <span
-          className="font-inter font-black"
+        <div
+          className="flex items-center justify-center rounded-full"
           style={{
-            fontSize: 56,
-            color: '#34D399',
-            textShadow: `0 0 ${40 * doneBurst}px rgba(52, 211, 153, 0.8)`,
+            width: 100,
+            height: 100,
+            backgroundColor: '#34D399',
+            boxShadow: '0 0 60px rgba(52, 211, 153, 0.6)',
           }}
         >
-          SHIPPED!
-        </span>
-      </div>
-
-      {/* Dashboard preview - bottom */}
-      <div
-        className="absolute"
-        style={{
-          bottom: 30,
-          opacity: dashboardOpacity,
-          transform: `translateY(${dashboardY}px)`,
-        }}
-      >
-        <div className="relative">
-          {/* Glow behind dashboard */}
-          <div
-            className="absolute -inset-3 rounded-xl blur-lg"
-            style={{ backgroundColor: 'rgba(226, 210, 67, 0.2)' }}
-          />
-          {/* Dashboard screenshot */}
-          <div
-            className="relative overflow-hidden rounded-lg border-2"
-            style={{
-              width: 550,
-              height: 110,
-              borderColor: 'rgba(226, 210, 67, 0.4)',
-            }}
-          >
-            <Img
-              src={staticFile('screenshots/02-backlog-improvements.png')}
-              style={{
-                width: 550,
-                height: 'auto',
-                objectFit: 'cover',
-                objectPosition: 'top center',
-              }}
-            />
-            {/* Gradient overlay */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  'linear-gradient(to bottom, transparent 50%, rgba(10, 7, 36, 0.95) 100%)',
-              }}
-            />
-          </div>
-          {/* Label */}
-          <div
-            className="absolute -bottom-1 left-0 right-0 text-center"
-            style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.6)' }}
-          >
-            Your backlog, always improving
-          </div>
+          <span style={{ fontSize: 56, color: '#0A0724' }}>✓</span>
         </div>
       </div>
 
-      {/* Repeat indicator */}
+      {/* "Repeat forever" */}
       <div
-        className="absolute"
+        className="absolute flex items-center gap-5"
         style={{
-          top: 80,
-          right: 60,
-          opacity: interpolate(frame, [120, 140], [0, 1], {
-            extrapolateLeft: 'clamp',
-            extrapolateRight: 'clamp',
-          }),
+          bottom: 60,
+          opacity: repeatOpacity,
         }}
       >
-        <span className="font-inter" style={{ fontSize: 24, color: '#E2D243' }}>
-          ∞ Repeat forever
+        <span
+          style={{
+            fontSize: 52,
+            color: '#E2D243',
+            transform: `rotate(${infinityRotate}deg)`,
+            display: 'inline-block',
+          }}
+        >
+          ∞
+        </span>
+        <span
+          className="font-inter font-bold"
+          style={{ fontSize: 44, color: 'rgba(255, 255, 255, 0.85)' }}
+        >
+          Repeat forever.
         </span>
       </div>
     </AbsoluteFill>

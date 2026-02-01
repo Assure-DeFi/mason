@@ -5,13 +5,11 @@ import {
   useVideoConfig,
   interpolate,
   spring,
-  Img,
-  staticFile,
 } from 'remotion';
 
 /**
  * Scene 2: Value Proposition (4-9s)
- * ITERATION 3: Larger text, dashboard preview, less blank space
+ * V3: Maximum text size, no tiny elements, fills the screen
  */
 export const ValueScene: React.FC = () => {
   const frame = useCurrentFrame();
@@ -23,63 +21,59 @@ export const ValueScene: React.FC = () => {
     fps,
     config: { damping: 14, stiffness: 120 },
   });
-  const line1X = interpolate(line1Spring, [0, 1], [-150, 0]);
+  const line1X = interpolate(line1Spring, [0, 1], [-200, 0]);
   const line1Opacity = interpolate(line1Spring, [0, 1], [0, 1]);
 
   // Line 2: "improves itself." - slide in from right
   const line2Spring = spring({
-    frame: frame - 12,
+    frame: frame - 15,
     fps,
     config: { damping: 14, stiffness: 120 },
   });
-  const line2X = interpolate(line2Spring, [0, 1], [150, 0]);
+  const line2X = interpolate(line2Spring, [0, 1], [200, 0]);
   const line2Opacity = interpolate(line2Spring, [0, 1], [0, 1]);
 
-  // Line 3: "Automatically." - scale up with glow
+  // Line 3: "Automatically." - scale up with glow - THE BIG PUNCH
   const line3Spring = spring({
-    frame: frame - 28,
+    frame: frame - 35,
     fps,
-    config: { damping: 12, stiffness: 80 },
+    config: { damping: 10, stiffness: 80 },
   });
-  const line3Scale = interpolate(line3Spring, [0, 1], [0.6, 1]);
+  const line3Scale = interpolate(line3Spring, [0, 1], [0.5, 1]);
   const line3Opacity = interpolate(line3Spring, [0, 1], [0, 1]);
 
-  // INTENSE glow pulse on "Automatically" - more dramatic
+  // INTENSE glow pulse on "Automatically"
   const glowIntensity = interpolate(
-    (frame - 28) % 22,
-    [0, 11, 22],
-    [0.5, 1.2, 0.5],
+    (frame - 35) % 20,
+    [0, 10, 20],
+    [0.6, 1.5, 0.6],
     { extrapolateLeft: 'clamp' },
   );
 
-  // Dashboard preview animation - earlier and more prominent
-  const dashboardOpacity = interpolate(frame, [50, 65], [0, 1], {
+  // Subtext "While you sleep" - appears after main text
+  const subtextOpacity = interpolate(frame, [75, 90], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
-  const dashboardScale = interpolate(frame, [50, 70], [0.85, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const dashboardY = interpolate(frame, [50, 70], [40, 0], {
+  const subtextY = interpolate(frame, [75, 95], [30, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
 
-  // Background particles - more dynamic
+  // Background particles
   const particles = Array.from({ length: 35 }, (_, i) => {
     const baseX = (i * 97.3) % 100;
     const speed = 0.5 + (i % 3) * 0.3;
-    const yPos = ((frame * speed + i * 25) % 115) - 7;
-    const opacity = interpolate(yPos, [-7, 15, 95, 115], [0, 0.6, 0.6, 0], {
+    const yPos = ((frame * speed + i * 25) % 120) - 10;
+    const opacity = interpolate(yPos, [-10, 20, 90, 120], [0, 0.7, 0.7, 0], {
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
     });
-    return { id: i, x: baseX, y: yPos, opacity, size: 2 + (i % 3) };
+    return { id: i, x: baseX, y: yPos, opacity, size: 3 + (i % 4) };
   });
 
-  // Background glow - intensifies
-  const bgGlow = interpolate(frame, [20, 50], [0, 0.25], {
+  // Background glow intensifies with the punch
+  const bgGlow = interpolate(frame, [30, 60], [0.05, 0.35], {
     extrapolateRight: 'clamp',
   });
 
@@ -101,19 +95,19 @@ export const ValueScene: React.FC = () => {
         />
       ))}
 
-      {/* Center glow */}
+      {/* Center glow - big and dramatic */}
       <div
         className="absolute"
         style={{
-          width: 1100,
-          height: 800,
+          width: 1400,
+          height: 1000,
           background: `radial-gradient(ellipse, rgba(226, 210, 67, ${bgGlow}) 0%, transparent 60%)`,
         }}
       />
 
-      {/* Main content - positioned higher to make room for dashboard */}
-      <div className="flex flex-col items-center" style={{ marginTop: -100 }}>
-        {/* Line 1 - LARGER */}
+      {/* Main text container - centered and HUGE */}
+      <div className="flex flex-col items-center">
+        {/* Line 1 - BIG */}
         <div
           style={{
             transform: `translateX(${line1X}px)`,
@@ -122,31 +116,39 @@ export const ValueScene: React.FC = () => {
         >
           <span
             className="font-inter font-medium"
-            style={{ fontSize: 72, color: 'rgba(255, 255, 255, 0.85)' }}
+            style={{
+              fontSize: 90,
+              color: 'rgba(255, 255, 255, 0.85)',
+              textShadow: '0 4px 30px rgba(0, 0, 0, 0.5)',
+            }}
           >
             Your codebase
           </span>
         </div>
 
-        {/* Line 2 - LARGER */}
+        {/* Line 2 - BIGGER */}
         <div
-          className="mt-1"
           style={{
             transform: `translateX(${line2X}px)`,
             opacity: line2Opacity,
+            marginTop: -10,
           }}
         >
           <span
             className="font-inter font-bold"
-            style={{ fontSize: 92, color: '#FFFFFF' }}
+            style={{
+              fontSize: 110,
+              color: '#FFFFFF',
+              textShadow: '0 4px 30px rgba(0, 0, 0, 0.5)',
+            }}
           >
             improves itself.
           </span>
         </div>
 
-        {/* Line 3 - The punch - LARGER */}
+        {/* Line 3 - THE PUNCH - MASSIVE */}
         <div
-          className="mt-4"
+          className="mt-6"
           style={{
             transform: `scale(${line3Scale})`,
             opacity: line3Opacity,
@@ -155,68 +157,33 @@ export const ValueScene: React.FC = () => {
           <span
             className="font-inter font-black"
             style={{
-              fontSize: 120,
+              fontSize: 140,
               color: '#E2D243',
-              textShadow: `0 0 ${90 * glowIntensity}px rgba(226, 210, 67, 0.9)`,
+              textShadow: `0 0 ${100 * glowIntensity}px rgba(226, 210, 67, 0.9), 0 4px 30px rgba(0, 0, 0, 0.5)`,
             }}
           >
             Automatically.
           </span>
         </div>
-      </div>
 
-      {/* Dashboard preview - bottom portion, showing improvement suggestions */}
-      <div
-        className="absolute"
-        style={{
-          bottom: 35,
-          opacity: dashboardOpacity,
-          transform: `scale(${dashboardScale}) translateY(${dashboardY}px)`,
-        }}
-      >
-        <div className="relative">
-          {/* Glow behind dashboard */}
-          <div
-            className="absolute -inset-4 rounded-2xl blur-xl"
-            style={{ backgroundColor: 'rgba(226, 210, 67, 0.2)' }}
-          />
-          {/* Dashboard screenshot - cropped view */}
-          <div
-            className="relative overflow-hidden rounded-xl border-2 border-gold/40"
+        {/* Subtext - still big enough to read */}
+        <div
+          className="mt-8"
+          style={{
+            opacity: subtextOpacity,
+            transform: `translateY(${subtextY}px)`,
+          }}
+        >
+          <span
+            className="font-inter font-semibold"
             style={{
-              width: 750,
-              height: 160,
+              fontSize: 48,
+              color: 'rgba(255, 255, 255, 0.7)',
+              letterSpacing: '0.05em',
             }}
           >
-            <Img
-              src={staticFile('screenshots/02-backlog-improvements.png')}
-              style={{
-                width: 750,
-                height: 'auto',
-                objectFit: 'cover',
-                objectPosition: 'top center',
-              }}
-            />
-            {/* Gradient overlay for smooth edges */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background: `
-                  linear-gradient(to bottom, transparent 50%, rgba(10, 7, 36, 0.95) 100%),
-                  linear-gradient(to right, rgba(10, 7, 36, 0.4) 0%, transparent 10%, transparent 90%, rgba(10, 7, 36, 0.4) 100%)
-                `,
-              }}
-            />
-          </div>
-          {/* Label */}
-          <div className="text-center mt-2">
-            <span
-              className="font-inter"
-              style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.55)' }}
-            >
-              Real suggestions from Mason
-            </span>
-          </div>
+            While you sleep.
+          </span>
         </div>
       </div>
     </AbsoluteFill>

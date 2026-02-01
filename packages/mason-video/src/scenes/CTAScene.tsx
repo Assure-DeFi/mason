@@ -5,13 +5,11 @@ import {
   useVideoConfig,
   interpolate,
   spring,
-  Img,
-  staticFile,
 } from 'remotion';
 
 /**
  * Scene 4: CTA (15-20s)
- * ITERATION 3: More prominent Assure DeFi branding, larger text, dashboard preview
+ * V3: Massive text, prominent Assure DeFi, no tiny elements
  */
 export const CTAScene: React.FC = () => {
   const frame = useCurrentFrame();
@@ -21,84 +19,64 @@ export const CTAScene: React.FC = () => {
   const logoSpring = spring({
     frame: frame - 3,
     fps,
-    config: { damping: 12, stiffness: 100 },
+    config: { damping: 10, stiffness: 80 },
   });
-  const logoScale = interpolate(logoSpring, [0, 1], [0.7, 1]);
+  const logoScale = interpolate(logoSpring, [0, 1], [0.6, 1]);
   const logoOpacity = interpolate(logoSpring, [0, 1], [0, 1]);
 
-  // Logo glow pulse - more intense
-  const logoGlow = interpolate((frame - 3) % 25, [0, 12, 25], [0.4, 0.9, 0.4], {
+  // Logo glow pulse - intense
+  const logoGlow = interpolate((frame - 3) % 22, [0, 11, 22], [0.5, 1.2, 0.5], {
     extrapolateLeft: 'clamp',
   });
 
   // Tagline animation
-  const taglineOpacity = interpolate(frame, [18, 28], [0, 1], {
+  const taglineOpacity = interpolate(frame, [20, 32], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
-  const taglineY = interpolate(frame, [18, 32], [15, 0], {
+  const taglineY = interpolate(frame, [20, 38], [20, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
 
-  // CTA button - SNAPPIER entrance
+  // CTA button
   const ctaSpring = spring({
-    frame: frame - 35,
+    frame: frame - 40,
     fps,
-    config: { damping: 8, stiffness: 120 },
+    config: { damping: 8, stiffness: 100 },
   });
-  const ctaScale = interpolate(ctaSpring, [0, 1], [0.6, 1]);
+  const ctaScale = interpolate(ctaSpring, [0, 1], [0.5, 1]);
   const ctaOpacity = interpolate(ctaSpring, [0, 1], [0, 1]);
 
-  // Button glow pulse - faster, more energetic
-  const buttonPulse = interpolate(
-    (frame - 35) % 28,
-    [0, 14, 28],
-    [1, 1.08, 1],
-    { extrapolateLeft: 'clamp' },
-  );
+  // Button pulse
+  const buttonPulse = interpolate((frame - 40) % 25, [0, 12, 25], [1, 1.1, 1], {
+    extrapolateLeft: 'clamp',
+  });
 
-  // Background intensity
-  const bgGlow = interpolate(frame, [30, 70], [0, 0.3], {
+  // Assure DeFi branding - PROMINENT
+  const brandingSpring = spring({
+    frame: frame - 70,
+    fps,
+    config: { damping: 12, stiffness: 80 },
+  });
+  const brandingScale = interpolate(brandingSpring, [0, 1], [0.8, 1]);
+  const brandingOpacity = interpolate(brandingSpring, [0, 1], [0, 1]);
+
+  // Background glow
+  const bgGlow = interpolate(frame, [20, 60], [0.05, 0.4], {
     extrapolateRight: 'clamp',
   });
 
   // Particles
-  const particles = Array.from({ length: 40 }, (_, i) => {
+  const particles = Array.from({ length: 45 }, (_, i) => {
     const baseX = (i * 83.7) % 100;
-    const speed = 0.4 + (i % 4) * 0.25;
-    const yPos = ((frame * speed + i * 35) % 125) - 12;
-    const opacity = interpolate(yPos, [-12, 12, 100, 125], [0, 0.5, 0.5, 0], {
+    const speed = 0.4 + (i % 4) * 0.3;
+    const yPos = ((frame * speed + i * 35) % 130) - 15;
+    const opacity = interpolate(yPos, [-15, 15, 105, 130], [0, 0.6, 0.6, 0], {
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
     });
-    return { id: i, x: baseX, y: yPos, opacity, size: 2 + (i % 3) };
-  });
-
-  // Assure DeFi branding - MORE PROMINENT
-  const brandingOpacity = interpolate(frame, [55, 70], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const brandingScale = interpolate(frame, [55, 75], [0.9, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-
-  // Social proof
-  const socialProofOpacity = interpolate(frame, [65, 80], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-
-  // Dashboard preview - shows what they're getting
-  const dashboardOpacity = interpolate(frame, [85, 100], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const dashboardX = interpolate(frame, [85, 105], [50, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
+    return { id: i, x: baseX, y: yPos, opacity, size: 3 + (i % 4) };
   });
 
   return (
@@ -119,19 +97,19 @@ export const CTAScene: React.FC = () => {
         />
       ))}
 
-      {/* Center glow */}
+      {/* Center glow - dramatic */}
       <div
         className="absolute"
         style={{
-          width: 1100,
-          height: 800,
+          width: 1400,
+          height: 1000,
           background: `radial-gradient(ellipse, rgba(226, 210, 67, ${bgGlow}) 0%, transparent 55%)`,
         }}
       />
 
-      {/* Main content - positioned higher */}
-      <div className="flex flex-col items-center" style={{ marginTop: -60 }}>
-        {/* Logo - dramatic, LARGER */}
+      {/* Main content */}
+      <div className="flex flex-col items-center">
+        {/* Logo - MASSIVE */}
         <div
           style={{
             transform: `scale(${logoScale})`,
@@ -141,38 +119,39 @@ export const CTAScene: React.FC = () => {
           <span
             className="font-inter font-black"
             style={{
-              fontSize: 140,
+              fontSize: 180,
               color: '#FFFFFF',
-              textShadow: `0 0 ${70 * logoGlow}px rgba(226, 210, 67, 0.8)`,
+              textShadow: `0 0 ${90 * logoGlow}px rgba(226, 210, 67, 0.9), 0 8px 40px rgba(0, 0, 0, 0.5)`,
             }}
           >
             <span style={{ color: '#E2D243' }}>M</span>ASON
           </span>
         </div>
 
-        {/* Tagline - LARGER */}
+        {/* Tagline - BIG */}
         <div
-          className="mt-2"
           style={{
             opacity: taglineOpacity,
             transform: `translateY(${taglineY}px)`,
+            marginTop: -10,
           }}
         >
           <span
-            className="font-inter font-semibold tracking-widest uppercase"
+            className="font-inter font-bold tracking-widest uppercase"
             style={{
-              fontSize: 28,
+              fontSize: 38,
               color: '#E2D243',
-              letterSpacing: '0.35em',
+              letterSpacing: '0.4em',
+              textShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
             }}
           >
             Rock Solid by Design
           </span>
         </div>
 
-        {/* CTA Button - vibecoder style, LARGER */}
+        {/* CTA Button - LARGE */}
         <div
-          className="mt-12 relative"
+          className="mt-16 relative"
           style={{
             transform: `scale(${ctaScale * buttonPulse})`,
             opacity: ctaOpacity,
@@ -180,129 +159,76 @@ export const CTAScene: React.FC = () => {
         >
           {/* Button glow */}
           <div
-            className="absolute inset-0 rounded-xl blur-xl"
+            className="absolute inset-0 rounded-2xl blur-2xl"
             style={{
               background: '#E2D243',
-              opacity: 0.5,
-              transform: 'scale(1.2)',
+              opacity: 0.6,
+              transform: 'scale(1.25)',
             }}
           />
           {/* Button */}
           <div
-            className="relative px-14 py-5 rounded-xl"
+            className="relative px-16 py-6 rounded-2xl"
             style={{
               background: '#E2D243',
-              boxShadow: '0 0 45px rgba(226, 210, 67, 0.6)',
+              boxShadow: '0 0 60px rgba(226, 210, 67, 0.7)',
             }}
           >
             <span
-              className="font-inter font-bold uppercase tracking-wider"
-              style={{ fontSize: 24, color: '#0A0724' }}
+              className="font-inter font-black uppercase tracking-wide"
+              style={{ fontSize: 32, color: '#0A0724' }}
             >
               Start Building Free
             </span>
           </div>
         </div>
-
-        {/* Social proof hint */}
-        <div className="mt-6" style={{ opacity: socialProofOpacity }}>
-          <span
-            className="font-inter"
-            style={{ fontSize: 18, color: 'rgba(255, 255, 255, 0.5)' }}
-          >
-            Join 500+ builders shipping faster
-          </span>
-        </div>
       </div>
 
-      {/* Dashboard preview - right side, angled */}
-      <div
-        className="absolute"
-        style={{
-          right: 30,
-          top: '50%',
-          transform: `translateY(-50%) translateX(${dashboardX}px) perspective(1000px) rotateY(-8deg)`,
-          opacity: dashboardOpacity,
-        }}
-      >
-        <div className="relative">
-          {/* Glow */}
-          <div
-            className="absolute -inset-4 rounded-xl blur-xl"
-            style={{ backgroundColor: 'rgba(226, 210, 67, 0.2)' }}
-          />
-          {/* Dashboard */}
-          <div
-            className="relative overflow-hidden rounded-lg border-2"
-            style={{
-              width: 280,
-              height: 200,
-              borderColor: 'rgba(226, 210, 67, 0.4)',
-            }}
-          >
-            <Img
-              src={staticFile('screenshots/04-backlog-full.png')}
-              style={{
-                width: 280,
-                height: 'auto',
-                objectFit: 'cover',
-                objectPosition: 'top left',
-              }}
-            />
-            {/* Gradient overlay */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  'linear-gradient(135deg, transparent 40%, rgba(10, 7, 36, 0.8) 100%)',
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Assure DeFi branding - MORE PROMINENT, centered at bottom */}
+      {/* Assure DeFi branding - PROMINENT at bottom */}
       <div
         className="absolute flex flex-col items-center"
         style={{
-          bottom: 40,
+          bottom: 60,
           opacity: brandingOpacity,
           transform: `scale(${brandingScale})`,
         }}
       >
-        {/* "Built by" with Assure DeFi */}
-        <div className="flex items-center gap-3">
+        {/* Built by line */}
+        <div className="flex items-center gap-4">
           <span
-            className="font-inter"
-            style={{ fontSize: 18, color: 'rgba(255, 255, 255, 0.5)' }}
+            className="font-inter font-medium"
+            style={{ fontSize: 24, color: 'rgba(255, 255, 255, 0.6)' }}
           >
             Built by
           </span>
-          <div className="flex items-center gap-2">
-            {/* Assure DeFi logo placeholder - using gold circle as placeholder */}
+          <div className="flex items-center gap-3">
+            {/* Assure DeFi logo mark */}
             <div
               className="flex items-center justify-center rounded-full"
               style={{
-                width: 32,
-                height: 32,
-                background: 'linear-gradient(135deg, #E2D243 0%, #C5B83A 100%)',
-                boxShadow: '0 0 15px rgba(226, 210, 67, 0.4)',
+                width: 48,
+                height: 48,
+                background: 'linear-gradient(135deg, #E2D243 0%, #C9B63B 100%)',
+                boxShadow: '0 0 25px rgba(226, 210, 67, 0.5)',
               }}
             >
               <span
                 className="font-inter font-black"
-                style={{ fontSize: 18, color: '#0A0724' }}
+                style={{ fontSize: 28, color: '#0A0724' }}
               >
                 A
               </span>
             </div>
             <span
               className="font-inter font-bold"
-              style={{ fontSize: 22, color: '#FFFFFF' }}
+              style={{ fontSize: 32, color: '#FFFFFF' }}
             >
               Assure DeFi
             </span>
-            <span style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)' }}>
+            <span
+              className="font-inter"
+              style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }}
+            >
               ®
             </span>
           </div>
@@ -310,8 +236,8 @@ export const CTAScene: React.FC = () => {
 
         {/* Assure DeFi tagline */}
         <span
-          className="mt-2 font-inter"
-          style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.4)' }}
+          className="mt-3 font-inter font-medium"
+          style={{ fontSize: 20, color: 'rgba(255, 255, 255, 0.5)' }}
         >
           Security & Trust for Web3
         </span>
