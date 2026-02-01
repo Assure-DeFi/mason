@@ -5,7 +5,7 @@ import { Github, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { SignInButton } from '@/components/auth/sign-in-button';
+import { UserMenu } from '@/components/auth/user-menu';
 import { MasonMark } from '@/components/brand';
 
 interface LandingHeaderProps {
@@ -71,7 +71,7 @@ export function LandingHeader({
               </Link>
             ))}
             <div className="h-4 w-px bg-gray-700" />
-            <SignInButton variant="link" />
+            <UserMenu />
             {showCTA && (
               <Link
                 href="/setup"
@@ -114,7 +114,7 @@ export function LandingHeader({
                 </Link>
               ))}
               <div className="h-px bg-gray-800" />
-              <SignInButton variant="link" />
+              <UserMenu />
               {showCTA && (
                 <Link
                   href="/setup"
