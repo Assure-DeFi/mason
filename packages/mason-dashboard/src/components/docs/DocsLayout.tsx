@@ -203,7 +203,7 @@ export function DocsLayout({ children, title, description }: DocsLayoutProps) {
                   placeholder="Search docs..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-lg border border-gray-800 bg-black/30 py-2 pl-10 pr-4 text-sm text-white placeholder-gray-500 focus:border-gold/50 focus:outline-none focus:ring-1 focus:ring-gold/50"
+                  className="h-11 w-full rounded-lg border border-gray-800 bg-black/30 py-2 pl-10 pr-4 text-sm text-white placeholder-gray-500 focus:border-gold/50 focus:outline-none focus:ring-1 focus:ring-gold/50"
                 />
               </div>
             </div>

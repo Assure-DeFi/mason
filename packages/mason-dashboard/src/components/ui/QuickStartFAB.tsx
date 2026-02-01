@@ -75,7 +75,7 @@ export function QuickStartFAB({ className }: QuickStartFABProps) {
               <div className="ml-8">
                 <button
                   onClick={() => handleCopy('/pm-review')}
-                  className="flex items-center justify-between w-full px-3 py-2 bg-black/30 border border-gray-700 rounded text-sm font-mono text-gold hover:border-gold/50 transition-colors"
+                  className="flex items-center justify-between w-full px-3 py-2.5 bg-black/30 border border-gray-700 rounded text-sm font-mono text-gold hover:border-gold/50 transition-colors"
                 >
                   <span>/pm-review</span>
                   {copiedCommand === '/pm-review' ? (
@@ -116,7 +116,7 @@ export function QuickStartFAB({ className }: QuickStartFABProps) {
               <div className="ml-8">
                 <button
                   onClick={() => handleCopy('/execute-approved')}
-                  className="flex items-center justify-between w-full px-3 py-2 bg-black/30 border border-gray-700 rounded text-sm font-mono text-gold hover:border-gold/50 transition-colors"
+                  className="flex items-center justify-between w-full px-3 py-2.5 bg-black/30 border border-gray-700 rounded text-sm font-mono text-gold hover:border-gold/50 transition-colors"
                 >
                   <span>/execute-approved</span>
                   {copiedCommand === '/execute-approved' ? (

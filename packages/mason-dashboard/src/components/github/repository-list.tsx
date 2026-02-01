@@ -112,24 +112,24 @@ export function RepositoryList({ onDisconnect }: RepositoryListProps) {
       {repositories.map((repo) => (
         <div
           key={repo.id}
-          className="flex items-center justify-between rounded-lg bg-black p-4"
+          className="flex flex-col gap-3 rounded-lg bg-black p-4 sm:flex-row sm:items-center sm:justify-between"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             {repo.github_private ? (
-              <Lock className="h-5 w-5 text-gray-400" />
+              <Lock className="h-5 w-5 flex-shrink-0 text-gray-400" />
             ) : (
-              <Unlock className="h-5 w-5 text-gray-400" />
+              <Unlock className="h-5 w-5 flex-shrink-0 text-gray-400" />
             )}
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-white">
+                <span className="truncate font-medium text-white">
                   {repo.github_full_name}
                 </span>
                 <a
                   href={repo.github_html_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-gray-300"
+                  className="flex-shrink-0 text-gray-400 hover:text-gray-300"
                 >
                   <ExternalLink className="h-4 w-4" />
                 </a>
@@ -144,7 +144,7 @@ export function RepositoryList({ onDisconnect }: RepositoryListProps) {
           <button
             onClick={() => handleDisconnect(repo)}
             disabled={disconnectingId === repo.id}
-            className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-900/20 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-900/20 disabled:opacity-50 sm:w-auto sm:py-1.5"
           >
             {disconnectingId === repo.id ? (
               <RefreshCw className="h-4 w-4 animate-spin" />

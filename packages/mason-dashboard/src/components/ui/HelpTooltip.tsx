@@ -31,7 +31,9 @@ export function HelpTooltip({
 
   // Adjust position if tooltip would overflow viewport
   useEffect(() => {
-    if (!isOpen || !triggerRef.current || !tooltipRef.current) {return;}
+    if (!isOpen || !triggerRef.current || !tooltipRef.current) {
+      return;
+    }
 
     const triggerRect = triggerRef.current.getBoundingClientRect();
     const tooltipRect = tooltipRef.current.getBoundingClientRect();
@@ -124,13 +126,12 @@ export function HelpTooltip({
         onFocus={() => setIsOpen(true)}
         onBlur={() => setIsOpen(false)}
         className={clsx(
-          'inline-flex items-center justify-center text-gray-500 hover:text-gray-300 focus:text-gold focus:outline-none transition-colors',
-          size === 'sm' ? 'w-4 h-4' : 'w-5 h-5',
+          'inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-300 focus:text-gold focus:outline-none transition-colors',
         )}
         aria-label="Help"
         aria-expanded={isOpen}
       >
-        <HelpCircle className="w-full h-full" />
+        <HelpCircle className={clsx(size === 'sm' ? 'w-4 h-4' : 'w-5 h-5')} />
       </button>
 
       {isOpen && (

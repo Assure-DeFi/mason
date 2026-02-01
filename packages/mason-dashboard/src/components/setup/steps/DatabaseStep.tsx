@@ -21,7 +21,6 @@ import {
 
 import type { WizardStepProps } from '../SetupWizard';
 
-
 interface ConnectionState {
   status: 'idle' | 'testing' | 'success' | 'error';
   message?: string;
@@ -41,7 +40,9 @@ interface ValidationState {
 
 // Validation functions
 function validateSupabaseUrl(url: string): ValidationState {
-  if (!url) {return { isValid: false };}
+  if (!url) {
+    return { isValid: false };
+  }
 
   // Check for basic URL format
   const urlPattern = /^https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/?$/;
@@ -56,7 +57,9 @@ function validateSupabaseUrl(url: string): ValidationState {
 }
 
 function validateJwtKey(key: string): ValidationState {
-  if (!key) {return { isValid: false };}
+  if (!key) {
+    return { isValid: false };
+  }
 
   // JWT keys start with eyJ
   if (!key.startsWith('eyJ')) {
@@ -271,7 +274,9 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
     validation: ValidationState;
     value: string;
   }) => {
-    if (!value) {return null;}
+    if (!value) {
+      return null;
+    }
 
     return (
       <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -378,7 +383,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
               value={projectUrl}
               onChange={(e) => setProjectUrl(e.target.value)}
               placeholder="https://xxx.supabase.co"
-              className={`w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
+              className={`h-11 w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
                 projectUrl
                   ? urlValidation.isValid
                     ? 'border-green-600 focus:border-green-500'
@@ -417,7 +422,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
               value={anonKey}
               onChange={(e) => setAnonKey(e.target.value)}
               placeholder="eyJ..."
-              className={`w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
+              className={`h-11 w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
                 anonKey
                   ? anonKeyValidation.isValid
                     ? 'border-green-600 focus:border-green-500'
@@ -460,7 +465,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
               value={serviceKey}
               onChange={(e) => setServiceKey(e.target.value)}
               placeholder="eyJ..."
-              className={`w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
+              className={`h-11 w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
                 serviceKey
                   ? serviceKeyValidation.isValid
                     ? 'border-green-600 focus:border-green-500'
@@ -506,7 +511,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
               value={databasePassword}
               onChange={(e) => setDatabasePassword(e.target.value)}
               placeholder="Your database password"
-              className={`w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
+              className={`h-11 w-full rounded-md border bg-black px-4 py-2 pr-10 text-white placeholder-gray-500 focus:outline-none ${
                 databasePassword
                   ? 'border-green-600 focus:border-green-500'
                   : 'border-gray-700 focus:border-gold'
@@ -687,7 +692,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
                   value={connectionString}
                   onChange={(e) => setConnectionString(e.target.value)}
                   placeholder="postgresql://postgres.xxx:[YOUR-PASSWORD]@..."
-                  className="w-full rounded-md border border-gray-700 bg-black px-4 py-2 text-white placeholder-gray-500 focus:border-gold focus:outline-none"
+                  className="h-11 w-full rounded-md border border-gray-700 bg-black px-4 py-2 text-white placeholder-gray-500 focus:border-gold focus:outline-none"
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Make sure to replace [YOUR-PASSWORD] with your actual database
@@ -723,7 +728,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
         {onBack && (
           <button
             onClick={onBack}
-            className="rounded-md border border-gray-700 px-6 py-2 text-gray-300 transition-colors hover:bg-gray-900"
+            className="rounded-md border border-gray-700 px-6 py-3 text-gray-300 transition-colors hover:bg-gray-900"
           >
             Back
           </button>
@@ -731,7 +736,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
         <button
           onClick={onNext}
           disabled={!isStepComplete}
-          className="flex-1 rounded-md bg-gold px-6 py-2 font-medium text-navy transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex-1 rounded-md bg-gold px-6 py-3 font-medium text-navy transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Continue
         </button>

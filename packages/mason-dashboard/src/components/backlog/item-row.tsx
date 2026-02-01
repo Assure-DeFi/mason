@@ -1,8 +1,8 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
-import { FileText } from 'lucide-react';
-import { memo } from 'react';
+import { FileText, Check, X } from 'lucide-react';
+import { memo, useState } from 'react';
 
 import type { ColumnWidths } from '@/hooks/useColumnResize';
 import { getComplexityValue } from '@/types/backlog';
@@ -37,6 +37,8 @@ interface ItemRowProps {
   onSelect: (id: string, event?: React.MouseEvent) => void;
   onClick: (item: BacklogItem) => void;
   onPrdClick?: (item: BacklogItem) => void;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
   columnWidths: ColumnWidths;
 }
 
@@ -46,8 +48,39 @@ function ItemRowComponent({
   onSelect,
   onClick,
   onPrdClick,
+  onApprove,
+  onReject,
   columnWidths,
 }: ItemRowProps) {
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  const handleApprove = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onApprove || isApproving) {
+      return;
+    }
+    setIsApproving(true);
+    try {
+      await Promise.resolve(onApprove(item.id));
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleReject = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onReject || isRejecting) {
+      return;
+    }
+    setIsRejecting(true);
+    try {
+      await Promise.resolve(onReject(item.id));
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Extract shiftKey from the native event for range selection
     // Create a partial MouseEvent with the shiftKey property
@@ -184,6 +217,36 @@ function ItemRowComponent({
         style={{ width: `${columnWidths.updated}px` }}
       >
         {formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}
+      </td>
+
+      {/* Quick Actions - visible on mobile, hover on desktop */}
+      <td
+        className="py-3 px-2"
+        style={{ width: '80px' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {item.status === 'new' && (
+          <div className="flex items-center justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={handleApprove}
+              disabled={isApproving || isRejecting}
+              className="p-2 text-green-400 hover:bg-green-500/10 rounded active:scale-95 transition-all touch-feedback disabled:opacity-50"
+              aria-label="Approve"
+              title="Approve"
+            >
+              <Check className={`w-4 h-4 ${isApproving ? 'animate-pulse' : ''}`} />
+            </button>
+            <button
+              onClick={handleReject}
+              disabled={isApproving || isRejecting}
+              className="p-2 text-red-400 hover:bg-red-500/10 rounded active:scale-95 transition-all touch-feedback disabled:opacity-50"
+              aria-label="Reject"
+              title="Reject"
+            >
+              <X className={`w-4 h-4 ${isRejecting ? 'animate-pulse' : ''}`} />
+            </button>
+          </div>
+        )}
       </td>
     </tr>
   );

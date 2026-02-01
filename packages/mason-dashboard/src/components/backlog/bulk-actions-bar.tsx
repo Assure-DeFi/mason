@@ -261,7 +261,7 @@ ${item.prd_content}
           <button
             onClick={() => setShowMoreMenu(!showMoreMenu)}
             disabled={isAnyLoading}
-            className="flex items-center justify-center p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 transition-all disabled:opacity-50"
+            className="flex items-center justify-center p-3 text-gray-400 hover:text-white hover:bg-gray-700/50 transition-all disabled:opacity-50"
             title="More actions"
             aria-label="More actions"
             aria-expanded={showMoreMenu}
@@ -270,7 +270,7 @@ ${item.prd_content}
             <MoreHorizontal className="w-5 h-5" />
           </button>
           {showMoreMenu && (
-            <div className="absolute bottom-full right-0 mb-2 bg-black border border-gray-700 rounded-lg py-1 min-w-[180px] shadow-xl">
+            <div className="absolute bottom-full right-0 mb-2 bg-black border border-gray-700 rounded-lg py-1 min-w-[160px] sm:min-w-[180px] shadow-xl">
               {/* Export PRDs */}
               <button
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-left text-gray-300 hover:bg-gray-800 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

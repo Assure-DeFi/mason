@@ -85,7 +85,7 @@ export function UserMenu() {
                 setShowInstructions(true);
                 setIsOpen(false);
               }}
-              className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gold hover:bg-gray-900"
+              className="flex w-full items-center gap-2 px-4 py-3 text-sm text-gold hover:bg-gray-900"
             >
               <BookOpen className="h-4 w-4" />
               Instructions
@@ -93,7 +93,7 @@ export function UserMenu() {
 
             <Link
               href="/faq"
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gold hover:bg-gray-900"
+              className="flex items-center gap-2 px-4 py-3 text-sm text-gold hover:bg-gray-900"
               onClick={() => setIsOpen(false)}
             >
               <HelpCircle className="h-4 w-4" />
@@ -104,7 +104,7 @@ export function UserMenu() {
 
             <Link
               href="/settings/github"
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-900"
+              className="flex items-center gap-2 px-4 py-3 text-sm text-gray-300 hover:bg-gray-900"
               onClick={() => setIsOpen(false)}
             >
               <Settings className="h-4 w-4" />
@@ -113,7 +113,7 @@ export function UserMenu() {
 
             <Link
               href="/settings/api-keys"
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-900"
+              className="flex items-center gap-2 px-4 py-3 text-sm text-gray-300 hover:bg-gray-900"
               onClick={() => setIsOpen(false)}
             >
               <Key className="h-4 w-4" />
@@ -122,7 +122,7 @@ export function UserMenu() {
 
             <Link
               href="/settings/database"
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-900"
+              className="flex items-center gap-2 px-4 py-3 text-sm text-gray-300 hover:bg-gray-900"
               onClick={() => setIsOpen(false)}
             >
               <Database className="h-4 w-4" />
@@ -132,7 +132,7 @@ export function UserMenu() {
             {canAccessAutopilot(user.github_email) && (
               <Link
                 href="/settings/autopilot"
-                className="flex items-center gap-2 px-4 py-2 text-sm text-gold hover:bg-gray-900"
+                className="flex items-center gap-2 px-4 py-3 text-sm text-gold hover:bg-gray-900"
                 onClick={() => setIsOpen(false)}
               >
                 <Bot className="h-4 w-4" />
@@ -147,7 +147,7 @@ export function UserMenu() {
 
             <button
               onClick={() => signOut({ callbackUrl: '/auth/signin' })}
-              className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-900"
+              className="flex w-full items-center gap-2 px-4 py-3 text-sm text-gray-300 hover:bg-gray-900"
             >
               <LogOut className="h-4 w-4" />
               Sign out

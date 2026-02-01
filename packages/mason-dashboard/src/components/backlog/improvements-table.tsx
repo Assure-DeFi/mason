@@ -172,6 +172,8 @@ interface ImprovementsTableProps {
   onSelectAll: () => void;
   onItemClick: (item: BacklogItem) => void;
   onPrdClick?: (item: BacklogItem) => void;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
   sort: { field: SortField; direction: SortDirection } | null;
   onSortChange: (field: SortField) => void;
   activeStatus?: TabStatus;
@@ -226,6 +228,8 @@ export function ImprovementsTable({
   onSelectAll,
   onItemClick,
   onPrdClick,
+  onApprove,
+  onReject,
   sort,
   onSortChange,
   activeStatus,
@@ -258,8 +262,11 @@ export function ImprovementsTable({
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+      <div className="overflow-x-auto scrollbar-hide">
+        <table
+          className="w-full text-sm min-w-[800px]"
+          style={{ tableLayout: 'fixed' }}
+        >
           <thead>
             <tr className="border-b border-gray-800/50 bg-black/10">
               {/* Checkbox - Fixed width */}
@@ -350,6 +357,14 @@ export function ImprovementsTable({
                 onResizeStart={handleResizeStart}
                 isResizing={resizingColumn === 'updated'}
               />
+
+              {/* Quick Actions - Fixed width */}
+              <th
+                className="text-center py-3 px-2 font-semibold text-gray-400 uppercase tracking-wider text-xs"
+                style={{ width: '80px' }}
+              >
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/30">
@@ -361,6 +376,8 @@ export function ImprovementsTable({
                 onSelect={onSelectItem}
                 onClick={onItemClick}
                 onPrdClick={onPrdClick}
+                onApprove={onApprove}
+                onReject={onReject}
                 columnWidths={columnWidths}
               />
             ))}

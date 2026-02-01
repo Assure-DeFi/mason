@@ -86,7 +86,7 @@ export function ConfirmationDialog({
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="p-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+            className="p-3 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>

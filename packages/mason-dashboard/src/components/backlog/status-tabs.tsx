@@ -60,7 +60,7 @@ export function StatusTabs({
 }: StatusTabsProps) {
   return (
     <div
-      className="flex items-center gap-2 px-8 py-4"
+      className="flex items-center gap-2 px-4 sm:px-8 py-4 overflow-x-auto scroll-smooth scrollbar-hide"
       role="tablist"
       aria-label="Backlog status filters"
     >
@@ -82,7 +82,7 @@ export function StatusTabs({
             role="tab"
             aria-selected={activeStatus === status}
             className={clsx(
-              'px-5 py-2.5 text-sm font-semibold transition-all relative flex items-center gap-2',
+              'px-5 py-3 text-sm font-semibold transition-all relative flex items-center gap-2',
               activeStatus === status
                 ? 'text-gold'
                 : 'text-gray-400 hover:text-white hover:bg-white/5',

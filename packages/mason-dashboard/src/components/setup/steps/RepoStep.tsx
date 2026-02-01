@@ -12,7 +12,6 @@ import {
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useRef } from 'react';
 
-
 import { useGitHubToken } from '@/hooks/useGitHubToken';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { TABLES } from '@/lib/constants';
@@ -307,7 +306,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
           placeholder="Search repositories..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-md border border-gray-700 bg-black py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:border-gold focus:outline-none"
+          className="h-11 w-full rounded-md border border-gray-700 bg-black py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:border-gold focus:outline-none"
         />
       </div>
 
@@ -335,7 +334,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
         </div>
       )}
 
-      <div className="max-h-[400px] overflow-y-auto rounded-lg border border-gray-800">
+      <div className="max-h-[250px] overflow-y-auto rounded-lg border border-gray-800 sm:max-h-[400px]">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-gold" />
@@ -412,7 +411,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
         {onBack && (
           <button
             onClick={onBack}
-            className="rounded-md border border-gray-700 px-6 py-2 text-gray-300 transition-colors hover:bg-gray-900"
+            className="rounded-md border border-gray-700 px-6 py-3 text-gray-300 transition-colors hover:bg-gray-900"
           >
             Back
           </button>
@@ -420,7 +419,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
         <button
           onClick={onNext}
           disabled={!hasConnectedRepo}
-          className="flex-1 rounded-md bg-gold px-6 py-2 font-medium text-navy transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex-1 rounded-md bg-gold px-6 py-3 font-medium text-navy transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Continue
         </button>

@@ -2,6 +2,7 @@
 
 import { clsx } from 'clsx';
 import { Github, Menu, X } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -42,19 +43,33 @@ export function LandingHeader({
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link
-            href="/"
-            className="group flex items-center gap-3 transition-opacity hover:opacity-80"
-          >
-            <MasonMark
-              size="sm"
-              className="transition-transform group-hover:scale-105"
-            />
-            <span className="mason-wordmark text-lg font-bold tracking-wider text-white">
-              MASON
-            </span>
-          </Link>
+          {/* Logo + Assure DeFi branding */}
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="group flex items-center gap-3 transition-opacity hover:opacity-80"
+            >
+              <MasonMark
+                size="sm"
+                className="transition-transform group-hover:scale-105"
+              />
+              <span className="mason-wordmark text-lg font-bold tracking-wider text-white">
+                MASON
+              </span>
+            </Link>
+            <div className="hidden items-center gap-2 border-l border-gray-700 pl-4 sm:flex">
+              <Image
+                src="/assure-defi-logo.svg"
+                alt="Assure DeFi"
+                width={20}
+                height={20}
+                className="h-5 w-5"
+              />
+              <span className="text-xs text-gray-500">
+                by Assure DeFi<sup className="text-[8px]">&reg;</sup>
+              </span>
+            </div>
+          </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden items-center gap-6 md:flex">
@@ -96,29 +111,39 @@ export function LandingHeader({
           </button>
         </div>
 
+        {/* Mobile Navigation Backdrop */}
+        {mobileMenuOpen && (
+          <div
+            className="fixed inset-0 top-16 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="border-t border-gray-800 py-4 md:hidden">
-            <nav className="flex flex-col gap-4">
+          <div className="relative z-50 border-t border-gray-800 bg-navy py-4 md:hidden">
+            <nav className="flex flex-col gap-1">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   target={link.external ? '_blank' : undefined}
                   rel={link.external ? 'noopener noreferrer' : undefined}
-                  className="flex items-center gap-2 text-gray-400 transition-colors hover:text-white"
+                  className="flex items-center gap-2 px-2 py-3 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {link.icon && <link.icon className="h-4 w-4" />}
                   {link.label}
                 </Link>
               ))}
-              <div className="h-px bg-gray-800" />
-              <UserMenu />
+              <div className="my-2 h-px bg-gray-800" />
+              <div className="px-2 py-3">
+                <UserMenu />
+              </div>
               {showCTA && (
                 <Link
                   href="/setup"
-                  className="rounded-lg bg-gold px-4 py-2 text-center text-sm font-semibold text-navy transition-opacity hover:opacity-90"
+                  className="mx-2 rounded-lg bg-gold px-4 py-3 text-center text-sm font-semibold text-navy transition-opacity hover:opacity-90"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Start with Mason

@@ -426,7 +426,7 @@ export function ItemDetailModal({
 
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/10 transition-colors"
+              className="p-3 hover:bg-white/10 transition-colors"
               title="Close (Esc)"
             >
               <X className="w-5 h-5" />
@@ -532,7 +532,7 @@ export function ItemDetailModal({
                     <textarea
                       value={editedPrdContent}
                       onChange={(e) => setEditedPrdContent(e.target.value)}
-                      className="w-full h-96 p-4 bg-black/50 border border-gray-700 text-gray-200 font-mono text-sm resize-y focus:outline-none focus:border-gold/50"
+                      className="w-full h-64 sm:h-80 md:h-96 p-3 sm:p-4 bg-black/50 border border-gray-700 text-gray-200 font-mono text-sm resize-y focus:outline-none focus:border-gold/50"
                       placeholder="Enter PRD content (Markdown supported)..."
                     />
                     <div className="flex items-center justify-end gap-2">

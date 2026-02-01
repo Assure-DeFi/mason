@@ -1059,19 +1059,19 @@ export default function BacklogPage() {
           </div>
         </div>
 
-        <div className="mx-auto max-w-2xl px-6 py-16">
-          <div className="rounded-lg border border-gray-800 bg-black/50 p-8 text-center">
-            <Database className="mx-auto mb-4 h-16 w-16 text-gray-600" />
-            <h2 className="mb-2 text-xl font-semibold text-white">
+        <div className="mx-auto max-w-2xl px-4 py-12 md:px-6 md:py-16">
+          <div className="rounded-lg border border-gray-800 bg-black/50 p-6 md:p-8 text-center">
+            <Database className="mx-auto mb-4 h-12 w-12 md:h-16 md:w-16 text-gray-600" />
+            <h2 className="mb-2 text-lg md:text-xl font-semibold text-white">
               Let&apos;s get you set up
             </h2>
-            <p className="mb-6 text-gray-400">
+            <p className="mb-6 text-base text-gray-400">
               Mason stores all your data in your own Supabase database. Complete
               the setup wizard to connect your database and start building.
             </p>
             <Link
               href="/setup"
-              className="inline-flex items-center gap-2 rounded-md bg-gold px-6 py-3 font-medium text-navy transition-opacity hover:opacity-90"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-gold px-6 py-3 min-h-[44px] font-medium text-navy transition-opacity hover:opacity-90 touch-feedback"
             >
               Complete Setup
               <ArrowRight className="h-4 w-4" />
@@ -1085,13 +1085,24 @@ export default function BacklogPage() {
   if (error && !isLoading) {
     return (
       <main className="min-h-screen bg-navy">
-        <div className="mx-auto max-w-7xl p-8">
+        <div className="mx-auto max-w-7xl px-4 py-8 md:p-8">
           <ErrorBanner
             error={new Error(error)}
             onRetry={fetchItems}
             onDismiss={() => setError(null)}
             dismissible={true}
+            className="text-base"
           />
+          {/* Mobile-friendly retry button with proper touch target */}
+          <div className="mt-6 flex justify-center md:hidden">
+            <button
+              onClick={fetchItems}
+              className="flex items-center justify-center gap-2 px-6 py-3 min-h-[44px] bg-gold text-navy font-medium touch-feedback"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Try Again
+            </button>
+          </div>
         </div>
       </main>
     );
@@ -1144,7 +1155,7 @@ export default function BacklogPage() {
 
               <button
                 onClick={() => setShowGenerateIdeasModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-gold text-navy font-medium hover:bg-gold/90 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 min-h-[44px] bg-gold text-navy font-medium hover:bg-gold/90 transition-colors touch-feedback"
               >
                 <Sparkles className="w-4 h-4" />
                 Generate New Ideas
@@ -1153,7 +1164,7 @@ export default function BacklogPage() {
               <button
                 onClick={fetchItems}
                 disabled={isLoading}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-700 text-gray-300 hover:bg-white/5 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 min-h-[44px] border border-gray-700 text-gray-300 hover:bg-white/5 disabled:opacity-50 touch-feedback"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
@@ -1280,6 +1291,8 @@ export default function BacklogPage() {
                 onSelectAll={handleSelectAll}
                 onItemClick={handleItemClick}
                 onPrdClick={handlePrdClick}
+                onApprove={handleQuickApprove}
+                onReject={handleQuickReject}
                 sort={sort}
                 onSortChange={handleSortChange}
                 activeStatus={activeStatus}

@@ -96,7 +96,9 @@ export function ConnectRepoModal({
     onClose();
   };
 
-  if (!isOpen && !showInstallModal) {return null;}
+  if (!isOpen && !showInstallModal) {
+    return null;
+  }
 
   // Show install modal if active
   if (showInstallModal) {
@@ -116,7 +118,10 @@ export function ConnectRepoModal({
           <h2 className="text-lg font-semibold text-white">
             Connect a Repository
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-white"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>

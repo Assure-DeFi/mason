@@ -122,7 +122,7 @@ export function SetupWizard() {
 
   return (
     <div className="min-h-screen bg-navy px-4 py-8">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto w-full max-w-md sm:max-w-lg md:max-w-2xl lg:max-w-3xl">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-white">Mason Setup</h1>
           <p className="mt-1 text-gray-400">
