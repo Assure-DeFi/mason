@@ -15,7 +15,10 @@ import { runMigrations } from '@/lib/supabase/pg-migrate';
  *
  * IMPORTANT: See /.claude/rules/database-migrations.md for maintenance rules.
  *
- * This SQL runs when users click "Update Database Schema" in Settings.
+ * This SQL runs:
+ *   - AUTOMATICALLY on page load via useAutoMigrations hook (once per browser session)
+ *   - MANUALLY when users click "Update Database Schema" in Settings
+ *
  * It MUST be:
  *   1. IDEMPOTENT - Safe to run multiple times (use IF NOT EXISTS)
  *   2. NON-DESTRUCTIVE - NEVER delete user data (no DROP/DELETE/TRUNCATE)
@@ -31,6 +34,7 @@ import { runMigrations } from '@/lib/supabase/pg-migrate';
  *   - mason_pm_execution_runs
  *   - mason_pm_execution_tasks
  *   - mason_execution_progress
+ *   - mason_execution_logs
  *   - mason_pm_restore_feedback
  *   - mason_dependency_analysis
  *   - mason_autopilot_config
@@ -241,6 +245,17 @@ CREATE TABLE IF NOT EXISTS mason_execution_progress (
   UNIQUE(item_id)
 );
 
+-- Mason Execution Logs table (detailed logging from CLI execution)
+-- Stores structured logs from /execute-approved for debugging and audit trail
+CREATE TABLE IF NOT EXISTS mason_execution_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  execution_run_id UUID REFERENCES mason_pm_execution_runs(id) ON DELETE CASCADE,
+  log_level TEXT NOT NULL DEFAULT 'info' CHECK (log_level IN ('debug', 'info', 'warn', 'error')),
+  message TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb
+);
+
 -- Mason PM Restore Feedback table (tracks restored items for confidence decay)
 -- Used by pm-validator to learn which filter patterns are too aggressive
 CREATE TABLE IF NOT EXISTS mason_pm_restore_feedback (
@@ -413,8 +428,9 @@ ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS validation_smoke_t
 -- New categories: feature, ui, ux, api, data, security, performance, code-quality
 -- Legacy categories: dashboard->ui, discovery->code-quality, auth->security, backend->api
 DO $$ BEGIN
-  -- Drop old constraint if it exists
+  -- Drop old constraints if they exist (covers both auto-named and custom-named)
   ALTER TABLE mason_pm_backlog_items DROP CONSTRAINT IF EXISTS mason_pm_backlog_items_type_check;
+  ALTER TABLE mason_pm_backlog_items DROP CONSTRAINT IF EXISTS valid_type;
   -- Add new constraint with all categories (new + legacy for backwards compat)
   ALTER TABLE mason_pm_backlog_items ADD CONSTRAINT mason_pm_backlog_items_type_check
     CHECK (type IN ('feature', 'ui', 'ux', 'api', 'data', 'security', 'performance', 'code-quality', 'dashboard', 'discovery', 'auth', 'backend'));
@@ -446,6 +462,9 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_item_id ON mason_pm_exec
 CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_status ON mason_pm_execution_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_wave ON mason_pm_execution_tasks(run_id, wave_number);
 CREATE INDEX IF NOT EXISTS idx_mason_execution_progress_item ON mason_execution_progress(item_id);
+CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_run_id ON mason_execution_logs(execution_run_id);
+CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_level ON mason_execution_logs(log_level);
+CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_created_at ON mason_execution_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_tier ON mason_pm_restore_feedback(filter_tier);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_filtered_item ON mason_pm_restore_feedback(filtered_item_id);
 CREATE INDEX IF NOT EXISTS idx_mason_dependency_analysis_item ON mason_dependency_analysis(item_id);
@@ -482,6 +501,7 @@ ALTER TABLE mason_pm_filtered_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_execution_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_execution_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_execution_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_execution_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_restore_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_dependency_analysis ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_autopilot_config ENABLE ROW LEVEL SECURITY;
@@ -549,6 +569,13 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_execution_progress' AND policyname = 'Allow all on execution_progress') THEN
     CREATE POLICY "Allow all on execution_progress" ON mason_execution_progress FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Execution Logs table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_execution_logs' AND policyname = 'Allow all on execution_logs') THEN
+    CREATE POLICY "Allow all on execution_logs" ON mason_execution_logs FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 

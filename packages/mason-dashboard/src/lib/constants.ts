@@ -41,6 +41,7 @@ export const TABLES = {
 
   // Execution tables (CLI writes to this for dashboard visualization)
   EXECUTION_PROGRESS: 'mason_execution_progress',
+  EXECUTION_LOGS: 'mason_execution_logs',
 
   // Feedback tracking
   PM_RESTORE_FEEDBACK: 'mason_pm_restore_feedback',

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 
 import { SessionProvider } from '@/components/auth/session-provider';
+import { AutoMigrationProvider } from '@/components/providers/AutoMigrationProvider';
 import { NetworkStatusProvider } from '@/components/ui/NetworkStatusProvider';
 import './globals.css';
 
@@ -44,7 +45,9 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="min-h-screen bg-navy text-white">
         <SessionProvider>
-          <NetworkStatusProvider>{children}</NetworkStatusProvider>
+          <AutoMigrationProvider>
+            <NetworkStatusProvider>{children}</NetworkStatusProvider>
+          </AutoMigrationProvider>
         </SessionProvider>
       </body>
     </html>
