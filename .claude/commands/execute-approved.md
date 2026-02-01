@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.1.0
+version: 2.2.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -24,6 +24,7 @@ Options:
 - `--limit <n>`: Maximum number of items to execute (optional, no limit by default)
 - `--dry-run`: Show execution plan without making changes
 - `--auto`: Run in headless mode for autopilot execution (skips confirmations, outputs machine-readable status)
+- `--smoke-test`: Run optional E2E smoke test after all items complete to verify app boots without crashes
 
 Examples:
 
@@ -32,6 +33,7 @@ Examples:
 - `/execute-approved --limit 3` - Execute top 3 approved items
 - `/execute-approved --dry-run` - Preview execution plan
 - `/execute-approved --auto` - Execute all approved items in headless mode (for autopilot)
+- `/execute-approved --smoke-test` - Execute with quick runtime smoke test
 
 ## Process
 
@@ -83,6 +85,13 @@ AUTO_MODE=false
 if echo "$*" | grep -q '\-\-auto'; then
   AUTO_MODE=true
   echo "AUTOPILOT_MODE: Running in headless mode"
+fi
+
+# Parse arguments for --smoke-test flag
+SMOKE_TEST_ENABLED=false
+if echo "$*" | grep -q '\-\-smoke-test'; then
+  SMOKE_TEST_ENABLED=true
+  echo "SMOKE_TEST: Enabled - will run E2E smoke test after all validations"
 fi
 ```
 
@@ -1007,6 +1016,78 @@ await Task({
   `,
 });
 ```
+
+#### 8.5: Optional Smoke Test (When --smoke-test flag is used)
+
+**This step only runs if `SMOKE_TEST_ENABLED=true`.**
+
+When the user invokes `/execute-approved --smoke-test`, run a quick E2E smoke test after all standard validations pass to verify the app boots without runtime crashes.
+
+```bash
+# === OPTIONAL SMOKE TEST (Step 8.5) ===
+if [ "$SMOKE_TEST_ENABLED" = "true" ]; then
+  echo ""
+  echo "=== RUNNING SMOKE TEST ==="
+  echo "Starting quick E2E smoke test to verify app boots..."
+
+  # Update progress to show smoke test running
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_smoke_test": "running"}'
+
+  log_execution "info" "Running smoke test" '{"check": "smoke_test", "status": "running"}'
+
+  # Run the smoke test spec
+  cd packages/mason-dashboard
+  if npx playwright test e2e/smoke.spec.ts --reporter=line 2>&1; then
+    echo "Smoke test PASSED"
+    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+      -H "apikey: ${SUPABASE_KEY}" \
+      -H "Authorization: Bearer ${SUPABASE_KEY}" \
+      -H "Content-Type: application/json" \
+      -d '{"validation_smoke_test": "pass"}'
+    log_execution "info" "Smoke test passed" '{"check": "smoke_test", "status": "pass"}'
+  else
+    echo "Smoke test FAILED - app may have runtime errors"
+    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+      -H "apikey: ${SUPABASE_KEY}" \
+      -H "Authorization: Bearer ${SUPABASE_KEY}" \
+      -H "Content-Type: application/json" \
+      -d '{"validation_smoke_test": "fail"}'
+    log_execution "warn" "Smoke test failed - app may have runtime errors" '{"check": "smoke_test", "status": "fail"}'
+    # NOTE: Smoke test failure is a WARNING, not a blocking failure
+    # The item still proceeds to commit since all mandatory validations passed
+  fi
+  cd ../..
+
+  echo "=== END SMOKE TEST ==="
+else
+  # Smoke test not enabled - mark as skipped
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_smoke_test": "skipped"}'
+fi
+# === END OPTIONAL SMOKE TEST ===
+```
+
+**Smoke Test Behavior:**
+
+| Scenario                    | Action                                                  |
+| --------------------------- | ------------------------------------------------------- |
+| `--smoke-test` not provided | Status shows "Skipped", test not run                    |
+| Smoke test passes           | Status shows "Pass", proceed to commit                  |
+| Smoke test fails            | Status shows "Fail" as WARNING, still proceed to commit |
+
+**Why smoke test failure is non-blocking:**
+
+- All mandatory validations (TypeScript, ESLint, Build, Tests) have already passed
+- The code is verified safe to commit
+- Smoke test failure indicates potential runtime issues that may need investigation
+- User is informed but execution continues
 
 ### Step 9: Auto-Fix Iteration Loop (MANDATORY ON VALIDATION FAILURE)
 

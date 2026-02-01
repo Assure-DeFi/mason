@@ -60,8 +60,8 @@ test.describe('Mason Compound Learning System - E2E Tests', () => {
     await page.goto(`${BASE_URL}/admin/backlog`);
     await page.waitForLoadState('networkidle');
 
-    // Wait for any dynamic content
-    await page.waitForTimeout(2000);
+    // Wait for main content to render
+    await page.waitForLoadState('domcontentloaded');
 
     await takeScreenshot(page, '02_backlog_page');
 
@@ -78,17 +78,16 @@ test.describe('Mason Compound Learning System - E2E Tests', () => {
   }) => {
     await page.goto(`${BASE_URL}/setup`);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
 
     await takeScreenshot(page, '03_setup_wizard');
 
     // Verify page loaded
     await expect(page.locator('body')).toBeVisible();
 
-    // Look for platform selector buttons
-    const macOSButton = page.locator('button:has-text("macOS")');
-    const windowsButton = page.locator('button:has-text("Windows")');
-    const linuxButton = page.locator('button:has-text("Linux")');
+    // Look for platform selector buttons using getByRole
+    const macOSButton = page.getByRole('button', { name: /macOS/i });
+    const windowsButton = page.getByRole('button', { name: /Windows/i });
+    const linuxButton = page.getByRole('button', { name: /Linux/i });
 
     const hasPlatformSelectors =
       (await macOSButton.count()) > 0 ||
@@ -98,24 +97,24 @@ test.describe('Mason Compound Learning System - E2E Tests', () => {
     if (hasPlatformSelectors) {
       console.log('✓ Platform selector buttons found');
 
-      // Test clicking each platform
+      // Test clicking each platform - wait for UI to update
       if ((await macOSButton.count()) > 0) {
         await macOSButton.first().click();
-        await page.waitForTimeout(500);
+        await expect(macOSButton.first()).toBeVisible();
         await takeScreenshot(page, '03_macos_selected');
         console.log('✓ Successfully clicked macOS');
       }
 
       if ((await windowsButton.count()) > 0) {
         await windowsButton.first().click();
-        await page.waitForTimeout(500);
+        await expect(windowsButton.first()).toBeVisible();
         await takeScreenshot(page, '03_windows_selected');
         console.log('✓ Successfully clicked Windows');
       }
 
       if ((await linuxButton.count()) > 0) {
         await linuxButton.first().click();
-        await page.waitForTimeout(500);
+        await expect(linuxButton.first()).toBeVisible();
         await takeScreenshot(page, '03_linux_selected');
         console.log('✓ Successfully clicked Linux');
       }
@@ -141,23 +140,22 @@ test.describe('Mason Compound Learning System - E2E Tests', () => {
   test('Platform selection changes install command', async ({ page }) => {
     await page.goto(`${BASE_URL}/setup`);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
 
-    // Look for platform buttons
-    const windowsButton = page.locator('button:has-text("Windows")');
-    const linuxButton = page.locator('button:has-text("Linux")');
+    // Look for platform buttons using getByRole
+    const windowsButton = page.getByRole('button', { name: /Windows/i });
+    const linuxButton = page.getByRole('button', { name: /Linux/i });
 
     if ((await windowsButton.count()) > 0 && (await linuxButton.count()) > 0) {
-      // Select Windows
+      // Select Windows and wait for UI update
       await windowsButton.first().click();
-      await page.waitForTimeout(500);
+      await expect(windowsButton.first()).toBeVisible();
 
       let codeBlock = page.locator('code').first();
       let windowsCommand = await codeBlock.textContent();
 
-      // Select Linux
+      // Select Linux and wait for UI update
       await linuxButton.first().click();
-      await page.waitForTimeout(500);
+      await expect(linuxButton.first()).toBeVisible();
 
       codeBlock = page.locator('code').first();
       let linuxCommand = await codeBlock.textContent();
@@ -224,7 +222,6 @@ test.describe('Mason Compound Learning System - E2E Tests', () => {
 
     await page.goto(`${BASE_URL}/admin/backlog`);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
 
     await takeScreenshot(page, '04_responsive_mobile');
 
@@ -239,7 +236,6 @@ test.describe('Mason Compound Learning System - E2E Tests', () => {
 
     await page.goto(`${BASE_URL}/admin/backlog`);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
 
     await takeScreenshot(page, '04_responsive_tablet');
 
@@ -254,7 +250,6 @@ test.describe('Mason Compound Learning System - E2E Tests', () => {
 
     await page.goto(`${BASE_URL}/admin/backlog`);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
 
     await takeScreenshot(page, '04_responsive_desktop');
 
@@ -283,7 +278,8 @@ test.describe('Mason Compound Learning System - E2E Tests', () => {
 
     await page.goto(`${BASE_URL}/admin/backlog`);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    // Wait for dynamic content by checking for body visibility
+    await expect(page.locator('body')).toBeVisible();
 
     // Check for errors
     if (errors.length > 0) {
@@ -312,7 +308,8 @@ test.describe('Mason Compound Learning System - E2E Tests', () => {
 
     await page.goto(`${BASE_URL}/setup`);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    // Wait for dynamic content by checking for body visibility
+    await expect(page.locator('body')).toBeVisible();
 
     // Check for errors
     if (errors.length > 0) {

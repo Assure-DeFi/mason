@@ -124,6 +124,7 @@ export interface ExecutionProgressRecord {
   validation_eslint: 'pending' | 'running' | 'pass' | 'fail';
   validation_build: 'pending' | 'running' | 'pass' | 'fail';
   validation_tests: 'pending' | 'running' | 'pass' | 'fail';
+  validation_smoke_test: 'pending' | 'running' | 'pass' | 'fail' | 'skipped';
   inspector_findings: string[];
   fix_iteration: number;
   max_iterations: number;
@@ -224,6 +225,7 @@ export async function ensureExecutionProgress(
     validation_eslint: 'pending' as const,
     validation_build: 'pending' as const,
     validation_tests: 'pending' as const,
+    validation_smoke_test: 'skipped' as const,
     inspector_findings: [],
     fix_iteration: 0,
     max_iterations: 5,
@@ -588,9 +590,10 @@ export async function generateExecutionSummary(
   const filesChanged = filesTouched.map((path) => ({
     path,
     // Distribute lines evenly if we don't have per-file data
-    linesAdded: filesTouched.length > 0
-      ? Math.round(totalLines / filesTouched.length)
-      : 0,
+    linesAdded:
+      filesTouched.length > 0
+        ? Math.round(totalLines / filesTouched.length)
+        : 0,
   }));
 
   return {

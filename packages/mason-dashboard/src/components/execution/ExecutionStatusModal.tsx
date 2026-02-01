@@ -29,15 +29,21 @@ import {
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { TABLES } from '@/lib/constants';
-import type { ExecutionProgressRecord, Checkpoint } from '@/lib/execution/progress';
+import type {
+  ExecutionProgressRecord,
+  Checkpoint,
+} from '@/lib/execution/progress';
 
-type ValidationStatus = 'pending' | 'running' | 'pass' | 'fail';
+type ValidationStatus = 'pending' | 'running' | 'pass' | 'fail' | 'skipped';
 
 interface ExecutionStatusModalProps {
   itemId: string;
   itemTitle?: string;
   client: SupabaseClient;
-  onComplete: (success: boolean, progress: ExecutionProgressRecord | null) => void;
+  onComplete: (
+    success: boolean,
+    progress: ExecutionProgressRecord | null,
+  ) => void;
   onClose: () => void;
 }
 
@@ -48,7 +54,9 @@ export function ExecutionStatusModal({
   onComplete,
   onClose,
 }: ExecutionStatusModalProps) {
-  const [progress, setProgress] = useState<ExecutionProgressRecord | null>(null);
+  const [progress, setProgress] = useState<ExecutionProgressRecord | null>(
+    null,
+  );
   const [isConnecting, setIsConnecting] = useState(true);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -128,7 +136,7 @@ export function ExecutionStatusModal({
               onComplete(isSuccess, data);
             }
           }
-        }
+        },
       )
       .subscribe();
 
@@ -157,7 +165,9 @@ export function ExecutionStatusModal({
   // Auto-scroll to current checkpoint
   useEffect(() => {
     if (timelineRef.current) {
-      const currentElement = timelineRef.current.querySelector('[data-current="true"]');
+      const currentElement = timelineRef.current.querySelector(
+        '[data-current="true"]',
+      );
       if (currentElement) {
         currentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -177,18 +187,18 @@ export function ExecutionStatusModal({
         Math.round(
           ((progress.checkpoints_completed?.length ?? 0) /
             (progress.checkpoint_total || 12)) *
-            100
-        )
+            100,
+        ),
       )
     : 0;
 
   // Check if there's a failure
-  const hasFailed = progress?.completed_at && (
-    progress.validation_typescript === 'fail' ||
-    progress.validation_eslint === 'fail' ||
-    progress.validation_build === 'fail' ||
-    progress.validation_tests === 'fail'
-  );
+  const hasFailed =
+    progress?.completed_at &&
+    (progress.validation_typescript === 'fail' ||
+      progress.validation_eslint === 'fail' ||
+      progress.validation_build === 'fail' ||
+      progress.validation_tests === 'fail');
 
   const isComplete = progress?.completed_at && !hasFailed;
 
@@ -197,7 +207,7 @@ export function ExecutionStatusModal({
     ? buildDisplayCheckpoints(
         progress.checkpoints_completed ?? [],
         progress.checkpoint_index ?? 0,
-        progress.checkpoint_message ?? null
+        progress.checkpoint_message ?? null,
       )
     : [];
 
@@ -281,9 +291,12 @@ export function ExecutionStatusModal({
               <div className="flex items-start gap-3">
                 <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h3 className="font-semibold text-red-400">Validation Failed</h3>
+                  <h3 className="font-semibold text-red-400">
+                    Validation Failed
+                  </h3>
                   <p className="text-sm text-gray-400 mt-1">
-                    {progress.current_task?.replace('Failed: ', '') || 'One or more validation checks failed.'}
+                    {progress.current_task?.replace('Failed: ', '') ||
+                      'One or more validation checks failed.'}
                   </p>
                 </div>
               </div>
@@ -295,7 +308,10 @@ export function ExecutionStatusModal({
                   What Happened
                 </h4>
                 <ul className="space-y-1 text-sm text-gray-300">
-                  <li>• Completed {progress.checkpoints_completed?.length ?? 0} of {progress.checkpoint_total ?? 12} steps before failure</li>
+                  <li>
+                    • Completed {progress.checkpoints_completed?.length ?? 0} of{' '}
+                    {progress.checkpoint_total ?? 12} steps before failure
+                  </li>
                   <li>• Files may have been written but validation failed</li>
                 </ul>
               </div>
@@ -380,7 +396,7 @@ export function ExecutionStatusModal({
               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
                 Validation
               </h3>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-5 gap-2">
                 <ValidationStatusCard
                   label="TypeScript"
                   status={progress.validation_typescript}
@@ -396,6 +412,10 @@ export function ExecutionStatusModal({
                 <ValidationStatusCard
                   label="Tests"
                   status={progress.validation_tests}
+                />
+                <ValidationStatusCard
+                  label="Smoke"
+                  status={progress.validation_smoke_test}
                 />
               </div>
             </div>
@@ -432,7 +452,7 @@ interface DisplayCheckpoint {
 function buildDisplayCheckpoints(
   completed: Checkpoint[],
   currentIndex: number,
-  currentMessage: string | null
+  currentMessage: string | null,
 ): DisplayCheckpoint[] {
   const result: DisplayCheckpoint[] = [];
 
@@ -479,7 +499,11 @@ function CheckpointItem({ checkpoint, isLast }: CheckpointItemProps) {
       return '';
     }
     const date = new Date(ts);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   };
 
   return (
@@ -535,9 +559,7 @@ function CheckpointItem({ checkpoint, isLast }: CheckpointItemProps) {
             </div>
           )}
         </div>
-        {status === 'current' && (
-          <div className="text-xs text-gold">NOW</div>
-        )}
+        {status === 'current' && <div className="text-xs text-gold">NOW</div>}
       </div>
     </div>
   );
@@ -574,6 +596,14 @@ function ValidationStatusCard({ label, status }: ValidationStatusCardProps) {
           borderColor: 'border-gold/30',
           textColor: 'text-gold',
           statusText: 'Running',
+        };
+      case 'skipped':
+        return {
+          icon: <Circle className="h-4 w-4" />,
+          bgColor: 'bg-gray-800/50',
+          borderColor: 'border-gray-700/50',
+          textColor: 'text-gray-600',
+          statusText: 'Skipped',
         };
       default:
         return {

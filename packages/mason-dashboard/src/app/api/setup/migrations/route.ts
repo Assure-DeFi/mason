@@ -264,6 +264,7 @@ CREATE TABLE IF NOT EXISTS mason_execution_progress (
   validation_eslint TEXT DEFAULT 'pending' CHECK (validation_eslint IN ('pending', 'running', 'pass', 'fail')),
   validation_build TEXT DEFAULT 'pending' CHECK (validation_build IN ('pending', 'running', 'pass', 'fail')),
   validation_tests TEXT DEFAULT 'pending' CHECK (validation_tests IN ('pending', 'running', 'pass', 'fail')),
+  validation_smoke_test TEXT DEFAULT 'skipped' CHECK (validation_smoke_test IN ('pending', 'running', 'pass', 'fail', 'skipped')),
 
   -- Inspector findings (for fix iterations)
   inspector_findings TEXT[] DEFAULT '{}',
@@ -425,6 +426,9 @@ ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_index I
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_total INTEGER DEFAULT 0;
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_message TEXT;
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoints_completed JSONB DEFAULT '[]'::jsonb;
+
+-- Add smoke test validation column (for optional --smoke-test flag)
+ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS validation_smoke_test TEXT DEFAULT 'skipped';
 
 -- Update type CHECK constraint to include new 8-category system (v2.0)
 -- This migration updates existing databases to accept new category values
