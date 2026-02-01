@@ -8,6 +8,7 @@ import {
   Sparkles,
   Check,
   X,
+  Search,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
@@ -100,6 +101,7 @@ export default function BacklogPage() {
     direction: SortDirection;
   } | null>(null);
   const [modalViewMode, setModalViewMode] = useState<ViewMode>('details');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Bulk action loading states
   const [isApproving, setIsApproving] = useState(false);
@@ -381,13 +383,28 @@ export default function BacklogPage() {
     return result;
   }, [repoFilteredItems]);
 
-  // Filter items by active status (on top of repo filter) and apply sorting
+  // Filter items by active status, search query (on top of repo filter) and apply sorting
   const filteredItems = useMemo(() => {
     let result = repoFilteredItems;
 
     // Filter by status
     if (activeStatus) {
       result = result.filter((item) => item.status === activeStatus);
+    }
+
+    // Filter by search query (searches title, problem, solution)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter((item) => {
+        const title = item.title?.toLowerCase() || '';
+        const problem = item.problem?.toLowerCase() || '';
+        const solution = item.solution?.toLowerCase() || '';
+        return (
+          title.includes(query) ||
+          problem.includes(query) ||
+          solution.includes(query)
+        );
+      });
     }
 
     // Apply sorting
@@ -422,7 +439,7 @@ export default function BacklogPage() {
     }
 
     return result;
-  }, [repoFilteredItems, activeStatus, sort]);
+  }, [repoFilteredItems, activeStatus, searchQuery, sort]);
 
   // Get approved item IDs for execute button (from repo-filtered items)
   const approvedItemIds = useMemo(() => {
@@ -1085,6 +1102,18 @@ export default function BacklogPage() {
                   onChange={setSelectedRepoId}
                 />
               )}
+
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search backlog..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-48 pl-9 pr-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm placeholder-gray-500 focus:outline-none focus:border-gold"
+                />
+              </div>
 
               {/* Source Filter Dropdown */}
               <select
