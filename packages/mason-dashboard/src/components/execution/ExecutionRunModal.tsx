@@ -105,11 +105,17 @@ export function ExecutionRunModal({
 
       if (primaryResult.error && primaryResult.error.code !== 'PGRST116') {
         // Real error - try to determine if it's a schema issue
-        if (primaryResult.error.message?.includes('column') || primaryResult.error.message?.includes('does not exist')) {
+        if (
+          primaryResult.error.message?.includes('column') ||
+          primaryResult.error.message?.includes('does not exist')
+        ) {
           setConnectionError(
-            'Database schema needs to be updated. Go to Settings and click "Update Database Schema".'
+            'Database schema needs to be updated. Go to Settings and click "Update Database Schema".',
           );
-          console.error('[ExecutionRunModal] Schema error:', primaryResult.error);
+          console.error(
+            '[ExecutionRunModal] Schema error:',
+            primaryResult.error,
+          );
           return;
         }
         fetchError = primaryResult.error;
@@ -223,7 +229,7 @@ export function ExecutionRunModal({
       } else if (pollAttempts >= CONNECTION_TIMEOUT_POLLS && isConnecting) {
         // Timeout - no data found after many attempts
         setConnectionError(
-          'Could not find execution progress. The CLI may not have started writing progress yet, or there may be a connection issue.'
+          'Could not find execution progress. The CLI may not have started writing progress yet, or there may be a connection issue.',
         );
       }
     } catch (err) {
@@ -238,11 +244,19 @@ export function ExecutionRunModal({
 
       if (pollAttempts >= CONNECTION_TIMEOUT_POLLS) {
         setConnectionError(
-          `Connection error: ${err instanceof Error ? err.message : 'Unknown error'}`
+          `Connection error: ${err instanceof Error ? err.message : 'Unknown error'}`,
         );
       }
     }
-  }, [client, initialItemId, items, runStartTime, onComplete, pollAttempts, isConnecting]);
+  }, [
+    client,
+    initialItemId,
+    items,
+    runStartTime,
+    onComplete,
+    pollAttempts,
+    isConnecting,
+  ]);
 
   // Start polling when component mounts - uses dynamic interval with backoff
   useEffect(() => {
@@ -324,18 +338,32 @@ export function ExecutionRunModal({
   const totalItems = items.length;
 
   // Calculate weighted percentage including partial progress of in-progress items
+  // Uses checkpoints_completed array length as primary source, falls back to checkpoint_index
   let totalProgressPoints = 0;
   for (const item of items) {
     if (item.status === 'completed' || item.status === 'failed') {
       totalProgressPoints += 100;
     } else if (item.progress) {
-      const checkpointsCompleted = item.progress.checkpoints_completed?.length ?? 0;
+      const checkpointsCompletedCount =
+        item.progress.checkpoints_completed?.length ?? 0;
+      const checkpointIndex = item.progress.checkpoint_index ?? 0;
       const checkpointTotal = item.progress.checkpoint_total || 12;
-      totalProgressPoints += Math.round((checkpointsCompleted / checkpointTotal) * 100);
+
+      // Use the higher of checkpoints_completed count or checkpoint_index as progress indicator
+      // This handles cases where CLI updates checkpoint_index but array append fails
+      const effectiveProgress = Math.max(
+        checkpointsCompletedCount,
+        checkpointIndex > 0 ? checkpointIndex : 0,
+      );
+      totalProgressPoints += Math.round(
+        (effectiveProgress / checkpointTotal) * 100,
+      );
     }
   }
   const overallPercentage =
-    totalItems > 0 ? Math.round(totalProgressPoints / totalItems) : 0;
+    totalItems > 0
+      ? Math.min(99, Math.round(totalProgressPoints / totalItems))
+      : 0;
 
   const hasFailed = failedItems > 0;
   const isAllComplete = completedItems === totalItems && totalItems > 0;
@@ -592,11 +620,19 @@ function ExecutionItemCard({
   };
 
   // Calculate item progress percentage
-  const checkpointsCompleted = progress?.checkpoints_completed?.length ?? 0;
+  // Uses checkpoints_completed array length as primary, falls back to checkpoint_index
+  const checkpointsCompletedCount =
+    progress?.checkpoints_completed?.length ?? 0;
+  const checkpointIndex = progress?.checkpoint_index ?? 0;
   const checkpointTotal = progress?.checkpoint_total ?? 12;
-  const itemPercentage = Math.round(
-    (checkpointsCompleted / checkpointTotal) * 100,
+  const effectiveProgress = Math.max(
+    checkpointsCompletedCount,
+    checkpointIndex > 0 ? checkpointIndex : 0,
   );
+  const itemPercentage =
+    status === 'completed'
+      ? 100
+      : Math.min(99, Math.round((effectiveProgress / checkpointTotal) * 100));
 
   return (
     <motion.div
@@ -672,8 +708,14 @@ function ExecutionItemCard({
                   />
                 </div>
                 <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>{checkpointsCompleted} checkpoints done</span>
-                  <span>{checkpointTotal} total</span>
+                  <span>
+                    {effectiveProgress > 0
+                      ? `Step ${effectiveProgress}`
+                      : 'Starting...'}{' '}
+                    {checkpointsCompletedCount > 0 &&
+                      `(${checkpointsCompletedCount} logged)`}
+                  </span>
+                  <span>{checkpointTotal} total steps</span>
                 </div>
               </div>
 

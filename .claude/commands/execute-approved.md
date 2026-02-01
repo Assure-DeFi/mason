@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.8.0
+version: 2.9.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -36,6 +36,40 @@ Examples:
 - `/execute-approved --auto` - Execute all approved items in headless mode (for autopilot)
 - `/execute-approved --smoke-test` - Execute with quick runtime smoke test
 - `/execute-approved --e2e` - Execute with full E2E browser testing
+
+## MANDATORY: Progress Tracking
+
+**THIS IS NON-NEGOTIABLE. The dashboard shows 0% progress if you don't do this.**
+
+Throughout execution, you MUST call `update_checkpoint` using the Bash tool to update progress. The dashboard uses `checkpoint_index` to show progress percentage.
+
+### Checkpoint Sequence (MUST BE CALLED IN ORDER)
+
+| Step      | Checkpoint ID | Name                       | When to Call                    |
+| --------- | ------------- | -------------------------- | ------------------------------- |
+| Init      | 1             | "Initialized execution"    | After creating progress record  |
+| Init      | 2             | "Loading configuration"    | After reading mason.config.json |
+| Init      | 3             | "Fetching approved items"  | After querying Supabase         |
+| Init      | 4             | "Loaded PRD content"       | After reading PRD               |
+| Analysis  | 5             | "Analyzing codebase"       | BEFORE Wave 1 Task call         |
+| Analysis  | 6             | "Analysis complete"        | AFTER Wave 1 Task returns       |
+| Implement | 7             | "Implementing changes"     | BEFORE Wave 2 Task call         |
+| Implement | 8             | "Implementation complete"  | AFTER Wave 2 Task returns       |
+| Validate  | 100           | "Running TypeScript check" | Before pnpm typecheck           |
+| Validate  | 101           | "Running ESLint check"     | Before pnpm lint                |
+| Validate  | 102           | "Running build check"      | Before pnpm build               |
+| Complete  | 120           | "Execution complete"       | After commit/PR                 |
+
+**CRITICAL**: Use the Bash tool to run `update_checkpoint <id> "<name>" [phase]` at EACH step above.
+
+Example:
+
+```bash
+# After creating progress record, IMMEDIATELY run:
+update_checkpoint 1 "Initialized execution" "site_review"
+```
+
+**DO NOT SKIP CHECKPOINT CALLS** - The user is watching the dashboard and expects to see progress.
 
 ## Process
 
@@ -431,66 +465,44 @@ Naming convention:
 SUPABASE_URL=$(jq -r '.supabaseUrl' mason.config.json)
 SUPABASE_KEY=$(jq -r '.supabaseAnonKey' mason.config.json)
 
-# ==== CHECKPOINT UPDATE HELPER (MANDATORY) ====
-# Use this function to update granular progress for the ExecutionStatusModal
-# This populates the checkpoints_completed array which drives the progress percentage
+# ==== CHECKPOINT UPDATE - MANDATORY FOR PROGRESS TRACKING ====
 #
-# Usage: update_checkpoint <checkpoint_id> <checkpoint_name> [current_file] [phase]
+# THIS FUNCTION MUST BE CALLED AT EACH STEP TO UPDATE THE DASHBOARD
+# The frontend shows 0% progress if you don't call this!
+#
+# Usage: update_checkpoint <checkpoint_id> <checkpoint_name> [phase]
 #
 # Checkpoint ID ranges:
-#   1-9: Initialization phase
-#   10-99: Implementation phase (dynamic per-file)
-#   100-109: Validation phase
-#   110-120: Finalization phase
+#   1-4: Initialization phase (site_review)
+#   5-6: Analysis phase (foundation)
+#   7-8: Implementation phase (building)
+#   100-102: Validation phase (inspection)
+#   120: Complete
 #
 update_checkpoint() {
   local checkpoint_id=$1
   local checkpoint_name=$2
-  local current_file="${3:-}"
-  local phase="${4:-}"
+  local phase="${3:-}"
 
-  # Get current checkpoints_completed array
-  local current_data=$(curl -s "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}&select=checkpoints_completed,checkpoint_total" \
-    -H "apikey: ${SUPABASE_KEY}" \
-    -H "Authorization: Bearer ${SUPABASE_KEY}")
-
-  local checkpoints_completed=$(echo "$current_data" | jq -r '.[0].checkpoints_completed // "[]"')
-
-  # If checkpoints_completed is null or empty, initialize as empty array
-  if [ "$checkpoints_completed" = "null" ] || [ -z "$checkpoints_completed" ]; then
-    checkpoints_completed="[]"
-  fi
-
-  # Add new checkpoint to the array
-  local new_checkpoint='{"id": '"$checkpoint_id"', "name": "'"$checkpoint_name"'", "completed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
-  local updated_checkpoints=$(echo "$checkpoints_completed" | jq ". + [$new_checkpoint]")
-
-  # Build update payload
-  local update_payload='{
-    "checkpoint_index": '"$checkpoint_id"',
-    "checkpoint_message": "'"$checkpoint_name"'",
-    "checkpoints_completed": '"$updated_checkpoints"',
-    "current_task": "'"$checkpoint_name"'",
-    "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
-  }'
-
-  # Add optional fields if provided
-  if [ -n "$current_file" ]; then
-    update_payload=$(echo "$update_payload" | jq '. + {"current_file": "'"$current_file"'"}')
-  fi
+  # Build simple update payload - just update checkpoint_index which frontend uses
+  local update_payload
   if [ -n "$phase" ]; then
-    update_payload=$(echo "$update_payload" | jq '. + {"current_phase": "'"$phase"'"}')
+    update_payload='{"checkpoint_index": '"$checkpoint_id"', "checkpoint_message": "'"$checkpoint_name"'", "current_phase": "'"$phase"'", "current_task": "'"$checkpoint_name"'", "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+  else
+    update_payload='{"checkpoint_index": '"$checkpoint_id"', "checkpoint_message": "'"$checkpoint_name"'", "current_task": "'"$checkpoint_name"'", "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
   fi
 
-  # Send update to Supabase
+  # Send update to Supabase - MUST succeed for dashboard to show progress
   curl -s -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
     -H "apikey: ${SUPABASE_KEY}" \
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
     -H "Content-Type: application/json" \
     -H "Prefer: return=minimal" \
-    -d "$update_payload" > /dev/null
+    -d "$update_payload"
+
+  echo "[PROGRESS] Checkpoint $checkpoint_id: $checkpoint_name"
 }
-# ==== END CHECKPOINT UPDATE HELPER ====
+# ==== END CHECKPOINT UPDATE ====
 
 # Update item status to in_progress
 curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \

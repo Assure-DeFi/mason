@@ -8,10 +8,10 @@
       "breaking_reason": "PRD generation now happens BEFORE submission - fixes missing PRD bug"
     },
     "execute-approved": {
-      "version": "2.8.0",
+      "version": "2.9.0",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "2.8.0",
-      "breaking_reason": "Now writes run_id to execution_progress - required for dashboard batch display"
+      "required_minimum": "2.9.0",
+      "breaking_reason": "Mandatory progress tracking - checkpoint updates required for dashboard"
     },
     "mason-update": {
       "version": "1.0.0",

@@ -220,18 +220,6 @@ export function ExecutionStatusModal({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Calculate percentage
-  const percentage = progress
-    ? Math.min(
-        100,
-        Math.round(
-          ((progress.checkpoints_completed?.length ?? 0) /
-            (progress.checkpoint_total || 12)) *
-            100,
-        ),
-      )
-    : 0;
-
   // Check if there's a failure
   const hasFailed =
     progress?.completed_at &&
@@ -241,6 +229,22 @@ export function ExecutionStatusModal({
       progress.validation_tests === 'fail');
 
   const isComplete = progress?.completed_at && !hasFailed;
+
+  // Calculate percentage - uses checkpoints_completed array length as primary,
+  // falls back to checkpoint_index for cases where array append fails
+  const checkpointsCompletedCount =
+    progress?.checkpoints_completed?.length ?? 0;
+  const checkpointIndex = progress?.checkpoint_index ?? 0;
+  const checkpointTotal = progress?.checkpoint_total || 12;
+  const effectiveProgress = Math.max(
+    checkpointsCompletedCount,
+    checkpointIndex > 0 ? checkpointIndex : 0,
+  );
+  const percentage = progress
+    ? isComplete
+      ? 100
+      : Math.min(99, Math.round((effectiveProgress / checkpointTotal) * 100))
+    : 0;
 
   // Build checkpoint list for display
   const displayCheckpoints = progress
