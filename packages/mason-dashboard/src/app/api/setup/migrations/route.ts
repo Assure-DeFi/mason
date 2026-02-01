@@ -129,48 +129,6 @@ CREATE TABLE IF NOT EXISTS mason_pm_backlog_items (
   prd_generated_at TIMESTAMPTZ
 );
 
--- Mason Remote Execution Runs table
-CREATE TABLE IF NOT EXISTS mason_remote_execution_runs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  user_id UUID NOT NULL REFERENCES mason_users(id) ON DELETE CASCADE,
-  repository_id UUID NOT NULL REFERENCES mason_github_repositories(id) ON DELETE CASCADE,
-  item_ids UUID[] NOT NULL DEFAULT '{}',
-  item_count INTEGER DEFAULT 0,
-  branch_name TEXT NOT NULL,
-  base_branch TEXT NOT NULL DEFAULT 'main',
-  pr_url TEXT,
-  pr_number INTEGER,
-  started_at TIMESTAMPTZ DEFAULT NOW(),
-  completed_at TIMESTAMPTZ,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'success', 'failed', 'cancelled')),
-  error_message TEXT,
-  files_changed INTEGER DEFAULT 0,
-  lines_added INTEGER DEFAULT 0,
-  lines_removed INTEGER DEFAULT 0
-);
-
--- Mason Execution Logs table
-CREATE TABLE IF NOT EXISTS mason_execution_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  execution_run_id UUID NOT NULL REFERENCES mason_remote_execution_runs(id) ON DELETE CASCADE,
-  log_level TEXT DEFAULT 'info' CHECK (log_level IN ('debug', 'info', 'warn', 'error')),
-  message TEXT NOT NULL,
-  metadata JSONB DEFAULT '{}'::jsonb
-);
-
--- Mason AI Provider Keys table
-CREATE TABLE IF NOT EXISTS mason_ai_provider_keys (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES mason_users(id) ON DELETE CASCADE,
-  provider TEXT NOT NULL CHECK (provider IN ('anthropic', 'openai')),
-  api_key TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, provider)
-);
-
 -- Mason PM Filtered Items table (items filtered out during analysis)
 CREATE TABLE IF NOT EXISTS mason_pm_filtered_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -373,8 +331,6 @@ ALTER TABLE mason_api_keys ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES maso
 ALTER TABLE mason_github_repositories ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
 ALTER TABLE mason_pm_analysis_runs ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
-ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
-ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
 
 -- Add risk analysis summary columns to backlog items (for quick access without joins)
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS risk_score INTEGER CHECK (risk_score IS NULL OR risk_score BETWEEN 1 AND 10);
@@ -407,15 +363,6 @@ ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS autopilot_run_id UUI
 -- Add user_id and repository_id to execution runs for multi-tenant queries
 ALTER TABLE mason_pm_execution_runs ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
 ALTER TABLE mason_pm_execution_runs ADD COLUMN IF NOT EXISTS repository_id UUID REFERENCES mason_github_repositories(id) ON DELETE SET NULL;
-
--- Add idempotency_key column for request deduplication
-ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
-ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS idempotency_expires_at TIMESTAMPTZ;
-
--- Add partial success tracking columns
-ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS item_results JSONB DEFAULT NULL;
-ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS success_count INTEGER DEFAULT NULL;
-ALTER TABLE mason_remote_execution_runs ADD COLUMN IF NOT EXISTS failure_count INTEGER DEFAULT NULL;
 
 -- Add checkpoint-based progress tracking columns (for existing databases)
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_index INTEGER DEFAULT 0;
@@ -456,10 +403,6 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_user_id ON mason_pm_backlo
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_status ON mason_pm_backlog_items(status);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_repository_id ON mason_pm_backlog_items(repository_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_analysis_runs_user_id ON mason_pm_analysis_runs(user_id);
-CREATE INDEX IF NOT EXISTS idx_mason_remote_execution_runs_user_id ON mason_remote_execution_runs(user_id);
-CREATE INDEX IF NOT EXISTS idx_mason_remote_execution_runs_idempotency ON mason_remote_execution_runs(idempotency_key) WHERE idempotency_key IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_execution_run_id ON mason_execution_logs(execution_run_id);
-CREATE INDEX IF NOT EXISTS idx_mason_ai_provider_keys_user_id ON mason_ai_provider_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_filtered_items_repository_id ON mason_pm_filtered_items(repository_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_runs_status ON mason_pm_execution_runs(status);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_runs_created_at ON mason_pm_execution_runs(created_at DESC);
@@ -497,9 +440,6 @@ ALTER TABLE mason_api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_github_repositories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_analysis_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_backlog_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mason_remote_execution_runs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mason_execution_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mason_ai_provider_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_filtered_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_execution_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_execution_tasks ENABLE ROW LEVEL SECURITY;
@@ -542,27 +482,6 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_backlog_items' AND policyname = 'Allow all on pm_backlog_items') THEN
     CREATE POLICY "Allow all on pm_backlog_items" ON mason_pm_backlog_items FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-END $$;
-
--- Remote Execution Runs table
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_remote_execution_runs' AND policyname = 'Allow all on remote_execution_runs') THEN
-    CREATE POLICY "Allow all on remote_execution_runs" ON mason_remote_execution_runs FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-END $$;
-
--- Execution Logs table
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_execution_logs' AND policyname = 'Allow all on execution_logs') THEN
-    CREATE POLICY "Allow all on execution_logs" ON mason_execution_logs FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-END $$;
-
--- AI Provider Keys table
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_ai_provider_keys' AND policyname = 'Allow all on ai_provider_keys') THEN
-    CREATE POLICY "Allow all on ai_provider_keys" ON mason_ai_provider_keys FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 
