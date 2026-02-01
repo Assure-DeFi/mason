@@ -1,7 +1,22 @@
 import { apiSuccess, unauthorized, serverError } from '@/lib/api-response';
 import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
 import { TABLES } from '@/lib/constants';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  addRateLimitHeaders,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import { createServiceClient } from '@/lib/supabase/client';
+
+// Helper to extract client IP from request
+function getClientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return request.headers.get('x-real-ip') || 'unknown';
+}
 
 /**
  * GET /api/v1/backlog/next - Get the highest-priority approved backlog items
@@ -27,6 +42,18 @@ export async function GET(request: Request) {
 
     if (!user) {
       return unauthorized('Invalid API key');
+    }
+
+    // Rate limit check using validated user ID
+    const rateLimitId = getRateLimitIdentifier(
+      'backlog-next',
+      user.github_id,
+      getClientIp(request),
+    );
+    const rateLimitResult = await checkRateLimit(rateLimitId, 'standard');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     // Parse query parameters
@@ -104,16 +131,18 @@ export async function GET(request: Request) {
 
     // Return single item or array based on limit
     if (limit === 1) {
-      return apiSuccess({
+      const response = apiSuccess({
         item: items[0],
         total_approved: data.length,
       });
+      return addRateLimitHeaders(response, rateLimitResult);
     }
 
-    return apiSuccess({
+    const response = apiSuccess({
       items,
       count: items.length,
     });
+    return addRateLimitHeaders(response, rateLimitResult);
   } catch (error) {
     console.error('Error fetching next backlog item:', error);
     return serverError();

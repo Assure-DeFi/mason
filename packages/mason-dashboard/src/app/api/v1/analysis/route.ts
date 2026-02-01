@@ -1,7 +1,22 @@
 import { apiSuccess, unauthorized, serverError } from '@/lib/api-response';
 import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
 import { TABLES } from '@/lib/constants';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  addRateLimitHeaders,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import { createServiceClient } from '@/lib/supabase/client';
+
+// Helper to extract client IP from request
+function getClientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return request.headers.get('x-real-ip') || 'unknown';
+}
 
 /**
  * POST /api/v1/analysis/validate - Validate API key and return user info
@@ -29,6 +44,18 @@ export async function POST(request: Request) {
       return unauthorized('Invalid API key');
     }
 
+    // Rate limit check using validated user ID
+    const rateLimitId = getRateLimitIdentifier(
+      'api-validate',
+      user.github_id,
+      getClientIp(request),
+    );
+    const rateLimitResult = await checkRateLimit(rateLimitId, 'standard');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
+    }
+
     // Fetch user's connected repositories for multi-repo support
     const supabase = createServiceClient();
     const { data: repositories } = await supabase
@@ -44,13 +71,15 @@ export async function POST(request: Request) {
     // Return validation success with user info and connected repositories
     // The CLI will use this to confirm identity before writing to their own Supabase
     // Repositories are included so CLI can match current git remote to get repository_id
-    return apiSuccess({
+    const response = apiSuccess({
       valid: true,
       user_id: user.id,
       github_username: user.github_username,
       dashboard_url: `${dashboardUrl}/admin/backlog`,
       repositories: repositories || [],
     });
+
+    return addRateLimitHeaders(response, rateLimitResult);
   } catch (error) {
     console.error('API key validation error:', error);
     return serverError();
