@@ -523,7 +523,7 @@ function ConfigureView({
       {/* Generate Button */}
       <button
         onClick={onGenerate}
-        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#E2D243] text-[#0A0724] font-semibold hover:opacity-90 transition-opacity"
+        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gold text-navy font-semibold hover:opacity-90 transition-opacity"
       >
         <Sparkles className="w-4 h-4" />
         Generate Command
@@ -582,7 +582,7 @@ function CommandView({
         </button>
         <button
           onClick={onCopyAndClose}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#E2D243] text-[#0A0724] font-semibold hover:opacity-90 transition-opacity"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gold text-navy font-semibold hover:opacity-90 transition-opacity"
         >
           {hasCopied ? (
             <>
