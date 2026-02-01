@@ -6,7 +6,6 @@ import {
   User,
   Key,
   Database,
-  Sparkles,
   BookOpen,
   HelpCircle,
   Bot,
@@ -119,15 +118,6 @@ export function UserMenu() {
             >
               <Key className="h-4 w-4" />
               API Keys
-            </Link>
-
-            <Link
-              href="/settings/ai-providers"
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-900"
-              onClick={() => setIsOpen(false)}
-            >
-              <Sparkles className="h-4 w-4" />
-              AI Providers
             </Link>
 
             <Link

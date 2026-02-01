@@ -5,6 +5,7 @@
  * Supports macOS (launchd), Linux (systemd), and Windows (Task Scheduler).
  */
 
+import { execSync } from 'node:child_process';
 import {
   existsSync,
   readFileSync,
@@ -12,7 +13,6 @@ import {
   mkdirSync,
   chmodSync,
 } from 'node:fs';
-import { execSync } from 'node:child_process';
 import { homedir, platform } from 'node:os';
 import { join, dirname } from 'node:path';
 

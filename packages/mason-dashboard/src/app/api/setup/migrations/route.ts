@@ -25,9 +25,6 @@ import { runMigrations } from '@/lib/supabase/pg-migrate';
  *   - mason_pm_filtered_items
  *   - mason_pm_execution_runs
  *   - mason_pm_execution_tasks
- *   - mason_remote_execution_runs
- *   - mason_execution_logs
- *   - mason_ai_provider_keys
  *   - mason_execution_progress
  *   - mason_pm_restore_feedback
  *   - mason_dependency_analysis
@@ -36,7 +33,6 @@ import { runMigrations } from '@/lib/supabase/pg-migrate';
  *
  * Realtime-enabled tables (for dashboard live updates):
  *   - mason_execution_progress (ExecutionStatusModal visualization)
- *   - mason_execution_logs (log streaming)
  *   - mason_pm_backlog_items (item status changes from CLI)
  */
 const MIGRATION_SQL = `

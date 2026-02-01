@@ -32,9 +32,7 @@ export function PRDSection() {
             </li>
             <li className="flex items-start gap-2">
               <span className="font-medium text-gold">3.</span>
-              <span>
-                Wait for AI to generate the document (requires AI provider key)
-              </span>
+              <span>Wait for AI to generate the document</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="font-medium text-gold">4.</span>
@@ -76,8 +74,9 @@ export function PRDSection() {
 
       <div className="rounded-lg border border-yellow-800/30 bg-yellow-900/10 p-4">
         <p className="text-sm text-yellow-200/80">
-          <strong>Note:</strong> PRD generation requires an AI provider key
-          (Anthropic or OpenAI). Configure this in Settings → AI Providers.
+          <strong>Note:</strong> PRDs are generated during the /pm-review
+          command in Claude Code. Each backlog item includes a PRD when
+          submitted.
         </p>
       </div>
     </div>

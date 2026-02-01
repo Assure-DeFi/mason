@@ -32,7 +32,7 @@ import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
 import { MasonMark } from '@/components/brand';
 import { ErrorBoundary } from '@/components/errors';
-import { ExecutionProgress } from '@/components/execution/execution-progress';
+import { ExecutionStatusModal } from '@/components/execution/ExecutionStatusModal';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { AutopilotToast } from '@/components/ui/AutopilotToast';
 import { ErrorBanner, ErrorToast } from '@/components/ui/ErrorBanner';
@@ -1307,12 +1307,17 @@ export default function BacklogPage() {
       )}
 
       {/* Execution Progress Modal */}
-      {executionRunId && (
-        <ExecutionProgress
-          runId={executionRunId}
-          itemId={executingItemId ?? undefined}
+      {executingItemId && client && (
+        <ExecutionStatusModal
+          itemId={executingItemId}
           itemTitle={executingItemTitle ?? undefined}
           client={client}
+          onComplete={() => {
+            setExecutionRunId(null);
+            setExecutingItemId(null);
+            setExecutingItemTitle(null);
+            void fetchItems(); // Refresh to show updated statuses
+          }}
           onClose={() => {
             setExecutionRunId(null);
             setExecutingItemId(null);

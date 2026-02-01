@@ -93,23 +93,6 @@ export default function SettingsPage() {
         <li>Revoke and regenerate if compromised</li>
       </ul>
 
-      <h2>AI Providers</h2>
-      <p>
-        Configure AI provider API keys. Access at{' '}
-        <a href="https://mason.assuredefi.com/settings/ai-providers">
-          /settings/ai-providers
-        </a>
-      </p>
-      <ul>
-        <li>
-          <strong>Add provider keys</strong> - Configure API access
-        </li>
-        <li>
-          <strong>Test connectivity</strong> - Verify keys work
-        </li>
-      </ul>
-      <p>Provider keys are stored in YOUR Supabase database, not ours.</p>
-
       <h2>Autopilot (Beta)</h2>
       <p>
         Configure automated reviews and execution. Access at{' '}
@@ -164,10 +147,6 @@ export default function SettingsPage() {
             <tr>
               <td className="py-3 text-gray-300">Mason API key</td>
               <td className="py-3 text-gold">Our database (identity only)</td>
-            </tr>
-            <tr>
-              <td className="py-3 text-gray-300">AI provider keys</td>
-              <td className="py-3 text-green-400">Your Supabase</td>
             </tr>
           </tbody>
         </table>

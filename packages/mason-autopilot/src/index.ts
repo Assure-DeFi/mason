@@ -7,9 +7,10 @@
  */
 
 import { Command } from 'commander';
+
 import { initCommand } from './commands/init.js';
-import { startCommand } from './commands/start.js';
 import { installCommand } from './commands/install.js';
+import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
 
 const program = new Command();

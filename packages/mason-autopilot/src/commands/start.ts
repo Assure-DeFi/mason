@@ -5,12 +5,14 @@
  * scheduled PM reviews and executions.
  */
 
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { spawn } from 'node:child_process';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { parseExpression } from 'cron-parser';
 
 /**

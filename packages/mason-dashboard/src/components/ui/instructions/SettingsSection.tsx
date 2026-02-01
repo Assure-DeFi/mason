@@ -1,6 +1,6 @@
 'use client';
 
-import { Github, Key, Sparkles, Database, ChevronRight } from 'lucide-react';
+import { Github, Key, Database, ChevronRight } from 'lucide-react';
 
 export function SettingsSection() {
   return (
@@ -54,29 +54,6 @@ export function SettingsSection() {
             <li className="flex items-center gap-2">
               <ChevronRight className="h-4 w-4 text-gold" />
               <span>Revoke keys that are no longer needed</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h4 className="flex items-center gap-2 font-semibold text-white">
-          <Sparkles className="h-5 w-5 text-gold" />
-          AI Providers
-        </h4>
-        <div className="rounded-lg border border-gray-700 bg-black/30 p-4">
-          <ul className="space-y-2 text-sm text-gray-300">
-            <li className="flex items-center gap-2">
-              <ChevronRight className="h-4 w-4 text-gold" />
-              <span>Configure Anthropic API key (recommended)</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <ChevronRight className="h-4 w-4 text-gold" />
-              <span>Configure OpenAI API key (fallback)</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <ChevronRight className="h-4 w-4 text-gold" />
-              <span>Test keys to verify they work</span>
             </li>
           </ul>
         </div>

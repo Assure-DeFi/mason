@@ -41,14 +41,11 @@ const CONFIRMATION_PHRASE = 'DELETE MY ACCOUNT';
 
 // Tables to delete in correct order (respecting foreign key constraints)
 const DELETE_ORDER = [
-  TABLES.EXECUTION_LOGS,
-  TABLES.REMOTE_EXECUTION_RUNS,
   TABLES.PM_EXECUTION_TASKS,
   TABLES.PM_EXECUTION_RUNS,
   TABLES.PM_FILTERED_ITEMS,
   TABLES.PM_BACKLOG_ITEMS,
   TABLES.PM_ANALYSIS_RUNS,
-  TABLES.AI_PROVIDER_KEYS,
   TABLES.API_KEYS,
   TABLES.GITHUB_REPOSITORIES,
   TABLES.USERS,
@@ -393,10 +390,6 @@ function WarningStep({
           <li className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
             API keys
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-            AI provider configurations
           </li>
           <li className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-red-400" />

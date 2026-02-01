@@ -30,56 +30,6 @@ export interface GitHubRepository {
   last_synced_at: string | null;
 }
 
-export interface ItemResult {
-  itemId: string;
-  title: string;
-  success: boolean;
-  error?: string;
-  filesChanged?: number;
-}
-
-export interface RemoteExecutionRun {
-  id: string;
-  created_at: string;
-  user_id: string;
-  repository_id: string;
-  item_ids: string[];
-  item_count: number;
-  branch_name: string;
-  base_branch: string;
-  pr_url: string | null;
-  pr_number: number | null;
-  started_at: string;
-  completed_at: string | null;
-  status: RemoteExecutionStatus;
-  error_message: string | null;
-  files_changed: number;
-  lines_added: number;
-  lines_removed: number;
-  // Partial success tracking
-  item_results?: ItemResult[] | null;
-  success_count?: number | null;
-  failure_count?: number | null;
-}
-
-export type RemoteExecutionStatus =
-  | 'pending'
-  | 'in_progress'
-  | 'success'
-  | 'failed'
-  | 'cancelled';
-
-export interface ExecutionLog {
-  id: string;
-  created_at: string;
-  execution_run_id: string;
-  log_level: LogLevel;
-  message: string;
-  metadata: Record<string, unknown>;
-}
-
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
 export interface Checkpoint {
   id: number;
   name: string;

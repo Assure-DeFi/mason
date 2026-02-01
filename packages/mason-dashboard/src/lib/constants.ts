@@ -39,12 +39,12 @@ export const TABLES = {
   PM_EXECUTION_RUNS: 'mason_pm_execution_runs',
   PM_EXECUTION_TASKS: 'mason_pm_execution_tasks',
 
-  // Execution tables
-  REMOTE_EXECUTION_RUNS: 'mason_remote_execution_runs',
-  EXECUTION_LOGS: 'mason_execution_logs',
+  // Execution tables (CLI writes to this for dashboard visualization)
   EXECUTION_PROGRESS: 'mason_execution_progress',
+  EXECUTION_LOGS: 'mason_execution_logs',
+  REMOTE_EXECUTION_RUNS: 'mason_remote_execution_runs',
 
-  // AI provider keys
+  // AI provider configuration
   AI_PROVIDER_KEYS: 'mason_ai_provider_keys',
 
   // Feedback tracking
@@ -67,12 +67,6 @@ export const API_ROUTES = {
 
   // Setup
   SETUP_MIGRATIONS: '/api/setup/migrations',
-
-  // Execution
-  EXECUTION_START: '/api/execution/start',
-
-  // PRD
-  PRD_BY_ID: (id: string) => `/api/prd/${id}`,
 
   // Backlog
   BACKLOG_RESTORE: '/api/backlog/restore',

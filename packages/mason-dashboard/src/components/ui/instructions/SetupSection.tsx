@@ -1,6 +1,6 @@
 'use client';
 
-import { Database, Github, Sparkles, Terminal, CheckCircle2 } from 'lucide-react';
+import { Database, Github, Terminal } from 'lucide-react';
 
 export function SetupSection() {
   return (
@@ -77,36 +77,8 @@ export function SetupSection() {
 
       <div className="space-y-4">
         <h4 className="flex items-center gap-2 font-semibold text-white">
-          <Sparkles className="h-5 w-5 text-gold" />
-          3. AI Provider (Optional)
-        </h4>
-        <div className="rounded-lg border border-gray-700 bg-black/30 p-4">
-          <p className="mb-3 text-sm text-gray-300">
-            Configure an AI provider key for PRD generation:
-          </p>
-          <ul className="space-y-2 text-sm text-gray-400">
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <span>
-                <strong className="text-gray-300">Anthropic:</strong> Preferred
-                (Claude 3.5 Sonnet)
-              </span>
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <span>
-                <strong className="text-gray-300">OpenAI:</strong> Fallback
-                (GPT-4)
-              </span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h4 className="flex items-center gap-2 font-semibold text-white">
           <Terminal className="h-5 w-5 text-gold" />
-          4. Install Mason CLI
+          3. Install Mason CLI
         </h4>
         <div className="rounded-lg border border-gray-700 bg-black/30 p-4">
           <p className="mb-3 text-sm text-gray-300">

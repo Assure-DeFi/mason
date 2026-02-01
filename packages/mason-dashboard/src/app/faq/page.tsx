@@ -9,7 +9,6 @@ import {
   Database,
   Github,
   Shield,
-  Cpu,
   Wrench,
   AlertTriangle,
 } from 'lucide-react';
@@ -142,28 +141,6 @@ const FAQ_DATA: FAQCategory[] = [
         question: "Why can't I see my repositories?",
         answer:
           "Make sure you've granted the appropriate permissions when signing in with GitHub. You may need to re-authenticate or check your GitHub application settings.",
-      },
-    ],
-  },
-  {
-    id: 'ai-providers',
-    title: 'AI Providers',
-    icon: <Cpu className="w-5 h-5" />,
-    items: [
-      {
-        question: 'Which AI providers does Mason support?',
-        answer:
-          'Mason supports Anthropic Claude (recommended), OpenAI GPT models, and can work with any Claude Code compatible AI provider.',
-      },
-      {
-        question: 'Do I need my own API key?',
-        answer:
-          'Yes. Mason uses your own AI provider API key, ensuring your API usage is under your control and billing. This is configured in Claude Code.',
-      },
-      {
-        question: 'How do I configure my AI provider?',
-        answer:
-          'AI provider configuration is handled through Claude Code. Refer to Claude Code documentation for setting up your preferred AI provider.',
       },
     ],
   },

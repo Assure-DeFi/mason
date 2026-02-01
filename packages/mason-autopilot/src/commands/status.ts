@@ -4,10 +4,11 @@
  * Show the current status of the autopilot daemon.
  */
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
+
 import { createClient } from '@supabase/supabase-js';
 
 interface AutopilotConfig {
