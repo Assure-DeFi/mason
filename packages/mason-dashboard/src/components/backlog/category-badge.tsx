@@ -3,8 +3,11 @@
 import { clsx } from 'clsx';
 import { Star } from 'lucide-react';
 
+import { CATEGORY_TOOLTIPS } from '@/lib/tooltip-content';
 import type { BacklogCategory, BacklogType } from '@/types/backlog';
 import { mapLegacyTypeToCategory } from '@/types/backlog';
+
+import { Tooltip } from '../ui/Tooltip';
 
 interface CategoryBadgeProps {
   type: BacklogType;
@@ -69,18 +72,25 @@ export function CategoryBadge({
   // Map legacy types to new categories
   const category = mapLegacyTypeToCategory(type);
   const config = CATEGORY_CONFIG[category];
+  const tooltipContent = CATEGORY_TOOLTIPS[category];
 
   return (
-    <span
-      className={clsx(
-        'inline-flex items-center gap-1 border',
-        config.className,
-        size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm',
-      )}
+    <Tooltip
+      title={tooltipContent.title}
+      content={tooltipContent.content}
+      width="sm"
     >
-      {isNewFeature && <Star className="w-3 h-3 fill-current" />}
-      {config.label}
-    </span>
+      <span
+        className={clsx(
+          'inline-flex items-center gap-1 border',
+          config.className,
+          size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm',
+        )}
+      >
+        {isNewFeature && <Star className="w-3 h-3 fill-current" />}
+        {config.label}
+      </span>
+    </Tooltip>
   );
 }
 

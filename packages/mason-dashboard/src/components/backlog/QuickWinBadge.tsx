@@ -3,6 +3,10 @@
 import { clsx } from 'clsx';
 import { Zap, TrendingUp, Leaf } from 'lucide-react';
 
+import { BADGE_TOOLTIPS } from '@/lib/tooltip-content';
+
+import { Tooltip } from '../ui/Tooltip';
+
 interface QuickWinBadgeProps {
   /** Impact score (1-10) */
   impactScore: number;
@@ -22,6 +26,7 @@ interface BadgeConfig {
   icon: React.ReactNode;
   className: string;
   priority: number;
+  tooltipKey: keyof typeof BADGE_TOOLTIPS;
 }
 
 const BADGE_CONFIGS: BadgeConfig[] = [
@@ -31,6 +36,7 @@ const BADGE_CONFIGS: BadgeConfig[] = [
     icon: <Zap className="w-3 h-3" />,
     className: 'bg-gold/20 text-gold border-gold/30',
     priority: 1,
+    tooltipKey: 'quickWin' as const,
   },
   {
     type: 'high-impact',
@@ -38,6 +44,7 @@ const BADGE_CONFIGS: BadgeConfig[] = [
     icon: <TrendingUp className="w-3 h-3" />,
     className: 'bg-green-500/20 text-green-300 border-green-500/30',
     priority: 2,
+    tooltipKey: 'highImpact' as const,
   },
   {
     type: 'low-hanging-fruit',
@@ -45,6 +52,7 @@ const BADGE_CONFIGS: BadgeConfig[] = [
     icon: <Leaf className="w-3 h-3" />,
     className: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
     priority: 3,
+    tooltipKey: 'lowHangingFruit' as const,
   },
 ];
 
@@ -98,20 +106,28 @@ export function QuickWinBadge({
 
   return (
     <div className="flex items-center gap-1">
-      {badgesToRender.map((config) => (
-        <span
-          key={config.type}
-          className={clsx(
-            'inline-flex items-center border rounded',
-            config.className,
-            sizeClasses[size],
-          )}
-          title={`${config.label}: Impact ${impactScore}/10, Effort ${effortScore}/10`}
-        >
-          {config.icon}
-          <span>{config.label}</span>
-        </span>
-      ))}
+      {badgesToRender.map((config) => {
+        const tooltipContent = BADGE_TOOLTIPS[config.tooltipKey];
+        return (
+          <Tooltip
+            key={config.type}
+            title={tooltipContent.title}
+            content={tooltipContent.content}
+            width="sm"
+          >
+            <span
+              className={clsx(
+                'inline-flex items-center border rounded',
+                config.className,
+                sizeClasses[size],
+              )}
+            >
+              {config.icon}
+              <span>{config.label}</span>
+            </span>
+          </Tooltip>
+        );
+      })}
     </div>
   );
 }
