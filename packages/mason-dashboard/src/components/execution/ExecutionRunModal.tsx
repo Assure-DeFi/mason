@@ -78,10 +78,14 @@ export function ExecutionRunModal({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [runStartTime, setRunStartTime] = useState<Date | null>(null);
   const [pollAttempts, setPollAttempts] = useState(0);
+  const [pollInterval, setPollInterval] = useState(500);
+  const consecutiveErrorsRef = useRef(0);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // Connection timeout - if still connecting after 15 seconds, show helpful error
   const CONNECTION_TIMEOUT_POLLS = 30; // 30 polls * 500ms = 15 seconds
+  const MAX_POLL_INTERVAL = 5000;
+  const BASE_POLL_INTERVAL = 500;
 
   // Poll for all execution progress records in this run
   const pollProgress = useCallback(async () => {
@@ -133,6 +137,9 @@ export function ExecutionRunModal({
 
       if (data && data.length > 0) {
         setIsConnecting(false);
+        // Reset backoff on success
+        consecutiveErrorsRef.current = 0;
+        setPollInterval(BASE_POLL_INTERVAL);
 
         // Update items with progress data
         const progressMap = new Map<string, ExecutionProgressRecord>();
@@ -221,6 +228,14 @@ export function ExecutionRunModal({
       }
     } catch (err) {
       console.error('[ExecutionRunModal] Poll exception:', err);
+      // Backoff on errors to prevent resource exhaustion
+      consecutiveErrorsRef.current += 1;
+      const backoffInterval = Math.min(
+        BASE_POLL_INTERVAL * Math.pow(2, consecutiveErrorsRef.current),
+        MAX_POLL_INTERVAL,
+      );
+      setPollInterval(backoffInterval);
+
       if (pollAttempts >= CONNECTION_TIMEOUT_POLLS) {
         setConnectionError(
           `Connection error: ${err instanceof Error ? err.message : 'Unknown error'}`
@@ -229,18 +244,18 @@ export function ExecutionRunModal({
     }
   }, [client, initialItemId, items, runStartTime, onComplete, pollAttempts, isConnecting]);
 
-  // Start polling when component mounts
+  // Start polling when component mounts - uses dynamic interval with backoff
   useEffect(() => {
     // Initial fetch
     void pollProgress();
 
-    // Poll every 500ms for responsive updates
-    const pollInterval = setInterval(() => {
+    // Poll with dynamic interval (backs off on errors)
+    const intervalId = setInterval(() => {
       void pollProgress();
-    }, 500);
+    }, pollInterval);
 
-    return () => clearInterval(pollInterval);
-  }, [pollProgress]);
+    return () => clearInterval(intervalId);
+  }, [pollProgress, pollInterval]);
 
   // Also set up realtime subscription as backup
   useEffect(() => {
@@ -303,12 +318,24 @@ export function ExecutionRunModal({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Calculate overall progress
+  // Calculate overall progress using weighted average of item progress
   const completedItems = items.filter((i) => i.status === 'completed').length;
   const failedItems = items.filter((i) => i.status === 'failed').length;
   const totalItems = items.length;
+
+  // Calculate weighted percentage including partial progress of in-progress items
+  let totalProgressPoints = 0;
+  for (const item of items) {
+    if (item.status === 'completed' || item.status === 'failed') {
+      totalProgressPoints += 100;
+    } else if (item.progress) {
+      const checkpointsCompleted = item.progress.checkpoints_completed?.length ?? 0;
+      const checkpointTotal = item.progress.checkpoint_total || 12;
+      totalProgressPoints += Math.round((checkpointsCompleted / checkpointTotal) * 100);
+    }
+  }
   const overallPercentage =
-    totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+    totalItems > 0 ? Math.round(totalProgressPoints / totalItems) : 0;
 
   const hasFailed = failedItems > 0;
   const isAllComplete = completedItems === totalItems && totalItems > 0;

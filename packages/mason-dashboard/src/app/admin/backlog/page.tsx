@@ -114,6 +114,11 @@ export default function BacklogPage() {
   const [undoState, setUndoState] = useState<UndoState | null>(null);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Prevent concurrent fetch calls and rapid retries
+  const isFetchingRef = useRef(false);
+  const lastFetchErrorRef = useRef<number>(0);
+  const FETCH_RETRY_DELAY = 5000;
+
   // Confirmation dialog state
   const [confirmAction, setConfirmAction] = useState<{
     type: 'approve' | 'reject' | 'restore' | 'complete' | 'delete';
@@ -191,6 +196,18 @@ export default function BacklogPage() {
       return;
     }
 
+    // Prevent concurrent fetches
+    if (isFetchingRef.current) {
+      return;
+    }
+
+    // Rate limit retries after errors
+    const now = Date.now();
+    if (lastFetchErrorRef.current && now - lastFetchErrorRef.current < FETCH_RETRY_DELAY) {
+      return;
+    }
+
+    isFetchingRef.current = true;
     setIsLoading(true);
     setError(null);
 
@@ -273,11 +290,16 @@ export default function BacklogPage() {
       }
 
       setItems((data as unknown as BacklogItem[]) || []);
+      // Reset error timestamp on success
+      lastFetchErrorRef.current = 0;
     } catch (err) {
       console.error('Error fetching backlog:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
+      // Track error time to rate limit retries
+      lastFetchErrorRef.current = Date.now();
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
   }, [client, session]);
 
