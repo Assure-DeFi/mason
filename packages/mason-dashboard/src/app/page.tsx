@@ -9,7 +9,6 @@ import { MasonAvatar, MasonSplash, MasonTagline } from '@/components/brand';
 import {
   LandingHeader,
   HeroSection,
-  HypeVideoSection,
   QuickSetupCard,
   ValuePropsSection,
   PrivacyBullets,
@@ -77,7 +76,6 @@ function LandingPageView() {
     <main className="min-h-screen bg-navy">
       <LandingHeader />
       <HeroSection />
-      <HypeVideoSection />
       <QuickSetupCard />
       <ValuePropsSection />
       <PrivacyBullets />
