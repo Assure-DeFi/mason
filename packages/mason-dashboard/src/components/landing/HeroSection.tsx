@@ -10,9 +10,9 @@ import { MasonAvatar } from '@/components/brand';
  * Hero section - above the fold with headline, subheadline, and CTAs
  */
 export function HeroSection() {
-  const scrollToHowItWorks = () => {
+  const scrollToVideo = () => {
     document
-      .getElementById('how-it-works')
+      .getElementById('hype-video')
       ?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -71,11 +71,11 @@ export function HeroSection() {
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
           <button
-            onClick={scrollToHowItWorks}
+            onClick={scrollToVideo}
             className="flex items-center gap-2 rounded-lg border border-gray-700 px-8 py-4 text-lg font-medium text-white transition-colors hover:border-gray-600 hover:bg-white/5"
           >
             <Play className="h-5 w-5" />
-            See how it works
+            Watch the Video
           </button>
         </div>
       </div>
