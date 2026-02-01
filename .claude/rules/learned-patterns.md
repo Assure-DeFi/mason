@@ -242,3 +242,12 @@ description: Brief description of what this command does.
 **Why**: Agents read commands linearly and execute steps in numerical order. If Step 7 says "include this in Step 6", but Step 6 already executed, the data won't be included. The step that produces data MUST be numbered BEFORE the step that consumes it.
 
 ---
+
+## Plan Implementation: Check Pre-Existing Changes Against Plan
+
+**Discovered**: 2026-02-01
+**Context**: Implementing E2E schema alignment plan - git status showed pre-existing changes (adding execution_logs table) but plan explicitly said "Do NOT add mason_execution_logs table"
+**Pattern**: Before implementing a plan, check `git status` for uncommitted changes. If any conflict with explicit plan directives (e.g., plan says "Do NOT add X" but X is already staged), revert those changes first with `git checkout <file>`.
+**Why**: Pre-existing changes from previous work can conflict with new plan requirements. Implementing the plan on top of conflicting changes leads to incorrect final state. Clean slate first, then implement.
+
+---
