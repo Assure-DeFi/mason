@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.7.0
+version: 2.8.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -367,17 +367,16 @@ PRD_CONTEXT=$(extract_prd_context "$ITEM_PRD_CONTENT")
 
 ### Step 3: Create Execution Run
 
-```sql
-INSERT INTO pm_execution_runs (
-  status,
-  item_count,
-  started_at
-) VALUES (
-  'in_progress',
-  $count,
-  now()
-) RETURNING id;
+Generate a unique run ID for this execution batch. This groups all items being executed together for dashboard visualization.
+
+```bash
+# Generate unique run ID for this execution batch
+# Format: exec-<timestamp>-<random> for readability
+RUN_ID="exec-$(date +%Y%m%d%H%M%S)-$(head -c 4 /dev/urandom | xxd -p)"
+echo "Execution Run ID: ${RUN_ID}"
 ```
+
+**CRITICAL**: This `RUN_ID` MUST be included in every `mason_execution_progress` INSERT for items in this batch. The dashboard uses this to group and display all items from the same execution run together.
 
 ### Step 4: Build Wave-Based Execution Plan
 
@@ -516,6 +515,7 @@ curl -X POST "${SUPABASE_URL}/rest/v1/mason_execution_progress" \
   -H "Prefer: return=minimal" \
   -d '{
     "item_id": "'"${itemId}"'",
+    "run_id": "'"${RUN_ID}"'",
     "current_phase": "site_review",
     "current_wave": 0,
     "total_waves": 4,

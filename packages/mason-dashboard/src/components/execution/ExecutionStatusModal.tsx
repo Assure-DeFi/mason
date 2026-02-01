@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
@@ -58,26 +59,41 @@ export function ExecutionStatusModal({
     null,
   );
   const [isConnecting, setIsConnecting] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [pollAttempts, setPollAttempts] = useState(0);
   const timelineRef = useRef<HTMLDivElement>(null);
+
+  // Connection timeout - if still connecting after 15 seconds, show helpful error
+  const CONNECTION_TIMEOUT_POLLS = 10; // 10 polls * 1.5s = 15 seconds
 
   // Poll for checkpoint progress (1.5 second interval)
   const pollProgress = useCallback(async () => {
     try {
+      setPollAttempts((prev) => prev + 1);
+
       const { data, error: fetchError } = await client
         .from(TABLES.EXECUTION_PROGRESS)
         .select('*')
         .eq('item_id', itemId)
-        .single();
+        .maybeSingle();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
-        // PGRST116 = no rows found, which is expected initially
+        // Check for schema errors
+        if (fetchError.message?.includes('column') || fetchError.message?.includes('does not exist')) {
+          setConnectionError(
+            'Database schema needs to be updated. Go to Settings and click "Update Database Schema".'
+          );
+          console.error('[ExecutionStatusModal] Schema error:', fetchError);
+          return;
+        }
         console.error('[ExecutionStatusModal] Poll error:', fetchError);
         return;
       }
 
       if (data) {
         setIsConnecting(false);
+        setConnectionError(null);
         setProgress(data as ExecutionProgressRecord);
 
         // Check for completion
@@ -89,11 +105,21 @@ export function ExecutionStatusModal({
             data.validation_tests !== 'fail';
           onComplete(isSuccess, data as ExecutionProgressRecord);
         }
+      } else if (pollAttempts >= CONNECTION_TIMEOUT_POLLS && isConnecting) {
+        // Timeout - no data found after many attempts
+        setConnectionError(
+          'Could not find execution progress. The CLI may not have started writing progress yet.'
+        );
       }
     } catch (err) {
       console.error('[ExecutionStatusModal] Poll exception:', err);
+      if (pollAttempts >= CONNECTION_TIMEOUT_POLLS) {
+        setConnectionError(
+          `Connection error: ${err instanceof Error ? err.message : 'Unknown error'}`
+        );
+      }
     }
-  }, [client, itemId, onComplete]);
+  }, [client, itemId, onComplete, pollAttempts, isConnecting]);
 
   // Start polling when component mounts
   useEffect(() => {
@@ -277,10 +303,43 @@ export function ExecutionStatusModal({
         </div>
 
         {/* Connecting State */}
-        {isConnecting && (
+        {isConnecting && !connectionError && (
           <div className="flex flex-col items-center justify-center p-12">
             <Loader2 className="h-12 w-12 animate-spin text-gold mb-4" />
             <p className="text-gray-400">Connecting to execution...</p>
+            <p className="text-xs text-gray-500 mt-2">
+              Waiting for CLI to write progress data...
+            </p>
+          </div>
+        )}
+
+        {/* Connection Error State */}
+        {connectionError && (
+          <div className="flex flex-col items-center justify-center p-12">
+            <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
+            <p className="text-white font-medium mb-2">Connection Issue</p>
+            <p className="text-gray-400 text-sm text-center max-w-md mb-4">
+              {connectionError}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setConnectionError(null);
+                  setPollAttempts(0);
+                  void pollProgress();
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-gold text-navy rounded-md font-medium hover:bg-gold/90 transition-colors"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Retry
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
 

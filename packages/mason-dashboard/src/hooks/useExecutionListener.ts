@@ -155,9 +155,11 @@ export function useExecutionListener({
 
     const poll = async () => {
       try {
+        // Use select('*') to avoid column-not-found errors on older schemas
+        // This is more resilient than specifying exact columns
         const { data, error } = await client
           .from(TABLES.EXECUTION_PROGRESS)
-          .select('id, item_id, run_id, current_phase, started_at')
+          .select('*')
           .eq('current_phase', 'site_review')
           .is('completed_at', null)
           .gt('started_at', lastCheckTimeRef.current)
@@ -165,7 +167,14 @@ export function useExecutionListener({
           .limit(5);
 
         if (error) {
-          console.error('[ExecutionListener] Polling error:', error.message);
+          // Check for schema errors and log more helpful message
+          if (error.message?.includes('column') || error.message?.includes('does not exist')) {
+            console.error(
+              '[ExecutionListener] Schema issue detected. User should update database schema in Settings.'
+            );
+          } else {
+            console.error('[ExecutionListener] Polling error:', error.message);
+          }
           return;
         }
 
@@ -175,8 +184,16 @@ export function useExecutionListener({
             data.length,
             'candidate(s)',
           );
-          for (const progress of data) {
-            processExecution(progress as ExecutionProgress, 'polling');
+          for (const record of data) {
+            // Map to ExecutionProgress interface, handling potentially missing run_id
+            const progress: ExecutionProgress = {
+              id: record.id,
+              item_id: record.item_id,
+              run_id: record.run_id ?? null,
+              current_phase: record.current_phase,
+              started_at: record.started_at,
+            };
+            processExecution(progress, 'polling');
           }
         }
 

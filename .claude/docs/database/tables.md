@@ -234,31 +234,31 @@ Execution log messages.
 
 Real-time progress for dashboard (has Supabase realtime enabled).
 
-| Column                | Type        | Constraints                                                                  | Description |
-| --------------------- | ----------- | ---------------------------------------------------------------------------- | ----------- |
-| id                    | UUID        | PK                                                                           |             |
-| item_id               | UUID        | FK -> mason_pm_backlog_items, UNIQUE                                         |             |
-| run_id                | UUID        | FK -> mason_pm_execution_runs                                                |             |
-| current_phase         | TEXT        | CHECK IN ('site_review', 'foundation', 'building', 'inspection', 'complete') |             |
-| current_wave          | INTEGER     | DEFAULT 1                                                                    |             |
-| total_waves           | INTEGER     | DEFAULT 4                                                                    |             |
-| wave_status           | TEXT        | CHECK IN ('pending', 'in_progress', 'completed')                             |             |
-| current_task          | TEXT        |                                                                              |             |
-| tasks_completed       | INTEGER     | DEFAULT 0                                                                    |             |
-| tasks_total           | INTEGER     | DEFAULT 0                                                                    |             |
-| current_file          | TEXT        |                                                                              |             |
-| files_touched         | TEXT[]      | DEFAULT '{}'                                                                 |             |
-| lines_changed         | INTEGER     | DEFAULT 0                                                                    |             |
-| validation_typescript | TEXT        | CHECK IN ('pending', 'running', 'pass', 'fail')                              |             |
-| validation_eslint     | TEXT        | CHECK IN ('pending', 'running', 'pass', 'fail')                              |             |
-| validation_build      | TEXT        | CHECK IN ('pending', 'running', 'pass', 'fail')                              |             |
-| validation_tests      | TEXT        | CHECK IN ('pending', 'running', 'pass', 'fail')                              |             |
-| inspector_findings    | TEXT[]      | DEFAULT '{}'                                                                 |             |
-| fix_iteration         | INTEGER     | DEFAULT 0                                                                    |             |
-| max_iterations        | INTEGER     | DEFAULT 5                                                                    |             |
-| started_at            | TIMESTAMPTZ | DEFAULT NOW()                                                                |             |
-| updated_at            | TIMESTAMPTZ | DEFAULT NOW()                                                                |             |
-| completed_at          | TIMESTAMPTZ |                                                                              |             |
+| Column                | Type        | Constraints                                                                  | Description                      |
+| --------------------- | ----------- | ---------------------------------------------------------------------------- | -------------------------------- |
+| id                    | UUID        | PK                                                                           |                                  |
+| item_id               | UUID        | FK -> mason_pm_backlog_items, UNIQUE                                         |                                  |
+| run_id                | TEXT        |                                                                              | Batch execution group (nullable) |
+| current_phase         | TEXT        | CHECK IN ('site_review', 'foundation', 'building', 'inspection', 'complete') |                                  |
+| current_wave          | INTEGER     | DEFAULT 1                                                                    |                                  |
+| total_waves           | INTEGER     | DEFAULT 4                                                                    |                                  |
+| wave_status           | TEXT        | CHECK IN ('pending', 'in_progress', 'completed')                             |                                  |
+| current_task          | TEXT        |                                                                              |                                  |
+| tasks_completed       | INTEGER     | DEFAULT 0                                                                    |                                  |
+| tasks_total           | INTEGER     | DEFAULT 0                                                                    |                                  |
+| current_file          | TEXT        |                                                                              |                                  |
+| files_touched         | TEXT[]      | DEFAULT '{}'                                                                 |                                  |
+| lines_changed         | INTEGER     | DEFAULT 0                                                                    |                                  |
+| validation_typescript | TEXT        | CHECK IN ('pending', 'running', 'pass', 'fail')                              |                                  |
+| validation_eslint     | TEXT        | CHECK IN ('pending', 'running', 'pass', 'fail')                              |                                  |
+| validation_build      | TEXT        | CHECK IN ('pending', 'running', 'pass', 'fail')                              |                                  |
+| validation_tests      | TEXT        | CHECK IN ('pending', 'running', 'pass', 'fail')                              |                                  |
+| inspector_findings    | TEXT[]      | DEFAULT '{}'                                                                 |                                  |
+| fix_iteration         | INTEGER     | DEFAULT 0                                                                    |                                  |
+| max_iterations        | INTEGER     | DEFAULT 5                                                                    |                                  |
+| started_at            | TIMESTAMPTZ | DEFAULT NOW()                                                                |                                  |
+| updated_at            | TIMESTAMPTZ | DEFAULT NOW()                                                                |                                  |
+| completed_at          | TIMESTAMPTZ |                                                                              |                                  |
 
 **Note**: This table has Supabase realtime enabled for live dashboard updates.
 

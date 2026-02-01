@@ -27,6 +27,8 @@ import {
   ChevronDown,
   ChevronRight,
   ListChecks,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
@@ -72,19 +74,57 @@ export function ExecutionRunModal({
     initialItemId,
   );
   const [isConnecting, setIsConnecting] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [runStartTime, setRunStartTime] = useState<Date | null>(null);
+  const [pollAttempts, setPollAttempts] = useState(0);
   const timelineRef = useRef<HTMLDivElement>(null);
+
+  // Connection timeout - if still connecting after 15 seconds, show helpful error
+  const CONNECTION_TIMEOUT_POLLS = 30; // 30 polls * 500ms = 15 seconds
 
   // Poll for all execution progress records in this run
   const pollProgress = useCallback(async () => {
     try {
-      // Fetch all progress records for this run OR with matching item_id (for runs without run_id)
-      const { data, error: fetchError } = await client
+      setPollAttempts((prev) => prev + 1);
+
+      // Try primary query with run_id (requires updated schema)
+      let data = null;
+      let fetchError = null;
+
+      // First try to query by item_id only (always works, regardless of run_id column)
+      const primaryResult = await client
         .from(TABLES.EXECUTION_PROGRESS)
         .select('*')
-        .or(`run_id.eq.${runId},item_id.eq.${initialItemId}`)
-        .order('started_at', { ascending: true });
+        .eq('item_id', initialItemId)
+        .maybeSingle();
+
+      if (primaryResult.error && primaryResult.error.code !== 'PGRST116') {
+        // Real error - try to determine if it's a schema issue
+        if (primaryResult.error.message?.includes('column') || primaryResult.error.message?.includes('does not exist')) {
+          setConnectionError(
+            'Database schema needs to be updated. Go to Settings and click "Update Database Schema".'
+          );
+          console.error('[ExecutionRunModal] Schema error:', primaryResult.error);
+          return;
+        }
+        fetchError = primaryResult.error;
+      } else if (primaryResult.data) {
+        data = [primaryResult.data];
+      }
+
+      // If we found data by item_id, also try to find other items in the same run
+      if (data && data.length > 0 && data[0].run_id) {
+        const batchResult = await client
+          .from(TABLES.EXECUTION_PROGRESS)
+          .select('*')
+          .eq('run_id', data[0].run_id)
+          .order('started_at', { ascending: true });
+
+        if (!batchResult.error && batchResult.data) {
+          data = batchResult.data;
+        }
+      }
 
       if (fetchError && fetchError.code !== 'PGRST116') {
         console.error('[ExecutionRunModal] Poll error:', fetchError);
@@ -173,11 +213,21 @@ export function ExecutionRunModal({
             onComplete();
           }, 2000);
         }
+      } else if (pollAttempts >= CONNECTION_TIMEOUT_POLLS && isConnecting) {
+        // Timeout - no data found after many attempts
+        setConnectionError(
+          'Could not find execution progress. The CLI may not have started writing progress yet, or there may be a connection issue.'
+        );
       }
     } catch (err) {
       console.error('[ExecutionRunModal] Poll exception:', err);
+      if (pollAttempts >= CONNECTION_TIMEOUT_POLLS) {
+        setConnectionError(
+          `Connection error: ${err instanceof Error ? err.message : 'Unknown error'}`
+        );
+      }
     }
-  }, [client, runId, initialItemId, items, runStartTime, onComplete]);
+  }, [client, initialItemId, items, runStartTime, onComplete, pollAttempts, isConnecting]);
 
   // Start polling when component mounts
   useEffect(() => {
@@ -316,10 +366,43 @@ export function ExecutionRunModal({
         </div>
 
         {/* Connecting State */}
-        {isConnecting && (
+        {isConnecting && !connectionError && (
           <div className="flex flex-col items-center justify-center p-12">
             <Loader2 className="h-12 w-12 animate-spin text-gold mb-4" />
             <p className="text-gray-400">Connecting to execution...</p>
+            <p className="text-xs text-gray-500 mt-2">
+              Waiting for CLI to write progress data...
+            </p>
+          </div>
+        )}
+
+        {/* Connection Error State */}
+        {connectionError && (
+          <div className="flex flex-col items-center justify-center p-12">
+            <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
+            <p className="text-white font-medium mb-2">Connection Issue</p>
+            <p className="text-gray-400 text-sm text-center max-w-md mb-4">
+              {connectionError}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setConnectionError(null);
+                  setPollAttempts(0);
+                  void pollProgress();
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-gold text-navy rounded-md font-medium hover:bg-gold/90 transition-colors"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Retry
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
 
