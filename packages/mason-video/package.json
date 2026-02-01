@@ -5,11 +5,15 @@
   "main": "index.js",
   "scripts": {
     "dev": "remotion studio",
-    "build": "remotion render MasonHypeVideo out/mason-hype.mp4",
+    "build": "echo 'Video pre-rendered, skipping build'",
     "render": "remotion render MasonHypeVideo out/mason-hype.mp4",
     "upgrade": "remotion upgrade"
   },
-  "keywords": ["remotion", "video", "mason"],
+  "keywords": [
+    "remotion",
+    "video",
+    "mason"
+  ],
   "author": "Assure DeFi",
   "license": "MIT",
   "dependencies": {
