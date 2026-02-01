@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.3.0
+version: 2.4.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -457,6 +457,67 @@ log_execution() {
 }
 # ==== END LOGGING HELPER ====
 
+# ==== CHECKPOINT UPDATE HELPER (MANDATORY) ====
+# Use this function to update granular progress for the ExecutionStatusModal
+# This populates the checkpoints_completed array which drives the progress percentage
+#
+# Usage: update_checkpoint <checkpoint_id> <checkpoint_name> [current_file] [phase]
+#
+# Checkpoint ID ranges:
+#   1-9: Initialization phase
+#   10-99: Implementation phase (dynamic per-file)
+#   100-109: Validation phase
+#   110-120: Finalization phase
+#
+update_checkpoint() {
+  local checkpoint_id=$1
+  local checkpoint_name=$2
+  local current_file="${3:-}"
+  local phase="${4:-}"
+
+  # Get current checkpoints_completed array
+  local current_data=$(curl -s "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}&select=checkpoints_completed,checkpoint_total" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}")
+
+  local checkpoints_completed=$(echo "$current_data" | jq -r '.[0].checkpoints_completed // "[]"')
+
+  # If checkpoints_completed is null or empty, initialize as empty array
+  if [ "$checkpoints_completed" = "null" ] || [ -z "$checkpoints_completed" ]; then
+    checkpoints_completed="[]"
+  fi
+
+  # Add new checkpoint to the array
+  local new_checkpoint='{"id": '"$checkpoint_id"', "name": "'"$checkpoint_name"'", "completed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+  local updated_checkpoints=$(echo "$checkpoints_completed" | jq ". + [$new_checkpoint]")
+
+  # Build update payload
+  local update_payload='{
+    "checkpoint_index": '"$checkpoint_id"',
+    "checkpoint_message": "'"$checkpoint_name"'",
+    "checkpoints_completed": '"$updated_checkpoints"',
+    "current_task": "'"$checkpoint_name"'",
+    "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+  }'
+
+  # Add optional fields if provided
+  if [ -n "$current_file" ]; then
+    update_payload=$(echo "$update_payload" | jq '. + {"current_file": "'"$current_file"'"}')
+  fi
+  if [ -n "$phase" ]; then
+    update_payload=$(echo "$update_payload" | jq '. + {"current_phase": "'"$phase"'"}')
+  fi
+
+  # Send update to Supabase
+  curl -s -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -H "Prefer: return=minimal" \
+    -d "$update_payload" > /dev/null
+}
+# ==== END CHECKPOINT UPDATE HELPER ====
+
 # Update item status to in_progress
 curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
   -H "apikey: ${SUPABASE_KEY}" \
@@ -467,6 +528,12 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
 
 # Create execution progress record for ExecutionStatusModal visualization
 # This triggers the ExecutionStatusModal to AUTO-APPEAR in the dashboard
+#
+# Checkpoint total estimate:
+#   Init (4) + Analysis (5) + Impl (~9 for 3 files) + Validation (4) + Final (3) = ~25
+# This will be updated dynamically after determining actual file count
+INITIAL_CHECKPOINT_TOTAL=25
+
 curl -X POST "${SUPABASE_URL}/rest/v1/mason_execution_progress" \
   -H "apikey: ${SUPABASE_KEY}" \
   -H "Authorization: Bearer ${SUPABASE_KEY}" \
@@ -480,12 +547,19 @@ curl -X POST "${SUPABASE_URL}/rest/v1/mason_execution_progress" \
     "wave_status": "Starting execution...",
     "tasks_completed": 0,
     "tasks_total": 0,
+    "checkpoint_index": 0,
+    "checkpoint_total": '"${INITIAL_CHECKPOINT_TOTAL}"',
+    "checkpoint_message": "Initializing execution...",
+    "checkpoints_completed": [],
     "validation_typescript": "pending",
     "validation_eslint": "pending",
     "validation_build": "pending",
     "validation_tests": "pending",
     "started_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
   }'
+
+# === INITIAL CHECKPOINTS (IDs 1-4) ===
+update_checkpoint 1 "Initialized execution" "" "site_review"
 ```
 
 This update will appear **immediately** in the dashboard:
@@ -496,6 +570,15 @@ This update will appear **immediately** in the dashboard:
 ```bash
 # Log execution start
 log_execution "info" "Starting execution for: ${itemTitle}" '{"item_id": "'"${itemId}"'", "branch": "mason/'"${slug}"'"}'
+
+# Checkpoint: Configuration loaded (after reading mason.config.json)
+update_checkpoint 2 "Loading configuration"
+
+# Checkpoint: Fetching approved items from Supabase
+update_checkpoint 3 "Fetching approved items"
+
+# Checkpoint: PRD loaded (after retrieving prd_content)
+update_checkpoint 4 "Loaded PRD content"
 ```
 
 ### Step 5.2: Update Progress Throughout Execution (MANDATORY)
@@ -533,16 +616,52 @@ update_progress() {
 # - "inspection"  → Validation phase
 # - "complete"    → Done
 
-# Example usage during execution:
+# === ANALYSIS PHASE CHECKPOINTS (IDs 5-9) ===
+# Call these during Wave 1 (Explore/Foundation phase)
+
+# Before starting codebase analysis
+update_checkpoint 5 "Analyzing codebase (~1-2 min)" "" "foundation"
 update_progress "foundation" 1 "Exploring codebase patterns..." 0 2
 log_execution "info" "Wave 1: Exploring codebase patterns" '{"wave": 1, "phase": "foundation"}'
 
+# After reading target files
+update_checkpoint 6 "Reading target files"
+
+# After pattern identification
+update_checkpoint 7 "Identifying patterns"
+
+# After plan generation
+update_checkpoint 8 "Generated implementation plan"
 update_progress "foundation" 1 "Found existing patterns" 1 2
 log_execution "info" "Wave 1 complete: Found existing patterns" '{"wave": 1, "tasks_done": 1}'
 
+# After branch creation
+update_checkpoint 9 "Creating branch"
+
+# === IMPLEMENTATION PHASE CHECKPOINTS (IDs 10+) ===
+# Call these during Wave 2+ (Building phase)
+# Dynamically update checkpoint_total based on actual file count
+
+# Before implementation wave
+update_checkpoint 10 "Starting implementation (~2-4 min)" "" "building"
 update_progress "building" 2 "Implementing changes..." 0 3
 log_execution "info" "Wave 2: Starting implementation" '{"wave": 2, "phase": "building"}'
 
+# For each file being modified, call these checkpoints:
+# FILE_INDEX starts at 0
+# update_checkpoint $((11 + FILE_INDEX * 3)) "Analyzing ${filename}" "${filepath}" "building"
+# update_checkpoint $((12 + FILE_INDEX * 3)) "Writing ${filename}" "${filepath}"
+# update_checkpoint $((13 + FILE_INDEX * 3)) "Completed ${filename}" "${filepath}"
+
+# Example for a 3-file implementation:
+# File 1: checkpoints 11, 12, 13
+# File 2: checkpoints 14, 15, 16
+# File 3: checkpoints 17, 18, 19
+
+# === VALIDATION PHASE CHECKPOINTS (IDs 100-103) ===
+# Call these during inspection phase
+
+update_checkpoint 100 "Running TypeScript check (~30s)" "" "inspection"
 update_progress "inspection" 3 "Running TypeScript check..." 0 4
 log_execution "info" "Validation: Running TypeScript check" '{"phase": "inspection", "check": "typescript"}'
 ```
@@ -848,6 +967,7 @@ VALIDATION_FAILED=false
 # 1. TypeScript Check
 echo ""
 echo ">>> Running TypeScript check..."
+update_checkpoint 100 "Running TypeScript check (~30s)" "" "inspection"
 update_progress "inspection" 3 "Running TypeScript check..." 0 4
 curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
   -H "apikey: ${SUPABASE_KEY}" \
@@ -878,6 +998,7 @@ fi
 # 2. ESLint Check
 echo ""
 echo ">>> Running ESLint check..."
+update_checkpoint 101 "Running ESLint check (~20s)"
 curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
   -H "apikey: ${SUPABASE_KEY}" \
   -H "Authorization: Bearer ${SUPABASE_KEY}" \
@@ -907,6 +1028,7 @@ fi
 # 3. Build Check
 echo ""
 echo ">>> Running build check..."
+update_checkpoint 102 "Running build check (~1-2 min)"
 curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
   -H "apikey: ${SUPABASE_KEY}" \
   -H "Authorization: Bearer ${SUPABASE_KEY}" \
@@ -1167,6 +1289,8 @@ fi
 | Coverage    | App boots, no crashes       | All routes, interactions, UI       |
 | Use case    | Quick sanity check          | Comprehensive UI change validation |
 | When to use | Most executions             | UI-heavy changes, before release   |
+
+---
 
 ### Step 9: Auto-Fix Iteration Loop (MANDATORY ON VALIDATION FAILURE)
 
@@ -1555,6 +1679,9 @@ console.log('✅ Final validation passed - proceeding to commit');
 After ALL validations pass:
 
 ```bash
+# === FINALIZATION PHASE CHECKPOINTS (IDs 110-120) ===
+update_checkpoint 110 "Committing changes" "" "complete"
+
 git add .
 git commit -m "feat: [item title]
 
@@ -1602,6 +1729,14 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${ite
 ```
 
 ```bash
+# Checkpoint: Creating PR (if applicable)
+update_checkpoint 111 "Creating pull request"
+
+# (Optional: create PR with gh pr create)
+
+# Final checkpoint: Complete
+update_checkpoint 120 "Execution complete"
+
 # Log successful completion
 log_execution "info" "Execution complete: ${itemTitle}" '{"item_id": "'"${itemId}"'", "status": "completed", "branch": "mason/'"${slug}"'"}'
 ```

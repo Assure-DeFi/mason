@@ -8,10 +8,10 @@
       "breaking_reason": "Iterative validation loop - agents must backfill filtered items until target count reached"
     },
     "execute-approved": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "2.3.0",
-      "breaking_reason": "Dashboard UI for smoke/E2E test options"
+      "required_minimum": "2.4.0",
+      "breaking_reason": "Granular checkpoint progress tracking for ExecutionStatusModal"
     },
     "mason-update": {
       "version": "1.0.0",
