@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import {
+  apiSuccess,
+  unauthorized,
+  badRequest,
+  serverError,
+} from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 
@@ -21,10 +26,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     // Get user session
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 },
-      );
+      return unauthorized('Authentication required');
     }
 
     // Get user's database credentials from session
@@ -35,10 +37,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     };
 
     if (!user.supabaseUrl || !user.supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Database not configured. Please complete setup.' },
-        { status: 400 },
-      );
+      return badRequest('Database not configured. Please complete setup.');
     }
 
     // Connect to user's database
@@ -54,21 +53,15 @@ export async function GET(_request: Request, { params }: RouteParams) {
     if (fetchError) {
       if (fetchError.code === 'PGRST116') {
         // No analysis found
-        return NextResponse.json({ analysis: null });
+        return apiSuccess({ analysis: null });
       }
       console.error('Failed to fetch analysis:', fetchError);
-      return NextResponse.json(
-        { error: 'Failed to fetch analysis' },
-        { status: 500 },
-      );
+      return serverError('Failed to fetch analysis');
     }
 
-    return NextResponse.json({ analysis });
+    return apiSuccess({ analysis });
   } catch (err) {
     console.error('Risk analysis fetch error:', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Fetch failed' },
-      { status: 500 },
-    );
+    return serverError(err instanceof Error ? err.message : 'Fetch failed');
   }
 }

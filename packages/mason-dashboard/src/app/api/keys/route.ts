@@ -1,5 +1,4 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import {
@@ -7,6 +6,7 @@ import {
   createPaginationMeta,
   PAGINATION_LIMITS,
 } from '@/lib/api/pagination';
+import { apiSuccess, unauthorized, serverError } from '@/lib/api-response';
 import { createApiKey, listApiKeys } from '@/lib/auth/api-key';
 import { authOptions } from '@/lib/auth/auth-options';
 import {
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     const { searchParams } = new URL(request.url);
@@ -45,16 +45,13 @@ export async function GET(request: NextRequest) {
       allKeys.length,
     );
 
-    return NextResponse.json({
+    return apiSuccess({
       keys: paginatedKeys,
       pagination: meta,
     });
   } catch (error) {
     console.error('Failed to list API keys:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }
 
@@ -71,7 +68,7 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     // Rate limit API key creation to prevent abuse (5 per hour via 'strict' strategy)
@@ -90,21 +87,15 @@ export async function POST(request: Request) {
     const result = await createApiKey(session.user.id, name);
 
     if (!result) {
-      return NextResponse.json(
-        { error: 'Failed to create API key' },
-        { status: 500 },
-      );
+      return serverError('Failed to create API key');
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       key: result.key,
       info: result.info,
     });
   } catch (error) {
     console.error('Failed to create API key:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }

@@ -1,11 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import {
   analyzeDependencies,
   calculateOverallRiskScore,
 } from '@/lib/analysis/dependency-analyzer';
+import {
+  apiSuccess,
+  unauthorized,
+  badRequest,
+  notFound,
+  serverError,
+} from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import { createGitHubClient } from '@/lib/github/client';
@@ -28,10 +34,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Get user session
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 },
-      );
+      return unauthorized('Authentication required');
     }
 
     // Parse request body
@@ -39,10 +42,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const { githubToken } = body;
 
     if (!githubToken) {
-      return NextResponse.json(
-        { error: 'GitHub token required for repository analysis' },
-        { status: 400 },
-      );
+      return badRequest('GitHub token required for repository analysis');
     }
 
     // Get user's database credentials from session
@@ -53,10 +53,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     };
 
     if (!user.supabaseUrl || !user.supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Database not configured. Please complete setup.' },
-        { status: 400 },
-      );
+      return badRequest('Database not configured. Please complete setup.');
     }
 
     // Connect to user's database
@@ -70,7 +67,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       .single();
 
     if (fetchError || !item) {
-      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+      return notFound('Item not found');
     }
 
     // Get repository info
@@ -81,10 +78,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       .single();
 
     if (repoError || !repo) {
-      return NextResponse.json(
-        { error: 'Repository not found' },
-        { status: 404 },
-      );
+      return notFound('Repository not found');
     }
 
     // Create GitHub client
@@ -125,10 +119,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (analysisError) {
       console.error('Failed to save analysis:', analysisError);
-      return NextResponse.json(
-        { error: 'Failed to save analysis' },
-        { status: 500 },
-      );
+      return serverError('Failed to save analysis');
     }
 
     // Update backlog item with summary fields
@@ -148,8 +139,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       // Continue anyway - analysis is saved
     }
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       analysis: {
         ...analysis,
         overall_risk_score: overallRiskScore,
@@ -158,9 +148,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
   } catch (err) {
     console.error('Risk analysis error:', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Analysis failed' },
-      { status: 500 },
-    );
+    return serverError(err instanceof Error ? err.message : 'Analysis failed');
   }
 }

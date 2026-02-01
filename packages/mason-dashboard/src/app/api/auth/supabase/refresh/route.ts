@@ -1,6 +1,11 @@
-import type { NextRequest} from 'next/server';
-import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
+import {
+  apiSuccess,
+  unauthorized,
+  badRequest,
+  serverError,
+} from '@/lib/api-response';
 import { refreshAccessToken } from '@/lib/supabase/oauth';
 
 /**
@@ -14,20 +19,14 @@ export async function POST(request: NextRequest) {
     const { refreshToken } = await request.json();
 
     if (!refreshToken) {
-      return NextResponse.json(
-        { error: 'Missing refresh token' },
-        { status: 400 },
-      );
+      return badRequest('Missing refresh token');
     }
 
     const clientId = process.env.SUPABASE_OAUTH_CLIENT_ID;
     const clientSecret = process.env.SUPABASE_OAUTH_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
-      return NextResponse.json(
-        { error: 'OAuth not configured on server' },
-        { status: 500 },
-      );
+      return serverError('OAuth not configured on server');
     }
 
     const tokens = await refreshAccessToken({
@@ -36,19 +35,15 @@ export async function POST(request: NextRequest) {
       clientSecret,
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: tokens.expiresAt,
     });
   } catch (err) {
     console.error('Token refresh failed:', err);
-
-    return NextResponse.json(
-      {
-        error: err instanceof Error ? err.message : 'Token refresh failed',
-      },
-      { status: 401 },
+    return unauthorized(
+      err instanceof Error ? err.message : 'Token refresh failed',
     );
   }
 }

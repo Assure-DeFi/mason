@@ -1,7 +1,13 @@
-import type { NextRequest} from 'next/server';
-import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import {
+  apiSuccess,
+  unauthorized,
+  badRequest,
+  notFound,
+  serverError,
+} from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import { createGitHubClient } from '@/lib/github/client';
@@ -74,16 +80,13 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     const { repoId } = await params;
 
     if (!repoId) {
-      return NextResponse.json(
-        { error: 'Missing repository ID' },
-        { status: 400 },
-      );
+      return badRequest('Missing repository ID');
     }
 
     const supabase = createServiceClient();
@@ -97,10 +100,7 @@ export async function GET(
       .single();
 
     if (repoError || !repo) {
-      return NextResponse.json(
-        { error: 'Repository not found' },
-        { status: 404 },
-      );
+      return notFound('Repository not found');
     }
 
     // Try to get GitHub token from session
@@ -108,7 +108,7 @@ export async function GET(
 
     if (!githubToken) {
       // Return default suggestions if no token available
-      return NextResponse.json({
+      return apiSuccess({
         suggestions: getDefaultSuggestions(),
       });
     }
@@ -125,20 +125,17 @@ export async function GET(
       });
 
       const suggestions = analyzeRepoStructure(tree.tree);
-      return NextResponse.json({ suggestions });
+      return apiSuccess({ suggestions });
     } catch (githubError) {
       console.error('GitHub API error:', githubError);
       // Return default suggestions on GitHub API error
-      return NextResponse.json({
+      return apiSuccess({
         suggestions: getDefaultSuggestions(),
       });
     }
   } catch (error) {
     console.error('Error fetching repo structure:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }
 

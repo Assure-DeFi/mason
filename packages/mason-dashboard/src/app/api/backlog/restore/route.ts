@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import {
+  apiSuccess,
+  unauthorized,
+  badRequest,
+  notFound,
+  serverError,
+} from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import { backlogRestoreSchema, validateRequest } from '@/lib/schemas';
@@ -19,7 +25,7 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     // Get user's database credentials
@@ -30,10 +36,7 @@ export async function POST(request: Request) {
     };
 
     if (!user.supabaseUrl || !user.supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 400 },
-      );
+      return badRequest('Database not configured');
     }
 
     // Validate request body with Zod schema
@@ -55,18 +58,12 @@ export async function POST(request: Request) {
       .single();
 
     if (fetchError || !filteredItem) {
-      return NextResponse.json(
-        { error: 'Filtered item not found' },
-        { status: 404 },
-      );
+      return notFound('Filtered item not found');
     }
 
     // Check if already restored
     if (filteredItem.override_status === 'restored') {
-      return NextResponse.json(
-        { error: 'Item has already been restored' },
-        { status: 400 },
-      );
+      return badRequest('Item has already been restored');
     }
 
     // Create backlog item from filtered item
@@ -93,10 +90,7 @@ export async function POST(request: Request) {
 
     if (insertError) {
       console.error('Failed to create backlog item:', insertError);
-      return NextResponse.json(
-        { error: 'Failed to create backlog item' },
-        { status: 500 },
-      );
+      return serverError('Failed to create backlog item');
     }
 
     // Mark filtered item as restored
@@ -126,15 +120,12 @@ export async function POST(request: Request) {
       console.warn('Failed to track restore feedback:', trackError);
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       message: 'Item restored successfully',
       backlogItem: newItem,
     });
   } catch (error) {
     console.error('Restore error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }

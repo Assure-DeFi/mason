@@ -1,6 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import {
+  apiError,
+  unauthorized,
+  badRequest,
+  serverError,
+  ErrorCodes,
+} from '@/lib/api-response';
 import { validateProjectRef } from '@/lib/validation/supabase';
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
@@ -46,31 +53,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Validate projectRef format to prevent enumeration/misuse
   const refError = validateProjectRef(projectRef);
   if (refError) {
-    return NextResponse.json({ error: refError }, { status: 400 });
+    return badRequest(refError);
   }
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return NextResponse.json(
-      { error: 'Missing or invalid Authorization header' },
-      { status: 401 },
-    );
+    return unauthorized('Missing or invalid Authorization header');
   }
 
   let body: QueryRequestBody;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: 'Invalid request body' },
-      { status: 400 },
-    );
+    return badRequest('Invalid request body');
   }
 
   if (!body.query) {
-    return NextResponse.json(
-      { error: 'Missing query in request body' },
-      { status: 400 },
-    );
+    return badRequest('Missing query in request body');
   }
 
   try {
@@ -91,33 +89,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        {
-          error:
-            errorData.message ||
-            errorData.error ||
-            `Supabase API error: ${response.status}`,
-        },
-        { status: response.status },
+      return apiError(
+        ErrorCodes.EXTERNAL_SERVICE_ERROR,
+        errorData.message ||
+          errorData.error ||
+          `Supabase API error: ${response.status}`,
+        response.status,
       );
     }
 
     const data = await response.json();
+    // Return raw data for backward compatibility
     return NextResponse.json(data);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      return NextResponse.json(
-        {
-          error:
-            'Request timed out. The Supabase API is taking too long to respond.',
-        },
-        { status: 504 },
+      return apiError(
+        ErrorCodes.EXTERNAL_SERVICE_ERROR,
+        'Request timed out. The Supabase API is taking too long to respond.',
+        504,
       );
     }
     console.error('Failed to run query:', error);
-    return NextResponse.json(
-      { error: 'Failed to run query on Supabase' },
-      { status: 500 },
-    );
+    return serverError('Failed to run query on Supabase');
   }
 }

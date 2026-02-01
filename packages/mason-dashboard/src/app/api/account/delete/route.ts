@@ -1,6 +1,12 @@
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import {
+  apiSuccess,
+  apiError,
+  unauthorized,
+  serverError,
+  ErrorCodes,
+} from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import { accountDeleteSchema, validateRequest } from '@/lib/schemas';
@@ -23,7 +29,7 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     // Require explicit confirmation to proceed
@@ -50,22 +56,16 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Failed to delete user from central DB:', error);
-      return NextResponse.json(
-        { error: 'Failed to delete account from central database' },
-        { status: 500 },
-      );
+      return serverError('Failed to delete account from central database');
     }
 
     console.log(
       `Account deleted successfully for user ${session.user.id} at ${new Date().toISOString()}`,
     );
-    return NextResponse.json({ success: true });
+    return apiSuccess({ deleted: true });
   } catch (error) {
     console.error('Account deletion error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }
 
@@ -76,12 +76,9 @@ export async function POST(request: Request) {
  * Kept for backward compatibility guidance.
  */
 export async function DELETE() {
-  return NextResponse.json(
-    {
-      error: 'Method not allowed',
-      message:
-        'Account deletion now requires explicit confirmation. Use POST with body: { "confirmation": "DELETE MY ACCOUNT" }',
-    },
-    { status: 405 },
+  return apiError(
+    ErrorCodes.BAD_REQUEST,
+    'Account deletion now requires explicit confirmation. Use POST with body: { "confirmation": "DELETE MY ACCOUNT" }',
+    405,
   );
 }

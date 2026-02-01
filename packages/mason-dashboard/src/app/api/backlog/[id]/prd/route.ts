@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import {
+  apiSuccess,
+  unauthorized,
+  badRequest,
+  serverError,
+} from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 
@@ -21,10 +26,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     // Get user session
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 },
-      );
+      return unauthorized('Authentication required');
     }
 
     // Get user's database credentials from session
@@ -35,10 +37,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     };
 
     if (!user.supabaseUrl || !user.supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Database not configured. Please complete setup.' },
-        { status: 400 },
-      );
+      return badRequest('Database not configured. Please complete setup.');
     }
 
     // Parse request body
@@ -46,10 +45,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const { prd_content } = body;
 
     if (typeof prd_content !== 'string') {
-      return NextResponse.json(
-        { error: 'prd_content is required and must be a string' },
-        { status: 400 },
-      );
+      return badRequest('prd_content is required and must be a string');
     }
 
     // Connect to user's database
@@ -68,18 +64,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     if (updateError) {
       console.error('Failed to update PRD:', updateError);
-      return NextResponse.json(
-        { error: 'Failed to update PRD content' },
-        { status: 500 },
-      );
+      return serverError('Failed to update PRD content');
     }
 
-    return NextResponse.json({ item: data });
+    return apiSuccess({ item: data });
   } catch (err) {
     console.error('PRD update error:', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Update failed' },
-      { status: 500 },
-    );
+    return serverError(err instanceof Error ? err.message : 'Update failed');
   }
 }

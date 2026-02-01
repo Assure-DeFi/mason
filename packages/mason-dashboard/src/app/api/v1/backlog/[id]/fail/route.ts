@@ -1,5 +1,11 @@
-import { NextResponse } from 'next/server';
-
+import {
+  apiSuccess,
+  unauthorized,
+  badRequest,
+  notFound,
+  conflict,
+  serverError,
+} from '@/lib/api-response';
 import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
 import { TABLES } from '@/lib/constants';
 import { createServiceClient } from '@/lib/supabase/client';
@@ -33,26 +39,20 @@ export async function POST(request: Request, { params }: RouteParams) {
     const apiKey = extractApiKeyFromHeader(authHeader);
 
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'Missing or invalid Authorization header' },
-        { status: 401 },
-      );
+      return unauthorized('Missing or invalid Authorization header');
     }
 
     const user = await validateApiKey(apiKey);
 
     if (!user) {
-      return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
+      return unauthorized('Invalid API key');
     }
 
     // Get item ID from route params
     const { id: itemId } = await params;
 
     if (!itemId) {
-      return NextResponse.json(
-        { error: 'Missing item ID in URL' },
-        { status: 400 },
-      );
+      return badRequest('Missing item ID in URL');
     }
 
     // Parse request body (optional)
@@ -107,23 +107,16 @@ export async function POST(request: Request, { params }: RouteParams) {
         .single();
 
       if (!currentItem) {
-        return NextResponse.json(
-          { error: 'Backlog item not found' },
-          { status: 404 },
-        );
+        return notFound('Backlog item not found');
       }
 
-      return NextResponse.json(
-        {
-          error: `Cannot fail item: status is '${currentItem.status}', must be 'in_progress'`,
-          current_status: currentItem.status,
-        },
-        { status: 409 }, // 409 Conflict - status changed between request
+      return conflict(
+        `Cannot fail item: status is '${currentItem.status}', must be 'in_progress'`,
+        { current_status: currentItem.status },
       );
     }
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       item: {
         id: updatedItem.id,
         title: updatedItem.title,
@@ -137,9 +130,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('Error failing backlog item:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }

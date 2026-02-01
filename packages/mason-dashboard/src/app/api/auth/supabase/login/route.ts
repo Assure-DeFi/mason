@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+import { serverError } from '@/lib/api-response';
 import {
   generateCodeVerifier,
   generateCodeChallenge,
@@ -28,13 +29,8 @@ export async function GET(request: Request) {
   const returnTo = url.searchParams.get('return_to') || '/setup';
 
   if (!clientId || !redirectUri) {
-    return NextResponse.json(
-      {
-        error: 'Supabase OAuth not configured',
-        message:
-          'Please set SUPABASE_OAUTH_CLIENT_ID and NEXT_PUBLIC_SUPABASE_OAUTH_REDIRECT_URI environment variables',
-      },
-      { status: 500 },
+    return serverError(
+      'Supabase OAuth not configured. Please set SUPABASE_OAUTH_CLIENT_ID and NEXT_PUBLIC_SUPABASE_OAUTH_REDIRECT_URI environment variables',
     );
   }
 

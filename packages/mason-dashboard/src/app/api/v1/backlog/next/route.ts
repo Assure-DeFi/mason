@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server';
-
+import { apiSuccess, unauthorized, serverError } from '@/lib/api-response';
 import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
 import { TABLES } from '@/lib/constants';
 import { createServiceClient } from '@/lib/supabase/client';
@@ -21,16 +20,13 @@ export async function GET(request: Request) {
     const apiKey = extractApiKeyFromHeader(authHeader);
 
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'Missing or invalid Authorization header' },
-        { status: 401 },
-      );
+      return unauthorized('Missing or invalid Authorization header');
     }
 
     const user = await validateApiKey(apiKey);
 
     if (!user) {
-      return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
+      return unauthorized('Invalid API key');
     }
 
     // Parse query parameters
@@ -89,21 +85,15 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error('Failed to fetch next backlog item:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch backlog items' },
-        { status: 500 },
-      );
+      return serverError('Failed to fetch backlog items');
     }
 
     // No approved items found
     if (!data || data.length === 0) {
-      return NextResponse.json(
-        {
-          items: [],
-          message: 'No approved items available for execution',
-        },
-        { status: 200 },
-      );
+      return apiSuccess({
+        items: [],
+        message: 'No approved items available for execution',
+      });
     }
 
     // Transform benefits_json to benefits array for consistency
@@ -114,21 +104,18 @@ export async function GET(request: Request) {
 
     // Return single item or array based on limit
     if (limit === 1) {
-      return NextResponse.json({
+      return apiSuccess({
         item: items[0],
         total_approved: data.length,
       });
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       items,
       count: items.length,
     });
   } catch (error) {
     console.error('Error fetching next backlog item:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }

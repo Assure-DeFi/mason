@@ -1,6 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import {
+  apiError,
+  unauthorized,
+  serverError,
+  ErrorCodes,
+} from '@/lib/api-response';
+
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
 
 async function fetchWithTimeout(
@@ -32,10 +39,7 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return NextResponse.json(
-      { error: 'Missing or invalid Authorization header' },
-      { status: 401 },
-    );
+    return unauthorized('Missing or invalid Authorization header');
   }
 
   try {
@@ -48,33 +52,27 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        {
-          error:
-            errorData.message ||
-            errorData.error ||
-            `Supabase API error: ${response.status}`,
-        },
-        { status: response.status },
+      return apiError(
+        ErrorCodes.EXTERNAL_SERVICE_ERROR,
+        errorData.message ||
+          errorData.error ||
+          `Supabase API error: ${response.status}`,
+        response.status,
       );
     }
 
     const data = await response.json();
+    // Return raw data for backward compatibility (this endpoint returns the Supabase API response directly)
     return NextResponse.json(data);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      return NextResponse.json(
-        {
-          error:
-            'Request timed out. The Supabase API is taking too long to respond.',
-        },
-        { status: 504 },
+      return apiError(
+        ErrorCodes.EXTERNAL_SERVICE_ERROR,
+        'Request timed out. The Supabase API is taking too long to respond.',
+        504,
       );
     }
     console.error('Failed to fetch projects:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch projects from Supabase' },
-      { status: 500 },
-    );
+    return serverError('Failed to fetch projects from Supabase');
   }
 }

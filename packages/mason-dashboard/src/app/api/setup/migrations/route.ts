@@ -1,7 +1,12 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import {
+  apiSuccess,
+  unauthorized,
+  badRequest,
+  serverError,
+} from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { runMigrations } from '@/lib/supabase/pg-migrate';
 
@@ -728,7 +733,7 @@ export async function POST(request: NextRequest) {
     // Require authentication before processing any migration request
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     const body = await request.json();
@@ -747,13 +752,8 @@ export async function POST(request: NextRequest) {
       if (requestSupabaseUrl) {
         const expectedRef = extractProjectRefFromUrl(requestSupabaseUrl);
         if (expectedRef && expectedRef !== projectRef) {
-          return NextResponse.json(
-            {
-              error:
-                'Security validation failed: Project reference does not match your configured Supabase URL. This may indicate a configuration issue.',
-              code: 'PROJECT_MISMATCH',
-            },
-            { status: 400 },
+          return badRequest(
+            'Security validation failed: Project reference does not match your configured Supabase URL. This may indicate a configuration issue.',
           );
         }
       }
@@ -764,7 +764,7 @@ export async function POST(request: NextRequest) {
       );
 
       if (!result.success) {
-        return NextResponse.json({ error: result.error }, { status: 500 });
+        return serverError(result.error);
       }
 
       // Run verification to check realtime is properly configured
@@ -773,8 +773,7 @@ export async function POST(request: NextRequest) {
         accessToken,
       );
 
-      return NextResponse.json({
-        success: true,
+      return apiSuccess({
         realtime: verification.success
           ? {
               verified: true,
@@ -795,10 +794,7 @@ export async function POST(request: NextRequest) {
 
     // Method 2: Direct PostgreSQL connection (fallback)
     if (!connectionString && (!supabaseUrl || !databasePassword)) {
-      return NextResponse.json(
-        { error: 'Missing Supabase URL or Database Password' },
-        { status: 400 },
-      );
+      return badRequest('Missing Supabase URL or Database Password');
     }
 
     const result = await runMigrations(
@@ -809,16 +805,12 @@ export async function POST(request: NextRequest) {
     );
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.error, errorType: result.errorType },
-        { status: 500 },
-      );
+      return serverError(result.error);
     }
 
     // Note: For direct connection, we can't easily verify realtime without the Management API
     // The verification would require parsing pg connection string and running the verification query
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       realtime: {
         verified: false,
         note: 'Realtime verification requires OAuth authentication. Migrations applied successfully.',
@@ -826,9 +818,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Migration error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Migration failed' },
-      { status: 500 },
+    return serverError(
+      error instanceof Error ? error.message : 'Migration failed',
     );
   }
 }

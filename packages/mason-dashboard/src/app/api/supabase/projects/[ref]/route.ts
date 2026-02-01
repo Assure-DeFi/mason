@@ -1,6 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import {
+  apiError,
+  unauthorized,
+  badRequest,
+  serverError,
+  ErrorCodes,
+} from '@/lib/api-response';
 import { validateProjectRef } from '@/lib/validation/supabase';
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
@@ -22,14 +29,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   // Validate projectRef format to prevent enumeration/misuse
   const refError = validateProjectRef(projectRef);
   if (refError) {
-    return NextResponse.json({ error: refError }, { status: 400 });
+    return badRequest(refError);
   }
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return NextResponse.json(
-      { error: 'Missing or invalid Authorization header' },
-      { status: 401 },
-    );
+    return unauthorized('Missing or invalid Authorization header');
   }
 
   try {
@@ -45,24 +49,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        {
-          error:
-            errorData.message ||
-            errorData.error ||
-            `Supabase API error: ${response.status}`,
-        },
-        { status: response.status },
+      return apiError(
+        ErrorCodes.EXTERNAL_SERVICE_ERROR,
+        errorData.message ||
+          errorData.error ||
+          `Supabase API error: ${response.status}`,
+        response.status,
       );
     }
 
     const data = await response.json();
+    // Return raw data for backward compatibility
     return NextResponse.json(data);
   } catch (error) {
     console.error('Failed to fetch project:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch project from Supabase' },
-      { status: 500 },
-    );
+    return serverError('Failed to fetch project from Supabase');
   }
 }

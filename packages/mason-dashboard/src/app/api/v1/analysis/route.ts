@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server';
-
+import { apiSuccess, unauthorized, serverError } from '@/lib/api-response';
 import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
 import { TABLES } from '@/lib/constants';
 import { createServiceClient } from '@/lib/supabase/client';
@@ -21,16 +20,13 @@ export async function POST(request: Request) {
     const apiKey = extractApiKeyFromHeader(authHeader);
 
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'Missing or invalid Authorization header' },
-        { status: 401 },
-      );
+      return unauthorized('Missing or invalid Authorization header');
     }
 
     const user = await validateApiKey(apiKey);
 
     if (!user) {
-      return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
+      return unauthorized('Invalid API key');
     }
 
     // Fetch user's connected repositories for multi-repo support
@@ -48,7 +44,7 @@ export async function POST(request: Request) {
     // Return validation success with user info and connected repositories
     // The CLI will use this to confirm identity before writing to their own Supabase
     // Repositories are included so CLI can match current git remote to get repository_id
-    return NextResponse.json({
+    return apiSuccess({
       valid: true,
       user_id: user.id,
       github_username: user.github_username,
@@ -57,9 +53,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('API key validation error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }

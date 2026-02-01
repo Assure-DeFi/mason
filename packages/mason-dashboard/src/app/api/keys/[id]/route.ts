@@ -1,6 +1,12 @@
-import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import {
+  apiSuccess,
+  unauthorized,
+  badRequest,
+  forbidden,
+  serverError,
+} from '@/lib/api-response';
 import { deleteApiKey } from '@/lib/auth/api-key';
 import { authOptions } from '@/lib/auth/auth-options';
 
@@ -16,37 +22,28 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorized();
     }
 
     const { id } = await params;
 
     if (!id) {
-      return NextResponse.json({ error: 'Missing key ID' }, { status: 400 });
+      return badRequest('Missing key ID');
     }
 
     const result = await deleteApiKey(id, session.user.id);
 
     if (result === 'not_found') {
-      return NextResponse.json(
-        { error: 'API key not found or access denied' },
-        { status: 403 },
-      );
+      return forbidden('API key not found or access denied');
     }
 
     if (result === 'error') {
-      return NextResponse.json(
-        { error: 'Failed to delete API key' },
-        { status: 500 },
-      );
+      return serverError('Failed to delete API key');
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ deleted: true });
   } catch (error) {
     console.error('Failed to delete API key:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return serverError();
   }
 }
