@@ -300,6 +300,19 @@ CREATE TABLE IF NOT EXISTS mason_autopilot_runs (
   completed_at TIMESTAMPTZ
 );
 
+-- Mason Item Events table (status change history tracking)
+-- Records actual status change events with timestamps for audit trail
+CREATE TABLE IF NOT EXISTS mason_item_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  item_id UUID NOT NULL REFERENCES mason_pm_backlog_items(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL CHECK (event_type IN ('status_changed', 'prd_generated', 'branch_created', 'pr_created', 'note_added')),
+  old_value TEXT,
+  new_value TEXT,
+  user_id UUID REFERENCES mason_users(id) ON DELETE SET NULL,
+  notes TEXT
+);
+
 -- Mason Audit Logs table (security event tracking)
 -- Captures authentication events, API key lifecycle, and sensitive operations
 CREATE TABLE IF NOT EXISTS mason_audit_logs (
@@ -424,6 +437,8 @@ CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_started_at ON mason_autopilo
 CREATE INDEX IF NOT EXISTS idx_mason_audit_logs_user_id ON mason_audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_audit_logs_event_type ON mason_audit_logs(event_type);
 CREATE INDEX IF NOT EXISTS idx_mason_audit_logs_created_at ON mason_audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mason_item_events_item_id ON mason_item_events(item_id);
+CREATE INDEX IF NOT EXISTS idx_mason_item_events_created_at ON mason_item_events(created_at DESC);
 
 -- Composite index for backlog item filtering (user + status + priority for common dashboard query)
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_user_status_priority ON mason_pm_backlog_items(user_id, status, priority_score DESC);
@@ -441,6 +456,7 @@ ALTER TABLE mason_dependency_analysis ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_autopilot_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_autopilot_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_item_events ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (BYOD model - users own their database, allow all operations)
 -- Users table
@@ -524,6 +540,13 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_audit_logs' AND policyname = 'Allow all on audit_logs') THEN
     CREATE POLICY "Allow all on audit_logs" ON mason_audit_logs FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Item Events table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_item_events' AND policyname = 'Allow all on item_events') THEN
+    CREATE POLICY "Allow all on item_events" ON mason_item_events FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 

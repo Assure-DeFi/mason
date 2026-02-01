@@ -1104,7 +1104,7 @@ export default function BacklogPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
               {session && (
                 <RepositorySelector
                   value={selectedRepoId}
@@ -1113,14 +1113,14 @@ export default function BacklogPage() {
               )}
 
               {/* Search Input */}
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
                   type="text"
                   placeholder="Search backlog..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-48 pl-9 pr-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm placeholder-gray-500 focus:outline-none focus:border-gold"
+                  className="w-40 lg:w-48 pl-9 pr-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm placeholder-gray-500 focus:outline-none focus:border-gold"
                 />
               </div>
 
@@ -1132,7 +1132,7 @@ export default function BacklogPage() {
                     e.target.value as 'all' | 'manual' | 'autopilot',
                   )
                 }
-                className="px-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm focus:outline-none focus:border-gold"
+                className="flex-shrink-0 px-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm focus:outline-none focus:border-gold"
               >
                 <option value="all">All Sources</option>
                 <option value="manual">Manual Only</option>
@@ -1141,7 +1141,7 @@ export default function BacklogPage() {
 
               <button
                 onClick={() => setShowGenerateIdeasModal(true)}
-                className="flex items-center gap-2 px-4 py-2 min-h-[44px] bg-gold text-navy font-medium hover:bg-gold/90 transition-colors touch-feedback"
+                className="flex-shrink-0 flex items-center gap-2 px-4 py-2 min-h-[40px] bg-gold text-navy font-medium whitespace-nowrap hover:bg-gold/90 transition-colors touch-feedback"
               >
                 <Sparkles className="w-4 h-4" />
                 Generate New Ideas
@@ -1150,7 +1150,7 @@ export default function BacklogPage() {
               <button
                 onClick={fetchItems}
                 disabled={isLoading}
-                className="flex items-center gap-2 px-4 py-2 min-h-[44px] border border-gray-700 text-gray-300 hover:bg-white/5 disabled:opacity-50 touch-feedback"
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 min-h-[40px] border border-gray-700 text-gray-300 whitespace-nowrap hover:bg-white/5 disabled:opacity-50 touch-feedback"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}

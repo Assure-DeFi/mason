@@ -52,6 +52,9 @@ export const TABLES = {
 
   // Security/Audit tables
   AUDIT_LOGS: 'mason_audit_logs',
+
+  // Item event history tracking
+  ITEM_EVENTS: 'mason_item_events',
 } as const;
 
 /**
