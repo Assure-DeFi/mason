@@ -5,6 +5,8 @@ import {
   useVideoConfig,
   interpolate,
   spring,
+  Img,
+  staticFile,
 } from 'remotion';
 
 /**
@@ -202,23 +204,15 @@ export const CTAScene: React.FC = () => {
             Built by
           </span>
           <div className="flex items-center gap-3">
-            {/* Assure DeFi logo mark */}
-            <div
-              className="flex items-center justify-center rounded-full"
+            {/* Assure DeFi logo */}
+            <Img
+              src={staticFile('assure-defi-logo.svg')}
               style={{
-                width: 48,
                 height: 48,
-                background: 'linear-gradient(135deg, #E2D243 0%, #C9B63B 100%)',
-                boxShadow: '0 0 25px rgba(226, 210, 67, 0.5)',
+                width: 'auto',
+                filter: 'drop-shadow(0 0 20px rgba(226, 210, 67, 0.4))',
               }}
-            >
-              <span
-                className="font-inter font-black"
-                style={{ fontSize: 28, color: '#0A0724' }}
-              >
-                A
-              </span>
-            </div>
+            />
             <span
               className="font-inter font-bold"
               style={{ fontSize: 32, color: '#FFFFFF' }}
