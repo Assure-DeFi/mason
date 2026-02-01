@@ -12,15 +12,19 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+import type { ImpactRadius } from '@/lib/analysis/cross-repo-analyzer';
 import type { DependencyAnalysis, BreakingChange } from '@/types/backlog';
 import { getRiskLevel, getRiskBgColor } from '@/types/backlog';
 
+import { ImpactRadiusView } from './ImpactRadiusView';
 import { RiskBadge } from './RiskBadge';
 
 interface RiskAnalysisViewProps {
   analysis: DependencyAnalysis | null;
   isLoading?: boolean;
   analyzedAt?: string | null;
+  crossRepoImpact?: ImpactRadius | null;
+  sourceRepoName?: string;
 }
 
 /**
@@ -31,6 +35,8 @@ export function RiskAnalysisView({
   analysis,
   isLoading = false,
   analyzedAt,
+  crossRepoImpact,
+  sourceRepoName,
 }: RiskAnalysisViewProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
@@ -234,6 +240,20 @@ export function RiskAnalysisView({
           />
         )}
       </div>
+
+      {/* Cross-Repository Impact Analysis */}
+      {(crossRepoImpact || sourceRepoName) && (
+        <div>
+          <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+            <GitBranch className="w-4 h-4" />
+            Cross-Repository Impact
+          </h4>
+          <ImpactRadiusView
+            impactRadius={crossRepoImpact ?? null}
+            sourceRepoName={sourceRepoName ?? 'Current Repository'}
+          />
+        </div>
+      )}
     </div>
   );
 }
