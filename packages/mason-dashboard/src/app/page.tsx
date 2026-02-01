@@ -27,7 +27,7 @@ type TransitionPhase =
 function WelcomeBackView({ username }: { username: string }) {
   return (
     <main className="relative min-h-screen bg-navy">
-      <LandingHeader showCTA={false} />
+      <LandingHeader />
       <div className="flex flex-col items-center justify-center px-4 py-20">
         <div
           className="mason-entrance text-center"

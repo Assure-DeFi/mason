@@ -4,11 +4,8 @@ import { ArrowRight, Play, Pause } from 'lucide-react';
 import Link from 'next/link';
 import { useRef, useState, useEffect } from 'react';
 
-import { MasonAvatar } from '@/components/brand';
-
 /**
- * Hero section - Video-first design with full-width prominence
- * Tight header, massive video, supporting text below
+ * Hero section - CTA above video, video is the star
  */
 export function HeroSection() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -47,18 +44,27 @@ export function HeroSection() {
   return (
     <section className="px-4 pb-12 pt-4 sm:px-6 sm:pb-16 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        {/* Tight Header - Avatar + Headline */}
-        <div className="mason-entrance mb-6 flex items-center justify-center gap-3 sm:mb-8">
-          <MasonAvatar size="md" variant="detailed" priority />
-          <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl lg:text-3xl">
+        {/* Action Bar - Headline + CTA above video */}
+        <div className="mason-entrance mb-6 text-center sm:mb-8">
+          <h1 className="mb-2 text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">
             Mason finds what to fix
             <span className="text-gold"> and ships it.</span>
           </h1>
+          <p className="mb-4 text-sm text-gray-400 sm:text-base">
+            Self-improving code. ~5 minutes to start.
+          </p>
+          <Link
+            href="/setup"
+            className="group inline-flex items-center gap-2 rounded-lg bg-gold px-8 py-3.5 text-base font-semibold text-navy transition-all hover:shadow-lg hover:shadow-gold/25 sm:text-lg"
+          >
+            Start Now
+            <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+          </Link>
         </div>
 
-        {/* THE VIDEO - Full width, front and center */}
+        {/* THE VIDEO - Full width, the star */}
         <div
-          className="mason-entrance mb-8 sm:mb-10"
+          className="mason-entrance mb-6 sm:mb-8"
           style={{ animationDelay: '0.05s' }}
         >
           {/* Dramatic glow effect */}
@@ -108,42 +114,13 @@ export function HeroSection() {
           </div>
         </div>
 
-        {/* Text + CTA below video */}
-        <div
-          className="mason-entrance text-center"
+        {/* Minimal supporting text */}
+        <p
+          className="mason-entrance text-center text-sm text-gray-500"
           style={{ animationDelay: '0.1s' }}
         >
-          {/* Subheadline */}
-          <p className="mx-auto mb-6 max-w-2xl text-base text-gray-400 sm:text-lg">
-            Connect your project. Mason scans it, suggests improvements, turns
-            them into tasks, and helps you execute.{' '}
-            <span className="text-white">Self-improving code.</span>
-          </p>
-
-          {/* CTA */}
-          <div className="mb-4 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link
-              href="/setup"
-              className="group flex items-center gap-2 rounded-lg bg-gold px-8 py-3.5 text-base font-semibold text-navy transition-all hover:shadow-lg hover:shadow-gold/25 sm:text-lg"
-            >
-              Start with Mason
-              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-            </Link>
-            <Link
-              href="/docs"
-              className="text-base text-gray-400 transition-colors hover:text-white"
-            >
-              View documentation
-            </Link>
-          </div>
-
-          {/* Time estimate + Tagline */}
-          <p className="text-sm text-gray-500">
-            Get started in ~5 minutes
-            <span className="mx-2 text-gray-700">·</span>
-            <span className="text-gray-600">Zero maintenance. Rock solid by design.</span>
-          </p>
-        </div>
+          Zero maintenance. Rock solid by design.
+        </p>
       </div>
     </section>
   );

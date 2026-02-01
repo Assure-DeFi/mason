@@ -11,16 +11,12 @@ import { MasonMark } from '@/components/brand';
 
 interface LandingHeaderProps {
   className?: string;
-  showCTA?: boolean;
 }
 
 /**
- * Landing page header with navigation
+ * Landing page header with navigation (CTA moved to hero)
  */
-export function LandingHeader({
-  className,
-  showCTA = true,
-}: LandingHeaderProps) {
+export function LandingHeader({ className }: LandingHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
@@ -87,14 +83,6 @@ export function LandingHeader({
             ))}
             <div className="h-4 w-px bg-gray-700" />
             <UserMenu />
-            {showCTA && (
-              <Link
-                href="/setup"
-                className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-navy transition-opacity hover:opacity-90"
-              >
-                Start with Mason
-              </Link>
-            )}
           </nav>
 
           {/* Mobile Menu Button */}
@@ -140,15 +128,6 @@ export function LandingHeader({
               <div className="px-2 py-3">
                 <UserMenu />
               </div>
-              {showCTA && (
-                <Link
-                  href="/setup"
-                  className="mx-2 rounded-lg bg-gold px-4 py-3 text-center text-sm font-semibold text-navy transition-opacity hover:opacity-90"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Start with Mason
-                </Link>
-              )}
             </nav>
           </div>
         )}
