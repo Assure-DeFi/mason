@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.6.0
+version: 2.7.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -1356,6 +1356,18 @@ if [ "$VALIDATION_FAILED" = true ]; then
     -H "Content-Type: application/json" \
     -H "Prefer: return=minimal" \
     -d '{"status": "rejected", "failure_reason": "Validation failed after '"$MAX_FIX_ITERATIONS"' fix iterations", "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+
+  # Update progress record to show failure (MANDATORY - enables dashboard to show failed state)
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -H "Prefer: return=minimal" \
+    -d '{
+      "current_phase": "failed",
+      "wave_status": "Validation failed after '"$MAX_FIX_ITERATIONS"' iterations",
+      "completed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+    }'
 
   # DO NOT PROCEED - Exit execution for this item
   echo "Skipping commit and PR creation for this item"

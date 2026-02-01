@@ -539,6 +539,17 @@ prompt: |
   - Supabase URL: ${supabaseUrl}
   - Focus (if any): ${focus_context}
 
+  ## Domain Knowledge (from Step 1)
+  Use this context to prioritize and tailor your suggestions:
+  - **User Priorities**: ${DOMAIN_PRIORITIES}  # What matters most to the user (from SKILL.md)
+  - **Off-Limits Areas**: ${OFF_LIMITS}  # Areas to SKIP (from SKILL.md)
+  - **User Persona**: ${USER_PERSONA}  # Who uses this app (from SKILL.md)
+
+  Apply domain knowledge when generating suggestions:
+  - Prioritize issues in high-priority domains
+  - Skip suggestions in off-limits areas entirely
+  - Frame benefits to match the user persona
+
   **TARGET (MUST DELIVER EXACTLY THIS MANY VALIDATED ITEMS):**
   - ITEM_TARGET: ${ITEM_LIMIT}  # You MUST return exactly this many VALIDATED items
   - INCLUDE_BANGER: ${INCLUDE_BANGER}  # true = also generate 1 banger idea (Feature agent only)

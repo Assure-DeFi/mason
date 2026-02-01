@@ -8,10 +8,10 @@
       "breaking_reason": "PRD generation now happens BEFORE submission - fixes missing PRD bug"
     },
     "execute-approved": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "2.6.0",
-      "breaking_reason": "Removed unused execution logging - only execution_progress table used"
+      "required_minimum": "2.7.0",
+      "breaking_reason": "Progress record now updated on failure - enables dashboard to show failed state"
     },
     "mason-update": {
       "version": "1.0.0",
