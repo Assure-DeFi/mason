@@ -31,10 +31,7 @@ import { runMigrations } from '@/lib/supabase/pg-migrate';
  *   - mason_pm_analysis_runs
  *   - mason_pm_backlog_items
  *   - mason_pm_filtered_items
- *   - mason_pm_execution_runs
- *   - mason_pm_execution_tasks
- *   - mason_execution_progress
- *   - mason_execution_logs
+ *   - mason_execution_progress (realtime status updates)
  *   - mason_pm_restore_feedback
  *   - mason_dependency_analysis
  *   - mason_autopilot_config
@@ -161,43 +158,11 @@ CREATE TABLE IF NOT EXISTS mason_pm_filtered_items (
   repository_id UUID REFERENCES mason_github_repositories(id) ON DELETE SET NULL
 );
 
--- Mason PM Execution Runs table (tracks /execute-approved runs)
-CREATE TABLE IF NOT EXISTS mason_pm_execution_runs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  item_count INTEGER NOT NULL DEFAULT 0,
-  started_at TIMESTAMPTZ DEFAULT NOW(),
-  completed_at TIMESTAMPTZ,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'success', 'failed', 'cancelled')),
-  error_message TEXT,
-  tasks_completed INTEGER DEFAULT 0,
-  tasks_failed INTEGER DEFAULT 0,
-  total_tasks INTEGER DEFAULT 0
-);
-
--- Mason PM Execution Tasks table (individual tasks within an execution run)
-CREATE TABLE IF NOT EXISTS mason_pm_execution_tasks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  run_id UUID NOT NULL REFERENCES mason_pm_execution_runs(id) ON DELETE CASCADE,
-  item_id UUID NOT NULL REFERENCES mason_pm_backlog_items(id) ON DELETE CASCADE,
-  wave_number INTEGER NOT NULL,
-  task_number INTEGER NOT NULL,
-  description TEXT NOT NULL,
-  subagent_type TEXT NOT NULL CHECK (subagent_type IN ('Explore', 'general-purpose', 'Bash', 'code-reviewer', 'frontend-design', 'Plan')),
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'failed', 'skipped')),
-  started_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
-  error_message TEXT,
-  result_summary TEXT
-);
-
 -- Mason Execution Progress table (real-time progress for dashboard updates)
--- Provides granular progress tracking during CLI execution
+-- This is the ONLY execution table needed - dashboard subscribes to this for live updates
 CREATE TABLE IF NOT EXISTS mason_execution_progress (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   item_id UUID NOT NULL REFERENCES mason_pm_backlog_items(id) ON DELETE CASCADE,
-  run_id UUID REFERENCES mason_pm_execution_runs(id) ON DELETE CASCADE,
 
   -- Execution phase
   current_phase TEXT DEFAULT 'site_review' CHECK (current_phase IN ('site_review', 'foundation', 'building', 'inspection', 'complete')),
@@ -243,17 +208,6 @@ CREATE TABLE IF NOT EXISTS mason_execution_progress (
   completed_at TIMESTAMPTZ,
 
   UNIQUE(item_id)
-);
-
--- Mason Execution Logs table (detailed logging from CLI execution)
--- Stores structured logs from /execute-approved for debugging and audit trail
-CREATE TABLE IF NOT EXISTS mason_execution_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  execution_run_id UUID REFERENCES mason_pm_execution_runs(id) ON DELETE CASCADE,
-  log_level TEXT NOT NULL DEFAULT 'info' CHECK (log_level IN ('debug', 'info', 'warn', 'error')),
-  message TEXT NOT NULL,
-  metadata JSONB DEFAULT '{}'::jsonb
 );
 
 -- Mason PM Restore Feedback table (tracks restored items for confidence decay)
@@ -410,10 +364,6 @@ ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS skip_reason TEXT;
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS autopilot_run_id UUID REFERENCES mason_autopilot_runs(id) ON DELETE SET NULL;
 
--- Add user_id and repository_id to execution runs for multi-tenant queries
-ALTER TABLE mason_pm_execution_runs ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
-ALTER TABLE mason_pm_execution_runs ADD COLUMN IF NOT EXISTS repository_id UUID REFERENCES mason_github_repositories(id) ON DELETE SET NULL;
-
 -- Add checkpoint-based progress tracking columns (for existing databases)
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_index INTEGER DEFAULT 0;
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoint_total INTEGER DEFAULT 0;
@@ -455,16 +405,7 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_status ON mason_pm_backlog
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_repository_id ON mason_pm_backlog_items(repository_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_analysis_runs_user_id ON mason_pm_analysis_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_filtered_items_repository_id ON mason_pm_filtered_items(repository_id);
-CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_runs_status ON mason_pm_execution_runs(status);
-CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_runs_created_at ON mason_pm_execution_runs(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_run_id ON mason_pm_execution_tasks(run_id);
-CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_item_id ON mason_pm_execution_tasks(item_id);
-CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_status ON mason_pm_execution_tasks(status);
-CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_tasks_wave ON mason_pm_execution_tasks(run_id, wave_number);
 CREATE INDEX IF NOT EXISTS idx_mason_execution_progress_item ON mason_execution_progress(item_id);
-CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_run_id ON mason_execution_logs(execution_run_id);
-CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_level ON mason_execution_logs(log_level);
-CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_created_at ON mason_execution_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_tier ON mason_pm_restore_feedback(filter_tier);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_filtered_item ON mason_pm_restore_feedback(filtered_item_id);
 CREATE INDEX IF NOT EXISTS idx_mason_dependency_analysis_item ON mason_dependency_analysis(item_id);
@@ -487,10 +428,6 @@ CREATE INDEX IF NOT EXISTS idx_mason_audit_logs_created_at ON mason_audit_logs(c
 -- Composite index for backlog item filtering (user + status + priority for common dashboard query)
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_user_status_priority ON mason_pm_backlog_items(user_id, status, priority_score DESC);
 
--- Index for execution runs by user/repository
-CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_runs_user_id ON mason_pm_execution_runs(user_id);
-CREATE INDEX IF NOT EXISTS idx_mason_pm_execution_runs_repository_id ON mason_pm_execution_runs(repository_id);
-
 -- Enable Row Level Security
 ALTER TABLE mason_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_api_keys ENABLE ROW LEVEL SECURITY;
@@ -498,10 +435,7 @@ ALTER TABLE mason_github_repositories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_analysis_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_backlog_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_filtered_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mason_pm_execution_runs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mason_pm_execution_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_execution_progress ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mason_execution_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_pm_restore_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_dependency_analysis ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_autopilot_config ENABLE ROW LEVEL SECURITY;
@@ -551,31 +485,10 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- PM Execution Runs table
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_execution_runs' AND policyname = 'Allow all on pm_execution_runs') THEN
-    CREATE POLICY "Allow all on pm_execution_runs" ON mason_pm_execution_runs FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-END $$;
-
--- PM Execution Tasks table
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_pm_execution_tasks' AND policyname = 'Allow all on pm_execution_tasks') THEN
-    CREATE POLICY "Allow all on pm_execution_tasks" ON mason_pm_execution_tasks FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-END $$;
-
 -- Execution Progress table
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_execution_progress' AND policyname = 'Allow all on execution_progress') THEN
     CREATE POLICY "Allow all on execution_progress" ON mason_execution_progress FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-END $$;
-
--- Execution Logs table
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_execution_logs' AND policyname = 'Allow all on execution_logs') THEN
-    CREATE POLICY "Allow all on execution_logs" ON mason_execution_logs FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 

@@ -36,12 +36,9 @@ export const TABLES = {
   PM_BACKLOG_ITEMS: 'mason_pm_backlog_items',
   PM_ANALYSIS_RUNS: 'mason_pm_analysis_runs',
   PM_FILTERED_ITEMS: 'mason_pm_filtered_items',
-  PM_EXECUTION_RUNS: 'mason_pm_execution_runs',
-  PM_EXECUTION_TASKS: 'mason_pm_execution_tasks',
 
-  // Execution tables (CLI writes to this for dashboard visualization)
+  // Execution progress (CLI writes here, dashboard subscribes for realtime updates)
   EXECUTION_PROGRESS: 'mason_execution_progress',
-  EXECUTION_LOGS: 'mason_execution_logs',
 
   // Feedback tracking
   PM_RESTORE_FEEDBACK: 'mason_pm_restore_feedback',

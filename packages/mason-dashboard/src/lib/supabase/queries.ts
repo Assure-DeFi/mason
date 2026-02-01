@@ -5,7 +5,6 @@ import type {
   BacklogSort,
   BacklogStatus,
 } from '@/types/backlog';
-import type { ExecutionRun, ExecutionTask } from '@/types/execution';
 
 import { supabase } from './client';
 
@@ -125,43 +124,6 @@ export async function updateBacklogItemPrd(
   }
 
   return data as BacklogItem;
-}
-
-/**
- * Fetch execution runs
- */
-export async function fetchExecutionRuns(limit = 10): Promise<ExecutionRun[]> {
-  const { data, error } = await supabase
-    .from(TABLES.PM_EXECUTION_RUNS)
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    throw new Error(`Failed to fetch execution runs: ${error.message}`);
-  }
-
-  return data as ExecutionRun[];
-}
-
-/**
- * Fetch execution tasks for a run
- */
-export async function fetchExecutionTasks(
-  runId: string,
-): Promise<ExecutionTask[]> {
-  const { data, error } = await supabase
-    .from(TABLES.PM_EXECUTION_TASKS)
-    .select('*')
-    .eq('run_id', runId)
-    .order('wave_number', { ascending: true })
-    .order('task_number', { ascending: true });
-
-  if (error) {
-    throw new Error(`Failed to fetch execution tasks: ${error.message}`);
-  }
-
-  return data as ExecutionTask[];
 }
 
 /**

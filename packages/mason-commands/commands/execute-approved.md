@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.5.1
+version: 2.6.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -225,7 +225,6 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
   }'
 
 # Log the skip
-log_execution "info" "Skipped inconclusive item: ${itemTitle}" '{"item_id": "'"${itemId}"'", "skip_reason": "'"${reason}"'"}'
 ```
 
 **Step D: Display Re-Evaluation Summary**
@@ -433,30 +432,6 @@ Naming convention:
 SUPABASE_URL=$(jq -r '.supabaseUrl' mason.config.json)
 SUPABASE_KEY=$(jq -r '.supabaseAnonKey' mason.config.json)
 
-# ==== LOGGING HELPER (MANDATORY) ====
-# Use this function throughout execution to write logs to the dashboard
-# IMPORTANT: Runs SYNCHRONOUSLY (no &) to ensure logs are actually written before continuing
-log_execution() {
-  local level="$1"   # debug, info, warn, error
-  local message="$2"
-  local metadata="${3:-{}}"  # optional JSON metadata
-
-  # Write synchronously - wait for curl to complete so logs are confirmed written
-  # Do NOT use & at the end - that would background the curl and potentially lose logs
-  curl -s -X POST "${SUPABASE_URL}/rest/v1/mason_execution_logs" \
-    -H "apikey: ${SUPABASE_KEY}" \
-    -H "Authorization: Bearer ${SUPABASE_KEY}" \
-    -H "Content-Type: application/json" \
-    -H "Prefer: return=minimal" \
-    -d '{
-      "execution_run_id": "'"${RUN_ID}"'",
-      "log_level": "'"${level}"'",
-      "message": "'"${message}"'",
-      "metadata": '"${metadata}"'
-    }' > /dev/null
-}
-# ==== END LOGGING HELPER ====
-
 # ==== CHECKPOINT UPDATE HELPER (MANDATORY) ====
 # Use this function to update granular progress for the ExecutionStatusModal
 # This populates the checkpoints_completed array which drives the progress percentage
@@ -569,7 +544,6 @@ This update will appear **immediately** in the dashboard:
 
 ```bash
 # Log execution start
-log_execution "info" "Starting execution for: ${itemTitle}" '{"item_id": "'"${itemId}"'", "branch": "mason/'"${slug}"'"}'
 
 # Checkpoint: Configuration loaded (after reading mason.config.json)
 update_checkpoint 2 "Loading configuration"
@@ -663,16 +637,11 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${ite
   -H "Authorization: Bearer ${SUPABASE_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"validation_typescript": "pass", "validation_eslint": "running"}'
-log_execution "info" "TypeScript check passed" '{"check": "typescript", "status": "pass"}'
 
 # Continue for each validation check...
 # Log validation results:
-log_execution "info" "ESLint check passed" '{"check": "eslint", "status": "pass"}'
-log_execution "info" "Build completed successfully" '{"check": "build", "status": "pass"}'
-log_execution "info" "All tests passed" '{"check": "tests", "status": "pass"}'
 
 # On validation failure, log with error level:
-log_execution "error" "TypeScript check failed: 3 type errors found" '{"check": "typescript", "status": "fail", "error_count": 3}'
 ```
 
 ### Step 6: Execute Waves with Domain-Aware Agents
@@ -686,7 +655,6 @@ Execute waves using the Task tool. **YOU MUST run checkpoint bash commands befor
 ```bash
 update_checkpoint 5 "Analyzing codebase (~1-2 min)" "" "foundation"
 update_progress "foundation" 1 "Exploring codebase patterns..." 0 2
-log_execution "info" "Wave 1: Exploring codebase patterns" '{"wave": 1, "phase": "foundation"}'
 ```
 
 **STEP 6.1.2:** Execute Wave 1 using Task tool with Explore subagents for codebase analysis.
@@ -696,7 +664,6 @@ log_execution "info" "Wave 1: Exploring codebase patterns" '{"wave": 1, "phase":
 ```bash
 update_checkpoint 6 "Analysis complete - creating branch"
 update_progress "foundation" 1 "Found existing patterns" 2 2
-log_execution "info" "Wave 1 complete: Found existing patterns" '{"wave": 1, "tasks_done": 2}'
 ```
 
 #### 6.2: Wave 2 - Implementation
@@ -706,7 +673,6 @@ log_execution "info" "Wave 1 complete: Found existing patterns" '{"wave": 1, "ta
 ```bash
 update_checkpoint 7 "Implementing changes (~2-4 min)" "" "building"
 update_progress "building" 2 "Implementing changes..." 0 3
-log_execution "info" "Wave 2: Starting implementation" '{"wave": 2, "phase": "building"}'
 ```
 
 **STEP 6.2.2:** Execute Wave 2 using Task tool with domain-specific agents:
@@ -722,7 +688,6 @@ log_execution "info" "Wave 2: Starting implementation" '{"wave": 2, "phase": "bu
 ```bash
 update_checkpoint 8 "Implementation complete"
 update_progress "building" 3 "All changes applied" 3 3
-log_execution "info" "Waves 2-3 complete: Implementation done" '{"wave": 3, "tasks_done": 3}'
 ```
 
 **Domain-Aware Subagent Selection:**
@@ -854,19 +819,16 @@ const validatorResult = await runImplementationValidator();
 // Decision matrix
 if (validatorResult.tiers.scope_verification.status === 'fail') {
   // STOP - out of scope changes detected
-  log_execution('error', 'Scope verification failed', validatorResult);
   // Revert out-of-scope changes or get explicit approval
 }
 
 if (validatorResult.tiers.pattern_adherence.status === 'fail') {
   // STOP - pattern violations must be fixed before proceeding
-  log_execution('warn', 'Pattern violations detected', validatorResult);
   // Route to domain agent for pattern fixes
 }
 
 if (validatorResult.tiers.import_graph.status === 'fail') {
   // STOP - architectural issues
-  log_execution('error', 'Import graph violations', validatorResult);
   // Fix circular imports or layer violations
 }
 
@@ -953,7 +915,6 @@ if ! pnpm typecheck; then
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
     -H "Content-Type: application/json" \
     -d '{"validation_typescript": "fail"}'
-  log_execution "error" "TypeScript check FAILED" '{"check": "typescript", "status": "fail"}'
 else
   echo "TypeScript check PASSED"
   curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
@@ -961,7 +922,6 @@ else
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
     -H "Content-Type: application/json" \
     -d '{"validation_typescript": "pass"}'
-  log_execution "info" "TypeScript check passed" '{"check": "typescript", "status": "pass"}'
 fi
 
 # 2. ESLint Check
@@ -983,7 +943,6 @@ if ! pnpm lint; then
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
     -H "Content-Type: application/json" \
     -d '{"validation_eslint": "fail"}'
-  log_execution "error" "ESLint check FAILED" '{"check": "eslint", "status": "fail"}'
 else
   echo "ESLint check PASSED"
   curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
@@ -991,7 +950,6 @@ else
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
     -H "Content-Type: application/json" \
     -d '{"validation_eslint": "pass"}'
-  log_execution "info" "ESLint check passed" '{"check": "eslint", "status": "pass"}'
 fi
 
 # 3. Build Check
@@ -1013,7 +971,6 @@ if ! pnpm build; then
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
     -H "Content-Type: application/json" \
     -d '{"validation_build": "fail"}'
-  log_execution "error" "Build check FAILED" '{"check": "build", "status": "fail"}'
 else
   echo "Build check PASSED"
   curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
@@ -1021,7 +978,6 @@ else
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
     -H "Content-Type: application/json" \
     -d '{"validation_build": "pass"}'
-  log_execution "info" "Build check passed" '{"check": "build", "status": "pass"}'
 fi
 
 echo ""
@@ -1138,7 +1094,6 @@ if [ "$SMOKE_TEST_ENABLED" = "true" ]; then
     -H "Content-Type: application/json" \
     -d '{"validation_smoke_test": "running"}'
 
-  log_execution "info" "Running smoke test" '{"check": "smoke_test", "status": "running"}'
 
   # Run the smoke test spec
   cd packages/mason-dashboard
@@ -1149,7 +1104,6 @@ if [ "$SMOKE_TEST_ENABLED" = "true" ]; then
       -H "Authorization: Bearer ${SUPABASE_KEY}" \
       -H "Content-Type: application/json" \
       -d '{"validation_smoke_test": "pass"}'
-    log_execution "info" "Smoke test passed" '{"check": "smoke_test", "status": "pass"}'
   else
     echo "Smoke test FAILED - app may have runtime errors"
     curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
@@ -1157,7 +1111,6 @@ if [ "$SMOKE_TEST_ENABLED" = "true" ]; then
       -H "Authorization: Bearer ${SUPABASE_KEY}" \
       -H "Content-Type: application/json" \
       -d '{"validation_smoke_test": "fail"}'
-    log_execution "warn" "Smoke test failed - app may have runtime errors" '{"check": "smoke_test", "status": "fail"}'
     # NOTE: Smoke test failure is a WARNING, not a blocking failure
     # The item still proceeds to commit since all mandatory validations passed
   fi
@@ -1212,7 +1165,6 @@ if [ "$E2E_TEST_ENABLED" = "true" ]; then
     -H "Content-Type: application/json" \
     -d '{"validation_smoke_test": "running"}'
 
-  log_execution "info" "Running full E2E test suite" '{"check": "e2e", "status": "running"}'
 
   # Run the full E2E test suite
   cd packages/mason-dashboard
@@ -1223,7 +1175,6 @@ if [ "$E2E_TEST_ENABLED" = "true" ]; then
       -H "Authorization: Bearer ${SUPABASE_KEY}" \
       -H "Content-Type: application/json" \
       -d '{"validation_smoke_test": "pass"}'
-    log_execution "info" "Full E2E tests passed" '{"check": "e2e", "status": "pass"}'
   else
     echo "E2E tests FAILED - check test output for details"
     curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
@@ -1231,7 +1182,6 @@ if [ "$E2E_TEST_ENABLED" = "true" ]; then
       -H "Authorization: Bearer ${SUPABASE_KEY}" \
       -H "Content-Type: application/json" \
       -d '{"validation_smoke_test": "fail"}'
-    log_execution "warn" "E2E tests failed - check test output for details" '{"check": "e2e", "status": "fail"}'
     # NOTE: E2E failure is a WARNING, not a blocking failure
     # The item still proceeds to commit since all mandatory validations passed
   fi
@@ -1287,7 +1237,6 @@ while [ "$VALIDATION_FAILED" = true ] && [ $ITERATION -lt $MAX_FIX_ITERATIONS ];
     -H "Content-Type: application/json" \
     -d '{"fix_iteration": '"$ITERATION"', "wave_status": "Fix iteration '"$ITERATION"'/'"$MAX_FIX_ITERATIONS"'..."}'
 
-  log_execution "info" "Starting fix iteration ${ITERATION}" '{"iteration": '"$ITERATION"', "max": '"$MAX_FIX_ITERATIONS"'}'
 
   # === FIX PRIORITY ORDER ===
   # Fix in this order to avoid cascading failures:
@@ -1380,7 +1329,6 @@ while [ "$VALIDATION_FAILED" = true ] && [ $ITERATION -lt $MAX_FIX_ITERATIONS ];
   if [ "$VALIDATION_FAILED" = false ]; then
     echo ""
     echo "ALL VALIDATIONS PASSED on iteration $ITERATION"
-    log_execution "info" "All validations passed" '{"iteration": '"$ITERATION"', "status": "pass"}'
     break
   fi
 
@@ -1388,7 +1336,6 @@ while [ "$VALIDATION_FAILED" = true ] && [ $ITERATION -lt $MAX_FIX_ITERATIONS ];
   if [ $ITERATION -lt $MAX_FIX_ITERATIONS ]; then
     echo ""
     echo "Validation still failing - analyzing errors for next fix attempt..."
-    log_execution "warn" "Validation failed, attempting fixes" '{"iteration": '"$ITERATION"', "typescript_failed": '"$TYPESCRIPT_FAILED"', "eslint_failed": '"$ESLINT_FAILED"', "build_failed": '"$BUILD_FAILED"'}'
   fi
 done
 
@@ -1401,7 +1348,6 @@ if [ "$VALIDATION_FAILED" = true ]; then
   echo ""
   echo "DO NOT COMMIT - Marking item as FAILED"
 
-  log_execution "error" "Validation failed after max iterations" '{"iterations": '"$MAX_FIX_ITERATIONS"', "status": "failed"}'
 
   # Update item status to rejected
   curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
@@ -1573,7 +1519,6 @@ function getDomainFixGuidance(itemType, failureType) {
 
 if (!allPassed) {
   // Log failure before marking as failed
-  log_execution "error" "Failed after ${MAX_FIX_ITERATIONS} iterations" '{"iterations": '"${MAX_FIX_ITERATIONS}"', "status": "failed"}'
   // Mark item as failed and log detailed error report
   throw new Error(
     `Failed to pass all validations after ${MAX_FIX_ITERATIONS} iterations`,
@@ -1700,7 +1645,6 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${ite
 update_checkpoint 120 "Execution complete" "" "complete"
 
 # Log successful completion
-log_execution "info" "Execution complete: ${itemTitle}" '{"item_id": "'"${itemId}"'", "status": "completed", "branch": "mason/'"${slug}"'"}'
 ```
 
 This update will appear **immediately** in the dashboard:
@@ -1882,7 +1826,6 @@ curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_pm_backlog_items?id=eq.${itemId}" \
 
 ```bash
 # Log the permanent failure
-log_execution "error" "Execution failed permanently: ${error_summary}" '{"item_id": "'"${itemId}"'", "status": "rejected", "reason": "'"${error_summary}"'"}'
 ```
 
 This update will appear **immediately** in the dashboard. The item moves to "Rejected" tab with the failure reason.
