@@ -119,8 +119,10 @@ export function RepositorySelector({
       if (!response.ok) {
         const errorText =
           response.status === 401
-            ? 'GitHub authentication expired. Please reconnect.'
-            : 'Failed to load repositories';
+            ? 'GitHub authentication expired. Click your profile avatar and select "Reconnect GitHub" to fix this.'
+            : response.status === 403
+              ? 'GitHub access denied. You may need to grant additional permissions. Click your profile avatar and select "Reconnect GitHub".'
+              : 'Failed to load repositories. Check your internet connection and try refreshing the page.';
         setError(errorText);
         return;
       }

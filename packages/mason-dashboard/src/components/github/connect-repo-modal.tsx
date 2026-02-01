@@ -67,8 +67,10 @@ export function ConnectRepoModal({
       setFilteredRepos(result.repositories);
     } catch (err) {
       console.error('Error fetching repos:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       setError(
-        err instanceof Error ? err.message : 'Failed to load repositories',
+        `Failed to load repositories: ${errorMsg}. ` +
+          'If your GitHub session has expired, try signing out and back in.',
       );
     } finally {
       setIsLoading(false);

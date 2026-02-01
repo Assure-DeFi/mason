@@ -12,7 +12,6 @@ import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
-
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { TABLES } from '@/lib/constants';
 import {
@@ -166,10 +165,12 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
       });
     } catch (err) {
       console.error('Failed to fetch projects:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       setConnection({
         status: 'error',
         message:
-          err instanceof Error ? err.message : 'Failed to fetch projects',
+          `Failed to fetch Supabase projects: ${errorMsg}. ` +
+          'Try disconnecting and reconnecting Supabase, or check that your Supabase account has projects available.',
       });
     }
   };
