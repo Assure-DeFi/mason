@@ -434,6 +434,9 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_source ON mason_pm_backlog
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_autopilot_run ON mason_pm_backlog_items(autopilot_run_id) WHERE autopilot_run_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_evidence_status ON mason_pm_backlog_items(evidence_status) WHERE evidence_status IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_type ON mason_pm_backlog_items(type);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_complexity ON mason_pm_backlog_items(complexity);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_area ON mason_pm_backlog_items(area);
+CREATE INDEX IF NOT EXISTS idx_mason_execution_progress_started_at ON mason_execution_progress(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_config_user_repo ON mason_autopilot_config(user_id, repository_id);
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_config_enabled ON mason_autopilot_config(enabled) WHERE enabled = true;
 CREATE INDEX IF NOT EXISTS idx_mason_autopilot_runs_user_id ON mason_autopilot_runs(user_id);
