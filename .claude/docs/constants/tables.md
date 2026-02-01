@@ -28,6 +28,8 @@ import { TABLES } from '@/lib/constants';
 | `DEPENDENCY_ANALYSIS`   | `mason_dependency_analysis`   | Risk analysis for items         |
 | `AUTOPILOT_CONFIG`      | `mason_autopilot_config`      | Autopilot daemon configuration  |
 | `AUTOPILOT_RUNS`        | `mason_autopilot_runs`        | Autopilot execution history     |
+| `AUDIT_LOGS`            | `mason_audit_logs`            | Security event tracking         |
+| `ITEM_EVENTS`           | `mason_item_events`           | Item status change history      |
 
 ## Usage Examples
 

@@ -80,12 +80,41 @@ export function useBacklogMutations({
     }, UNDO_TIMEOUT_MS);
   }, []);
 
+  // Record status change event
+  const recordStatusEvent = useCallback(
+    async (
+      itemId: string,
+      oldStatus: BacklogStatus,
+      newStatus: BacklogStatus,
+    ) => {
+      try {
+        await fetch(`/api/backlog/${itemId}/events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_type: 'status_changed',
+            old_value: oldStatus,
+            new_value: newStatus,
+          }),
+        });
+      } catch {
+        // Fire-and-forget: don't block on event recording failure
+        console.warn('Failed to record status event');
+      }
+    },
+    [],
+  );
+
   // Single item status update
   const updateStatus = useCallback(
     async (id: string, status: BacklogStatus) => {
       if (!client) {
         throw new Error('Database not configured');
       }
+
+      // Get old status for event recording
+      const oldItem = items.find((item) => item.id === id);
+      const oldStatus = oldItem?.status;
 
       const { data: updated, error } = await client
         .from(TABLES.PM_BACKLOG_ITEMS)
@@ -98,13 +127,18 @@ export function useBacklogMutations({
         throw new Error('Failed to update status');
       }
 
+      // Record status change event (fire-and-forget)
+      if (oldStatus && oldStatus !== status) {
+        void recordStatusEvent(id, oldStatus, status);
+      }
+
       setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
 
       if (selectedItem?.id === id) {
         setSelectedItem(updated);
       }
     },
-    [client, selectedItem, setItems, setSelectedItem],
+    [client, items, selectedItem, setItems, setSelectedItem, recordStatusEvent],
   );
 
   // Generate PRD for item
@@ -152,6 +186,7 @@ export function useBacklogMutations({
 
       // Update all items
       const updates = ids.map(async (id) => {
+        const oldStatus = previousStatuses.get(id);
         const { data, error } = await client
           .from(TABLES.PM_BACKLOG_ITEMS)
           .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -162,6 +197,12 @@ export function useBacklogMutations({
         if (error) {
           return null;
         }
+
+        // Record the status change event (fire-and-forget)
+        if (oldStatus && oldStatus !== newStatus) {
+          void recordStatusEvent(id, oldStatus, newStatus);
+        }
+
         return data as BacklogItem;
       });
 
@@ -189,7 +230,14 @@ export function useBacklogMutations({
 
       scheduleUndoClear();
     },
-    [client, items, setItems, setSelectedIds, scheduleUndoClear],
+    [
+      client,
+      items,
+      setItems,
+      setSelectedIds,
+      scheduleUndoClear,
+      recordStatusEvent,
+    ],
   );
 
   // Bulk action handlers

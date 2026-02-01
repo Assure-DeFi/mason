@@ -561,10 +561,11 @@ export function ItemDetailModal({
               </div>
             ) : viewMode === 'timeline' ? (
               <ItemTimeline
+                itemId={item.id}
                 createdAt={item.created_at}
                 updatedAt={item.updated_at}
                 currentStatus={item.status}
-                prdGeneratedAt={item.prd_content ? item.updated_at : undefined}
+                prdGeneratedAt={item.prd_generated_at || undefined}
               />
             ) : viewMode === 'risk' ? (
               <RiskAnalysisView

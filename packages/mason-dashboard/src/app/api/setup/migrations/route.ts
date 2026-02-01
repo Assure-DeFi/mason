@@ -163,6 +163,7 @@ CREATE TABLE IF NOT EXISTS mason_pm_filtered_items (
 CREATE TABLE IF NOT EXISTS mason_execution_progress (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   item_id UUID NOT NULL REFERENCES mason_pm_backlog_items(id) ON DELETE CASCADE,
+  run_id TEXT, -- Groups multiple items in a batch execution (nullable for single-item executions)
 
   -- Execution phase
   current_phase TEXT DEFAULT 'site_review' CHECK (current_phase IN ('site_review', 'foundation', 'building', 'inspection', 'complete')),
@@ -386,6 +387,9 @@ ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoints_comple
 -- Add smoke test validation column (for optional --smoke-test flag)
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS validation_smoke_test TEXT DEFAULT 'skipped';
 
+-- Add run_id column for batch execution grouping (for existing databases)
+ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS run_id TEXT;
+
 -- Update type CHECK constraint to include new 8-category system (v2.0)
 -- This migration updates existing databases to accept new category values
 -- New categories: feature, ui, ux, api, data, security, performance, code-quality
@@ -419,6 +423,7 @@ CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_repository_id ON mason_pm_
 CREATE INDEX IF NOT EXISTS idx_mason_pm_analysis_runs_user_id ON mason_pm_analysis_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_filtered_items_repository_id ON mason_pm_filtered_items(repository_id);
 CREATE INDEX IF NOT EXISTS idx_mason_execution_progress_item ON mason_execution_progress(item_id);
+CREATE INDEX IF NOT EXISTS idx_mason_execution_progress_run ON mason_execution_progress(run_id) WHERE run_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_tier ON mason_pm_restore_feedback(filter_tier);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_restore_feedback_filtered_item ON mason_pm_restore_feedback(filtered_item_id);
 CREATE INDEX IF NOT EXISTS idx_mason_dependency_analysis_item ON mason_dependency_analysis(item_id);

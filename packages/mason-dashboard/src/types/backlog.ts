@@ -315,6 +315,30 @@ export interface DependencyAnalysis {
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
 /**
+ * Event types for item history tracking
+ */
+export type ItemEventType =
+  | 'status_changed'
+  | 'prd_generated'
+  | 'branch_created'
+  | 'pr_created'
+  | 'note_added';
+
+/**
+ * Represents a recorded event in an item's history
+ */
+export interface ItemEvent {
+  id: string;
+  created_at: string;
+  item_id: string;
+  event_type: ItemEventType;
+  old_value: string | null;
+  new_value: string | null;
+  user_id: string | null;
+  notes: string | null;
+}
+
+/**
  * Get risk level from numeric score
  */
 export function getRiskLevel(score: number | null): RiskLevel {
