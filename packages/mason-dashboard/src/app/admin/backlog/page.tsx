@@ -16,6 +16,7 @@ import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import { UserMenu } from '@/components/auth/user-menu';
+import { BangerEmptyState } from '@/components/backlog/banger-empty-state';
 import { BangerIdeaCard } from '@/components/backlog/banger-idea-card';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
 import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
@@ -127,6 +128,9 @@ export default function BacklogPage() {
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showGenerateIdeasModal, setShowGenerateIdeasModal] = useState(false);
+  const [generateModalMode, setGenerateModalMode] = useState<'full' | 'banger'>(
+    'full',
+  );
   const [sort, setSort] = useState<{
     field: SortField;
     direction: SortDirection;
@@ -1196,7 +1200,10 @@ export default function BacklogPage() {
               </select>
 
               <button
-                onClick={() => setShowGenerateIdeasModal(true)}
+                onClick={() => {
+                  setGenerateModalMode('full');
+                  setShowGenerateIdeasModal(true);
+                }}
                 className="flex-shrink-0 flex items-center gap-2 px-4 py-2 min-h-[40px] bg-gold text-navy font-medium whitespace-nowrap hover:bg-gold/90 transition-colors touch-feedback"
               >
                 <Sparkles className="w-4 h-4" />
@@ -1279,14 +1286,27 @@ export default function BacklogPage() {
         )}
 
       {/* Banger Idea Section - only on NEW tab */}
-      {!isEmpty && !isLoading && bangerIdea && activeStatus === 'new' && (
+      {!isEmpty && !isLoading && activeStatus === 'new' && (
         <div className="max-w-7xl mx-auto px-6 pt-6">
-          <BangerIdeaCard
-            item={bangerIdea}
-            onViewDetails={handleItemClick}
-            onApprove={handleQuickApprove}
-            onReject={handleQuickReject}
-          />
+          {bangerIdea ? (
+            <BangerIdeaCard
+              item={bangerIdea}
+              onViewDetails={handleItemClick}
+              onApprove={handleQuickApprove}
+              onReject={handleQuickReject}
+              onGenerateNew={() => {
+                setGenerateModalMode('banger');
+                setShowGenerateIdeasModal(true);
+              }}
+            />
+          ) : (
+            <BangerEmptyState
+              onGenerateNew={() => {
+                setGenerateModalMode('banger');
+                setShowGenerateIdeasModal(true);
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -1364,7 +1384,11 @@ export default function BacklogPage() {
       {/* Generate Ideas Modal */}
       <GenerateIdeasModal
         isOpen={showGenerateIdeasModal}
-        onClose={() => setShowGenerateIdeasModal(false)}
+        onClose={() => {
+          setShowGenerateIdeasModal(false);
+          setGenerateModalMode('full'); // Reset to default mode
+        }}
+        initialMode={generateModalMode}
       />
 
       {/* Copy Success Toast */}

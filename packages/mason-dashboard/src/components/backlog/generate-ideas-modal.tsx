@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 type AnalysisMode =
   | 'full'
   | 'quick'
+  | 'banger'
   | 'area:feature'
   | 'area:ui'
   | 'area:ux'
@@ -27,6 +28,7 @@ type FocusArea =
 interface GenerateIdeasModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: AnalysisMode;
 }
 
 const MODE_OPTIONS: {
@@ -34,7 +36,15 @@ const MODE_OPTIONS: {
   label: string;
   description: string;
   items?: string;
+  highlight?: boolean;
 }[] = [
+  {
+    value: 'banger',
+    label: 'BANGER ONLY',
+    description: 'Deep dive for ONE game-changing idea',
+    items: '1 banger',
+    highlight: true,
+  },
   {
     value: 'full',
     label: 'Full Analysis',
@@ -134,13 +144,19 @@ const FOCUS_OPTIONS: {
 export function GenerateIdeasModal({
   isOpen,
   onClose,
+  initialMode = 'full',
 }: GenerateIdeasModalProps) {
-  const [mode, setMode] = useState<AnalysisMode>('full');
+  const [mode, setMode] = useState<AnalysisMode>(initialMode);
   const [focusArea, setFocusArea] = useState<FocusArea>('none');
   const [customFocus, setCustomFocus] = useState('');
   const [copied, setCopied] = useState(false);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [showFocusDropdown, setShowFocusDropdown] = useState(false);
+
+  // Reset mode when initialMode changes (e.g., opening with banger mode)
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -252,13 +268,26 @@ export function GenerateIdeasModal({
                   setShowModeDropdown(!showModeDropdown);
                   setShowFocusDropdown(false);
                 }}
-                className="w-full flex items-center justify-between px-4 py-3 bg-black border border-gray-700 text-left hover:border-gray-600 transition-colors"
+                className={`w-full flex items-center justify-between px-4 py-3 bg-black text-left hover:border-gray-600 transition-colors ${
+                  selectedMode?.highlight
+                    ? 'border-2 border-gold/60'
+                    : 'border border-gray-700'
+                }`}
               >
                 <div>
-                  <div className="text-white font-medium">
-                    {selectedMode?.label}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`font-medium ${selectedMode?.highlight ? 'text-gold' : 'text-white'}`}
+                    >
+                      {selectedMode?.label}
+                    </span>
+                    {selectedMode?.highlight && (
+                      <Sparkles className="w-4 h-4 text-gold" />
+                    )}
                   </div>
-                  <div className="text-sm text-gray-400">
+                  <div
+                    className={`text-sm ${selectedMode?.highlight ? 'text-gold/60' : 'text-gray-400'}`}
+                  >
                     {selectedMode?.description}
                   </div>
                 </div>
@@ -280,20 +309,31 @@ export function GenerateIdeasModal({
                       className={`w-full px-4 py-3 text-left hover:bg-white/5 transition-colors ${
                         mode === option.value
                           ? 'bg-gold/10 border-l-2 border-gold'
-                          : ''
+                          : option.highlight
+                            ? 'bg-gold/5 border-l-2 border-gold/50'
+                            : ''
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-white font-medium">
+                        <span
+                          className={`font-medium ${option.highlight ? 'text-gold' : 'text-white'}`}
+                        >
                           {option.label}
                         </span>
+                        {option.highlight && (
+                          <Sparkles className="w-3 h-3 text-gold" />
+                        )}
                         {option.items && (
-                          <span className="text-xs text-gray-500">
+                          <span
+                            className={`text-xs ${option.highlight ? 'text-gold/70' : 'text-gray-500'}`}
+                          >
                             ({option.items})
                           </span>
                         )}
                       </div>
-                      <div className="text-sm text-gray-400">
+                      <div
+                        className={`text-sm ${option.highlight ? 'text-gold/60' : 'text-gray-400'}`}
+                      >
                         {option.description}
                       </div>
                     </button>

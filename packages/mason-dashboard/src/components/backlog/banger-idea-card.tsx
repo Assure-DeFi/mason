@@ -7,6 +7,7 @@ import {
   X,
   CheckCircle,
   Trash2,
+  Zap,
 } from 'lucide-react';
 
 import type { BacklogItem } from '@/types/backlog';
@@ -20,6 +21,7 @@ interface BangerIdeaCardProps {
   onReject: (id: string) => void;
   onComplete?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onGenerateNew?: () => void;
 }
 
 export function BangerIdeaCard({
@@ -29,6 +31,7 @@ export function BangerIdeaCard({
   onReject,
   onComplete,
   onDelete,
+  onGenerateNew,
 }: BangerIdeaCardProps) {
   return (
     <div className="relative overflow-hidden border-2 border-gold/40 bg-gradient-to-br from-gold/10 via-black/40 to-black/60">
@@ -163,6 +166,23 @@ export function BangerIdeaCard({
             </>
           )}
         </div>
+
+        {/* Generate New Banger Button */}
+        {onGenerateNew && (
+          <div className="mt-4 pt-4 border-t border-gold/20">
+            <button
+              onClick={onGenerateNew}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-gold/20 to-gold/10 border border-gold/30 text-gold font-semibold hover:from-gold/30 hover:to-gold/20 transition-all group"
+            >
+              <Zap className="w-5 h-5 group-hover:animate-pulse" />
+              GENERATE A NEW BANGER
+              <Sparkles className="w-4 h-4" />
+            </button>
+            <p className="text-center text-xs text-gray-500 mt-2">
+              Deep dive to find ONE game-changing feature idea
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

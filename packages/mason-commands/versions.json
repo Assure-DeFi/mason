@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "commands": {
     "pm-review": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "2.3.0",
-      "breaking_reason": "PRD generation now happens BEFORE submission - fixes missing PRD bug"
+      "required_minimum": "2.4.0",
+      "breaking_reason": "Added banger-only mode for deep-dive single banger idea generation"
     },
     "execute-approved": {
       "version": "2.9.0",

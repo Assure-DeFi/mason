@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.3.0
+version: 2.4.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -30,28 +30,31 @@ This command performs a comprehensive analysis of the codebase using 8 specializ
 | **Full**           | 8 (all parallel) | 3               | Yes (1) | **25**      |
 | **Quick**          | 8 (all parallel) | 1               | Yes (1) | **9**       |
 | **Focus (area:X)** | 1 (single agent) | 5               | No      | **5**       |
+| **Banger**         | All (deep dive)  | N/A             | Yes (1) | **1**       |
 
 **CRITICAL: These limits are enforced. Do NOT exceed them.**
 
-## Banger Idea (Full & Quick modes only)
+## Banger Idea (Full, Quick & Banger modes)
 
 The banger idea is a transformative feature that would dramatically increase app value:
 
 - **Always a Feature** - Net-new functionality, not improvements
 - **Ambitious** - Multi-week scope, not a quick fix
-- **Separate from counts** - The +1 banger is in addition to per-agent items
+- **Separate from counts** - The +1 banger is in addition to per-agent items (except in Banger mode)
 
-| Mode  | Regular Items     | Banger             |
-| ----- | ----------------- | ------------------ |
-| Full  | 24 (3 × 8 agents) | +1 = **25 total**  |
-| Quick | 8 (1 × 8 agents)  | +1 = **9 total**   |
-| Focus | 5 (from 1 agent)  | None = **5 total** |
+| Mode   | Regular Items     | Banger                    |
+| ------ | ----------------- | ------------------------- |
+| Full   | 24 (3 × 8 agents) | +1 = **25 total**         |
+| Quick  | 8 (1 × 8 agents)  | +1 = **9 total**          |
+| Focus  | 5 (from 1 agent)  | None = **5 total**        |
+| Banger | None              | **1 total** (banger only) |
 
 ## Modes
 
 - `full` (default): All 8 agents run in parallel, 3 items each + 1 banger = **25 items**
 - `quick`: All 8 agents run in parallel, 1 item each + 1 banger = **9 items**
 - `area:<category>`: Single agent runs, **5 items**, no banger
+- `banger`: Deep dive to find ONE game-changing banger idea = **1 item**
 
 **Available focus areas (maps to single agent):**
 
@@ -80,6 +83,7 @@ Examples:
 - `/pm-review quick` - Quick wins (9 items)
 - `/pm-review area:security` - Security focus only (5 items)
 - `/pm-review area:ui` - UI focus only (5 items)
+- `/pm-review banger` - Find ONE game-changing banger idea (1 item)
 - `/pm-review --auto` - Full analysis in headless mode
 - `/pm-review quick --auto` - Quick wins in headless mode
 
@@ -513,6 +517,82 @@ Use the Task tool ONCE with:
 ```
 
 **IMPORTANT: Focus mode does NOT include a banger idea.**
+
+---
+
+#### Mode D: Banger Mode (Deep dive → 1 game-changing idea)
+
+**Banger mode is a special deep-dive mode that finds ONE transformative feature idea.**
+
+This mode is for when you want ONLY a banger - no regular improvements, no incremental fixes. Just the biggest, boldest idea that would blow users away.
+
+**Process:**
+
+1. **Deep Codebase Understanding** (3 parallel subagents):
+
+```
+Use Task tool 3 times in parallel with:
+  1. subagent_type="Explore" - Analyze architecture, understand system design, identify core value proposition
+  2. subagent_type="Explore" - Study user flows, understand who uses this app and what they care about
+  3. subagent_type="Explore" - Review existing features, find gaps and opportunities
+```
+
+2. **Generate 10 Big Ideas** (1 subagent):
+
+```
+Use Task tool with:
+  subagent_type="feature-ideation"
+  prompt: |
+    Based on the codebase analysis, generate 10 BIG IDEAS for this application.
+
+    These are NOT:
+    - Bug fixes
+    - Performance improvements
+    - UI tweaks
+    - Security hardening
+    - Code quality improvements
+
+    These ARE:
+    - Game-changing new features
+    - "Holy shit, I didn't even think of that" innovations
+    - Features that would make users tell their friends
+    - Capabilities that would justify a premium tier
+    - Ideas the builder may not have even considered
+
+    Each idea MUST have:
+    - WOW factor - Users would absolutely notice this
+    - Real value - Solves a problem or creates new capability
+    - Innovation - Not just "add a button" but truly transformative
+    - Feasibility - Can be built with the existing stack (multi-week scope is fine)
+
+    Return the 10 ideas as JSON array with:
+    - title: Catchy, descriptive name
+    - vision: 2-3 sentence description of what this enables
+    - wow_factor: Why this would blow users away
+    - user_value: What problem it solves or capability it creates
+    - complexity_estimate: "weeks" or "months"
+```
+
+3. **Select THE Banger** (1 subagent):
+
+```
+Use Task tool with:
+  subagent_type="general-purpose"
+  prompt: |
+    You have 10 big ideas. Pick THE ONE that is:
+    - The BEST idea out of the 10
+    - The BRIGHTEST - most innovative and creative
+    - The BIGGEST impact - would transform the app
+    - Technically feasible within the existing architecture
+
+    This is THE BANGER. Only one gets delivered.
+
+    Return your selection with full justification.
+```
+
+4. **Validate & Generate Full PRD** (follow standard Step 6 process for the selected banger)
+
+**Output:** Exactly 1 item with `is_banger_idea: true`, `is_new_feature: true`
 
 ---
 
