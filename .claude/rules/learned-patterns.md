@@ -251,3 +251,51 @@ description: Brief description of what this command does.
 **Why**: Pre-existing changes from previous work can conflict with new plan requirements. Implementing the plan on top of conflicting changes leads to incorrect final state. Clean slate first, then implement.
 
 ---
+
+## Polling Cascade: Coordinate Independent Refresh Mechanisms
+
+**Discovered**: 2026-02-01
+**Context**: Dashboard "spazzed out" with ERR_INSUFFICIENT_RESOURCES - multiple systems (useExecutionListener, useRealtimeBacklog, useAutoMigrations, user record creation) all polling simultaneously without coordination
+**Pattern**: When multiple independent polling/retry mechanisms exist, they MUST be coordinated:
+
+1. **Add backoff on failures** - don't hammer the database when requests fail
+2. **Batch related requests** - combine queries that always run together
+3. **Disable polling when realtime is connected** - don't duplicate data fetching
+4. **Deduplicate subscription channels** - UPDATE/INSERT/DELETE can share one channel
+5. **Add request queuing** - prevent burst of 10+ concurrent connections
+
+**Why**: Independent systems each polling every 3 seconds creates exponential connection usage. When one system starts retrying failures, others follow, causing resource exhaustion. Coordination prevents cascade failures.
+
+---
+
+## Banger-Only Mode: Single Focus for Maximum Impact
+
+**Discovered**: 2026-02-01
+**Context**: User requested a "banger-only" mode for pm-review that generates ONE transformative feature idea with full PRD
+**Pattern**: When implementing focused "banger-only" or "single idea" modes:
+
+1. Use multiple subagents to understand the app holistically first
+2. Generate 10 ideas, then critically evaluate to pick THE BEST one
+3. Only the winning idea gets full validation, PRD, and risk analysis
+4. Clearly communicate this is a different mode than normal pm-review
+5. Provide easy trigger mechanism (e.g., button that gives copy/paste command)
+
+**Why**: Sometimes users want one high-impact idea rather than a list of incremental improvements. A single focus allows for deeper analysis and higher-quality output.
+
+---
+
+## Progress Calculation: Match Frontend Display to Backend Data
+
+**Discovered**: 2026-02-01
+**Context**: Execution modal showed "0/1 items completed" and "0%" even after multiple phases completed - checkpoints_completed array wasn't being written to
+**Pattern**: When building progress tracking:
+
+1. **Default total must match actual process** - if default is 12 checkpoints but process has 8, percentage will be wrong
+2. **Verify both write AND read paths** - CLI must WRITE checkpoints, dashboard must READ them
+3. **Test with real execution** - don't rely on unit tests alone, trace actual data flow
+4. **Formula must be explicit**: `percentage = (completed.length / total) * 100`
+5. **Update checkpoint_total dynamically** when file count is known (formula: 5 + fileCount + 4 + 2 + 1)
+
+**Why**: Progress displays are critical for user confidence. Incorrect percentages (0% when actually progressing) cause anxiety and lost trust.
+
+---
