@@ -15,6 +15,54 @@ interface RouteParams {
 }
 
 /**
+ * GET /api/backlog/[id]/prd
+ *
+ * Fetches the PRD content for a backlog item.
+ */
+export async function GET(request: Request, { params }: RouteParams) {
+  try {
+    const { id } = await params;
+
+    // Get user session
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return unauthorized('Authentication required');
+    }
+
+    // Get user's database credentials from session
+    const user = session.user as {
+      id: string;
+      supabaseUrl?: string;
+      supabaseAnonKey?: string;
+    };
+
+    if (!user.supabaseUrl || !user.supabaseAnonKey) {
+      return badRequest('Database not configured. Please complete setup.');
+    }
+
+    // Connect to user's database
+    const supabase = createClient(user.supabaseUrl, user.supabaseAnonKey);
+
+    // Fetch the PRD content
+    const { data, error: fetchError } = await supabase
+      .from(TABLES.PM_BACKLOG_ITEMS)
+      .select('prd_content')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      console.error('Failed to fetch PRD:', fetchError);
+      return serverError('Failed to fetch PRD content');
+    }
+
+    return apiSuccess({ prd_content: data?.prd_content ?? null });
+  } catch (err) {
+    console.error('PRD fetch error:', err);
+    return serverError(err instanceof Error ? err.message : 'Fetch failed');
+  }
+}
+
+/**
  * PATCH /api/backlog/[id]/prd
  *
  * Updates the PRD content for a backlog item.
