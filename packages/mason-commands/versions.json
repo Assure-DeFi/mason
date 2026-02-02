@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "commands": {
     "pm-review": {
-      "version": "2.6.1",
+      "version": "2.7.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "2.6.1",
-      "breaking_reason": "Fix .git suffix not stripped from repo URL - caused repository_id=null"
+      "required_minimum": "2.7.0",
+      "breaking_reason": "CRITICAL: Banger mode fix - enforces 1-item limit, shows rejected candidates"
     },
     "execute-approved": {
       "version": "2.9.0",

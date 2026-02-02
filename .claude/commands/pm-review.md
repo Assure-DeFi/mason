@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.6.1
+version: 2.7.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -463,11 +463,12 @@ Load the domain-specific knowledge from `.claude/skills/pm-domain-knowledge/SKIL
 
 **The swarm launch depends on the mode:**
 
-| Mode               | Agents to Launch  | Items per Agent | Banger | Total |
-| ------------------ | ----------------- | --------------- | ------ | ----- |
-| **Full** (default) | All 8 in parallel | 3               | Yes    | 25    |
-| **Quick**          | All 8 in parallel | 1               | Yes    | 9     |
-| **Focus (area:X)** | Single agent only | 5               | No     | 5     |
+| Mode               | Agents to Launch    | Items per Agent | Banger  | Total |
+| ------------------ | ------------------- | --------------- | ------- | ----- |
+| **Full** (default) | All 8 in parallel   | 3               | Yes     | 25    |
+| **Quick**          | All 8 in parallel   | 1               | Yes     | 9     |
+| **Focus (area:X)** | Single agent only   | 5               | No      | 5     |
+| **Banger**         | Deep dive (special) | N/A             | Yes (1) | 1     |
 
 ---
 
@@ -607,7 +608,28 @@ Use Task tool with:
 
 4. **Validate & Generate Full PRD** (follow standard Step 6 process for the selected banger)
 
-**Output:** Exactly 1 item with `is_banger_idea: true`, `is_new_feature: true`
+**Output:** Exactly 1 item submitted with `is_banger_idea: true`, `is_new_feature: true`
+
+**Banger Mode Selection Display:**
+
+```markdown
+## Banger Selection Complete
+
+### THE SELECTED BANGER
+
+**Title:** [Selected banger title]
+**Vision:** [2-3 sentence description]
+**Why This One:** [Justification for selection]
+
+### Rejected Candidates (9 ideas NOT selected)
+
+| #   | Title        | Rejection Reason                                   |
+| --- | ------------ | -------------------------------------------------- |
+| 1   | [Idea title] | [Why not THE best - comparative quality statement] |
+| ... | ...          | ...                                                |
+
+**Note:** Rejected candidates are displayed for transparency but NOT stored.
+```
 
 ---
 
@@ -1376,6 +1398,19 @@ FINAL_ITEMS=[]
 # Only items from the focused agent (5 total)
 ```
 
+**Banger Mode (1 item):**
+
+```bash
+MAX_ITEMS=1
+INCLUDE_BANGER=true
+
+# ONLY the selected banger idea
+FINAL_ITEMS=[SELECTED_BANGER]
+
+# Track rejected candidates for display (NOT stored)
+REJECTED_CANDIDATES = ALL_10_IDEAS.filter(i => i !== SELECTED_BANGER)
+```
+
 #### Display Cap Summary
 
 ```
@@ -1417,6 +1452,10 @@ case "$MODE" in
   "focus"|area:*)
     MAX_ITEMS=5
     REQUIRE_BANGER=false
+    ;;
+  "banger")
+    MAX_ITEMS=1
+    REQUIRE_BANGER=true
     ;;
 esac
 
@@ -1912,6 +1951,25 @@ After analysis, provide a summary (format varies by mode):
 | **Total**            | **[N]** | **<= 5**    | [PASS/FAIL] |
 
 **Note:** Focus mode does not include a banger idea.
+
+### Item Summary (Banger Mode)
+
+| Category    | Count | Requirement | Status |
+| ----------- | ----- | ----------- | ------ |
+| Banger Idea | 1     | = 1         | PASS   |
+| Regular     | 0     | = 0         | PASS   |
+| **Total**   | **1** | **= 1**     | PASS   |
+
+**The Banger:** [title]
+
+### Rejected Candidates
+
+| #   | Title   | Why Not Selected     |
+| --- | ------- | -------------------- |
+| 1   | [title] | [comparative reason] |
+| ... | ...     | ...                  |
+
+**Note:** These 9 ideas shown for transparency only. NOT stored in database.
 
 ### Top Improvements by Priority
 
