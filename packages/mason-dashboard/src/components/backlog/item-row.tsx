@@ -241,13 +241,13 @@ function ItemRowComponent({
         </div>
       </td>
 
-      {/* PRD Status */}
+      {/* PRD Status - uses prd_generated_at for quick check, content loaded on demand */}
       <td
         className="py-3 px-3 text-center"
         style={{ width: `${columnWidths.prd}px` }}
         onClick={(e) => e.stopPropagation()}
       >
-        {item.prd_content ? (
+        {item.prd_generated_at ? (
           <button
             onClick={() => onPrdClick?.(item)}
             className="inline-flex items-center justify-center hover:scale-110 transition-transform"
