@@ -320,3 +320,42 @@ REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/\.git$//' | sed -E 's|.*github\.
 **Why**: Silent failures in URL parsing cause `repository_id=null` which breaks dashboard filtering. Items appear inserted successfully but don't show in repo-filtered views.
 
 ---
+
+## Command Modes: All Modes Must Handle All Parameters
+
+**Discovered**: 2026-02-02
+**Context**: pm-review banger mode ignored focus context - ran full codebase analysis instead of focused area
+**Pattern**: When a command supports parameters (like focus context), EVERY mode must explicitly handle those parameters:
+
+1. **Audit all modes** when adding new parameters - don't assume they're inherited
+2. **Each mode section** must explicitly show how to use the parameter
+3. **Test each mode** with the new parameter before shipping
+
+**Example (bad):**
+
+```markdown
+## Focus Context
+
+The command supports "Focus on:" context...
+
+## Mode D: Banger Mode
+
+[No mention of focus context - OOPS!]
+```
+
+**Example (good):**
+
+```markdown
+## Mode D: Banger Mode
+
+...
+**Focus Context Support:**
+Banger mode fully supports focus context. When provided:
+
+- Exploration narrows to focused area
+- Ideas must be relevant to focused area
+```
+
+**Why**: Users expect parameters to work consistently across modes. Silent ignoring of parameters causes confusion and wasted runs.
+
+---
