@@ -164,6 +164,12 @@ export function useAutoMigrations(): UseAutoMigrationsReturn {
         }),
       });
 
+      // Handle 401 - session may not be ready yet, silently skip
+      if (response.status === 401) {
+        setState({ status: 'skipped', message: 'Session not ready' });
+        return;
+      }
+
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Migration failed');
@@ -188,11 +194,12 @@ export function useAutoMigrations(): UseAutoMigrationsReturn {
       return;
     }
 
-    // Small delay to let other hooks initialize
+    // Delay to let session cookies propagate after sign-in
+    // This prevents 401 errors during the auth callback flow
     const timer = setTimeout(() => {
       setHasRun(true);
       void runMigrations();
-    }, 1000);
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, [sessionStatus, hasRun, runMigrations]);

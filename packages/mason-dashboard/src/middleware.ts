@@ -86,6 +86,8 @@ function isPublicRoute(pathname: string): boolean {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/static') ||
     pathname === '/favicon.ico' ||
+    pathname === '/site.webmanifest' ||
+    pathname === '/manifest.json' ||
     pathname.endsWith('.svg') ||
     pathname.endsWith('.png') ||
     pathname.endsWith('.jpg') ||
