@@ -21,7 +21,7 @@ interface UseExecutionListenerOptions {
 
 // Polling interval in milliseconds
 const BASE_POLLING_INTERVAL_MS = 3000;
-const MAX_POLLING_INTERVAL_MS = 15000;
+const MAX_POLLING_INTERVAL_MS = 15000; // Cap backoff at 15 seconds
 // How far back to look on initial mount (in milliseconds)
 const INITIAL_LOOKBACK_MS = 30000;
 
@@ -174,9 +174,12 @@ export function useExecutionListener({
 
         if (error) {
           // Check for schema errors and log more helpful message
-          if (error.message?.includes('column') || error.message?.includes('does not exist')) {
+          if (
+            error.message?.includes('column') ||
+            error.message?.includes('does not exist')
+          ) {
             console.error(
-              '[ExecutionListener] Schema issue detected. User should update database schema in Settings.'
+              '[ExecutionListener] Schema issue detected. User should update database schema in Settings.',
             );
           } else {
             console.error('[ExecutionListener] Polling error:', error.message);

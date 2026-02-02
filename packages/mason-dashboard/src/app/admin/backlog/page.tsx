@@ -152,7 +152,7 @@ export default function BacklogPage() {
   // Prevent concurrent fetch calls and rapid retries
   const isFetchingRef = useRef(false);
   const lastFetchErrorRef = useRef<number>(0);
-  const FETCH_RETRY_DELAY = 5000;
+  const FETCH_RETRY_DELAY = 5000; // Wait 5 seconds before retrying after an error
 
   // Confirmation dialog state
   const [confirmAction, setConfirmAction] = useState<{
@@ -308,7 +308,8 @@ export default function BacklogPage() {
       }
 
       // Fetch items with selective columns for performance
-      // Excludes large fields like benefits (JSON array) that are only needed in detail modal
+      // Excludes prd_content (large text) which is lazy loaded on demand
+      // Benefits included - required for detail modal display
       const { data, error: fetchError } = await client
         .from(TABLES.PM_BACKLOG_ITEMS)
         .select(
@@ -318,7 +319,8 @@ export default function BacklogPage() {
             'updated_at,created_at,repository_id,' +
             'prd_generated_at,branch_name,pr_url,' + // prd_content lazy loaded on demand
             'risk_score,has_breaking_changes,files_affected_count,test_coverage_gaps,' +
-            'user_id,analysis_run_id',
+            'user_id,analysis_run_id,' +
+            'benefits', // JSON array - required for detail modal
         )
         .eq('user_id', userData.id)
         .order('priority_score', { ascending: false });

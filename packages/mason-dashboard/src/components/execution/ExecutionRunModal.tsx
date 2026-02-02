@@ -78,13 +78,13 @@ export function ExecutionRunModal({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [runStartTime, setRunStartTime] = useState<Date | null>(null);
   const [pollAttempts, setPollAttempts] = useState(0);
-  const [pollInterval, setPollInterval] = useState(500);
+  const [pollInterval, setPollInterval] = useState(500); // Start at 500ms, backoff on errors
   const consecutiveErrorsRef = useRef(0);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // Connection timeout - if still connecting after 15 seconds, show helpful error
   const CONNECTION_TIMEOUT_POLLS = 30; // 30 polls * 500ms = 15 seconds
-  const MAX_POLL_INTERVAL = 5000;
+  const MAX_POLL_INTERVAL = 5000; // Cap backoff at 5 seconds
   const BASE_POLL_INTERVAL = 500;
 
   // Poll for all execution progress records in this run
@@ -333,6 +333,7 @@ export function ExecutionRunModal({
   };
 
   // Calculate overall progress using weighted average of item progress
+  // This shows actual progress, not just completed items count
   const completedItems = items.filter((i) => i.status === 'completed').length;
   const failedItems = items.filter((i) => i.status === 'failed').length;
   const totalItems = items.length;

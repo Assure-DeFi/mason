@@ -614,6 +614,18 @@ export function ItemDetailModal({
               <RiskAnalysisView
                 analysis={riskAnalysis}
                 analyzedAt={item.risk_analyzed_at}
+                // Pass summary fields for fallback display when detailed analysis is unavailable
+                summaryData={
+                  item.risk_score !== null
+                    ? {
+                        risk_score: item.risk_score,
+                        files_affected_count: item.files_affected_count ?? 0,
+                        has_breaking_changes:
+                          item.has_breaking_changes ?? false,
+                        test_coverage_gaps: item.test_coverage_gaps ?? 0,
+                      }
+                    : undefined
+                }
               />
             ) : (
               <>

@@ -19,12 +19,24 @@ import { getRiskLevel, getRiskBgColor } from '@/types/backlog';
 import { ImpactRadiusView } from './ImpactRadiusView';
 import { RiskBadge } from './RiskBadge';
 
+/**
+ * Summary risk data from backlog item (stored directly, not in dependency_analysis table)
+ */
+interface RiskSummaryData {
+  risk_score: number;
+  files_affected_count: number;
+  has_breaking_changes: boolean;
+  test_coverage_gaps: number;
+}
+
 interface RiskAnalysisViewProps {
   analysis: DependencyAnalysis | null;
   isLoading?: boolean;
   analyzedAt?: string | null;
   crossRepoImpact?: ImpactRadius | null;
   sourceRepoName?: string;
+  /** Summary data fallback when detailed analysis is unavailable */
+  summaryData?: RiskSummaryData;
 }
 
 /**
@@ -37,10 +49,12 @@ export function RiskAnalysisView({
   analyzedAt,
   crossRepoImpact,
   sourceRepoName,
+  summaryData,
 }: RiskAnalysisViewProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
-  if (!analysis && !isLoading) {
+  // Show pending state only if we have neither detailed analysis nor summary data
+  if (!analysis && !summaryData && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="w-16 h-16 mb-4 rounded-full bg-gray-800/50 flex items-center justify-center">
@@ -56,6 +70,97 @@ export function RiskAnalysisView({
           </code>
           . Re-run the review to populate this data.
         </p>
+      </div>
+    );
+  }
+
+  // Show summary view when we have summary data but no detailed analysis
+  if (!analysis && summaryData && !isLoading) {
+    const level = getRiskLevel(summaryData.risk_score);
+
+    return (
+      <div className="space-y-6">
+        {/* Overall Risk Score */}
+        <div className={clsx('p-4 border', getRiskBgColor(level))}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wide mb-1">
+                Overall Risk Score
+              </h3>
+              <div className="flex items-center gap-3">
+                <RiskBadge score={summaryData.risk_score} size="lg" showLabel />
+                {summaryData.has_breaking_changes && (
+                  <span className="flex items-center gap-1 text-red-400 text-sm">
+                    <AlertTriangle className="w-4 h-4" />
+                    Breaking Changes
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          {analyzedAt && (
+            <p className="text-xs text-gray-500 mt-2">
+              Analyzed {new Date(analyzedAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+
+        {/* Summary Metrics */}
+        <div>
+          <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wide mb-3">
+            Risk Summary
+          </h4>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-black/20 border border-gray-800">
+              <div className="flex items-center gap-2 mb-1">
+                <FileCode className="w-4 h-4 text-gray-400" />
+                <span className="text-xs text-gray-400">Files Affected</span>
+              </div>
+              <span className="text-lg font-semibold text-white">
+                {summaryData.files_affected_count}
+              </span>
+            </div>
+            <div className="p-3 bg-black/20 border border-gray-800">
+              <div className="flex items-center gap-2 mb-1">
+                <TestTube className="w-4 h-4 text-gray-400" />
+                <span className="text-xs text-gray-400">Test Gaps</span>
+              </div>
+              <span className="text-lg font-semibold text-white">
+                {summaryData.test_coverage_gaps}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Breaking Changes Warning */}
+        {summaryData.has_breaking_changes && (
+          <div className="p-4 bg-red-400/10 border border-red-400/30">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-red-400 font-medium">
+                  Breaking Changes Detected
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  This change may affect other parts of the codebase. Review
+                  carefully before implementing.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Note about detailed analysis */}
+        <div className="p-3 bg-gray-800/30 border border-gray-700 text-sm text-gray-400">
+          <p>
+            Detailed breakdown (file lists, dependency graph, component scores)
+            is available when running{' '}
+            <code className="px-1 py-0.5 bg-black rounded text-gold font-mono text-xs">
+              /execute-approved
+            </code>
+            .
+          </p>
+        </div>
       </div>
     );
   }
