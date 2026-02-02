@@ -141,8 +141,8 @@ export function ItemDetailModal({
         });
         if (response.ok) {
           const data = await response.json();
-          if (data.analysis) {
-            setRiskAnalysis(data.analysis);
+          if (data.data?.analysis) {
+            setRiskAnalysis(data.data.analysis);
           }
         }
       } catch {
@@ -178,8 +178,8 @@ export function ItemDetailModal({
           });
           if (response.ok) {
             const data = await response.json();
-            if (data.prd_content) {
-              setPrdContent(data.prd_content);
+            if (data.data?.prd_content) {
+              setPrdContent(data.data.prd_content);
             }
           }
         } catch {

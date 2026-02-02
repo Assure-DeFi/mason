@@ -238,7 +238,7 @@ export function ItemTimeline({
         });
         if (response.ok) {
           const data = await response.json();
-          setDbEvents(data.events || []);
+          setDbEvents(data.data?.events || []);
           setError(null);
         } else {
           setError('Failed to load events');
