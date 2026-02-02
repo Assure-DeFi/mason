@@ -54,6 +54,16 @@ export async function POST(request: Request, { params }: RouteParams) {
       return createRateLimitResponse(rateLimitResult);
     }
 
+    // Get user's database credentials from headers (client passes from localStorage)
+    const supabaseUrl = request.headers.get('x-supabase-url');
+    const supabaseAnonKey = request.headers.get('x-supabase-anon-key');
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return badRequest(
+        'Database credentials required. Please complete setup.',
+      );
+    }
+
     // Parse request body
     const body = await request.json();
     const { githubToken } = body;
@@ -62,19 +72,8 @@ export async function POST(request: Request, { params }: RouteParams) {
       return badRequest('GitHub token required for repository analysis');
     }
 
-    // Get user's database credentials from session
-    const user = session.user as {
-      id: string;
-      supabaseUrl?: string;
-      supabaseAnonKey?: string;
-    };
-
-    if (!user.supabaseUrl || !user.supabaseAnonKey) {
-      return badRequest('Database not configured. Please complete setup.');
-    }
-
     // Connect to user's database
-    const supabase = createClient(user.supabaseUrl, user.supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     // Fetch the backlog item
     const { data: item, error: fetchError } = await supabase

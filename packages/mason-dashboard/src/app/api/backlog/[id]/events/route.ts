@@ -36,6 +36,7 @@ interface ItemEvent {
  * GET /api/backlog/[id]/events
  *
  * Retrieves the event history for a backlog item.
+ * Requires user's Supabase credentials via headers (privacy model).
  */
 export async function GET(request: Request, { params }: RouteParams) {
   try {
@@ -46,17 +47,17 @@ export async function GET(request: Request, { params }: RouteParams) {
       return unauthorized('Authentication required');
     }
 
-    const user = session.user as {
-      id: string;
-      supabaseUrl?: string;
-      supabaseAnonKey?: string;
-    };
+    // Get user's database credentials from headers (client passes from localStorage)
+    const supabaseUrl = request.headers.get('x-supabase-url');
+    const supabaseAnonKey = request.headers.get('x-supabase-anon-key');
 
-    if (!user.supabaseUrl || !user.supabaseAnonKey) {
-      return badRequest('Database not configured. Please complete setup.');
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return badRequest(
+        'Database credentials required. Please complete setup.',
+      );
     }
 
-    const supabase = createClient(user.supabaseUrl, user.supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     const { data: events, error } = await supabase
       .from(TABLES.ITEM_EVENTS)
@@ -80,6 +81,7 @@ export async function GET(request: Request, { params }: RouteParams) {
  * POST /api/backlog/[id]/events
  *
  * Records a new event for a backlog item.
+ * Requires user's Supabase credentials via headers (privacy model).
  */
 export async function POST(request: Request, { params }: RouteParams) {
   try {
@@ -90,19 +92,18 @@ export async function POST(request: Request, { params }: RouteParams) {
       return unauthorized('Authentication required');
     }
 
-    const user = session.user as {
-      id: string;
-      supabaseUrl?: string;
-      supabaseAnonKey?: string;
-      dbUserId?: string;
-    };
+    // Get user's database credentials from headers (client passes from localStorage)
+    const supabaseUrl = request.headers.get('x-supabase-url');
+    const supabaseAnonKey = request.headers.get('x-supabase-anon-key');
 
-    if (!user.supabaseUrl || !user.supabaseAnonKey) {
-      return badRequest('Database not configured. Please complete setup.');
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return badRequest(
+        'Database credentials required. Please complete setup.',
+      );
     }
 
     const body = await request.json();
-    const { event_type, old_value, new_value, notes } = body;
+    const { event_type, old_value, new_value, notes, dbUserId } = body;
 
     const validEventTypes: ItemEventType[] = [
       'status_changed',
@@ -118,7 +119,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    const supabase = createClient(user.supabaseUrl, user.supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     const { data: event, error } = await supabase
       .from(TABLES.ITEM_EVENTS)
@@ -127,7 +128,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         event_type,
         old_value: old_value || null,
         new_value: new_value || null,
-        user_id: user.dbUserId || null,
+        user_id: dbUserId || null,
         notes: notes || null,
       })
       .select()

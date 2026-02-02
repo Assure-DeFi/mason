@@ -18,6 +18,7 @@ interface RouteParams {
  * GET /api/backlog/[id]/prd
  *
  * Fetches the PRD content for a backlog item.
+ * Requires user's Supabase credentials via headers (privacy model).
  */
 export async function GET(request: Request, { params }: RouteParams) {
   try {
@@ -29,19 +30,18 @@ export async function GET(request: Request, { params }: RouteParams) {
       return unauthorized('Authentication required');
     }
 
-    // Get user's database credentials from session
-    const user = session.user as {
-      id: string;
-      supabaseUrl?: string;
-      supabaseAnonKey?: string;
-    };
+    // Get user's database credentials from headers (client passes from localStorage)
+    const supabaseUrl = request.headers.get('x-supabase-url');
+    const supabaseAnonKey = request.headers.get('x-supabase-anon-key');
 
-    if (!user.supabaseUrl || !user.supabaseAnonKey) {
-      return badRequest('Database not configured. Please complete setup.');
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return badRequest(
+        'Database credentials required. Please complete setup.',
+      );
     }
 
     // Connect to user's database
-    const supabase = createClient(user.supabaseUrl, user.supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     // Fetch the PRD content
     const { data, error: fetchError } = await supabase
@@ -77,15 +77,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       return unauthorized('Authentication required');
     }
 
-    // Get user's database credentials from session
-    const user = session.user as {
-      id: string;
-      supabaseUrl?: string;
-      supabaseAnonKey?: string;
-    };
+    // Get user's database credentials from headers (client passes from localStorage)
+    const supabaseUrl = request.headers.get('x-supabase-url');
+    const supabaseAnonKey = request.headers.get('x-supabase-anon-key');
 
-    if (!user.supabaseUrl || !user.supabaseAnonKey) {
-      return badRequest('Database not configured. Please complete setup.');
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return badRequest(
+        'Database credentials required. Please complete setup.',
+      );
     }
 
     // Parse request body
@@ -97,7 +96,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     // Connect to user's database
-    const supabase = createClient(user.supabaseUrl, user.supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     // Update the PRD content
     const { data, error: updateError } = await supabase

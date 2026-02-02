@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { getMasonConfig } from '@/lib/supabase/user-client';
 import type { BacklogStatus, ItemEvent, ItemEventType } from '@/types/backlog';
 
 interface TimelineEvent {
@@ -220,9 +221,21 @@ export function ItemTimeline({
 
   useEffect(() => {
     async function fetchEvents() {
+      const config = getMasonConfig();
+      if (!config?.supabaseUrl || !config?.supabaseAnonKey) {
+        setIsLoading(false);
+        setError('Database not configured');
+        return;
+      }
+
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/backlog/${itemId}/events`);
+        const response = await fetch(`/api/backlog/${itemId}/events`, {
+          headers: {
+            'x-supabase-url': config.supabaseUrl,
+            'x-supabase-anon-key': config.supabaseAnonKey,
+          },
+        });
         if (response.ok) {
           const data = await response.json();
           setDbEvents(data.events || []);

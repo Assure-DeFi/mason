@@ -19,6 +19,8 @@ import { backlogRestoreSchema, validateRequest } from '@/lib/schemas';
  * 1. Fetches the filtered item from mason_pm_filtered_items
  * 2. Creates a new backlog item from it
  * 3. Marks the filtered item as 'restored'
+ *
+ * Requires user's Supabase credentials via headers (privacy model).
  */
 export async function POST(request: Request) {
   try {
@@ -28,15 +30,14 @@ export async function POST(request: Request) {
       return unauthorized();
     }
 
-    // Get user's database credentials
-    const user = session.user as {
-      id: string;
-      supabaseUrl?: string;
-      supabaseAnonKey?: string;
-    };
+    // Get user's database credentials from headers (client passes from localStorage)
+    const supabaseUrl = request.headers.get('x-supabase-url');
+    const supabaseAnonKey = request.headers.get('x-supabase-anon-key');
 
-    if (!user.supabaseUrl || !user.supabaseAnonKey) {
-      return badRequest('Database not configured');
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return badRequest(
+        'Database credentials required. Please complete setup.',
+      );
     }
 
     // Validate request body with Zod schema
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     const { filteredItemId } = validation.data;
 
     // Create client for user's database
-    const supabase = createClient(user.supabaseUrl, user.supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     // Fetch the filtered item
     const { data: filteredItem, error: fetchError } = await supabase

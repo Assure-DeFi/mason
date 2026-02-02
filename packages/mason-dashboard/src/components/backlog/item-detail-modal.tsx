@@ -16,6 +16,7 @@ import { useState, useEffect } from 'react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SuccessAnimation } from '@/components/ui/SuccessAnimation';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { getMasonConfig } from '@/lib/supabase/user-client';
 import type {
   BacklogItem,
   BacklogStatus,
@@ -127,7 +128,17 @@ export function ItemDetailModal({
   useEffect(() => {
     const fetchRiskAnalysis = async () => {
       try {
-        const response = await fetch(`/api/backlog/${item.id}/risk-analysis`);
+        const config = getMasonConfig();
+        if (!config?.supabaseUrl || !config?.supabaseAnonKey) {
+          return;
+        }
+
+        const response = await fetch(`/api/backlog/${item.id}/risk-analysis`, {
+          headers: {
+            'x-supabase-url': config.supabaseUrl,
+            'x-supabase-anon-key': config.supabaseAnonKey,
+          },
+        });
         if (response.ok) {
           const data = await response.json();
           if (data.analysis) {
@@ -152,9 +163,19 @@ export function ItemDetailModal({
         prdContent === null &&
         !isLoadingPrd
       ) {
+        const config = getMasonConfig();
+        if (!config?.supabaseUrl || !config?.supabaseAnonKey) {
+          return;
+        }
+
         setIsLoadingPrd(true);
         try {
-          const response = await fetch(`/api/backlog/${item.id}/prd`);
+          const response = await fetch(`/api/backlog/${item.id}/prd`, {
+            headers: {
+              'x-supabase-url': config.supabaseUrl,
+              'x-supabase-anon-key': config.supabaseAnonKey,
+            },
+          });
           if (response.ok) {
             const data = await response.json();
             if (data.prd_content) {

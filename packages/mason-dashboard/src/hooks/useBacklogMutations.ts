@@ -9,6 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { useCallback, useRef, useState } from 'react';
 
 import { TABLES } from '@/lib/constants';
+import { getMasonConfig } from '@/lib/supabase/user-client';
 import type { BacklogItem, BacklogStatus } from '@/types/backlog';
 
 interface UndoState {
@@ -88,9 +89,18 @@ export function useBacklogMutations({
       newStatus: BacklogStatus,
     ) => {
       try {
+        const config = getMasonConfig();
+        if (!config?.supabaseUrl || !config?.supabaseAnonKey) {
+          return;
+        }
+
         await fetch(`/api/backlog/${itemId}/events`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-supabase-url': config.supabaseUrl,
+            'x-supabase-anon-key': config.supabaseAnonKey,
+          },
           body: JSON.stringify({
             event_type: 'status_changed',
             old_value: oldStatus,

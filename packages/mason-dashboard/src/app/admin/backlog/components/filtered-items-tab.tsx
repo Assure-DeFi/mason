@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { TABLES } from '@/lib/constants';
+import { getMasonConfig } from '@/lib/supabase/user-client';
 import type { FilteredItem, FilterTier } from '@/types/backlog';
 
 interface FilteredItemsTabProps {
@@ -81,12 +82,22 @@ export function FilteredItemsTab({
       return;
     }
 
+    const config = getMasonConfig();
+    if (!config?.supabaseUrl || !config?.supabaseAnonKey) {
+      setError('Database not configured');
+      return;
+    }
+
     setRestoringId(item.id);
 
     try {
       const response = await fetch('/api/backlog/restore', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-supabase-url': config.supabaseUrl,
+          'x-supabase-anon-key': config.supabaseAnonKey,
+        },
         body: JSON.stringify({ filteredItemId: item.id }),
       });
 
