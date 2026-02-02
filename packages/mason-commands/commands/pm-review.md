@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.7.0
+version: 2.8.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -542,15 +542,58 @@ Use the Task tool ONCE with:
 
 This mode is for when you want ONLY a banger - no regular improvements, no incremental fixes. Just the biggest, boldest idea that would blow users away.
 
+**Focus Context Support:**
+
+Banger mode fully supports focus context. When a `Focus on:` area is provided:
+
+- All exploration is narrowed to the focused area
+- Ideas must be relevant to the focused area
+- The banger must improve or extend the focused area specifically
+
+**Example with focus:**
+
+```
+/pm-review banger
+
+Focus on: src/features/outreach-bot/
+```
+
+This generates a banger idea specifically for improving the outreach-bot feature.
+
 **Process:**
+
+**Step 0: Parse Focus Context**
+
+```bash
+# Check if focus context was provided
+FOCUS_CONTEXT=""
+if echo "$COMMAND_ARGS" | grep -q "Focus on:"; then
+  FOCUS_CONTEXT=$(echo "$COMMAND_ARGS" | sed -n 's/.*Focus on: *\(.*\)/\1/p')
+  echo "Banger mode with focus: ${FOCUS_CONTEXT}"
+fi
+```
 
 1. **Deep Codebase Understanding** (3 parallel subagents):
 
 ```
 Use Task tool 3 times in parallel with:
-  1. subagent_type="Explore" - Analyze architecture, understand system design, identify core value proposition
-  2. subagent_type="Explore" - Study user flows, understand who uses this app and what they care about
-  3. subagent_type="Explore" - Review existing features, find gaps and opportunities
+  1. subagent_type="Explore"
+     prompt: |
+       Analyze architecture and system design.
+       ${FOCUS_CONTEXT ? "FOCUS AREA: " + FOCUS_CONTEXT + "\nOnly analyze files and patterns within or related to this area." : "Analyze the entire codebase."}
+       Identify core value proposition and how this area fits into the overall system.
+
+  2. subagent_type="Explore"
+     prompt: |
+       Study user flows and understand who uses this app.
+       ${FOCUS_CONTEXT ? "FOCUS AREA: " + FOCUS_CONTEXT + "\nOnly analyze user flows that involve this area." : "Analyze all user flows."}
+       Understand what users care about in this context.
+
+  3. subagent_type="Explore"
+     prompt: |
+       Review existing features and find gaps and opportunities.
+       ${FOCUS_CONTEXT ? "FOCUS AREA: " + FOCUS_CONTEXT + "\nOnly review features within this area and find gaps specific to it." : "Review all features."}
+       Look for opportunities to add transformative capabilities.
 ```
 
 2. **Generate 10 Big Ideas** (1 subagent):
@@ -560,6 +603,7 @@ Use Task tool with:
   subagent_type="feature-ideation"
   prompt: |
     Based on the codebase analysis, generate 10 BIG IDEAS for this application.
+    ${FOCUS_CONTEXT ? "\n**CRITICAL FOCUS CONSTRAINT:**\nAll ideas MUST be specifically for: " + FOCUS_CONTEXT + "\nDo NOT suggest ideas outside this focus area. Every idea must directly improve or extend this specific area." : ""}
 
     These are NOT:
     - Bug fixes
@@ -569,7 +613,7 @@ Use Task tool with:
     - Code quality improvements
 
     These ARE:
-    - Game-changing new features
+    - Game-changing new features ${FOCUS_CONTEXT ? "for the focused area" : ""}
     - "Holy shit, I didn't even think of that" innovations
     - Features that would make users tell their friends
     - Capabilities that would justify a premium tier
@@ -580,6 +624,7 @@ Use Task tool with:
     - Real value - Solves a problem or creates new capability
     - Innovation - Not just "add a button" but truly transformative
     - Feasibility - Can be built with the existing stack (multi-week scope is fine)
+    ${FOCUS_CONTEXT ? "- Relevance - Must directly relate to " + FOCUS_CONTEXT : ""}
 
     Return the 10 ideas as JSON array with:
     - title: Catchy, descriptive name
@@ -587,6 +632,7 @@ Use Task tool with:
     - wow_factor: Why this would blow users away
     - user_value: What problem it solves or capability it creates
     - complexity_estimate: "weeks" or "months"
+    ${FOCUS_CONTEXT ? "- focus_relevance: How this idea specifically improves " + FOCUS_CONTEXT : ""}
 ```
 
 3. **Select THE Banger** (1 subagent):
@@ -600,10 +646,12 @@ Use Task tool with:
     - The BRIGHTEST - most innovative and creative
     - The BIGGEST impact - would transform the app
     - Technically feasible within the existing architecture
+    ${FOCUS_CONTEXT ? "- Most relevant to the focus area: " + FOCUS_CONTEXT : ""}
 
     This is THE BANGER. Only one gets delivered.
 
     Return your selection with full justification.
+    ${FOCUS_CONTEXT ? "Include how this idea specifically transforms " + FOCUS_CONTEXT : ""}
 ```
 
 4. **Validate & Generate Full PRD** (follow standard Step 6 process for the selected banger)
