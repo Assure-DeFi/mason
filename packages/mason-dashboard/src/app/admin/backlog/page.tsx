@@ -1164,40 +1164,13 @@ export default function BacklogPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-3">
               {session && (
                 <RepositorySelector
                   value={selectedRepoId}
                   onChange={setSelectedRepoId}
                 />
               )}
-
-              {/* Search Input */}
-              <div className="relative flex-shrink-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                <input
-                  type="text"
-                  placeholder="Search backlog..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-40 lg:w-48 pl-9 pr-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm placeholder-gray-500 focus:outline-none focus:border-gold"
-                />
-              </div>
-
-              {/* Source Filter Dropdown */}
-              <select
-                value={sourceFilter}
-                onChange={(e) =>
-                  setSourceFilter(
-                    e.target.value as 'all' | 'manual' | 'autopilot',
-                  )
-                }
-                className="flex-shrink-0 px-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm focus:outline-none focus:border-gold"
-              >
-                <option value="all">All Sources</option>
-                <option value="manual">Manual Only</option>
-                <option value="autopilot">Autopilot Only</option>
-              </select>
 
               <button
                 onClick={() => {
@@ -1207,18 +1180,18 @@ export default function BacklogPage() {
                 className="flex-shrink-0 flex items-center gap-2 px-4 py-2 min-h-[40px] bg-gold text-navy font-medium whitespace-nowrap hover:bg-gold/90 transition-colors touch-feedback"
               >
                 <Sparkles className="w-4 h-4" />
-                Generate New Ideas
+                <span className="hidden sm:inline">Generate New Ideas</span>
               </button>
 
               <button
                 onClick={fetchItems}
                 disabled={isLoading}
                 className="flex-shrink-0 flex items-center gap-2 px-3 py-2 min-h-[40px] border border-gray-700 text-gray-300 whitespace-nowrap hover:bg-white/5 disabled:opacity-50 touch-feedback"
+                title="Refresh"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
                 />
-                Refresh
               </button>
 
               <UserMenu />
@@ -1323,6 +1296,42 @@ export default function BacklogPage() {
             <EmptyStateOnboarding onRefresh={fetchItems} />
           ) : (
             <div className="space-y-6 p-6">
+              {/* Search and Filter Controls */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Search Input */}
+                <div className="relative flex-1 min-w-[200px] max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search backlog..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm placeholder-gray-500 focus:outline-none focus:border-gold"
+                  />
+                </div>
+
+                {/* Source Filter Dropdown */}
+                <select
+                  value={sourceFilter}
+                  onChange={(e) =>
+                    setSourceFilter(
+                      e.target.value as 'all' | 'manual' | 'autopilot',
+                    )
+                  }
+                  className="px-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm focus:outline-none focus:border-gold"
+                >
+                  <option value="all">All Sources</option>
+                  <option value="manual">Manual Only</option>
+                  <option value="autopilot">Autopilot Only</option>
+                </select>
+
+                {/* Result count */}
+                <span className="text-sm text-gray-500">
+                  {filteredItems.length} item
+                  {filteredItems.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
               {/* All items in unified table - Features and Bangers shown with badges */}
               <ImprovementsTable
                 items={filteredItems}
