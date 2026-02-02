@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.4.0
+version: 2.5.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -1137,6 +1137,7 @@ if [ "$IS_DUPLICATE" = true ]; then
     -H "Content-Type: application/json" \
     -d '{
       "repository_id": "'${REPOSITORY_ID}'",
+      "user_id": "'${USER_ID}'",
       "title": "'${CANDIDATE_TITLE}'",
       "problem": "'${CANDIDATE_PROBLEM}'",
       "solution": "'${CANDIDATE_SOLUTION}'",
@@ -1271,6 +1272,7 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_filtered_items" \
   -d '[{
     "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
     "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
+    "user_id": "'${USER_ID}'",
     "title": "...",
     "problem": "...",
     "solution": "...",
@@ -1809,6 +1811,7 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
     {
       "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
       "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
+      "user_id": "'${USER_ID}'",
       "title": "Add data freshness timestamps",
       "problem": "Executives cannot tell when data was updated...",
       "solution": "Add visible timestamps...",
