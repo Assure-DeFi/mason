@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "commands": {
     "pm-review": {
-      "version": "2.10.0",
+      "version": "2.11.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "2.10.0",
-      "breaking_reason": "MANDATORY mode detection at command start - ensures banger/quick/area modes work correctly"
+      "required_minimum": "2.11.0",
+      "breaking_reason": "Version check now always displays status for visibility"
     },
     "execute-approved": {
       "version": "2.10.0",

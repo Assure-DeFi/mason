@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.10.0
+version: 2.11.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -26,15 +26,22 @@ REMOTE_VERSION=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".version /
 REQUIRED_MIN=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".required_minimum // \"\"" 2>/dev/null)
 BREAKING_REASON=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".breaking_reason // \"\"" 2>/dev/null)
 
+# Always show version check status
+echo "=== VERSION CHECK ==="
+echo "Local: v${LOCAL_VERSION}"
+echo "Required minimum: v${REQUIRED_MIN}"
+
 # Check if local version is below required minimum
 if [ -n "$REQUIRED_MIN" ] && [ -n "$LOCAL_VERSION" ]; then
   if [ "$(printf '%s\n' "$REQUIRED_MIN" "$LOCAL_VERSION" | sort -V | head -n1)" = "$LOCAL_VERSION" ] && \
      [ "$LOCAL_VERSION" != "$REQUIRED_MIN" ]; then
-    echo "⚠️ OUTDATED: v${LOCAL_VERSION} → v${REQUIRED_MIN} required"
+    echo "STATUS: OUTDATED - AUTO-UPDATING..."
     echo "Reason: $BREAKING_REASON"
-    echo "AUTO-UPDATING..."
+  else
+    echo "STATUS: OK"
   fi
 fi
+echo "===================="
 ```
 
 **IF VERSION IS OUTDATED:**
