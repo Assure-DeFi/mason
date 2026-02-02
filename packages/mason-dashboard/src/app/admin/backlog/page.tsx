@@ -289,22 +289,51 @@ export default function BacklogPage() {
         }
       }
 
-      // First, claim any orphaned items (items with null user_id)
-      // This handles items created before user_id was added to pm-review
-      const { data: orphanedItems } = await client
+      // Claim orphaned items (items with null user_id or null repository_id)
+      // This handles items created before user_id/repository_id were properly set in pm-review
+
+      // Step 1: Claim items with null user_id
+      const { data: userOrphanedItems } = await client
         .from(TABLES.PM_BACKLOG_ITEMS)
         .select('id')
         .is('user_id', null);
 
-      if (orphanedItems && orphanedItems.length > 0) {
+      if (userOrphanedItems && userOrphanedItems.length > 0) {
         console.log(
-          `Found ${orphanedItems.length} orphaned items, claiming for user...`,
+          `Found ${userOrphanedItems.length} items with null user_id, claiming for user...`,
         );
-        const orphanedIds = orphanedItems.map((item) => item.id);
+        const orphanedIds = userOrphanedItems.map((item) => item.id);
         await client
           .from(TABLES.PM_BACKLOG_ITEMS)
           .update({ user_id: userData.id })
           .in('id', orphanedIds);
+      }
+
+      // Step 2: If user has exactly one repository, claim items with null repository_id
+      // (We can only auto-assign if there's no ambiguity about which repo)
+      const { data: repos } = await client
+        .from(TABLES.GITHUB_REPOSITORIES)
+        .select('id')
+        .eq('user_id', userData.id)
+        .eq('is_active', true);
+
+      if (repos && repos.length === 1) {
+        const { data: repoOrphanedItems } = await client
+          .from(TABLES.PM_BACKLOG_ITEMS)
+          .select('id')
+          .eq('user_id', userData.id)
+          .is('repository_id', null);
+
+        if (repoOrphanedItems && repoOrphanedItems.length > 0) {
+          console.log(
+            `Found ${repoOrphanedItems.length} items with null repository_id, assigning to only repo...`,
+          );
+          const orphanedIds = repoOrphanedItems.map((item) => item.id);
+          await client
+            .from(TABLES.PM_BACKLOG_ITEMS)
+            .update({ repository_id: repos[0].id })
+            .in('id', orphanedIds);
+        }
       }
 
       // Fetch items with selective columns for performance
