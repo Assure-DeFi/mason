@@ -15,6 +15,12 @@ import {
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import { createGitHubClient } from '@/lib/github/client';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  addRateLimitHeaders,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import type { BacklogItem } from '@/types/backlog';
 
 interface RouteParams {
@@ -35,6 +41,17 @@ export async function POST(request: Request, { params }: RouteParams) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return unauthorized('Authentication required');
+    }
+
+    // Rate limit check - AI-heavy operation
+    const rateLimitId = getRateLimitIdentifier(
+      'risk-analysis',
+      session.user.id,
+    );
+    const rateLimitResult = await checkRateLimit(rateLimitId, 'aiHeavy');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     // Parse request body
@@ -139,13 +156,14 @@ export async function POST(request: Request, { params }: RouteParams) {
       // Continue anyway - analysis is saved
     }
 
-    return apiSuccess({
+    const response = apiSuccess({
       analysis: {
         ...analysis,
         overall_risk_score: overallRiskScore,
         has_breaking_changes: analysisResult.breaking_changes.length > 0,
       },
     });
+    return addRateLimitHeaders(response, rateLimitResult);
   } catch (err) {
     console.error('Risk analysis error:', err);
     return serverError(err instanceof Error ? err.message : 'Analysis failed');

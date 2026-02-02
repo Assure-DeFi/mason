@@ -8,7 +8,22 @@ import {
 } from '@/lib/api-response';
 import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
 import { TABLES } from '@/lib/constants';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  addRateLimitHeaders,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import { createServiceClient } from '@/lib/supabase/client';
+
+// Helper to extract client IP from request
+function getClientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return request.headers.get('x-real-ip') || 'unknown';
+}
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -43,6 +58,18 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (!user) {
       return unauthorized('Invalid API key');
+    }
+
+    // Rate limit check using validated user ID
+    const rateLimitId = getRateLimitIdentifier(
+      'backlog-start',
+      user.github_id,
+      getClientIp(request),
+    );
+    const rateLimitResult = await checkRateLimit(rateLimitId, 'standard');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     // Get item ID from route params
@@ -103,7 +130,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    return apiSuccess({
+    const response = apiSuccess({
       item: {
         id: updatedItem.id,
         title: updatedItem.title,
@@ -112,6 +139,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       },
       message: `Item '${updatedItem.title}' is now in progress`,
     });
+    return addRateLimitHeaders(response, rateLimitResult);
   } catch (error) {
     console.error('Error starting backlog item:', error);
     return serverError();
