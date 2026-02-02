@@ -299,3 +299,24 @@ description: Brief description of what this command does.
 **Why**: Progress displays are critical for user confidence. Incorrect percentages (0% when actually progressing) cause anxiety and lost trust.
 
 ---
+
+## Git URL Parsing: Strip .git Suffix Before Extracting Path
+
+**Discovered**: 2026-02-02
+**Context**: pm-review items had `repository_id=null` despite repo being connected - regex wasn't stripping `.git` suffix
+**Pattern**: When parsing git remote URLs to extract owner/repo:
+
+1. **Strip `.git` suffix FIRST** before any other extraction
+2. **Test with real URLs** - `https://github.com/owner/repo.git` and `git@github.com:owner/repo.git`
+3. **The regex `(\.git)?$` doesn't work** when preceded by `[^/]+` because the greedy match consumes `.git`
+
+**Correct approach:**
+
+```bash
+# Two-step: strip .git, then extract
+REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/\.git$//' | sed -E 's|.*github\.com[:/]||')
+```
+
+**Why**: Silent failures in URL parsing cause `repository_id=null` which breaks dashboard filtering. Items appear inserted successfully but don't show in repo-filtered views.
+
+---

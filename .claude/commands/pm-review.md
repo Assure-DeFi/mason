@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.6.0
+version: 2.6.1
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -1765,7 +1765,8 @@ GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
 # Examples:
 #   https://github.com/owner/repo.git -> owner/repo
 #   git@github.com:owner/repo.git -> owner/repo
-REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/.*github\.com[:/]([^/]+\/[^/]+)(\.git)?$/\1/')
+# Note: Strip .git suffix first, then extract - the previous regex didn't handle .git correctly
+REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/\.git$//' | sed -E 's|.*github\.com[:/]||')
 
 # Find matching repository_id from the validation response
 REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select(.github_full_name == $name) | .id // empty')

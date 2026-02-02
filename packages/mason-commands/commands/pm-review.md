@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.6.0
+version: 2.6.1
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -463,11 +463,12 @@ Load the domain-specific knowledge from `.claude/skills/pm-domain-knowledge/SKIL
 
 **The swarm launch depends on the mode:**
 
-| Mode               | Agents to Launch  | Items per Agent | Banger | Total |
-| ------------------ | ----------------- | --------------- | ------ | ----- |
-| **Full** (default) | All 8 in parallel | 3               | Yes    | 25    |
-| **Quick**          | All 8 in parallel | 1               | Yes    | 9     |
-| **Focus (area:X)** | Single agent only | 5               | No     | 5     |
+| Mode               | Agents to Launch    | Items per Agent | Banger  | Total |
+| ------------------ | ------------------- | --------------- | ------- | ----- |
+| **Full** (default) | All 8 in parallel   | 3               | Yes     | 25    |
+| **Quick**          | All 8 in parallel   | 1               | Yes     | 9     |
+| **Focus (area:X)** | Single agent only   | 5               | No      | 5     |
+| **Banger**         | Deep dive (special) | N/A             | Yes (1) | 1     |
 
 ---
 
@@ -1418,6 +1419,10 @@ case "$MODE" in
     MAX_ITEMS=5
     REQUIRE_BANGER=false
     ;;
+  "banger")
+    MAX_ITEMS=1
+    REQUIRE_BANGER=true
+    ;;
 esac
 
 # Count items
@@ -1765,7 +1770,8 @@ GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
 # Examples:
 #   https://github.com/owner/repo.git -> owner/repo
 #   git@github.com:owner/repo.git -> owner/repo
-REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/.*github\.com[:/]([^/]+\/[^/]+)(\.git)?$/\1/')
+# Note: Strip .git suffix first, then extract - the previous regex didn't handle .git correctly
+REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/\.git$//' | sed -E 's|.*github\.com[:/]||')
 
 # Find matching repository_id from the validation response
 REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select(.github_full_name == $name) | .id // empty')
