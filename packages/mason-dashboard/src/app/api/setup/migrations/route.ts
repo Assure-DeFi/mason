@@ -343,6 +343,14 @@ CREATE TABLE IF NOT EXISTS mason_audit_logs (
   error_message TEXT
 );
 
+-- Mason Migrations table (tracks applied schema migrations)
+CREATE TABLE IF NOT EXISTS mason_migrations (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  description TEXT
+);
+
 -- Ensure user_id columns exist in tables that might have been created before user_id was added
 -- This handles upgrades from older schema versions
 ALTER TABLE mason_api_keys ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
@@ -466,6 +474,7 @@ ALTER TABLE mason_autopilot_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_autopilot_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mason_item_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mason_migrations ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (BYOD model - users own their database, allow all operations)
 -- Users table
@@ -556,6 +565,13 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_item_events' AND policyname = 'Allow all on item_events') THEN
     CREATE POLICY "Allow all on item_events" ON mason_item_events FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Migrations table
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_migrations' AND policyname = 'Allow all on migrations') THEN
+    CREATE POLICY "Allow all on migrations" ON mason_migrations FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 
