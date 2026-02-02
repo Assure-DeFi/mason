@@ -14,7 +14,10 @@ import {
   useColumnResize,
   type ResizableColumnId,
 } from '@/hooks/useColumnResize';
+import { SCORING_TOOLTIPS, PM_REVIEW_TOOLTIPS } from '@/lib/tooltip-content';
 import type { BacklogItem, SortField, SortDirection } from '@/types/backlog';
+
+import { InfoTooltip } from '../ui/InfoTooltip';
 
 import { ItemRow } from './item-row';
 import { ResizeHandle } from './resize-handle';
@@ -96,6 +99,7 @@ interface SortableHeaderProps {
   onResizeStart: (columnId: ResizableColumnId, event: React.MouseEvent) => void;
   isResizing: boolean;
   align?: 'left' | 'center';
+  tooltip?: { title: string; content: string };
 }
 
 function SortableHeader({
@@ -108,6 +112,7 @@ function SortableHeader({
   onResizeStart,
   isResizing,
   align = 'left',
+  tooltip,
 }: SortableHeaderProps) {
   const isActive = currentSort?.field === field;
   const direction = isActive ? currentSort.direction : null;
@@ -134,6 +139,15 @@ function SortableHeader({
         className={`flex items-center gap-1 transition-transform duration-150 group-hover:scale-[1.02] ${align === 'center' ? 'justify-center' : ''}`}
       >
         <span>{label}</span>
+        {tooltip && (
+          <span onClick={(e) => e.stopPropagation()}>
+            <InfoTooltip
+              title={tooltip.title}
+              content={tooltip.content}
+              iconClassName="text-gray-600 hover:text-gray-400"
+            />
+          </span>
+        )}
         <span className="inline-flex">
           {isActive ? (
             direction === 'asc' ? (
@@ -317,6 +331,7 @@ export function ImprovementsTable({
                 onSort={onSortChange}
                 onResizeStart={handleResizeStart}
                 isResizing={resizingColumn === 'priority'}
+                tooltip={SCORING_TOOLTIPS.priority}
               />
               <SortableHeader
                 label="Complexity"
@@ -344,7 +359,14 @@ export function ImprovementsTable({
                 className="text-center py-3 px-3 font-semibold text-gray-400 uppercase tracking-wider text-xs"
                 style={{ width: `${columnWidths.prd}px` }}
               >
-                PRD
+                <span className="inline-flex items-center gap-1">
+                  PRD
+                  <InfoTooltip
+                    title={PM_REVIEW_TOOLTIPS.prd.title}
+                    content={PM_REVIEW_TOOLTIPS.prd.content}
+                    iconClassName="text-gray-600 hover:text-gray-400"
+                  />
+                </span>
               </th>
 
               <SortableHeader

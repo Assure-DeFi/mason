@@ -3,7 +3,10 @@
 import { clsx } from 'clsx';
 import { AlertTriangle, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 
+import { RISK_LEVEL_TOOLTIPS } from '@/lib/tooltip-content';
 import { getRiskLevel } from '@/types/backlog';
+
+import { Tooltip } from '../ui/Tooltip';
 
 interface RiskBadgeProps {
   score: number | null;
@@ -66,19 +69,26 @@ export function RiskBadge({
     critical: 'Critical Risk',
   }[level];
 
+  const tooltipContent = RISK_LEVEL_TOOLTIPS[level];
+
   return (
-    <div
-      className={clsx(
-        'inline-flex items-center border font-medium',
-        colors,
-        sizes,
-        className,
-      )}
-      title={`Risk Score: ${score}/10 - ${labels}`}
+    <Tooltip
+      title={tooltipContent.title}
+      content={tooltipContent.content}
+      width="sm"
     >
-      <Icon className={iconSizes} />
-      <span>{score}</span>
-      {showLabel && <span className="ml-1">{labels}</span>}
-    </div>
+      <div
+        className={clsx(
+          'inline-flex items-center border font-medium',
+          colors,
+          sizes,
+          className,
+        )}
+      >
+        <Icon className={iconSizes} />
+        <span>{score}</span>
+        {showLabel && <span className="ml-1">{labels}</span>}
+      </div>
+    </Tooltip>
   );
 }
