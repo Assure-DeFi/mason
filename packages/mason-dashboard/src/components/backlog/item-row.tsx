@@ -1,7 +1,7 @@
 'use client';
 
 import { formatDistanceToNow, differenceInHours } from 'date-fns';
-import { FileText, Check, X, Clock } from 'lucide-react';
+import { FileText, Check, X, Clock, Files } from 'lucide-react';
 import { memo, useState } from 'react';
 
 import type { ColumnWidths } from '@/hooks/useColumnResize';
@@ -13,6 +13,7 @@ import { CategoryBadge } from './category-badge';
 import { FeatureBadge } from './FeatureBadge';
 import { PriorityDots } from './priority-dots';
 import { QuickWinBadge } from './QuickWinBadge';
+import { RiskBadge } from './RiskBadge';
 
 type TabStatus = BacklogStatus | 'filtered' | null;
 
@@ -214,13 +215,30 @@ function ItemRowComponent({
         </div>
       </td>
 
-      {/* Status */}
+      {/* Status + Risk + Files */}
       <td className="py-3 px-3" style={{ width: `${columnWidths.status}px` }}>
-        <span
-          className={`px-2 py-1 text-xs font-medium ${STATUS_COLORS[item.status].bg} ${STATUS_COLORS[item.status].text} border border-current/20`}
-        >
-          {STATUS_LABELS[item.status]}
-        </span>
+        <div className="flex flex-col gap-1">
+          <span
+            className={`px-2 py-1 text-xs font-medium ${STATUS_COLORS[item.status].bg} ${STATUS_COLORS[item.status].text} border border-current/20 w-fit`}
+          >
+            {STATUS_LABELS[item.status]}
+          </span>
+          <div className="flex items-center gap-1.5">
+            {item.risk_score !== null && (
+              <RiskBadge score={item.risk_score} size="sm" />
+            )}
+            {item.files_affected_count !== null &&
+              item.files_affected_count > 0 && (
+                <span
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs text-gray-400 bg-gray-800/50 border border-gray-700/50"
+                  title={`${item.files_affected_count} files affected`}
+                >
+                  <Files className="w-3 h-3" />
+                  {item.files_affected_count}
+                </span>
+              )}
+          </div>
+        </div>
       </td>
 
       {/* PRD Status */}
