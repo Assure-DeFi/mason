@@ -1,0 +1,61 @@
+{
+  "agent_id": "UI-1",
+  "completed_at": "2026-02-02T16:30:37.796Z",
+  "summary": {
+    "pages_tested": 7,
+    "pages_passed": 7,
+    "pages_failed": 0,
+    "issues_found": 0
+  },
+  "pages": [
+    {
+      "url": "/",
+      "status": "pass",
+      "load_time_ms": 1048,
+      "console_errors": [],
+      "issues": []
+    },
+    {
+      "url": "/auth/signin",
+      "status": "pass",
+      "load_time_ms": 737,
+      "console_errors": [],
+      "issues": []
+    },
+    {
+      "url": "/setup",
+      "status": "pass",
+      "load_time_ms": 776,
+      "console_errors": [],
+      "issues": []
+    },
+    {
+      "url": "/admin/backlog",
+      "status": "pass",
+      "load_time_ms": 720,
+      "console_errors": [],
+      "issues": []
+    },
+    {
+      "url": "/settings/database",
+      "status": "pass",
+      "load_time_ms": 735,
+      "console_errors": [],
+      "issues": []
+    },
+    {
+      "url": "/settings/github",
+      "status": "pass",
+      "load_time_ms": 719,
+      "console_errors": [],
+      "issues": []
+    },
+    {
+      "url": "/settings/api-keys",
+      "status": "pass",
+      "load_time_ms": 739,
+      "console_errors": [],
+      "issues": []
+    }
+  ]
+}

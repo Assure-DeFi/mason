@@ -1,0 +1,163 @@
+{
+  "run_id": "bt-20260202-143000",
+  "status": "complete",
+  "wave": 3,
+  "iteration": 1,
+  "max_iterations": 3,
+  "started_at": "2026-02-02T14:30:00Z",
+  "config": {
+    "fix_mode": "auto-fix",
+    "focus": "all"
+  },
+  "base_url": "http://localhost:3000",
+  "pages_to_test": [
+    "/",
+    "/auth/signin",
+    "/setup",
+    "/admin/backlog",
+    "/settings/database",
+    "/settings/github",
+    "/settings/api-keys"
+  ],
+  "api_endpoints": [
+    { "path": "/api/health", "method": "GET" },
+    { "path": "/api/setup/migrations", "method": "POST" },
+    { "path": "/api/v1/backlog/next", "method": "GET" },
+    { "path": "/api/keys", "method": "GET" }
+  ],
+  "test_assignments": {
+    "ui_tester": { "id": "UI-1", "status": "complete" },
+    "api_tester": { "id": "API-1", "status": "complete" },
+    "flow_tester": { "id": "FLOW-1", "status": "complete" }
+  },
+  "test_results": {
+    "UI-1": {
+      "pages_tested": 7,
+      "pages_passed": 7,
+      "pages_failed": 0,
+      "issues_found": 0
+    },
+    "API-1": {
+      "endpoints_tested": 5,
+      "endpoints_passed": 2,
+      "endpoints_failed": 3,
+      "issues_found": 3
+    },
+    "FLOW-1": {
+      "flows_tested": 4,
+      "flows_passed": 4,
+      "flows_failed": 0,
+      "issues_found": 0
+    }
+  },
+  "issues": [
+    {
+      "id": "issue-001",
+      "severity": "low",
+      "category": "api",
+      "discovered_by": "API-1",
+      "description": "Health check endpoint /api/health not implemented",
+      "expected": "200 OK with health status JSON",
+      "actual": "404 - endpoint does not exist",
+      "file_hint": null
+    },
+    {
+      "id": "issue-002",
+      "severity": "high",
+      "category": "api",
+      "discovered_by": "API-1",
+      "description": "API endpoint /api/setup/migrations returns HTML redirect (307) instead of JSON error for unauthenticated requests",
+      "expected": "401 Unauthorized with JSON error",
+      "actual": "307 redirect to /login page",
+      "file_hint": "src/middleware.ts"
+    },
+    {
+      "id": "issue-003",
+      "severity": "high",
+      "category": "api",
+      "discovered_by": "API-1",
+      "description": "API endpoint /api/v1/backlog/next returns HTML redirect (307) instead of JSON error for unauthenticated requests",
+      "expected": "401 Unauthorized with JSON error",
+      "actual": "307 redirect to /login page",
+      "file_hint": "src/middleware.ts"
+    },
+    {
+      "id": "issue-004",
+      "severity": "critical",
+      "category": "api",
+      "discovered_by": "API-1",
+      "description": "API endpoint /api/keys returns HTML redirect (307) instead of JSON error for unauthenticated requests",
+      "expected": "401 Unauthorized with JSON error",
+      "actual": "307 redirect to /login page. Route handler has proper auth checks but middleware intercepts first.",
+      "file_hint": "src/middleware.ts"
+    }
+  ],
+  "diagnosis": {
+    "completed": true,
+    "analyzed_at": "2026-02-02T16:35:00Z",
+    "total_issues": 4,
+    "root_causes_found": 2,
+    "root_causes": [
+      {
+        "id": "rc-001",
+        "file": "packages/mason-dashboard/src/middleware.ts",
+        "line": null,
+        "description": "Middleware redirects unauthenticated API requests to HTML login page instead of returning JSON 401 error. Route handlers have correct auth checks but middleware intercepts first.",
+        "fix_type": "add_api_auth_check",
+        "symptoms": ["issue-002", "issue-003", "issue-004"],
+        "priority": 1,
+        "estimated_complexity": "medium",
+        "fix_approach": "Modify middleware to check if request path starts with /api/. For API requests, check authentication and return NextResponse.json({error: 'Unauthorized'}, {status: 401}) instead of redirecting. For page requests, keep existing redirect behavior."
+      },
+      {
+        "id": "rc-002",
+        "file": "packages/mason-dashboard/src/app/api/health/route.ts",
+        "line": null,
+        "description": "Health check endpoint does not exist",
+        "fix_type": "create_new_file",
+        "symptoms": ["issue-001"],
+        "priority": 2,
+        "estimated_complexity": "low",
+        "fix_approach": "Create new route.ts file that exports GET handler returning {status: 'ok', timestamp: Date.now()} with 200 status."
+      }
+    ],
+    "fix_queue": ["rc-001", "rc-002"],
+    "unable_to_diagnose": []
+  },
+  "fix_results": [
+    {
+      "root_cause_id": "rc-001",
+      "status": "fixed",
+      "fixed_at": "2026-02-02T17:00:00Z",
+      "changes": [
+        {
+          "file": "packages/mason-dashboard/src/middleware.ts",
+          "action": "created",
+          "description": "Created middleware to handle authentication. API routes return JSON 401 error for unauthenticated requests. Page routes redirect to login page. Public routes (/api/auth/*, /api/health, /auth/*, /) are excluded from auth checks."
+        }
+      ],
+      "validation": {
+        "typecheck": "passed",
+        "lint": "passed"
+      },
+      "issues_resolved": ["issue-002", "issue-003", "issue-004"]
+    },
+    {
+      "root_cause_id": "rc-002",
+      "status": "fixed",
+      "fixed_at": "2026-02-02T17:05:00Z",
+      "changes": [
+        {
+          "file": "packages/mason-dashboard/src/app/api/health/route.ts",
+          "action": "created",
+          "description": "Created health check endpoint that returns {status: 'ok', timestamp: Date.now()} with 200 status. Endpoint is public and does not require authentication."
+        }
+      ],
+      "validation": {
+        "typecheck": "passed",
+        "lint": "passed"
+      },
+      "issues_resolved": ["issue-001"]
+    }
+  ]
+}
