@@ -339,7 +339,8 @@ export default function BacklogPage() {
       // Fetch items with selective columns for performance
       // Excludes prd_content (large text) which is lazy loaded on demand
       // Benefits included - required for detail modal display
-      const { data, error: fetchError } = await client
+      // CRITICAL: Filter by repository at database level for data isolation
+      let query = client
         .from(TABLES.PM_BACKLOG_ITEMS)
         .select(
           'id,title,problem,solution,type,status,area,complexity,' +
@@ -351,8 +352,22 @@ export default function BacklogPage() {
             'user_id,analysis_run_id,' +
             'benefits', // JSON array - required for detail modal
         )
-        .eq('user_id', userData.id)
-        .order('priority_score', { ascending: false });
+        .eq('user_id', userData.id);
+
+      // Filter by selected repository at database level (not client-side)
+      // This ensures strict data isolation between repositories
+      if (selectedRepoId) {
+        query = query.eq('repository_id', selectedRepoId);
+      } else if (repos && repos.length > 0) {
+        // If no repo selected, only show items from user's connected repos
+        // This prevents showing items from disconnected/other repos
+        const repoIds = repos.map((r) => r.id);
+        query = query.in('repository_id', repoIds);
+      }
+
+      const { data, error: fetchError } = await query.order('priority_score', {
+        ascending: false,
+      });
 
       if (fetchError) {
         throw fetchError;
@@ -370,7 +385,7 @@ export default function BacklogPage() {
       setIsLoading(false);
       isFetchingRef.current = false;
     }
-  }, [client, session]);
+  }, [client, session, selectedRepoId]);
 
   useEffect(() => {
     if (isConfigured && !isDbLoading) {

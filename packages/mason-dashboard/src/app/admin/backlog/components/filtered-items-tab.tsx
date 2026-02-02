@@ -47,11 +47,9 @@ export function FilteredItemsTab({
         .select('*')
         .eq('override_status', 'filtered');
 
-      // Filter by repository if selected (include items with no repo for backwards compatibility)
+      // Filter by repository - strict isolation, no cross-repo contamination
       if (selectedRepoId) {
-        query = query.or(
-          `repository_id.eq.${selectedRepoId},repository_id.is.null`,
-        );
+        query = query.eq('repository_id', selectedRepoId);
       }
 
       const { data, error: fetchError } = await query.order('created_at', {
