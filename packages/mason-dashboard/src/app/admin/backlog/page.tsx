@@ -316,7 +316,7 @@ export default function BacklogPage() {
             'impact_score,effort_score,priority_score,' +
             'is_new_feature,is_banger_idea,tags,source,' +
             'updated_at,created_at,repository_id,' +
-            'prd_content,branch_name,pr_url,' +
+            'prd_generated_at,branch_name,pr_url,' + // prd_content lazy loaded on demand
             'risk_score,has_breaking_changes,files_affected_count,test_coverage_gaps,' +
             'user_id,analysis_run_id',
         )

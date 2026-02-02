@@ -115,6 +115,12 @@ export function ItemDetailModal({
     null,
   );
 
+  // Lazy-loaded PRD content state
+  const [prdContent, setPrdContent] = useState<string | null>(
+    item.prd_content ?? null,
+  );
+  const [isLoadingPrd, setIsLoadingPrd] = useState(false);
+
   const focusTrapRef = useFocusTrap(true);
 
   // Fetch existing risk analysis on mount (now pre-populated by /pm-review)
@@ -136,9 +142,39 @@ export function ItemDetailModal({
     void fetchRiskAnalysis();
   }, [item.id]);
 
+  // Lazy load PRD content when switching to PRD tab
+  useEffect(() => {
+    const fetchPrdContent = async () => {
+      // Only fetch if we have a PRD (indicated by prd_generated_at) but no content yet
+      if (
+        viewMode === 'prd' &&
+        item.prd_generated_at &&
+        prdContent === null &&
+        !isLoadingPrd
+      ) {
+        setIsLoadingPrd(true);
+        try {
+          const response = await fetch(`/api/backlog/${item.id}/prd`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.prd_content) {
+              setPrdContent(data.prd_content);
+            }
+          }
+        } catch {
+          // Silent fail - will show empty state
+        } finally {
+          setIsLoadingPrd(false);
+        }
+      }
+    };
+
+    void fetchPrdContent();
+  }, [viewMode, item.id, item.prd_generated_at, prdContent, isLoadingPrd]);
+
   // PRD editing handlers
   const handleStartEditPrd = () => {
-    setEditedPrdContent(item.prd_content || '');
+    setEditedPrdContent(prdContent || '');
     setIsEditingPrd(true);
   };
 
@@ -190,7 +226,7 @@ export function ItemDetailModal({
           }
           break;
         case 'g':
-          if (!isGenerating && !item.prd_content && !isEditingPrd) {
+          if (!isGenerating && !prdContent && !isEditingPrd) {
             void handleGeneratePrd();
           }
           break;
@@ -209,7 +245,7 @@ export function ItemDetailModal({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [item, isGenerating, isUpdating, isEditingPrd, onClose]);
+  }, [item, isGenerating, isUpdating, isEditingPrd, onClose, prdContent]);
 
   const handleGeneratePrd = async () => {
     setIsGenerating(true);
@@ -468,13 +504,13 @@ export function ItemDetailModal({
                 </button>
                 <button
                   onClick={() => setViewMode('prd')}
-                  disabled={!item.prd_content}
+                  disabled={!item.prd_generated_at}
                   className={clsx(
                     'px-2 sm:px-3 py-1 text-xs rounded transition-colors',
                     viewMode === 'prd'
                       ? 'bg-gray-700 text-white'
                       : 'text-gray-400 hover:text-white',
-                    !item.prd_content && 'opacity-50 cursor-not-allowed',
+                    !item.prd_generated_at && 'opacity-50 cursor-not-allowed',
                   )}
                 >
                   PRD
@@ -509,56 +545,63 @@ export function ItemDetailModal({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
-            {viewMode === 'prd' && item.prd_content ? (
-              <div className="space-y-4">
-                {/* PRD Header with Edit Button */}
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-                    Product Requirements Document
-                  </h3>
-                  {!isEditingPrd && onUpdatePrd && (
-                    <button
-                      onClick={handleStartEditPrd}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-600 text-gray-300 hover:bg-white/5 transition-colors"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                      Edit PRD
-                    </button>
+            {viewMode === 'prd' ? (
+              isLoadingPrd ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin h-6 w-6 border-2 border-gold border-t-transparent rounded-full" />
+                  <span className="ml-3 text-gray-400">Loading PRD...</span>
+                </div>
+              ) : prdContent ? (
+                <div className="space-y-4">
+                  {/* PRD Header with Edit Button */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                      Product Requirements Document
+                    </h3>
+                    {!isEditingPrd && onUpdatePrd && (
+                      <button
+                        onClick={handleStartEditPrd}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-600 text-gray-300 hover:bg-white/5 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Edit PRD
+                      </button>
+                    )}
+                  </div>
+
+                  {isEditingPrd ? (
+                    <div className="space-y-3">
+                      <textarea
+                        value={editedPrdContent}
+                        onChange={(e) => setEditedPrdContent(e.target.value)}
+                        className="w-full h-64 sm:h-80 md:h-96 p-3 sm:p-4 bg-black/50 border border-gray-700 text-gray-200 font-mono text-sm resize-y focus:outline-none focus:border-gold/50"
+                        placeholder="Enter PRD content (Markdown supported)..."
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={handleCancelEditPrd}
+                          disabled={isSavingPrd}
+                          className="px-4 py-2 text-sm border border-gray-600 text-gray-300 hover:bg-white/5 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSavePrd}
+                          disabled={isSavingPrd}
+                          className="flex items-center gap-2 px-4 py-2 text-sm bg-gold text-navy font-medium hover:opacity-90 disabled:opacity-50"
+                        >
+                          <Save className="w-4 h-4" />
+                          {isSavingPrd ? 'Saving...' : 'Save PRD'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="prose prose-invert prose-sm max-w-none">
+                      {renderPrdContent(prdContent)}
+                    </div>
                   )}
                 </div>
-
-                {isEditingPrd ? (
-                  <div className="space-y-3">
-                    <textarea
-                      value={editedPrdContent}
-                      onChange={(e) => setEditedPrdContent(e.target.value)}
-                      className="w-full h-64 sm:h-80 md:h-96 p-3 sm:p-4 bg-black/50 border border-gray-700 text-gray-200 font-mono text-sm resize-y focus:outline-none focus:border-gold/50"
-                      placeholder="Enter PRD content (Markdown supported)..."
-                    />
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={handleCancelEditPrd}
-                        disabled={isSavingPrd}
-                        className="px-4 py-2 text-sm border border-gray-600 text-gray-300 hover:bg-white/5 disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSavePrd}
-                        disabled={isSavingPrd}
-                        className="flex items-center gap-2 px-4 py-2 text-sm bg-gold text-navy font-medium hover:opacity-90 disabled:opacity-50"
-                      >
-                        <Save className="w-4 h-4" />
-                        {isSavingPrd ? 'Saving...' : 'Save PRD'}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="prose prose-invert prose-sm max-w-none">
-                    {renderPrdContent(item.prd_content)}
-                  </div>
-                )}
-              </div>
+              ) : null
             ) : viewMode === 'timeline' ? (
               <ItemTimeline
                 itemId={item.id}
@@ -638,17 +681,19 @@ export function ItemDetailModal({
             {/* Left: View PRD Button */}
             <button
               onClick={
-                item.prd_content ? () => setViewMode('prd') : handleGeneratePrd
+                item.prd_generated_at
+                  ? () => setViewMode('prd')
+                  : handleGeneratePrd
               }
               disabled={isGenerating}
               className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm border border-gray-600 text-gray-300 hover:bg-white/5 disabled:opacity-50"
-              title={item.prd_content ? '' : 'Press G to generate'}
+              title={item.prd_generated_at ? '' : 'Press G to generate'}
             >
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">
                 {isGenerating
                   ? 'Generating...'
-                  : item.prd_content
+                  : item.prd_generated_at
                     ? 'View PRD'
                     : 'Generate PRD'}
               </span>
@@ -700,7 +745,7 @@ export function ItemDetailModal({
                 <kbd className="px-1 py-0.5 bg-gray-800 rounded">X</kbd> reject
               </>
             )}
-            {!item.prd_content && (
+            {!item.prd_generated_at && (
               <>
                 {' • '}
                 <kbd className="px-1 py-0.5 bg-gray-800 rounded">G</kbd>{' '}
