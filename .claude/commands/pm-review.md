@@ -1,16 +1,146 @@
 ---
 name: pm-review
-version: 2.9.0
+version: 2.10.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
 # PM Review Command
 
-You are a **Product Manager agent** analyzing this codebase for improvement opportunities using a **swarm of 8 specialized category agents**.
+You are a **Product Manager agent** analyzing this codebase for improvement opportunities.
 
-## Overview
+---
 
-This command performs a comprehensive analysis of the codebase using 8 specialized agents that run **in parallel**, each focused on a specific category:
+## ⚠️ MANDATORY FIRST STEPS - READ BEFORE DOING ANYTHING ⚠️
+
+**YOU MUST COMPLETE THESE STEPS IN ORDER. DO NOT SKIP ANY STEP.**
+
+### STEP 0: VERSION CHECK (BLOCKING - DO THIS FIRST)
+
+Run this version check **IMMEDIATELY** before doing anything else:
+
+```bash
+COMMAND_NAME="pm-review"
+LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/${COMMAND_NAME}.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
+REMOTE_VERSION=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".version // \"\"" 2>/dev/null)
+REQUIRED_MIN=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".required_minimum // \"\"" 2>/dev/null)
+BREAKING_REASON=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".breaking_reason // \"\"" 2>/dev/null)
+
+# Check if local version is below required minimum
+if [ -n "$REQUIRED_MIN" ] && [ -n "$LOCAL_VERSION" ]; then
+  if [ "$(printf '%s\n' "$REQUIRED_MIN" "$LOCAL_VERSION" | sort -V | head -n1)" = "$LOCAL_VERSION" ] && \
+     [ "$LOCAL_VERSION" != "$REQUIRED_MIN" ]; then
+    echo "⚠️ OUTDATED: v${LOCAL_VERSION} → v${REQUIRED_MIN} required"
+    echo "Reason: $BREAKING_REASON"
+    echo "AUTO-UPDATING..."
+  fi
+fi
+```
+
+**IF VERSION IS OUTDATED:**
+
+1. **STOP** - Do not continue with outdated command
+2. **Invoke `/mason-update`** using the Skill tool immediately
+3. **Wait** for update to complete
+4. **Re-read** this command file (content will be new)
+5. **Restart** from the beginning with updated instructions
+
+Do NOT ask the user. Just auto-update and restart.
+
+---
+
+### STEP 1: ARGUMENT PARSING (MANDATORY)
+
+Parse the command arguments to determine execution mode. **This MUST be done before any analysis.**
+
+**Parse these from the command invocation:**
+
+```bash
+# Get the full command arguments
+COMMAND_ARGS="$*"
+
+# === 1. DETECT MODE ===
+MODE="full"  # Default
+
+# Check for specific modes (order matters - check most specific first)
+if echo "$COMMAND_ARGS" | grep -qi "banger"; then
+  MODE="banger"
+elif echo "$COMMAND_ARGS" | grep -qi "area:"; then
+  MODE="area"
+  AREA_TYPE=$(echo "$COMMAND_ARGS" | grep -oE "area:[a-z-]+" | cut -d: -f2)
+elif echo "$COMMAND_ARGS" | grep -qi "quick"; then
+  MODE="quick"
+fi
+
+# === 2. DETECT AUTO FLAG ===
+AUTO_MODE=false
+if echo "$COMMAND_ARGS" | grep -q '\-\-auto'; then
+  AUTO_MODE=true
+fi
+
+# === 3. DETECT FOCUS CONTEXT ===
+FOCUS_CONTEXT=""
+if echo "$COMMAND_ARGS" | grep -q "Focus on:"; then
+  FOCUS_CONTEXT=$(echo "$COMMAND_ARGS" | sed -n 's/.*Focus on: *\(.*\)/\1/p')
+fi
+
+echo "=== PM REVIEW CONFIGURATION ==="
+echo "MODE: $MODE"
+echo "AUTO_MODE: $AUTO_MODE"
+echo "FOCUS_CONTEXT: $FOCUS_CONTEXT"
+echo "==============================="
+```
+
+**CRITICAL: Set these variables EXPLICITLY:**
+
+| Variable      | Purpose                          | Example Values                    |
+| ------------- | -------------------------------- | --------------------------------- |
+| MODE          | Which execution path to follow   | `full`, `quick`, `area`, `banger` |
+| AREA_TYPE     | Which agent (only if MODE=area)  | `security`, `ui`, `performance`   |
+| AUTO_MODE     | Skip user prompts                | `true`, `false`                   |
+| FOCUS_CONTEXT | Narrow analysis to specific area | `src/auth/`, empty string         |
+
+---
+
+### STEP 2: MODE ROUTING (MANDATORY)
+
+**Based on the MODE variable, you MUST follow the correct execution path:**
+
+| MODE     | Go To Section                        | Expected Output      |
+| -------- | ------------------------------------ | -------------------- |
+| `banger` | **Mode D: Banger Mode** (line ~664)  | 1 banger idea only   |
+| `area`   | **Mode C: Focus Area** (line ~617)   | 5 items, no banger   |
+| `quick`  | **Mode B: Quick Review** (line ~595) | 9 items (8+1 banger) |
+| `full`   | **Mode A: Full Review** (line ~563)  | 25 items (24+1)      |
+
+**ROUTING LOGIC:**
+
+```
+IF MODE == "banger":
+  → Skip directly to "Mode D: Banger Mode" section
+  → Do NOT launch 8 category agents
+  → Follow banger-specific process (3 explore agents → ideation → selection)
+
+ELSE IF MODE == "area":
+  → Skip to "Mode C: Focus Area" section
+  → Launch ONLY the agent matching AREA_TYPE
+
+ELSE IF MODE == "quick":
+  → Go to "Mode B: Quick Review" section
+  → Launch 8 agents with ITEM_LIMIT=1 each
+
+ELSE (MODE == "full"):
+  → Go to "Mode A: Full Review" section
+  → Launch 8 agents with ITEM_LIMIT=3 each
+```
+
+**THIS ROUTING IS NON-NEGOTIABLE.** If MODE=banger, you MUST NOT launch 8 category agents.
+
+---
+
+## Overview (Reference Only)
+
+This command performs a comprehensive analysis using 8 specialized agents that run **in parallel**, each focused on a specific category:
 
 | Category         | Badge Color   | Agent Focus                                          |
 | ---------------- | ------------- | ---------------------------------------------------- |
@@ -139,90 +269,14 @@ Focus on: Dashboard components in src/components/dashboard/
 
 ## Process
 
-### Pre-Check: Version Enforcement (AUTO-UPDATE)
+**After completing STEP 0-2 above (version check, argument parsing, mode routing), proceed to domain knowledge loading.**
 
-Run this version check **FIRST** before any other operation:
+**Reminder - You should already have these variables set:**
 
-```bash
-# === VERSION ENFORCEMENT (AUTO-UPDATE) ===
-COMMAND_NAME="pm-review"
-LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/${COMMAND_NAME}.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
-REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
-REMOTE_VERSION=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".version // \"\"" 2>/dev/null)
-REQUIRED_MIN=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".required_minimum // \"\"" 2>/dev/null)
-BREAKING_REASON=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".breaking_reason // \"\"" 2>/dev/null)
-
-# Check if below required minimum
-VERSION_OUTDATED=false
-if [ -n "$REQUIRED_MIN" ] && [ -n "$LOCAL_VERSION" ]; then
-  if [ "$(printf '%s\n' "$REQUIRED_MIN" "$LOCAL_VERSION" | sort -V | head -n1)" = "$LOCAL_VERSION" ] && \
-     [ "$LOCAL_VERSION" != "$REQUIRED_MIN" ]; then
-    VERSION_OUTDATED=true
-    echo "⚠️  Command outdated: v${LOCAL_VERSION} → v${REQUIRED_MIN} required"
-    [ -n "$BREAKING_REASON" ] && echo "   Reason: $BREAKING_REASON"
-    echo "   Auto-updating..."
-  fi
-fi
-# === END VERSION ENFORCEMENT ===
-```
-
-**CRITICAL: If `VERSION_OUTDATED=true`, you MUST:**
-
-1. **Immediately invoke `/mason-update`** using the Skill tool
-2. **Wait for update to complete**
-3. **Re-read this command file** (it will have new content)
-4. **Continue execution** with the updated command
-
-Do NOT ask the user - just auto-update and continue.
-
----
-
-## Auto Mode Detection
-
-**Check if `--auto` flag is present in the command arguments.**
-
-```bash
-# Parse arguments for --auto flag
-AUTO_MODE=false
-if echo "$*" | grep -q '\-\-auto'; then
-  AUTO_MODE=true
-  echo "Running in AUTO mode (headless/non-interactive)"
-fi
-```
-
----
-
-## Focus Context Parsing (ALL MODES)
-
-**Parse focus context BEFORE mode-specific execution. This applies to ALL modes (full, quick, area:X, banger).**
-
-```bash
-# === FOCUS CONTEXT PARSING ===
-FOCUS_CONTEXT=""
-if echo "$COMMAND_ARGS" | grep -q "Focus on:"; then
-  FOCUS_CONTEXT=$(echo "$COMMAND_ARGS" | sed -n 's/.*Focus on: *\(.*\)/\1/p')
-  echo "Focus area detected: ${FOCUS_CONTEXT}"
-fi
-# === END FOCUS CONTEXT PARSING ===
-```
-
-**When FOCUS_CONTEXT is set:**
-
-- All exploration is narrowed to files/patterns within or related to the focused area
-- Every suggestion MUST relate to the focused area
-- Reduce total suggestions but make them highly targeted
-- Include file paths in suggestions that match the focus
-
-**Context Interpretation (applies to all modes):**
-
-| Context Pattern                   | Files/Dirs to Prioritize                     |
-| --------------------------------- | -------------------------------------------- |
-| "authentication", "auth", "login" | `**/auth/**`, `**/login/**`, `**/session/**` |
-| "dashboard", "admin panel"        | `**/dashboard/**`, `**/admin/**`             |
-| "API", "endpoints", "routes"      | `**/api/**`, `**/routes/**`                  |
-| "database", "queries", "supabase" | `**/lib/supabase/**`, `**/db/**`, `**/*.sql` |
-| "components", "UI"                | `**/components/**`                           |
-| Specific path mentioned           | That exact path and subdirectories           |
+- `MODE` - One of: `full`, `quick`, `area`, `banger`
+- `AUTO_MODE` - `true` or `false`
+- `FOCUS_CONTEXT` - Path or description, or empty string
+- `AREA_TYPE` - Only if MODE=area, e.g., `security`, `ui`
 
 **When AUTO_MODE is true:**
 

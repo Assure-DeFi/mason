@@ -1,12 +1,49 @@
 ---
 name: execute-approved
-version: 2.9.0
+version: 2.10.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
 # Execute Approved Command
 
 Execute approved items from the PM backlog using wave-based parallel execution.
+
+---
+
+## ⚠️ MANDATORY FIRST STEP - VERSION CHECK ⚠️
+
+**YOU MUST RUN THIS VERSION CHECK BEFORE DOING ANYTHING ELSE.**
+
+```bash
+COMMAND_NAME="execute-approved"
+LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/${COMMAND_NAME}.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
+REMOTE_VERSION=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".version // \"\"" 2>/dev/null)
+REQUIRED_MIN=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".required_minimum // \"\"" 2>/dev/null)
+BREAKING_REASON=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".breaking_reason // \"\"" 2>/dev/null)
+
+# Check if local version is below required minimum
+if [ -n "$REQUIRED_MIN" ] && [ -n "$LOCAL_VERSION" ]; then
+  if [ "$(printf '%s\n' "$REQUIRED_MIN" "$LOCAL_VERSION" | sort -V | head -n1)" = "$LOCAL_VERSION" ] && \
+     [ "$LOCAL_VERSION" != "$REQUIRED_MIN" ]; then
+    echo "⚠️ OUTDATED: v${LOCAL_VERSION} → v${REQUIRED_MIN} required"
+    echo "Reason: $BREAKING_REASON"
+    echo "AUTO-UPDATING..."
+  fi
+fi
+```
+
+**IF VERSION IS OUTDATED:**
+
+1. **STOP** - Do not continue with outdated command
+2. **Invoke `/mason-update`** using the Skill tool immediately
+3. **Wait** for update to complete
+4. **Re-read** this command file (content will be new)
+5. **Restart** from the beginning with updated instructions
+
+Do NOT ask the user. Just auto-update and restart.
+
+---
 
 ## Overview
 
@@ -72,44 +109,6 @@ update_checkpoint 1 "Initialized execution" "site_review"
 **DO NOT SKIP CHECKPOINT CALLS** - The user is watching the dashboard and expects to see progress.
 
 ## Process
-
-### Pre-Check: Version Enforcement (AUTO-UPDATE)
-
-Run this version check **FIRST** before any other operation:
-
-```bash
-# === VERSION ENFORCEMENT (AUTO-UPDATE) ===
-COMMAND_NAME="execute-approved"
-LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/${COMMAND_NAME}.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
-REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
-REMOTE_VERSION=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".version // \"\"" 2>/dev/null)
-REQUIRED_MIN=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".required_minimum // \"\"" 2>/dev/null)
-BREAKING_REASON=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".breaking_reason // \"\"" 2>/dev/null)
-
-# Check if below required minimum
-VERSION_OUTDATED=false
-if [ -n "$REQUIRED_MIN" ] && [ -n "$LOCAL_VERSION" ]; then
-  if [ "$(printf '%s\n' "$REQUIRED_MIN" "$LOCAL_VERSION" | sort -V | head -n1)" = "$LOCAL_VERSION" ] && \
-     [ "$LOCAL_VERSION" != "$REQUIRED_MIN" ]; then
-    VERSION_OUTDATED=true
-    echo "⚠️  Command outdated: v${LOCAL_VERSION} → v${REQUIRED_MIN} required"
-    [ -n "$BREAKING_REASON" ] && echo "   Reason: $BREAKING_REASON"
-    echo "   Auto-updating..."
-  fi
-fi
-# === END VERSION ENFORCEMENT ===
-```
-
-**CRITICAL: If `VERSION_OUTDATED=true`, you MUST:**
-
-1. **Immediately invoke `/mason-update`** using the Skill tool
-2. **Wait for update to complete**
-3. **Re-read this command file** (it will have new content)
-4. **Continue execution** with the updated command
-
-Do NOT ask the user - just auto-update and continue.
-
----
 
 ### Auto Mode Detection
 

@@ -2,16 +2,16 @@
   "manifest_version": 2,
   "commands": {
     "pm-review": {
-      "version": "2.9.0",
+      "version": "2.10.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "2.9.0",
-      "breaking_reason": "Focus context now works for all modes (full, quick, area:X, banger)"
+      "required_minimum": "2.10.0",
+      "breaking_reason": "MANDATORY mode detection at command start - ensures banger/quick/area modes work correctly"
     },
     "execute-approved": {
-      "version": "2.9.0",
+      "version": "2.10.0",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "2.9.0",
-      "breaking_reason": "Mandatory progress tracking - checkpoint updates required for dashboard"
+      "required_minimum": "2.10.0",
+      "breaking_reason": "Version check moved to MANDATORY FIRST STEP for consistent enforcement"
     },
     "mason-update": {
       "version": "1.0.0",
