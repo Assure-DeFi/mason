@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.8.0
+version: 2.9.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -189,6 +189,40 @@ if echo "$*" | grep -q '\-\-auto'; then
   echo "Running in AUTO mode (headless/non-interactive)"
 fi
 ```
+
+---
+
+## Focus Context Parsing (ALL MODES)
+
+**Parse focus context BEFORE mode-specific execution. This applies to ALL modes (full, quick, area:X, banger).**
+
+```bash
+# === FOCUS CONTEXT PARSING ===
+FOCUS_CONTEXT=""
+if echo "$COMMAND_ARGS" | grep -q "Focus on:"; then
+  FOCUS_CONTEXT=$(echo "$COMMAND_ARGS" | sed -n 's/.*Focus on: *\(.*\)/\1/p')
+  echo "Focus area detected: ${FOCUS_CONTEXT}"
+fi
+# === END FOCUS CONTEXT PARSING ===
+```
+
+**When FOCUS_CONTEXT is set:**
+
+- All exploration is narrowed to files/patterns within or related to the focused area
+- Every suggestion MUST relate to the focused area
+- Reduce total suggestions but make them highly targeted
+- Include file paths in suggestions that match the focus
+
+**Context Interpretation (applies to all modes):**
+
+| Context Pattern                   | Files/Dirs to Prioritize                     |
+| --------------------------------- | -------------------------------------------- |
+| "authentication", "auth", "login" | `**/auth/**`, `**/login/**`, `**/session/**` |
+| "dashboard", "admin panel"        | `**/dashboard/**`, `**/admin/**`             |
+| "API", "endpoints", "routes"      | `**/api/**`, `**/routes/**`                  |
+| "database", "queries", "supabase" | `**/lib/supabase/**`, `**/db/**`, `**/*.sql` |
+| "components", "UI"                | `**/components/**`                           |
+| Specific path mentioned           | That exact path and subdirectories           |
 
 **When AUTO_MODE is true:**
 
@@ -476,6 +510,14 @@ Load the domain-specific knowledge from `.claude/skills/pm-domain-knowledge/SKIL
 
 **Launch all 8 category agents IN PARALLEL using a single message with 8 Task tool calls.**
 
+**Focus Context Support:**
+
+When `FOCUS_CONTEXT` is set, ALL 8 agents narrow their analysis to the focused area:
+
+- Exploration prioritizes files/patterns within or related to the focus
+- Every suggestion MUST relate to the focused area
+- Agents still maintain their category specialization (security, performance, etc.) but apply it to the focused area
+
 ```
 Use the Task tool 8 times in a SINGLE message with these agents:
 
@@ -487,6 +529,9 @@ Use the Task tool 8 times in a SINGLE message with these agents:
 6. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-security-agent.md, ITEM_LIMIT=3
 7. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-performance-agent.md, ITEM_LIMIT=3
 8. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-code-quality-agent.md, ITEM_LIMIT=3
+
+Each agent prompt MUST include:
+  FOCUS_CONTEXT: ${FOCUS_CONTEXT}  # Empty string if no focus provided
 ```
 
 **Feature agent ALSO generates the 1 banger idea (separate from the 3 regular items).**
@@ -495,12 +540,20 @@ Use the Task tool 8 times in a SINGLE message with these agents:
 
 #### Mode B: Quick Review (8 agents × 1 item + 1 banger = 9 total)
 
-**Launch all 8 category agents IN PARALLEL with ITEM_LIMIT=1:**
+**Launch all 8 category agents IN PARALLEL with ITEM_LIMIT=1.**
+
+**Focus Context Support:**
+
+When `FOCUS_CONTEXT` is set, ALL 8 agents narrow their analysis to the focused area (same as Full mode):
+
+- Exploration prioritizes files/patterns within or related to the focus
+- Every suggestion MUST relate to the focused area
+- Agents still maintain their category specialization but apply it to the focused area
 
 ```
 Use the Task tool 8 times in a SINGLE message with these agents:
 
-1-8. Same as Full mode, but each prompt includes ITEM_LIMIT=1
+1-8. Same as Full mode, but each prompt includes ITEM_LIMIT=1 and FOCUS_CONTEXT=${FOCUS_CONTEXT}
 ```
 
 **Feature agent ALSO generates the 1 banger idea (separate from the 1 regular item).**
@@ -510,6 +563,23 @@ Use the Task tool 8 times in a SINGLE message with these agents:
 #### Mode C: Focus Area (1 agent × 5 items, NO banger)
 
 **Launch ONLY the specified agent with ITEM_LIMIT=5.**
+
+**Focus Context Support (DUAL NARROWING):**
+
+When BOTH `area:X` AND `Focus on:` are provided, they work together:
+
+- `area:X` selects WHICH agent runs (e.g., `area:security` → pm-security-agent)
+- `Focus on:` narrows WHERE within that domain to look
+
+**Example:**
+
+```
+/pm-review area:security
+
+Focus on: src/auth/
+```
+
+This runs the security agent but ONLY analyzing the `src/auth/` directory - finding security issues specific to the authentication system.
 
 Map the area command to the correct agent:
 
@@ -530,6 +600,7 @@ Use the Task tool ONCE with:
   prompt includes .claude/agents/pm-{category}-agent.md
   ITEM_LIMIT=5
   INCLUDE_BANGER=false
+  FOCUS_CONTEXT=${FOCUS_CONTEXT}  # Narrows within the agent's domain
 ```
 
 **IMPORTANT: Focus mode does NOT include a banger idea.**
@@ -544,7 +615,7 @@ This mode is for when you want ONLY a banger - no regular improvements, no incre
 
 **Focus Context Support:**
 
-Banger mode fully supports focus context. When a `Focus on:` area is provided:
+Banger mode fully supports focus context (parsed in the global "Focus Context Parsing" section above). When `FOCUS_CONTEXT` is set:
 
 - All exploration is narrowed to the focused area
 - Ideas must be relevant to the focused area
@@ -561,17 +632,6 @@ Focus on: src/features/outreach-bot/
 This generates a banger idea specifically for improving the outreach-bot feature.
 
 **Process:**
-
-**Step 0: Parse Focus Context**
-
-```bash
-# Check if focus context was provided
-FOCUS_CONTEXT=""
-if echo "$COMMAND_ARGS" | grep -q "Focus on:"; then
-  FOCUS_CONTEXT=$(echo "$COMMAND_ARGS" | sed -n 's/.*Focus on: *\(.*\)/\1/p')
-  echo "Banger mode with focus: ${FOCUS_CONTEXT}"
-fi
-```
 
 1. **Deep Codebase Understanding** (3 parallel subagents):
 
@@ -689,7 +749,7 @@ Use Task tool with:
 2. The repository_id and supabase credentials (for dedup checks)
 3. **ITEM_TARGET** - Target number of VALIDATED items to return (not a max - this is a TARGET)
 4. **INCLUDE_BANGER** - Whether to generate a banger idea (true for Feature agent in full/quick, false otherwise)
-5. Any focus context from the user
+5. **FOCUS_CONTEXT** - Focus area from the global parsing step (empty string if not provided)
 
 **Example agent invocation:**
 
@@ -702,7 +762,10 @@ prompt: |
   Context:
   - Repository ID: ${REPOSITORY_ID}
   - Supabase URL: ${supabaseUrl}
-  - Focus (if any): ${focus_context}
+  - Focus Context: ${FOCUS_CONTEXT}
+
+  ## Focus Context Handling
+  ${FOCUS_CONTEXT ? "**CRITICAL FOCUS CONSTRAINT:**\nAll exploration and suggestions MUST be narrowed to: " + FOCUS_CONTEXT + "\n- Only analyze files/patterns within or related to this area\n- Every suggestion MUST relate to the focused area\n- Ignore issues outside the focus area even if they exist" : "No focus context provided - analyze the entire codebase within your domain."}
 
   ## Domain Knowledge (from Step 1)
   Use this context to prioritize and tailor your suggestions:
