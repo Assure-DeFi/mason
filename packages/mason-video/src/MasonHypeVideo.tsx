@@ -1,9 +1,10 @@
 import React from 'react';
 import { AbsoluteFill, Sequence, useVideoConfig } from 'remotion';
+
+import { CTAScene } from './scenes/CTAScene';
+import { FlowScene } from './scenes/FlowScene';
 import { HookScene } from './scenes/HookScene';
 import { ValueScene } from './scenes/ValueScene';
-import { FlowScene } from './scenes/FlowScene';
-import { CTAScene } from './scenes/CTAScene';
 
 export const MasonHypeVideo: React.FC = () => {
   const { fps } = useVideoConfig();

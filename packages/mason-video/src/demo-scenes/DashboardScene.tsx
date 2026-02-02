@@ -64,8 +64,8 @@ export const DashboardScene: React.FC = () => {
   // Approval animation - WAVE EFFECT, multiple items executing simultaneously
   const getItemStatus = (index: number) => {
     const approveDelay = clickFrame + 8 + index * 10; // Faster stagger
-    if (frame < approveDelay) return 'new';
-    if (frame < approveDelay + 10) return 'executing';
+    if (frame < approveDelay) {return 'new';}
+    if (frame < approveDelay + 10) {return 'executing';}
     return 'complete';
   };
 

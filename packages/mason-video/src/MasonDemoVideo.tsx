@@ -1,10 +1,11 @@
 import React from 'react';
 import { AbsoluteFill, Sequence, useVideoConfig, useCurrentFrame, interpolate } from 'remotion';
-import { HookScene } from './demo-scenes/HookScene';
+
 import { CLIScene } from './demo-scenes/CLIScene';
-import { DashboardScene } from './demo-scenes/DashboardScene';
-import { ShipScene } from './demo-scenes/ShipScene';
 import { CTAScene } from './demo-scenes/CTAScene';
+import { DashboardScene } from './demo-scenes/DashboardScene';
+import { HookScene } from './demo-scenes/HookScene';
+import { ShipScene } from './demo-scenes/ShipScene';
 
 /**
  * Gold Wipe Transition Component
@@ -24,7 +25,7 @@ const GoldWipe: React.FC<{ triggerFrame: number }> = ({ triggerFrame }) => {
     { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
   );
 
-  if (wipeOpacity <= 0) return null;
+  if (wipeOpacity <= 0) {return null;}
 
   return (
     <div

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Composition } from 'remotion';
-import { MasonHypeVideo } from './MasonHypeVideo';
+
 import { MasonDemoVideo } from './MasonDemoVideo';
+import { MasonHypeVideo } from './MasonHypeVideo';
 import './styles.css';
 
 export const RemotionRoot: React.FC = () => {
