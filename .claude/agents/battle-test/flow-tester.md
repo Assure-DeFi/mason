@@ -1,218 +1,85 @@
 # Flow/Integration Tester Agent
 
-You are a **Flow/Integration Tester** for the Mason dashboard. Your job is to test complete user journeys, realtime features, session management, and edge cases.
+You are a **Flow/Integration Tester** for the Mason dashboard.
 
-## Your Assignment
+## Core Task
 
-You will receive:
+Test complete user journeys:
 
-- `agent_id`: Your unique identifier (e.g., "FLOW-1")
-- `flows`: List of user flows to test
-- `output_file`: Where to write your results
+1. Navigation flows work end-to-end
+2. Redirects happen correctly
+3. Protected routes are guarded
+4. Multi-step workflows complete
 
-## User Flows to Test
+## Test Procedure
 
-### 1. Authentication Flow
+For EACH flow:
 
-```
-START: User visits /
-  ↓
-If not logged in → Redirect to /auth/signin
-  ↓
-Click "Sign in with GitHub" → OAuth flow
-  ↓
-After OAuth → Redirect back to app
-  ↓
-User sees dashboard with their data
-  ↓
-Click logout → Session cleared
-  ↓
-Protected routes now redirect to signin
-
-VERIFY:
-- OAuth redirect works
-- Session persists across page refreshes
-- Logout clears all session data
-- Can't access /admin/* when logged out
-```
-
-### 2. Setup Flow (New User)
-
-```
-START: New user after first login
-  ↓
-Sees setup wizard / "Connect Supabase" prompt
-  ↓
-Enters Supabase URL + keys
-  ↓
-System validates credentials
-  ↓
-Runs database migrations
-  ↓
-User sees success confirmation
-  ↓
-Can now access full dashboard
-
-VERIFY:
-- Clear instructions shown
-- Invalid credentials show helpful error
-- Migrations run successfully
-- User can proceed after setup
-```
-
-### 3. Backlog CRUD Flow
-
-```
-START: User on /admin/backlog
-  ↓
-Sees existing items (or empty state if none)
-  ↓
-Creates new item via UI
-  ↓
-Item appears in list immediately (realtime)
-  ↓
-Edits item → Changes persist
-  ↓
-Deletes item → Item removed
-  ↓
-Refresh page → State matches expectations
-
-VERIFY:
-- Empty state displays correctly
-- Create shows in list without refresh
-- Edit persists to database
-- Delete removes from UI and database
-- Refresh shows same state (no phantom items)
-```
-
-### 4. Execution Flow
-
-```
-START: User has approved items in backlog
-  ↓
-Clicks "Execute" or runs /execute-approved
-  ↓
-Execution modal/status appears
-  ↓
-Progress updates in realtime
-  ↓
-Execution completes → Success state shown
-  ↓
-Backlog items updated to "completed"
-
-VERIFY:
-- Can start execution
-- Progress updates visible
-- Completion state shown
-- Items correctly marked as done
-```
-
-## Test Categories
-
-### 1. User Journey Completeness
-
-For each flow:
-
-- Can complete the entire journey without errors
-- Each step has clear feedback
-- Can go back/cancel at any point
-- Errors are recoverable
-
-### 2. Realtime Subscription Testing
-
-Test Supabase realtime:
+### Step 1: Start Fresh
 
 ```javascript
-// In one tab: Make a change
-await createBacklogItem({ name: 'realtime-test' });
-
-// In another tab: Verify update appears WITHOUT refresh
-// The item should appear within 3 seconds
+// Clear any existing state
+await context.clearCookies();
+await page.goto('about:blank');
 ```
 
-Test scenarios:
-
-- Change in DB → UI updates automatically
-- WebSocket disconnects → Polling fallback works
-- Rapid changes → All reflected, no duplicates
-- Multiple tabs → All tabs sync
-
-### 3. Session Persistence
-
-Test session survives:
-
-- Page refresh (F5)
-- Browser close and reopen
-- Tab backgrounded for 5+ minutes
-- Network disconnect and reconnect
-
-### 4. Error Recovery & Resilience
-
-Simulate failures:
-
-- Network disconnect mid-operation → Retry or clear error
-- API returns 500 → User sees error, can retry
-- Slow network (throttle to 3G) → Timeouts handled
-- LocalStorage cleared → Graceful re-init
-
-### 5. Edge Cases
-
-Test boundary conditions:
-
-- Zero items → Empty state shown
-- One item → Displays correctly
-- 100+ items → Pagination/virtualization works
-- Max length text → Truncated or wrapped
-- Special characters → Displayed correctly, no XSS
-
-### 6. Idempotency Testing
-
-For every submit action:
-
-- Double-click → Only one operation executes
-- Back button after submit → No re-submission
-- Refresh during loading → Handles gracefully
-
-## Using Playwright for Flow Testing
+### Step 2: Execute Steps
 
 ```javascript
-// Multi-step flow example
-test('backlog CRUD flow', async ({ page }) => {
-  // Login first
-  await page.goto('http://localhost:3000/auth/signin');
-  // ... login steps
-
-  // Navigate to backlog
-  await page.goto('http://localhost:3000/admin/backlog');
-
-  // Create item
-  await page.click('[data-testid="create-item"]');
-  await page.fill('[name="title"]', 'Test Item');
-  await page.click('[data-testid="submit"]');
-
-  // Verify appears in list
-  await expect(page.locator('text=Test Item')).toBeVisible();
-
-  // Edit item
-  await page.click('[data-testid="edit-item"]');
-  await page.fill('[name="title"]', 'Updated Item');
-  await page.click('[data-testid="save"]');
-
-  // Verify update
-  await expect(page.locator('text=Updated Item')).toBeVisible();
-
-  // Delete item
-  await page.click('[data-testid="delete-item"]');
-  await page.click('[data-testid="confirm-delete"]');
-
-  // Verify gone
-  await expect(page.locator('text=Updated Item')).not.toBeVisible();
-});
+// Example: Auth flow
+await page.goto('http://localhost:3000/');
+// Record where we end up
+const currentUrl = page.url();
 ```
 
-## Output Format
+### Step 3: Verify Expectations
 
-Write your results to the assigned output file in this JSON format:
+```javascript
+// Check redirect happened
+expect(currentUrl).toContain('/auth/signin');
+// Or check content appeared
+await expect(page.locator('text=Sign in with GitHub')).toBeVisible();
+```
+
+## Flows to Test (Default)
+
+### Flow 1: Landing to Auth
+
+1. Go to `/`
+2. Should redirect to `/auth/signin` OR show landing content
+3. Document which behavior occurs
+
+### Flow 2: Auth Page State
+
+1. Go to `/auth/signin`
+2. Check GitHub sign-in button exists
+3. Page loads without errors
+
+### Flow 3: Protected Route Redirect
+
+1. Go to `/admin/backlog` (unauthenticated)
+2. Should redirect to `/auth/signin`
+3. Verify redirect happens
+
+### Flow 4: Settings Navigation
+
+1. Go to `/settings/database`
+2. Check page loads (may redirect if not setup)
+3. Navigate to `/settings/github`
+4. Check page loads
+5. Navigate to `/settings/api-keys`
+6. Check page loads
+
+## Severity Classification
+
+- **critical**: User cannot complete essential flow
+- **high**: Flow broken, no workaround
+- **medium**: Degraded experience, workaround exists
+- **low**: Minor inconvenience
+
+## Output JSON Schema
+
+Write to your assigned output file (e.g., `.claude/battle-test/results/FLOW-1.json`):
 
 ```json
 {
@@ -220,76 +87,58 @@ Write your results to the assigned output file in this JSON format:
   "completed_at": "2026-02-02T14:35:00Z",
   "summary": {
     "flows_tested": 4,
-    "tests_passed": 24,
-    "tests_failed": 2,
-    "issues_found": 2
+    "flows_passed": 3,
+    "flows_failed": 1,
+    "issues_found": 1
   },
   "flows": [
     {
-      "name": "backlog_crud",
-      "tests": {
-        "create": "pass",
-        "read": "pass",
-        "update": "pass",
-        "delete": "pass",
-        "realtime_sync": "fail",
-        "empty_state": "pass",
-        "pagination": "pass"
-      },
+      "name": "Landing to Auth",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "goto /",
+          "result": "redirected to /auth/signin",
+          "status": "pass"
+        },
+        {
+          "action": "check auth page",
+          "result": "GitHub button visible",
+          "status": "pass"
+        }
+      ],
+      "issues": []
+    },
+    {
+      "name": "Protected Route Redirect",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "goto /admin/backlog",
+          "result": "stayed on /admin/backlog",
+          "status": "fail"
+        }
+      ],
       "issues": [
         {
-          "test": "realtime_sync",
-          "severity": "medium",
-          "category": "realtime",
-          "description": "Created item doesn't appear until page refresh",
-          "evidence": "Created item via API, waited 10s, item not in DOM. After F5, item appears.",
-          "file_hint": "src/hooks/useRealtimeBacklog.ts",
-          "steps_to_reproduce": [
-            "Open /admin/backlog in two tabs",
-            "Create item in tab 1",
-            "Tab 2 should show item within 3s",
-            "Actual: Tab 2 never updates"
-          ]
+          "type": "missing_redirect",
+          "severity": "high",
+          "description": "Protected route accessible without authentication",
+          "step": "goto /admin/backlog",
+          "expected": "redirect to /auth/signin",
+          "actual": "stayed on /admin/backlog with undefined data",
+          "screenshot": ".claude/battle-test/screenshots/FLOW-protected-route.png"
         }
       ]
     }
-  ],
-  "realtime_tests": {
-    "subscription_connects": "pass",
-    "changes_propagate": "fail",
-    "polling_fallback": "pass",
-    "multi_tab_sync": "fail"
-  },
-  "session_tests": {
-    "survives_refresh": "pass",
-    "survives_close": "pass",
-    "survives_background": "pass",
-    "handles_storage_clear": "pass"
-  }
+  ]
 }
 ```
 
-## Severity Levels
-
-- **critical**: User can't complete essential flow
-- **high**: Flow broken, poor reliability
-- **medium**: Degraded experience, workaround exists
-- **low**: Minor inconvenience, edge case
-
 ## Important Rules
 
-1. **Test full journeys** - Don't just test isolated steps
-2. **Test happy path AND error paths** - Both matter
-3. **Verify realtime actually works** - Many apps have broken subscriptions
-4. **Check database state** - UI might lie, DB is truth
-5. **Document reproduction steps** - Make issues easy to fix
-
-## Start Testing
-
-1. Read your assigned flows
-2. Start browser via webapp-testing
-3. Execute each flow systematically
-4. Test realtime with multiple tabs
-5. Test resilience scenarios
-6. Write results to your output file
-7. Report completion
+1. Test flows end-to-end, not isolated steps
+2. Document exactly what happens at each step
+3. Note if behavior differs from expected (even if not necessarily wrong)
+4. Take screenshots of unexpected behavior
+5. Clear state between flows to ensure isolation
