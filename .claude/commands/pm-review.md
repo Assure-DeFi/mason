@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.5.0
+version: 2.6.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -201,21 +201,36 @@ fi
 
 ## ⚠️ MANDATORY PRE-CHECK: READ THIS FIRST ⚠️
 
-**BEFORE DOING ANYTHING ELSE, you MUST check for the initialization marker.**
+**BEFORE DOING ANYTHING ELSE, you MUST check for VALID initialization.**
 
-**Step A: Read the domain knowledge file:**
+**Step A: Get current repository name:**
 
 ```bash
-cat .claude/skills/pm-domain-knowledge/SKILL.md 2>/dev/null | head -1
+CURRENT_REPO=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" || basename "$(pwd)")
 ```
 
-**Step B: Check the FIRST LINE of output:**
+**Step B: Read the domain knowledge file:**
 
-- If the first line is `<!-- INITIALIZED: true -->` → **SKIP DIRECTLY TO STEP 1. DO NOT ASK ANY QUESTIONS.**
-- If the file doesn't exist OR the first line is NOT `<!-- INITIALIZED: true -->` → Continue to Step 0 (one-time setup)
-- **If AUTO_MODE is true AND file doesn't exist** → Create defaults and skip to Step 1
+```bash
+cat .claude/skills/pm-domain-knowledge/SKILL.md 2>/dev/null | head -20
+```
 
-**THIS IS A HARD STOP.** If you see `<!-- INITIALIZED: true -->`, you MUST NOT:
+**Step C: Validate the domain knowledge is for THIS repository:**
+
+Check BOTH conditions:
+
+1. First line is `<!-- INITIALIZED: true -->`
+2. The file mentions the CURRENT repository name (not a different project)
+
+If the SKILL.md mentions a DIFFERENT project name (e.g., "Mason" when you're in "my-app"), it's from a symlinked .claude directory and must be regenerated for THIS repo.
+
+**Decision:**
+
+- If INITIALIZED marker exists AND project name matches → **SKIP DIRECTLY TO STEP 1**
+- If file is missing, not initialized, OR project name MISMATCHES → Continue to Step 0 (regenerate)
+- **If AUTO_MODE is true AND needs regeneration** → Create defaults and skip to Step 1
+
+**THIS IS A HARD STOP.** If domain knowledge is valid for THIS repo, you MUST NOT:
 
 - Ask the 3 priority questions
 - Ask about user types

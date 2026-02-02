@@ -65,13 +65,58 @@ esac
 
 cd "$PROJECT_PATH"
 
-# Link Claude config
+# Set up Claude Code config (selective linking for isolation)
+# IMPORTANT: Don't symlink entire .claude/ - causes cross-repo contamination
+# Symlink shared resources, create project-specific directories
 echo -e "${YELLOW}Setting up Claude Code config...${NC}"
+
+# Remove any existing symlink or directory
 if [ -L ".claude" ]; then
     rm .claude
 fi
-ln -s "$CONFIG_DIR/.claude" .claude
-echo "  ✓ Linked .claude/ to shared config"
+if [ -d ".claude" ]; then
+    rm -rf .claude
+fi
+
+# Create .claude directory structure
+mkdir -p .claude
+
+# Symlink SHARED resources (commands, hooks, agents are repo-agnostic)
+ln -s "$CONFIG_DIR/.claude/commands" .claude/commands
+echo "  ✓ Linked commands/ (shared)"
+
+if [ -d "$CONFIG_DIR/.claude/hooks" ]; then
+    ln -s "$CONFIG_DIR/.claude/hooks" .claude/hooks
+    echo "  ✓ Linked hooks/ (shared)"
+fi
+
+if [ -d "$CONFIG_DIR/.claude/agents" ]; then
+    ln -s "$CONFIG_DIR/.claude/agents" .claude/agents
+    echo "  ✓ Linked agents/ (shared)"
+fi
+
+# Create PROJECT-SPECIFIC directories (not symlinked - prevents contamination)
+mkdir -p .claude/skills
+mkdir -p .claude/rules
+echo "  ✓ Created skills/ and rules/ (project-specific)"
+
+# Copy rules templates if they exist (learned-patterns should be project-specific)
+if [ -f "$CONFIG_DIR/.claude/rules/code-quality.md" ]; then
+    cp "$CONFIG_DIR/.claude/rules/code-quality.md" .claude/rules/
+fi
+if [ -f "$CONFIG_DIR/.claude/rules/git-workflow.md" ]; then
+    cp "$CONFIG_DIR/.claude/rules/git-workflow.md" .claude/rules/
+fi
+# Create empty learned-patterns for this project
+echo "# Learned Patterns - $PROJECT_NAME
+
+Patterns discovered while working on this project.
+
+---
+" > .claude/rules/learned-patterns.md
+echo "  ✓ Created project-specific rules/"
+
+echo "  ✓ Claude Code config ready (shared commands, isolated skills/rules)"
 
 # Copy brand assets
 echo -e "${YELLOW}Copying brand assets...${NC}"
@@ -154,9 +199,13 @@ echo "  4. npm install (if not already done)"
 echo "  5. claude  # Start Claude Code"
 echo ""
 echo "Your project has:"
-echo "  ✓ Shared Claude Code config (skills, hooks, commands, agents)"
+echo "  ✓ Shared Claude Code resources (commands, hooks, agents)"
+echo "  ✓ Project-specific skills/ and rules/ (isolated, not symlinked)"
 echo "  ✓ Brand assets and guidelines"
 echo "  ✓ CLAUDE.md project documentation"
 echo "  ✓ Supabase migrations directory"
 echo "  ✓ Proper .gitignore"
+echo ""
+echo "NOTE: skills/ and rules/ are project-specific to prevent cross-repo contamination."
+echo "      Run /pm-review to generate domain knowledge for this project."
 echo ""

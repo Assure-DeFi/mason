@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "commands": {
     "pm-review": {
-      "version": "2.5.0",
+      "version": "2.6.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "2.5.0",
-      "breaking_reason": "Fix: Include user_id in backlog item submission for dashboard filtering"
+      "required_minimum": "2.6.0",
+      "breaking_reason": "CRITICAL: Repository validation - prevents cross-repo contamination from symlinked .claude"
     },
     "execute-approved": {
       "version": "2.9.0",
