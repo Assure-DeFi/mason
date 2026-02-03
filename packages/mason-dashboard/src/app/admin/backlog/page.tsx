@@ -84,10 +84,10 @@ const ExecutionRunModal = dynamic(
   },
 );
 
-const GenerateIdeasModal = dynamic(
+const GenerateIdeasWizard = dynamic(
   () =>
-    import('@/components/backlog/generate-ideas-modal').then(
-      (mod) => mod.GenerateIdeasModal,
+    import('@/components/backlog/generate-ideas-wizard').then(
+      (mod) => mod.GenerateIdeasWizard,
     ),
   {
     loading: () => null,
@@ -1436,8 +1436,8 @@ export default function BacklogPage() {
         />
       )}
 
-      {/* Generate Ideas Modal */}
-      <GenerateIdeasModal
+      {/* Generate Ideas Wizard */}
+      <GenerateIdeasWizard
         isOpen={showGenerateIdeasModal}
         onClose={() => {
           setShowGenerateIdeasModal(false);
