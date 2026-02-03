@@ -18,6 +18,8 @@ import { join } from 'node:path';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { hasClaudeCredentials } from '../engine/agent-runner';
+
 const API_KEY_PREFIX = 'mason_';
 
 // Environment variables for CI/CD
@@ -96,6 +98,16 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   const nonInteractive = options.nonInteractive || false;
 
   console.log('\nMason Autopilot - Quick Setup\n');
+
+  // Check for Claude credentials early
+  if (!hasClaudeCredentials()) {
+    console.log('Note: Claude credentials not found.');
+    console.log('Before running "mason-autopilot start", authenticate with:');
+    console.log('  claude setup-token');
+    console.log('');
+    console.log('This uses your Claude Pro Max subscription for API access.');
+    console.log('');
+  }
 
   // Check if already configured
   if (existsSync(CONFIG_FILE)) {

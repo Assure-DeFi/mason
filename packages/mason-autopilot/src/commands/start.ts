@@ -3,9 +3,10 @@
  *
  * Start the autopilot daemon that polls Supabase for config and runs
  * scheduled PM reviews and executions.
+ *
+ * Uses Claude Agent SDK for direct API execution instead of subprocess spawning.
  */
 
-import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -14,6 +15,10 @@ import { join } from 'node:path';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { parseExpression } from 'cron-parser';
+
+import { hasClaudeCredentials } from '../engine/agent-runner';
+import { executeApprovedItems } from '../engine/execute-approved';
+import { runPmReview } from '../engine/pm-review';
 
 /**
  * Generate a SHA-256 hash of an API key
@@ -107,6 +112,17 @@ async function checkBacklogThreshold(
 export async function startCommand(options: StartOptions): Promise<void> {
   const verbose = options.verbose ?? false;
 
+  // Check for Claude credentials (required for SDK)
+  if (!hasClaudeCredentials()) {
+    console.error('Claude credentials not found.');
+    console.error('');
+    console.error('Run this command to authenticate:');
+    console.error('  claude setup-token');
+    console.error('');
+    console.error('This uses your Claude Pro Max subscription for API access.');
+    process.exit(1);
+  }
+
   // Load local configuration
   if (!existsSync(CONFIG_FILE)) {
     console.error('Autopilot not configured. Run: mason-autopilot init');
@@ -121,6 +137,7 @@ export async function startCommand(options: StartOptions): Promise<void> {
   console.log('='.repeat(40));
   console.log('Repository:', localConfig.repositoryPath);
   console.log('Supabase:', localConfig.supabaseUrl);
+  console.log('Auth: Claude Agent SDK');
   console.log('');
 
   // Initialize Supabase client
@@ -231,14 +248,14 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
         });
       } else {
         // 6. Run PM review (backlog has capacity)
-        await runPmReview(config, verbose);
+        await runPmReviewHandler(config, verbose);
       }
 
       // 7. Auto-approve items matching rules (always run - processes existing items)
       await autoApproveItems(config, verbose);
 
       // 8. Execute approved items (always run - drains the backlog)
-      await executeApprovedItems(
+      await executeApprovedItemsHandler(
         config,
         verbose,
         config.guardian_rails.maxItemsPerDay,
@@ -386,91 +403,20 @@ function shouldRunSchedule(cronExpression: string): boolean {
   }
 }
 
-async function runPmReview(
+async function runPmReviewHandler(
   config: AutopilotDbConfig,
   verbose: boolean,
 ): Promise<void> {
-  console.log('Running PM review...');
+  // Use SDK-based PM review execution
+  const result = await runPmReview(supabase, {
+    userId: config.user_id,
+    repositoryId: config.repository_id,
+    repositoryPath: localConfig.repositoryPath,
+    verbose,
+  });
 
-  const startedAt = new Date().toISOString();
-
-  // Record run start
-  const { data: run } = await supabase
-    .from('mason_autopilot_runs')
-    .insert({
-      user_id: config.user_id,
-      repository_id: config.repository_id,
-      run_type: 'analysis',
-      status: 'running',
-      started_at: startedAt,
-    })
-    .select()
-    .single();
-
-  try {
-    // Execute claude with pm-review command
-    const result = await executeClaudeCommand('/pm-review', verbose);
-
-    if (result.success && run?.id) {
-      // Link newly created items to this autopilot run
-      // Find items created during this run (no autopilot_run_id set yet)
-      const { data: recentItems } = await supabase
-        .from('mason_pm_backlog_items')
-        .select('id')
-        .eq('repository_id', config.repository_id)
-        .is('autopilot_run_id', null)
-        .gte('created_at', startedAt);
-
-      if (recentItems && recentItems.length > 0) {
-        // Update items with source='autopilot' and link to this run
-        await supabase
-          .from('mason_pm_backlog_items')
-          .update({
-            source: 'autopilot',
-            autopilot_run_id: run.id,
-          })
-          .in(
-            'id',
-            recentItems.map((i) => i.id),
-          );
-
-        console.log(`  Linked ${recentItems.length} items to autopilot run.`);
-      }
-
-      // Update run with item count and mark completed
-      await supabase
-        .from('mason_autopilot_runs')
-        .update({
-          status: 'completed',
-          items_analyzed: recentItems?.length || 0,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', run.id);
-
-      console.log('PM review completed successfully.');
-    } else {
-      // Update run status on failure
-      await supabase
-        .from('mason_autopilot_runs')
-        .update({
-          status: 'failed',
-          error_message: result.error,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', run?.id);
-
-      console.error('PM review failed:', result.error);
-    }
-  } catch (error) {
-    await supabase
-      .from('mason_autopilot_runs')
-      .update({
-        status: 'failed',
-        error_message: String(error),
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', run?.id);
-    throw error;
+  if (!result.success) {
+    throw new Error(result.error || 'PM review failed');
   }
 }
 
@@ -539,225 +485,23 @@ async function autoApproveItems(
   return approvedCount;
 }
 
-async function executeApprovedItems(
+async function executeApprovedItemsHandler(
   config: AutopilotDbConfig,
   verbose: boolean,
   maxItems: number,
 ): Promise<void> {
-  // Check if there are approved items to execute (ordered by impact for priority)
-  const { data: allItems, error } = await supabase
-    .from('mason_pm_backlog_items')
-    .select('id, title, impact_score')
-    .eq('repository_id', config.repository_id)
-    .eq('status', 'approved')
-    .order('impact_score', { ascending: false });
-
-  if (error || !allItems || allItems.length === 0) {
-    if (verbose) {
-      console.log('No approved items to execute.');
-    }
-    return;
-  }
-
-  // Limit to maxItemsPerDay
-  const items = allItems.slice(0, maxItems);
-
-  if (items.length < allItems.length) {
-    console.log(
-      `Found ${allItems.length} approved items, limiting to top ${maxItems} (maxItemsPerDay).`,
-    );
-  }
-
-  console.log(
-    `Executing ${items.length} approved items (by highest impact)...`,
-  );
-  for (const item of items) {
-    console.log(`  - ${item.title} (impact: ${item.impact_score})`);
-  }
-
-  // Record execution run
-  const { data: run } = await supabase
-    .from('mason_autopilot_runs')
-    .insert({
-      user_id: config.user_id,
-      repository_id: config.repository_id,
-      run_type: 'execution',
-      status: 'running',
-      items_executed: 0,
-    })
-    .select()
-    .single();
-
-  try {
-    // Execute claude with execute-approved command (with limit and auto mode)
-    const result = await executeClaudeCommand(
-      `/execute-approved --limit ${maxItems} --auto`,
-      verbose,
-    );
-
-    // Update run status
-    await supabase
-      .from('mason_autopilot_runs')
-      .update({
-        status: result.success ? 'completed' : 'failed',
-        error_message: result.error,
-        items_executed: items.length,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', run?.id);
-
-    if (result.success) {
-      console.log('Execution completed successfully.');
-    } else {
-      console.error('Execution failed:', result.error);
-
-      // Check guardian rail: pause on failure
-      if (config.guardian_rails.pauseOnFailure) {
-        console.log('Pausing autopilot due to failure (guardian rail)...');
-        await supabase
-          .from('mason_autopilot_config')
-          .update({ enabled: false })
-          .eq('id', config.id);
-      }
-    }
-  } catch (error) {
-    await supabase
-      .from('mason_autopilot_runs')
-      .update({
-        status: 'failed',
-        error_message: String(error),
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', run?.id);
-    throw error;
-  }
-}
-
-interface ClaudeResult {
-  success: boolean;
-  error?: string;
-}
-
-async function executeClaudeCommand(
-  command: string,
-  verbose: boolean,
-): Promise<ClaudeResult> {
-  return new Promise((resolve) => {
-    // Find claude binary - check common locations
-    const { execSync } = require('node:child_process');
-    let claudePath = 'claude';
-
-    try {
-      // Try to find claude using 'which' with user's shell environment
-      claudePath = execSync('bash -l -c "which claude"', {
-        encoding: 'utf-8',
-        timeout: 5000,
-      }).trim();
-      if (verbose) {
-        console.log(`Found claude at: ${claudePath}`);
-      }
-    } catch {
-      // Fallback to common locations
-      const fs = require('node:fs');
-      const homedir = require('node:os').homedir();
-      const commonPaths = [
-        `${homedir}/.local/bin/claude`,
-        '/usr/local/bin/claude',
-        '/usr/bin/claude',
-      ];
-      for (const p of commonPaths) {
-        if (fs.existsSync(p)) {
-          claudePath = p;
-          if (verbose) {
-            console.log(`Found claude at fallback location: ${claudePath}`);
-          }
-          break;
-        }
-      }
-    }
-
-    // Always use -p mode for automation (required for non-interactive execution)
-    // In verbose mode, use stream-json to see real-time output
-    const args = [
-      '-p',
-      command,
-      '--dangerously-skip-permissions',
-      '--allowedTools',
-      'Bash,Read,Write,Edit,Grep,Glob,Task',
-      ...(verbose ? ['--output-format', 'stream-json'] : []),
-    ];
-
-    if (verbose) {
-      console.log(`Executing: ${claudePath} ${args.join(' ')}`);
-    }
-
-    // Ensure PATH includes common binary locations
-    const homedir = require('node:os').homedir();
-    const enhancedEnv = {
-      ...process.env,
-      PATH: `${homedir}/.local/bin:/usr/local/bin:${process.env.PATH || ''}`,
-    };
-
-    const child = spawn(claudePath, args, {
-      cwd: localConfig.repositoryPath,
-      stdio: 'pipe', // Always pipe so we can process output
-      env: enhancedEnv,
-      shell: false, // Don't use shell - we have the full path
-    });
-
-    let stderr = '';
-
-    if (child.stdout) {
-      child.stdout.on('data', (data) => {
-        const text = data.toString();
-        if (verbose) {
-          // In verbose mode with stream-json, parse and display activity
-          for (const line of text.split('\n').filter(Boolean)) {
-            try {
-              const json = JSON.parse(line);
-              // Show assistant messages and tool usage
-              if (json.type === 'assistant' && json.message?.content) {
-                for (const block of json.message.content) {
-                  if (block.type === 'text' && block.text) {
-                    console.log('  Claude:', block.text.slice(0, 200));
-                  } else if (block.type === 'tool_use') {
-                    console.log(`  [Tool] ${block.name}`);
-                  }
-                }
-              } else if (json.type === 'result') {
-                console.log(
-                  '  [Complete]',
-                  json.result?.slice(0, 100) || 'Done',
-                );
-              }
-            } catch {
-              // Not JSON or parse error, show raw if verbose
-              if (text.trim()) console.log('  ', text.trim().slice(0, 200));
-            }
-          }
-        }
-      });
-    }
-
-    if (child.stderr) {
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-        if (verbose) {
-          console.error('  [stderr]', data.toString().trim());
-        }
-      });
-    }
-
-    child.on('error', (error) => {
-      resolve({ success: false, error: error.message });
-    });
-
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve({ success: true });
-      } else {
-        resolve({ success: false, error: stderr || `Exit code: ${code}` });
-      }
-    });
+  // Use SDK-based execution
+  const result = await executeApprovedItems(supabase, {
+    userId: config.user_id,
+    repositoryId: config.repository_id,
+    repositoryPath: localConfig.repositoryPath,
+    maxItems,
+    verbose,
+    pauseOnFailure: config.guardian_rails.pauseOnFailure,
+    autopilotConfigId: config.id,
   });
+
+  if (!result.success && result.error) {
+    throw new Error(result.error);
+  }
 }
