@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.13.0
+version: 2.14.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -10,28 +10,25 @@ You are a **Product Manager agent** analyzing this codebase for improvement oppo
 
 ---
 
-## ⚠️ MANDATORY FIRST STEPS - READ BEFORE DOING ANYTHING ⚠️
+<!-- ANCHOR: part-1-blocking -->
 
-**YOU MUST COMPLETE THESE STEPS IN ORDER. DO NOT SKIP ANY STEP.**
+# PART 1: BLOCKING REQUIREMENTS
 
-### STEP 0: VERSION CHECK (BLOCKING - DO THIS FIRST)
+**Complete these steps IN ORDER before any analysis.**
 
-Run this version check **IMMEDIATELY** before doing anything else:
+## Step 0: Version Check (BLOCKING)
 
 ```bash
 COMMAND_NAME="pm-review"
 LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/${COMMAND_NAME}.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
 REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
-REMOTE_VERSION=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".version // \"\"" 2>/dev/null)
 REQUIRED_MIN=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".required_minimum // \"\"" 2>/dev/null)
 BREAKING_REASON=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".breaking_reason // \"\"" 2>/dev/null)
 
-# Always show version check status
 echo "=== VERSION CHECK ==="
 echo "Local: v${LOCAL_VERSION}"
 echo "Required minimum: v${REQUIRED_MIN}"
 
-# Check if local version is below required minimum
 if [ -n "$REQUIRED_MIN" ] && [ -n "$LOCAL_VERSION" ]; then
   if [ "$(printf '%s\n' "$REQUIRED_MIN" "$LOCAL_VERSION" | sort -V | head -n1)" = "$LOCAL_VERSION" ] && \
      [ "$LOCAL_VERSION" != "$REQUIRED_MIN" ]; then
@@ -44,32 +41,17 @@ fi
 echo "===================="
 ```
 
-**IF VERSION IS OUTDATED:**
-
-1. **STOP** - Do not continue with outdated command
-2. **Invoke `/mason-update`** using the Skill tool immediately
-3. **Wait** for update to complete
-4. **Re-read** this command file (content will be new)
-5. **Restart** from the beginning with updated instructions
-
-Do NOT ask the user. Just auto-update and restart.
+**IF OUTDATED:** Invoke `/mason-update`, wait, re-read this file, restart.
 
 ---
 
-### STEP 1: ARGUMENT PARSING (MANDATORY)
-
-Parse the command arguments to determine execution mode. **This MUST be done before any analysis.**
-
-**Parse these from the command invocation:**
+## Step 1: Argument Parsing (MANDATORY)
 
 ```bash
-# Get the full command arguments
 COMMAND_ARGS="$*"
 
 # === 1. DETECT MODE ===
-MODE="full"  # Default
-
-# Check for specific modes (order matters - check most specific first)
+MODE="full"
 if echo "$COMMAND_ARGS" | grep -qi "banger"; then
   MODE="banger"
 elif echo "$COMMAND_ARGS" | grep -qi "area:"; then
@@ -79,7 +61,7 @@ elif echo "$COMMAND_ARGS" | grep -qi "quick"; then
   MODE="quick"
 fi
 
-# === 2. DETECT AUTO FLAG ===
+# === 2. DETECT FLAGS ===
 AUTO_MODE=false
 if echo "$COMMAND_ARGS" | grep -q '\-\-auto'; then
   AUTO_MODE=true
@@ -98,1022 +80,153 @@ echo "FOCUS_CONTEXT: $FOCUS_CONTEXT"
 echo "==============================="
 ```
 
-**CRITICAL: Set these variables EXPLICITLY:**
+---
 
-| Variable      | Purpose                          | Example Values                    |
-| ------------- | -------------------------------- | --------------------------------- |
-| MODE          | Which execution path to follow   | `full`, `quick`, `area`, `banger` |
-| AREA_TYPE     | Which agent (only if MODE=area)  | `security`, `ui`, `performance`   |
-| AUTO_MODE     | Skip user prompts                | `true`, `false`                   |
-| FOCUS_CONTEXT | Narrow analysis to specific area | `src/auth/`, empty string         |
+## Step 2: Mode Routing (MANDATORY)
+
+| MODE     | Section                              | Output             |
+| -------- | ------------------------------------ | ------------------ |
+| `banger` | [Mode D: Banger](#anchor-mode-d)     | 1 item only        |
+| `area`   | [Mode C: Focus Area](#anchor-mode-c) | 5 items, no banger |
+| `quick`  | [Mode B: Quick](#anchor-mode-b)      | 9 items (8+1)      |
+| `full`   | [Mode A: Full](#anchor-mode-a)       | 25 items (24+1)    |
+
+**Skip directly to your mode section. Do NOT read other mode sections.**
 
 ---
 
-### STEP 2: MODE ROUTING (MANDATORY)
+## Universal Requirements Table
 
-**Based on the MODE variable, you MUST follow the correct execution path:**
+**EVERY item MUST have ALL of these fields before submission:**
 
-| MODE     | Go To Section                        | Expected Output      |
-| -------- | ------------------------------------ | -------------------- |
-| `banger` | **Mode D: Banger Mode** (line ~664)  | 1 banger idea only   |
-| `area`   | **Mode C: Focus Area** (line ~617)   | 5 items, no banger   |
-| `quick`  | **Mode B: Quick Review** (line ~595) | 9 items (8+1 banger) |
-| `full`   | **Mode A: Full Review** (line ~563)  | 25 items (24+1)      |
+| Requirement     | Field                          | Validation                                                                |
+| --------------- | ------------------------------ | ------------------------------------------------------------------------- |
+| **5 Benefits**  | `benefits[]`                   | Exactly 5 objects with specific descriptions                              |
+| **PRD Content** | `prd_content`                  | Full markdown PRD (NOT empty)                                             |
+| **Risk Score**  | `risk_score`                   | Integer 1-10                                                              |
+| **Evidence**    | `evidence_status`              | `verified` / `refuted` / `inconclusive`                                   |
+| **Type**        | `type`                         | Valid category (feature/ui/ux/api/data/security/performance/code-quality) |
+| **Scores**      | `impact_score`, `effort_score` | Integer 1-10 each                                                         |
 
-**ROUTING LOGIC:**
-
-```
-IF MODE == "banger":
-  → Skip directly to "Mode D: Banger Mode" section
-  → Do NOT launch 8 category agents
-  → Follow banger-specific process (3 explore agents → ideation → selection)
-
-ELSE IF MODE == "area":
-  → Skip to "Mode C: Focus Area" section
-  → Launch ONLY the agent matching AREA_TYPE
-
-ELSE IF MODE == "quick":
-  → Go to "Mode B: Quick Review" section
-  → Launch 8 agents with ITEM_LIMIT=1 each
-
-ELSE (MODE == "full"):
-  → Go to "Mode A: Full Review" section
-  → Launch 8 agents with ITEM_LIMIT=3 each
-```
-
-**THIS ROUTING IS NON-NEGOTIABLE.** If MODE=banger, you MUST NOT launch 8 category agents.
+**Items missing ANY field are BLOCKED from submission.**
 
 ---
 
-## BANGER MODE HARD STOP
+## Mode Summary
 
-**IF MODE == "banger", THIS SECTION IS A BLOCKING REQUIREMENT:**
-
-```
-╔══════════════════════════════════════════════════════════════════════════╗
-║                    BANGER MODE DETECTED                                  ║
-║                                                                          ║
-║  YOU ARE IN BANGER MODE.                                                 ║
-║                                                                          ║
-║  DO NOT launch 8 category agents                                         ║
-║  DO NOT generate 8-25 items                                              ║
-║  DO NOT run quick mode or area mode                                      ║
-║                                                                          ║
-║  ONLY follow "Mode D: Banger Mode" section                               ║
-║  ONLY produce EXACTLY 1 banger item                                      ║
-║  ONLY submit 1 item to the database                                      ║
-║                                                                          ║
-║  Expected output: "All 1 items submitted successfully"                   ║
-║  If you submit more than 1 item, YOU HAVE FAILED.                        ║
-╚══════════════════════════════════════════════════════════════════════════╝
-```
-
-**Banger Mode Execution Summary:**
-
-1. Launch 3 explore agents (architecture, user flows, feature gaps)
-2. Launch 1 feature-ideation agent (generates 10 ideas)
-3. Launch 1 selection agent (picks THE ONE best idea)
-4. Validate and generate PRD for ONLY that 1 idea
-5. Submit EXACTLY 1 item with `is_banger_idea: true`
-
-**HARD STOP:** Skip directly to "Mode D: Banger Mode" section (line ~730). Do NOT read the category agent sections.
+| Mode   | Agents | Items/Agent | Banger | Total |
+| ------ | ------ | ----------- | ------ | ----- |
+| Full   | 8      | 3           | +1     | 25    |
+| Quick  | 8      | 1           | +1     | 9     |
+| Area   | 1      | 5           | No     | 5     |
+| Banger | N/A    | N/A         | 1      | 1     |
 
 ---
 
-## Overview (Reference Only)
+# PART 2: SELF-CONTAINED MODE SECTIONS
 
-This command performs a comprehensive analysis using 8 specialized agents that run **in parallel**, each focused on a specific category:
-
-| Category         | Badge Color   | Agent Focus                                          |
-| ---------------- | ------------- | ---------------------------------------------------- |
-| **Feature**      | Purple + Star | Net-new functionality opportunities                  |
-| **UI**           | Gold          | Visual changes, components, styling, layout          |
-| **UX**           | Cyan          | User flows, journey optimization, friction reduction |
-| **API**          | Green         | Endpoints, backend services, contracts               |
-| **Data**         | Blue          | Database schema, queries, data modeling              |
-| **Security**     | Red           | Vulnerabilities, hardening, input validation, auth   |
-| **Performance**  | Orange        | Speed, optimization, caching, load times             |
-| **Code Quality** | Gray          | Refactors, cleanup, tech debt, documentation         |
-
-## Item Limits by Mode
-
-| Mode               | Agents           | Items per Agent | Banger  | Total Items |
-| ------------------ | ---------------- | --------------- | ------- | ----------- |
-| **Full**           | 8 (all parallel) | 3               | Yes (1) | **25**      |
-| **Quick**          | 8 (all parallel) | 1               | Yes (1) | **9**       |
-| **Focus (area:X)** | 1 (single agent) | 5               | No      | **5**       |
-| **Banger**         | All (deep dive)  | N/A             | Yes (1) | **1**       |
-
-**CRITICAL: These limits are enforced. Do NOT exceed them.**
-
-## Banger Idea (Full, Quick & Banger modes)
-
-The banger idea is a transformative feature that would dramatically increase app value:
-
-- **Always a Feature** - Net-new functionality, not improvements
-- **Ambitious** - Multi-week scope, not a quick fix
-- **Separate from counts** - The +1 banger is in addition to per-agent items (except in Banger mode)
-
-| Mode   | Regular Items     | Banger                    |
-| ------ | ----------------- | ------------------------- |
-| Full   | 24 (3 × 8 agents) | +1 = **25 total**         |
-| Quick  | 8 (1 × 8 agents)  | +1 = **9 total**          |
-| Focus  | 5 (from 1 agent)  | None = **5 total**        |
-| Banger | None              | **1 total** (banger only) |
-
-## Modes
-
-- `full` (default): All 8 agents run in parallel, 3 items each + 1 banger = **25 items**
-- `quick`: All 8 agents run in parallel, 1 item each + 1 banger = **9 items**
-- `area:<category>`: Single agent runs, **5 items**, no banger
-- `banger`: Deep dive to find ONE game-changing banger idea = **1 item**
-
-**Available focus areas (maps to single agent):**
-
-| Area Command        | Agent                 | Badge  |
-| ------------------- | --------------------- | ------ |
-| `area:feature`      | pm-feature-agent      | Purple |
-| `area:ui`           | pm-ui-agent           | Gold   |
-| `area:ux`           | pm-ux-agent           | Cyan   |
-| `area:api`          | pm-api-agent          | Green  |
-| `area:data`         | pm-data-agent         | Blue   |
-| `area:security`     | pm-security-agent     | Red    |
-| `area:performance`  | pm-performance-agent  | Orange |
-| `area:code-quality` | pm-code-quality-agent | Gray   |
-
-**CRITICAL: Every item that enters the database MUST have a PRD. No exceptions.**
-
-## Flags
-
-- `--auto`: Run in non-interactive/headless mode for autopilot execution. Skips user prompts and uses defaults.
-
-Usage: `/pm-review [mode] [flags]`
-
-Examples:
-
-- `/pm-review` - Full analysis (25 items)
-- `/pm-review quick` - Quick wins (9 items)
-- `/pm-review area:security` - Security focus only (5 items)
-- `/pm-review area:ui` - UI focus only (5 items)
-- `/pm-review banger` - Find ONE game-changing banger idea (1 item)
-- `/pm-review --auto` - Full analysis in headless mode
-- `/pm-review quick --auto` - Quick wins in headless mode
-
-## Context Instructions
-
-The command may include additional context after the mode parameter. This context tells the agent WHERE to focus the analysis within the codebase.
-
-**Format:**
-
-```
-/pm-review [mode]
-
-Focus on: <context>
-```
-
-**Examples:**
-
-```
-/pm-review area:frontend-ux
-
-Focus on: Authentication flow, specifically the login page and session management
-```
-
-```
-/pm-review quick
-
-Focus on: Dashboard components in src/components/dashboard/
-```
-
-**How to Use Focus Context:**
-
-1. **Parse the context**: Extract the text after "Focus on:"
-2. **Narrow file exploration**: Prioritize files/directories mentioned in the context
-3. **Filter suggestions**: Only generate improvements relevant to the focused area
-4. **Interpret intent**: Understand semantic descriptions like "authentication flow" and map to relevant files (auth/, login, session, etc.)
-
-**Context Interpretation Rules:**
-
-| Context Pattern                   | Files/Dirs to Prioritize                     |
-| --------------------------------- | -------------------------------------------- |
-| "authentication", "auth", "login" | `**/auth/**`, `**/login/**`, `**/session/**` |
-| "dashboard", "admin panel"        | `**/dashboard/**`, `**/admin/**`             |
-| "API", "endpoints", "routes"      | `**/api/**`, `**/routes/**`                  |
-| "database", "queries", "supabase" | `**/lib/supabase/**`, `**/db/**`, `**/*.sql` |
-| "components", "UI"                | `**/components/**`                           |
-| Specific path mentioned           | That exact path and subdirectories           |
-
-**Important:** When focus context is provided:
-
-- Reduce total suggestions (5-10 instead of 10-20) but make them highly targeted
-- Every suggestion MUST relate to the focused area
-- Include file paths in suggestions that match the focus
-
-## Process
-
-**After completing STEP 0-2 above (version check, argument parsing, mode routing), proceed to domain knowledge loading.**
-
-**Reminder - You should already have these variables set:**
-
-- `MODE` - One of: `full`, `quick`, `area`, `banger`
-- `AUTO_MODE` - `true` or `false`
-- `FOCUS_CONTEXT` - Path or description, or empty string
-- `AREA_TYPE` - Only if MODE=area, e.g., `security`, `ui`
-
-**When AUTO_MODE is true:**
-
-- Skip ALL user prompts (AskUserQuestion calls)
-- Use sensible defaults for all decisions
-- If domain knowledge file doesn't exist, create it with defaults
-- Continue execution without waiting for user input
+**Execute ONLY your mode section. Each section is complete.**
 
 ---
 
-## ⚠️ MANDATORY PRE-CHECK: READ THIS FIRST ⚠️
+<!-- ANCHOR: anchor-mode-a -->
 
-**BEFORE DOING ANYTHING ELSE, you MUST check for VALID initialization.**
+## Mode A: Full Review (25 items)
 
-**Step A: Get current repository name:**
+**Execute ONLY if MODE == "full"**
+
+### A.1: Load Domain Knowledge
 
 ```bash
-CURRENT_REPO=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" || basename "$(pwd)")
+SKILL_FILE=".claude/skills/pm-domain-knowledge/SKILL.md"
+if [ -f "$SKILL_FILE" ] && head -1 "$SKILL_FILE" | grep -q "INITIALIZED: true"; then
+  echo "Domain knowledge loaded"
+else
+  mkdir -p .claude/skills/pm-domain-knowledge
+  # Create default domain knowledge
+fi
 ```
 
-**Step B: Read the domain knowledge file:**
+### A.2: Launch 8 Agents (Parallel)
+
+**Launch ALL 8 in ONE message:**
+
+| Agent        | File                     | ITEM_LIMIT | INCLUDE_BANGER |
+| ------------ | ------------------------ | ---------- | -------------- |
+| Feature      | pm-feature-agent.md      | 3          | true           |
+| UI           | pm-ui-agent.md           | 3          | false          |
+| UX           | pm-ux-agent.md           | 3          | false          |
+| API          | pm-api-agent.md          | 3          | false          |
+| Data         | pm-data-agent.md         | 3          | false          |
+| Security     | pm-security-agent.md     | 3          | false          |
+| Performance  | pm-performance-agent.md  | 3          | false          |
+| Code Quality | pm-code-quality-agent.md | 3          | false          |
+
+Each agent returns validated items with: title, problem, solution, type, area, impact_score, effort_score, complexity, is_new_feature, is_banger_idea
+
+### A.3: Aggregate & Deduplicate
+
+Wait for all agents. Combine: 24 regular + 1 banger = 25 items.
+
+Check duplicates against existing backlog:
 
 ```bash
-cat .claude/skills/pm-domain-knowledge/SKILL.md 2>/dev/null | head -20
+EXISTING=$(curl -s "${supabaseUrl}/rest/v1/mason_pm_backlog_items?select=id,title&or=(status.eq.new,status.eq.approved)&repository_id=eq.${REPOSITORY_ID}" \
+  -H "apikey: ${supabaseAnonKey}")
 ```
 
-**Step C: Validate the domain knowledge is for THIS repository:**
+- title_similarity >= 70% → DUPLICATE
+- Same target file → DUPLICATE
 
-Check BOTH conditions:
+### A.4: Generate PRD for EACH Item (MANDATORY)
 
-1. First line is `<!-- INITIALIZED: true -->`
-2. The file mentions the CURRENT repository name (not a different project)
-
-If the SKILL.md mentions a DIFFERENT project name (e.g., "Mason" when you're in "my-app"), it's from a symlinked .claude directory and must be regenerated for THIS repo.
-
-**Decision:**
-
-- If INITIALIZED marker exists AND project name matches → **SKIP DIRECTLY TO STEP 1**
-- If file is missing, not initialized, OR project name MISMATCHES → Continue to Step 0 (regenerate)
-- **If AUTO_MODE is true AND needs regeneration** → Create defaults and skip to Step 1
-
-**THIS IS A HARD STOP.** If domain knowledge is valid for THIS repo, you MUST NOT:
-
-- Ask the 3 priority questions
-- Ask about user types
-- Ask about off-limits areas
-- Use the AskUserQuestion tool for domain knowledge
-
-**Instead, jump directly to "### Step 1: Load Domain Knowledge" below.**
-
----
-
-### Step 0: Initialize Domain Knowledge (ONE-TIME ONLY)
-
-**This step ONLY runs if the file is missing OR does not have `<!-- INITIALIZED: true -->` on line 1.**
-
-**If you already confirmed `<!-- INITIALIZED: true -->` exists, SKIP THIS ENTIRE SECTION and go to Step 1.**
-
-**If AND ONLY IF initialization is needed (first run only):**
-
-#### AUTO MODE: Create Defaults and Skip Questions
-
-**If AUTO_MODE is true and domain knowledge doesn't exist:**
-
-```bash
-# Create domain knowledge directory
-mkdir -p .claude/skills/pm-domain-knowledge
-
-# Auto-detect project info
-PROJECT_NAME=$(jq -r '.name // "Unknown Project"' package.json 2>/dev/null || echo "Unknown Project")
-PROJECT_DESC=$(jq -r '.description // "No description"' package.json 2>/dev/null || echo "No description")
-```
-
-Create the domain knowledge file with sensible defaults:
+**Every item needs a PRD. Generate for all 25:**
 
 ```markdown
-<!-- INITIALIZED: true -->
-<!-- Auto-generated by /pm-review --auto. Edit to customize. -->
+# PRD: [Title]
 
-# PM Domain Knowledge
+## Problem Statement
 
-## Project Overview
+[Expanded from item.problem]
 
-- **Name**: ${PROJECT_NAME}
-- **Description**: ${PROJECT_DESC}
+## Proposed Solution
 
-## Domain Priorities (Auto-Generated Defaults)
+[Expanded from item.solution]
 
-| Domain       | Priority |
-| ------------ | -------- |
-| frontend-ux  | High     |
-| api-backend  | High     |
-| reliability  | Medium   |
-| security     | Medium   |
-| code-quality | Medium   |
+## Success Criteria
 
-## User Personas (Default)
+- [ ] [Criterion 1]
+- [ ] [Criterion 2]
+- [ ] [Criterion 3]
 
-Mixed audience - both technical and non-technical users with varying skill sets.
+## Technical Approach
 
-## Off-Limits Areas
+### Wave 1: Exploration
 
-None specified - full codebase analysis enabled.
+| #   | Subagent | Task              |
+| --- | -------- | ----------------- |
+| 1.1 | Explore  | Research patterns |
+
+### Wave 2: Implementation
+
+| #   | Subagent        | Task      |
+| --- | --------------- | --------- |
+| 2.1 | general-purpose | Implement |
+
+## Risks & Mitigations
+
+| Risk   | Mitigation   |
+| ------ | ------------ |
+| [Risk] | [Mitigation] |
+
+## Out of Scope
+
+- [Excluded items]
 ```
 
-**Then SKIP to Step 1. Do NOT ask questions in auto mode.**
+Store: `item.prd_content = prd`
 
----
-
-#### A. Ask 3 Quick Questions (SKIP IN AUTO MODE)
-
-Use the AskUserQuestion tool with these 3 questions in a single call:
-
-```json
-{
-  "questions": [
-    {
-      "question": "What matters most to your team right now?",
-      "header": "Priorities",
-      "multiSelect": true,
-      "options": [
-        {
-          "label": "Ship features quickly",
-          "description": "Focus on delivering new functionality fast"
-        },
-        {
-          "label": "Stability/reliability",
-          "description": "Reduce bugs, improve uptime"
-        },
-        {
-          "label": "User experience",
-          "description": "Polish UI, reduce friction"
-        },
-        {
-          "label": "Security",
-          "description": "Harden auth, fix vulnerabilities"
-        }
-      ]
-    },
-    {
-      "question": "Who primarily uses this application?",
-      "header": "Users",
-      "multiSelect": false,
-      "options": [
-        {
-          "label": "Developers/technical",
-          "description": "CLI users, API consumers, technical staff"
-        },
-        {
-          "label": "Business/non-technical",
-          "description": "End users who need intuitive UI"
-        },
-        {
-          "label": "Mixed audience",
-          "description": "Both technical and non-technical users"
-        }
-      ]
-    },
-    {
-      "question": "Any areas that should NOT receive improvement suggestions?",
-      "header": "Off-limits",
-      "multiSelect": false,
-      "options": [
-        {
-          "label": "No off-limits areas",
-          "description": "Analyze the entire codebase"
-        },
-        {
-          "label": "Yes, exclude some areas",
-          "description": "Use 'Other' to specify areas to skip"
-        }
-      ]
-    }
-  ]
-}
-```
-
-#### B. Auto-Detect from Repository
-
-Gather project information automatically:
-
-| Field           | Detection Strategy                                          |
-| --------------- | ----------------------------------------------------------- |
-| Project Name    | `package.json` name field, or directory name as fallback    |
-| Description     | `package.json` description, or first paragraph of README.md |
-| Tech Stack      | Parse dependencies (react, next, express, supabase, etc.)   |
-| Tech Debt Count | Count of TODO, FIXME, @todo, HACK comments in codebase      |
-
-**Detection commands:**
-
-```bash
-# Project name and description
-jq -r '.name // empty' package.json 2>/dev/null
-jq -r '.description // empty' package.json 2>/dev/null
-
-# Tech stack from dependencies
-jq -r '.dependencies // {} | keys[]' package.json 2>/dev/null | head -20
-
-# Tech debt count
-grep -r -E '(TODO|FIXME|@todo|HACK):?' --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | wc -l
-```
-
-#### C. Map User Answers to Domain Knowledge
-
-**Priority Mapping:**
-
-| User Selection        | Domain Priority Weights                                         |
-| --------------------- | --------------------------------------------------------------- |
-| Ship features quickly | frontend-ux: High, api-backend: High, code-quality: Low         |
-| Stability/reliability | reliability: Critical, code-quality: High, frontend-ux: Medium  |
-| User experience       | frontend-ux: Critical, api-backend: Medium, reliability: Medium |
-| Security              | security: Critical, reliability: High, code-quality: Medium     |
-
-**User Persona Mapping:**
-
-| User Selection         | Generated Persona                                                       |
-| ---------------------- | ----------------------------------------------------------------------- |
-| Developers/technical   | Technical users comfortable with CLI/APIs, value efficiency over polish |
-| Business/non-technical | Non-technical users who need intuitive UI and clear messaging           |
-| Mixed audience         | Both technical and non-technical users with varying skill sets          |
-
-**Off-Limits Mapping:**
-
-| User Selection          | Off-Limits Section                              |
-| ----------------------- | ----------------------------------------------- |
-| No off-limits areas     | Leave section empty with "None specified"       |
-| Yes, exclude some areas | Parse the "Other" text input into bullet points |
-
-#### D. Generate Domain Knowledge File
-
-Write the populated domain knowledge to `.claude/skills/pm-domain-knowledge/SKILL.md` using the Write tool. Include:
-
-1. **CRITICAL: First line MUST be exactly:** `<!-- INITIALIZED: true -->`
-2. Auto-generated header comment: `<!-- Auto-generated by /pm-review. Edit to customize. -->`
-3. Project overview from auto-detection
-4. User personas from user answer
-5. Domain priorities from user answer
-6. Off-limits areas from user answer
-7. Sensible defaults for other sections
-
-#### E. Show Summary and Continue
-
-Display a brief summary:
-
-```
-Domain knowledge initialized for [Project Name]
-  Priorities: [user selections]
-  Users: [user selection]
-  Saved to: .claude/skills/pm-domain-knowledge/SKILL.md
-
-This is a ONE-TIME setup. Future /pm-review runs will use these saved preferences.
-
-Continuing with PM review...
-```
-
-Then proceed to Step 1.
-
-**END OF ONE-TIME INITIALIZATION** - Future runs skip directly to Step 1.
-
----
-
-### Step 1: Load Domain Knowledge
-
-Load the domain-specific knowledge from `.claude/skills/pm-domain-knowledge/SKILL.md`. This provides context about:
-
-- Business goals and priorities
-- Technical constraints
-- User personas
-- Known pain points
-
-### Step 2: Launch Agent Swarm (MODE-BASED EXECUTION)
-
-**The swarm launch depends on the mode:**
-
-| Mode               | Agents to Launch    | Items per Agent | Banger  | Total |
-| ------------------ | ------------------- | --------------- | ------- | ----- |
-| **Full** (default) | All 8 in parallel   | 3               | Yes     | 25    |
-| **Quick**          | All 8 in parallel   | 1               | Yes     | 9     |
-| **Focus (area:X)** | Single agent only   | 5               | No      | 5     |
-| **Banger**         | Deep dive (special) | N/A             | Yes (1) | 1     |
-
----
-
-#### Mode A: Full Review (8 agents × 3 items + 1 banger = 25 total)
-
-**Launch all 8 category agents IN PARALLEL using a single message with 8 Task tool calls.**
-
-**Focus Context Support:**
-
-When `FOCUS_CONTEXT` is set, ALL 8 agents narrow their analysis to the focused area:
-
-- Exploration prioritizes files/patterns within or related to the focus
-- Every suggestion MUST relate to the focused area
-- Agents still maintain their category specialization (security, performance, etc.) but apply it to the focused area
-
-```
-Use the Task tool 8 times in a SINGLE message with these agents:
-
-1. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-feature-agent.md, ITEM_LIMIT=3
-2. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-ui-agent.md, ITEM_LIMIT=3
-3. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-ux-agent.md, ITEM_LIMIT=3
-4. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-api-agent.md, ITEM_LIMIT=3
-5. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-data-agent.md, ITEM_LIMIT=3
-6. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-security-agent.md, ITEM_LIMIT=3
-7. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-performance-agent.md, ITEM_LIMIT=3
-8. Task tool: subagent_type="general-purpose", prompt includes .claude/agents/pm-code-quality-agent.md, ITEM_LIMIT=3
-
-Each agent prompt MUST include:
-  FOCUS_CONTEXT: ${FOCUS_CONTEXT}  # Empty string if no focus provided
-```
-
-**Feature agent ALSO generates the 1 banger idea (separate from the 3 regular items).**
-
----
-
-#### Mode B: Quick Review (8 agents × 1 item + 1 banger = 9 total)
-
-**Launch all 8 category agents IN PARALLEL with ITEM_LIMIT=1.**
-
-**Focus Context Support:**
-
-When `FOCUS_CONTEXT` is set, ALL 8 agents narrow their analysis to the focused area (same as Full mode):
-
-- Exploration prioritizes files/patterns within or related to the focus
-- Every suggestion MUST relate to the focused area
-- Agents still maintain their category specialization but apply it to the focused area
-
-```
-Use the Task tool 8 times in a SINGLE message with these agents:
-
-1-8. Same as Full mode, but each prompt includes ITEM_LIMIT=1 and FOCUS_CONTEXT=${FOCUS_CONTEXT}
-```
-
-**Feature agent ALSO generates the 1 banger idea (separate from the 1 regular item).**
-
----
-
-#### Mode C: Focus Area (1 agent × 5 items, NO banger)
-
-**Launch ONLY the specified agent with ITEM_LIMIT=5.**
-
-**Focus Context Support (DUAL NARROWING):**
-
-When BOTH `area:X` AND `Focus on:` are provided, they work together:
-
-- `area:X` selects WHICH agent runs (e.g., `area:security` → pm-security-agent)
-- `Focus on:` narrows WHERE within that domain to look
-
-**Example:**
-
-```
-/pm-review area:security
-
-Focus on: src/auth/
-```
-
-This runs the security agent but ONLY analyzing the `src/auth/` directory - finding security issues specific to the authentication system.
-
-Map the area command to the correct agent:
-
-| Area Command        | Agent File                                |
-| ------------------- | ----------------------------------------- |
-| `area:feature`      | `.claude/agents/pm-feature-agent.md`      |
-| `area:ui`           | `.claude/agents/pm-ui-agent.md`           |
-| `area:ux`           | `.claude/agents/pm-ux-agent.md`           |
-| `area:api`          | `.claude/agents/pm-api-agent.md`          |
-| `area:data`         | `.claude/agents/pm-data-agent.md`         |
-| `area:security`     | `.claude/agents/pm-security-agent.md`     |
-| `area:performance`  | `.claude/agents/pm-performance-agent.md`  |
-| `area:code-quality` | `.claude/agents/pm-code-quality-agent.md` |
-
-```
-Use the Task tool ONCE with:
-  subagent_type="general-purpose"
-  prompt includes .claude/agents/pm-{category}-agent.md
-  ITEM_LIMIT=5
-  INCLUDE_BANGER=false
-  FOCUS_CONTEXT=${FOCUS_CONTEXT}  # Narrows within the agent's domain
-```
-
-**IMPORTANT: Focus mode does NOT include a banger idea.**
-
----
-
-#### Mode D: Banger Mode (Deep dive → 1 game-changing idea)
-
-**Banger mode is a special deep-dive mode that finds ONE transformative feature idea.**
-
-This mode is for when you want ONLY a banger - no regular improvements, no incremental fixes. Just the biggest, boldest idea that would blow users away.
-
-**Focus Context Support:**
-
-Banger mode fully supports focus context (parsed in the global "Focus Context Parsing" section above). When `FOCUS_CONTEXT` is set:
-
-- All exploration is narrowed to the focused area
-- Ideas must be relevant to the focused area
-- The banger must improve or extend the focused area specifically
-
-**Example with focus:**
-
-```
-/pm-review banger
-
-Focus on: src/features/outreach-bot/
-```
-
-This generates a banger idea specifically for improving the outreach-bot feature.
-
-**Process:**
-
-1. **Deep Codebase Understanding** (3 parallel subagents):
-
-```
-Use Task tool 3 times in parallel with:
-  1. subagent_type="Explore"
-     prompt: |
-       Analyze architecture and system design.
-       ${FOCUS_CONTEXT ? "FOCUS AREA: " + FOCUS_CONTEXT + "\nOnly analyze files and patterns within or related to this area." : "Analyze the entire codebase."}
-       Identify core value proposition and how this area fits into the overall system.
-
-  2. subagent_type="Explore"
-     prompt: |
-       Study user flows and understand who uses this app.
-       ${FOCUS_CONTEXT ? "FOCUS AREA: " + FOCUS_CONTEXT + "\nOnly analyze user flows that involve this area." : "Analyze all user flows."}
-       Understand what users care about in this context.
-
-  3. subagent_type="Explore"
-     prompt: |
-       Review existing features and find gaps and opportunities.
-       ${FOCUS_CONTEXT ? "FOCUS AREA: " + FOCUS_CONTEXT + "\nOnly review features within this area and find gaps specific to it." : "Review all features."}
-       Look for opportunities to add transformative capabilities.
-```
-
-2. **Generate 10 Big Ideas** (1 subagent):
-
-```
-Use Task tool with:
-  subagent_type="feature-ideation"
-  prompt: |
-    Based on the codebase analysis, generate 10 BIG IDEAS for this application.
-    ${FOCUS_CONTEXT ? "\n**CRITICAL FOCUS CONSTRAINT:**\nAll ideas MUST be specifically for: " + FOCUS_CONTEXT + "\nDo NOT suggest ideas outside this focus area. Every idea must directly improve or extend this specific area." : ""}
-
-    These are NOT:
-    - Bug fixes
-    - Performance improvements
-    - UI tweaks
-    - Security hardening
-    - Code quality improvements
-
-    These ARE:
-    - Game-changing new features ${FOCUS_CONTEXT ? "for the focused area" : ""}
-    - "Holy shit, I didn't even think of that" innovations
-    - Features that would make users tell their friends
-    - Capabilities that would justify a premium tier
-    - Ideas the builder may not have even considered
-
-    Each idea MUST have:
-    - WOW factor - Users would absolutely notice this
-    - Real value - Solves a problem or creates new capability
-    - Innovation - Not just "add a button" but truly transformative
-    - Feasibility - Can be built with the existing stack (multi-week scope is fine)
-    ${FOCUS_CONTEXT ? "- Relevance - Must directly relate to " + FOCUS_CONTEXT : ""}
-
-    Return the 10 ideas as JSON array with:
-    - title: Catchy, descriptive name
-    - vision: 2-3 sentence description of what this enables
-    - wow_factor: Why this would blow users away
-    - user_value: What problem it solves or capability it creates
-    - complexity_estimate: "weeks" or "months"
-    ${FOCUS_CONTEXT ? "- focus_relevance: How this idea specifically improves " + FOCUS_CONTEXT : ""}
-```
-
-3. **Select THE Banger** (1 subagent):
-
-```
-Use Task tool with:
-  subagent_type="general-purpose"
-  prompt: |
-    You have 10 big ideas. Pick THE ONE that is:
-    - The BEST idea out of the 10
-    - The BRIGHTEST - most innovative and creative
-    - The BIGGEST impact - would transform the app
-    - Technically feasible within the existing architecture
-    ${FOCUS_CONTEXT ? "- Most relevant to the focus area: " + FOCUS_CONTEXT : ""}
-
-    This is THE BANGER. Only one gets delivered.
-
-    Return your selection with full justification.
-    ${FOCUS_CONTEXT ? "Include how this idea specifically transforms " + FOCUS_CONTEXT : ""}
-```
-
-4. **Validate & Generate Full PRD** (follow standard Step 6 process for the selected banger)
-
-**Output:** Exactly 1 item submitted with `is_banger_idea: true`, `is_new_feature: true`
-
-**Banger Mode Selection Display:**
-
-```markdown
-## Banger Selection Complete
-
-### THE SELECTED BANGER
-
-**Title:** [Selected banger title]
-**Vision:** [2-3 sentence description]
-**Why This One:** [Justification for selection]
-
-### Rejected Candidates (9 ideas NOT selected)
-
-| #   | Title        | Rejection Reason                                   |
-| --- | ------------ | -------------------------------------------------- |
-| 1   | [Idea title] | [Why not THE best - comparative quality statement] |
-| ... | ...          | ...                                                |
-
-**Note:** Rejected candidates are displayed for transparency but NOT stored.
-```
-
----
-
-#### Agent Prompt Template (All Modes)
-
-**Each agent prompt should include:**
-
-1. Read the agent definition file: `.claude/agents/pm-{category}-agent.md`
-2. The repository_id and supabase credentials (for dedup checks)
-3. **ITEM_TARGET** - Target number of VALIDATED items to return (not a max - this is a TARGET)
-4. **INCLUDE_BANGER** - Whether to generate a banger idea (true for Feature agent in full/quick, false otherwise)
-5. **FOCUS_CONTEXT** - Focus area from the global parsing step (empty string if not provided)
-
-**Example agent invocation:**
-
-```
-subagent_type: "general-purpose"
-prompt: |
-  You are the **{CATEGORY} Agent** for PM review. Read your full instructions from:
-  .claude/agents/pm-{category}-agent.md
-
-  Context:
-  - Repository ID: ${REPOSITORY_ID}
-  - Supabase URL: ${supabaseUrl}
-  - Focus Context: ${FOCUS_CONTEXT}
-
-  ## Focus Context Handling
-  ${FOCUS_CONTEXT ? "**CRITICAL FOCUS CONSTRAINT:**\nAll exploration and suggestions MUST be narrowed to: " + FOCUS_CONTEXT + "\n- Only analyze files/patterns within or related to this area\n- Every suggestion MUST relate to the focused area\n- Ignore issues outside the focus area even if they exist" : "No focus context provided - analyze the entire codebase within your domain."}
-
-  ## Domain Knowledge (from Step 1)
-  Use this context to prioritize and tailor your suggestions:
-  - **User Priorities**: ${DOMAIN_PRIORITIES}  # What matters most to the user (from SKILL.md)
-  - **Off-Limits Areas**: ${OFF_LIMITS}  # Areas to SKIP (from SKILL.md)
-  - **User Persona**: ${USER_PERSONA}  # Who uses this app (from SKILL.md)
-
-  Apply domain knowledge when generating suggestions:
-  - Prioritize issues in high-priority domains
-  - Skip suggestions in off-limits areas entirely
-  - Frame benefits to match the user persona
-
-  **TARGET (MUST DELIVER EXACTLY THIS MANY VALIDATED ITEMS):**
-  - ITEM_TARGET: ${ITEM_LIMIT}  # You MUST return exactly this many VALIDATED items
-  - INCLUDE_BANGER: ${INCLUDE_BANGER}  # true = also generate 1 banger idea (Feature agent only)
-
-  ## CRITICAL: Iterative Validation Loop
-
-  You MUST deliver exactly ${ITEM_LIMIT} fully validated recommendations. If some don't pass validation,
-  you MUST generate more and iterate until you have the target number.
-
-  **Validation Loop Process:**
-
-```
-
-validated_items = []
-filtered_items = []
-max_iterations = 5 # Safety limit
-
-while len(validated_items) < ${ITEM_LIMIT} and iteration < max_iterations: # 1. Generate candidates (aim for 2x target to allow for filtering)
-candidates = generate_improvement_candidates(target = ${ITEM_LIMIT} \* 2)
-
-    # 2. Validate each candidate
-    for candidate in candidates:
-      validation_result = validate_candidate(candidate)
-
-      if validation_result.passed:
-        validated_items.append(candidate)
-        if len(validated_items) >= ${ITEM_LIMIT}:
-          break  # Target reached
-      else:
-        filtered_items.append({
-          ...candidate,
-          filter_reason: validation_result.reason,
-          filter_tier: validation_result.tier
-        })
-
-    iteration++
-
-# 3. Return exactly ${ITEM_LIMIT} validated items (or fewer if codebase exhausted)
-
-```
-
-**Validation Criteria (items MUST pass ALL):**
-1. Problem actually exists in codebase (verified with grep/read)
-2. Not a duplicate of existing backlog item (checked against DB)
-3. Solution references specific files that exist
-4. Not a false positive (test files, placeholders, intentional design)
-5. Has all 5 benefits with specific descriptions
-
-**If validation fails:** Log to filtered_items with reason, then generate NEW candidates to backfill.
-**Do NOT return items that failed validation.** Only return fully validated items.
-
-Your job:
-1. Explore the codebase for issues in YOUR domain only
-2. Generate candidate recommendations (overshoot to allow for filtering)
-3. Validate EACH recommendation (verify problem exists, not a false positive)
-4. If any fail validation, generate MORE candidates and repeat
-5. Continue until you have EXACTLY ${ITEM_LIMIT} validated items
-6. Check for duplicates against existing backlog items of type "{category}"
-7. Return JSON with your findings
-
-Return format:
-{
-  "category": "{category}",
-  "recommendations": [
-    // EXACTLY ${ITEM_LIMIT} VALIDATED items here (no more, no less)
-    {
-      "title": "...",
-      "problem": "...",
-      "solution": "...",
-      "type": "{category}",
-      "area": "frontend|backend",
-      "impact_score": 1-10,
-      "effort_score": 1-10,
-      "complexity": 1-5,
-      "is_new_feature": true|false,
-      "is_banger_idea": false,
-      "benefits": [...5 required...],
-      "evidence": {
-        "validation_passed": true,
-        "problem_verified": true,
-        "files_checked": [...],
-        "confidence_score": 0.85
-      }
-    }
-  ],
-  "filtered_items": [
-    // Items that didn't pass validation (for transparency)
-    {
-      "title": "...",
-      "filter_reason": "Duplicate of existing backlog item #123",
-      "filter_tier": "tier2-dedup"
-    }
-  ],
-  "validation_summary": {
-    "candidates_generated": 8,
-    "candidates_validated": 3,
-    "candidates_filtered": 5,
-    "iterations_required": 2,
-    "target_met": true
-  }
-}
-```
-
-**IMPORTANT (Feature Agent Only in Full/Quick Mode):**
-
-When INCLUDE_BANGER=true, the Feature agent MUST generate:
-
-- ${ITEM_LIMIT} regular feature ideas with `is_new_feature: true`, `is_banger_idea: false`
-- PLUS exactly 1 "Banger Idea" with `is_new_feature: true`, `is_banger_idea: true`
-- The banger idea is SEPARATE from the ${ITEM_LIMIT} count
-
-All other agents set both `is_new_feature` and `is_banger_idea` to `false`.
-
-### Step 2.5: Aggregate Agent Results
-
-**Wait for all 8 agents to complete, then aggregate their results.**
-
-The swarm execution will return results from each agent. Combine them:
-
-```bash
-# Collect results from all 8 agents
-ALL_RECOMMENDATIONS = []
-ALL_DUPLICATES_FILTERED = []
-
-for agent_result in [feature, ui, ux, api, data, security, performance, code_quality]:
-  ALL_RECOMMENDATIONS.extend(agent_result.recommendations)
-  ALL_DUPLICATES_FILTERED.extend(agent_result.duplicates_filtered)
-```
-
-**Verify Feature Agent Output:**
-
-The Feature agent MUST have produced:
-
-- At least 3-5 items with `is_new_feature: true`
-- Exactly 1 item with `is_banger_idea: true`
-
-If not, the Pre-Submission Validation will BLOCK you later.
-
-**Cross-Agent Deduplication:**
-
-After aggregation, check for duplicates ACROSS categories:
-
-```bash
-# For each recommendation, check against others in the aggregate
-for rec in ALL_RECOMMENDATIONS:
-  for other in ALL_RECOMMENDATIONS:
-    if rec.id != other.id:
-      similarity = calculate_title_similarity(rec.title, other.title)
-      if similarity >= 70%:
-        # Keep the one with higher priority score, filter the other
-        if rec.priority_score <= other.priority_score:
-          filter_as_cross_category_duplicate(rec)
-```
-
-### Step 3: Score Each Improvement
-
-For each improvement identified, assign scores:
-
-- **Impact Score (1-10)**: How much value does this add?
-  - 9-10: Critical fix or major feature improvement
-  - 7-8: Significant improvement to user experience or system
-  - 5-6: Moderate improvement
-  - 3-4: Nice to have
-  - 1-2: Minor polish
-
-- **Effort Score (1-10)**: How much work is required?
-  - 9-10: Major refactor, weeks of work
-  - 7-8: Significant changes, days of work
-  - 5-6: Moderate changes, day or two
-  - 3-4: Quick changes, hours
-  - 1-2: Trivial, minutes
-
-- **Priority Score**: Calculated as `(Impact x 2) - Effort`
-  - Higher = better priority
-
-- **Complexity (1-5)**: Technical complexity rating
-  - 1: Trivial - simple change, single file
-  - 2: Low - straightforward, few files
-  - 3: Medium - requires understanding of multiple components
-  - 4: High - significant architectural consideration
-  - 5: Very High - major system changes, high risk
-
-### Step 4: Classify Each Improvement
-
-Each agent assigns the correct category based on their domain. The categories are:
-
-**Category** (matches UI badge colors):
-
-| Category       | Badge Color   | When to Use                                          |
-| -------------- | ------------- | ---------------------------------------------------- |
-| `feature`      | Purple + Star | Net-new functionality, user capabilities             |
-| `ui`           | Gold          | Visual changes, components, styling, layout          |
-| `ux`           | Cyan          | User flows, journey optimization, friction reduction |
-| `api`          | Green         | Endpoints, backend services, API contracts           |
-| `data`         | Blue          | Database schema, queries, data modeling              |
-| `security`     | Red           | Vulnerabilities, hardening, input validation         |
-| `performance`  | Orange        | Speed, optimization, caching, load times             |
-| `code-quality` | Gray          | Refactors, cleanup, tech debt, documentation         |
-
-**Area** (kept for backwards compatibility):
-
-- `frontend` - Frontend code changes
-- `backend` - Backend code changes
-
-**NOTE:** Legacy type values (`dashboard`, `discovery`, `auth`, `backend`) are still accepted for backwards compatibility. The dashboard will map them to new categories:
-
-- `dashboard` → `ui`
-- `discovery` → `code-quality`
-- `auth` → `security`
-- `backend` → `api`
-
-### Step 5: Generate Benefits (MANDATORY - NO EXCEPTIONS)
-
-## ⚠️ HARD REQUIREMENT: EVERY ITEM MUST HAVE ALL 5 BENEFITS ⚠️
-
-**For EVERY improvement, you MUST populate ALL 5 benefit categories.** This is NOT optional.
-
-Items without complete benefits will be **BLOCKED** at the Pre-Submission Validation step.
-
-**WHY BENEFITS ARE MANDATORY:**
-
-- Users need to understand WHY they should approve an item
-- Benefits explain the value to different stakeholders
-- Without benefits, items appear as just "problems" with no clear ROI
-- The dashboard displays benefits prominently - empty benefits = poor UX
-
-**EACH benefit description MUST be:**
-
-1. **Specific to this improvement** - not generic placeholder text
-2. **Actionable/measurable** - describes a concrete outcome
-3. **Role-appropriate** - speaks to that stakeholder's concerns
-
-**BANNED DESCRIPTIONS (these will fail validation):**
-
-- "Specific benefit for end users..." (template text)
-- "No impact" or "N/A" (lazy - find a real benefit)
-- Generic single-word answers
-- Copy-pasted identical descriptions across items
-
-**REQUIRED: All 5 categories with meaningful descriptions:**
+### A.5: Generate 5 Benefits for EACH Item (MANDATORY)
 
 ```json
 {
@@ -1122,400 +235,460 @@ Items without complete benefits will be **BLOCKED** at the Pre-Submission Valida
       "category": "user_experience",
       "icon": "user",
       "title": "USER EXPERIENCE",
-      "description": "[SPECIFIC: How end users benefit from this change - e.g., 'Reduces page load time from 3s to 1s, improving perceived responsiveness']"
+      "description": "[SPECIFIC]"
     },
     {
       "category": "sales_team",
       "icon": "users",
       "title": "SALES TEAM",
-      "description": "[SPECIFIC: How sales/business teams benefit - e.g., 'Enables demo of real-time features to prospects, improving close rates']"
+      "description": "[SPECIFIC]"
     },
     {
       "category": "operations",
       "icon": "settings",
       "title": "OPERATIONS",
-      "description": "[SPECIFIC: How ops/support teams benefit - e.g., 'Reduces support tickets about data staleness by providing clear timestamps']"
+      "description": "[SPECIFIC]"
     },
     {
       "category": "performance",
       "icon": "chart",
       "title": "PERFORMANCE",
-      "description": "[SPECIFIC: Technical performance impact - e.g., 'Eliminates N+1 query pattern, reducing API response time by 60%']"
+      "description": "[SPECIFIC]"
     },
     {
       "category": "reliability",
       "icon": "wrench",
       "title": "RELIABILITY",
-      "description": "[SPECIFIC: System reliability impact - e.g., 'Adds retry logic preventing silent failures during network instability']"
+      "description": "[SPECIFIC]"
     }
   ]
 }
 ```
 
-**EVERY category must have a thoughtful, specific description.** Even for technical improvements, find the human impact for each role.
+### A.6: Risk Analysis for EACH Item
 
-### Step 5.2: Feature Discovery (new-features domain)
+Calculate `risk_score` (1-10) based on: files affected, breaking changes, test coverage gaps.
 
-In addition to improvements, discover **new feature opportunities** that don't exist yet. This shifts the mindset from "what's wrong?" to "what could be amazing?"
+### A.7: Evidence Validation for EACH Item
 
-**Feature Discovery Mindset:**
+- `verified`: Problem exists → keep
+- `refuted`: Problem doesn't exist → REMOVE
+- `inconclusive`: Uncertain → flag
 
-- Think like a product manager building a v2.0 roadmap
-- Focus on user value, not technical improvements
-- Ask: "What would make users say 'wow, I wish it did THAT'?"
+### A.8: Validation Gate (BLOCKING)
 
-**Questions to Guide Feature Discovery:**
+```bash
+echo "=== VALIDATION GATE (Full Mode) ==="
+TOTAL=<count>; BANGER=<is_banger_idea count>; PRD=<prd_content count>; BENEFITS=<5 benefits count>; RISK=<risk_score count>
 
-1. What is this application's core purpose?
-2. Who are the primary users and what do they care about?
-3. What adjacent problems could this app solve with the right features?
-4. What integrations would make this 10x more useful?
-5. What automation opportunities exist for repetitive tasks?
+[ "$TOTAL" -gt 25 ] && echo "BLOCKED: Max 25 items"
+[ "$BANGER" -ne 1 ] && echo "BLOCKED: Need exactly 1 banger"
+[ "$PRD" -ne "$TOTAL" ] && echo "BLOCKED: Missing PRDs"
+[ "$BENEFITS" -ne "$TOTAL" ] && echo "BLOCKED: Missing benefits"
+[ "$RISK" -ne "$TOTAL" ] && echo "BLOCKED: Missing risk scores"
+echo "===================================="
+```
 
-**Feature Categories to Consider:**
-| Category | Examples |
-|----------|----------|
-| **Automation** | Repetitive tasks that could be automated |
-| **Intelligence** | Places where AI/ML could add value |
-| **Insights** | Data that exists but is not being surfaced |
-| **Collaboration** | Multi-user or team features |
-| **Integrations** | External services that complement the app |
-| **Accessibility** | Making the app usable by more people |
-| **Mobile/Offline** | Capabilities for different contexts |
+**If ANY fails: Fix before proceeding.**
 
-**Feature Quality Bar:**
+### A.9: Submit
 
-- Must be a NET NEW capability, not an improvement to existing
-- Must provide clear user value (not just "would be cool")
-- Must be technically feasible with existing architecture
-- Should align with the application core purpose
+See [Submission Process](#anchor-submission).
 
-**Examples of GOOD Features (is_new_feature: true):**
+---
 
-- "Add export to PDF for reports"
-- "Implement webhook notifications for events"
-- "Add team collaboration with shared workspaces"
-- "Add AI-powered suggestions based on user history"
+<!-- ANCHOR: anchor-mode-b -->
 
-**Examples of NOT Features (is_new_feature: false, these are improvements):**
+## Mode B: Quick Review (9 items)
 
-- "Make the loading faster" (performance improvement)
-- "Fix the broken validation" (bug fix)
-- "Add error handling to API" (reliability improvement)
-- "Refactor the component structure" (code quality)
+**Execute ONLY if MODE == "quick"**
 
-**Feature Fields in Submission:**
+### B.1: Load Domain Knowledge
+
+Same as A.1.
+
+### B.2: Launch 8 Agents (ITEM_LIMIT=1 each)
+
+Same agents as Mode A, but `ITEM_LIMIT=1`. Feature agent has `INCLUDE_BANGER=true`.
+
+### B.3: Aggregate & Deduplicate
+
+8 regular + 1 banger = 9 items.
+
+### B.4: Generate PRD for EACH Item
+
+Same template as A.4. Generate for all 9.
+
+### B.5: Generate 5 Benefits for EACH Item
+
+Same as A.5.
+
+### B.6: Risk Analysis for EACH Item
+
+Same as A.6.
+
+### B.7: Evidence Validation for EACH Item
+
+Same as A.7.
+
+### B.8: Validation Gate (BLOCKING)
+
+```bash
+echo "=== VALIDATION GATE (Quick Mode) ==="
+[ "$TOTAL" -gt 9 ] && echo "BLOCKED: Max 9 items"
+[ "$BANGER" -ne 1 ] && echo "BLOCKED: Need exactly 1 banger"
+# Check PRD, benefits, risk for all
+echo "====================================="
+```
+
+### B.9: Submit
+
+See [Submission Process](#anchor-submission).
+
+---
+
+<!-- ANCHOR: anchor-mode-c -->
+
+## Mode C: Focus Area (5 items)
+
+**Execute ONLY if MODE == "area"**
+
+### C.1: Load Domain Knowledge
+
+Same as A.1.
+
+### C.2: Launch SINGLE Agent
+
+| AREA_TYPE    | Agent File               |
+| ------------ | ------------------------ |
+| feature      | pm-feature-agent.md      |
+| ui           | pm-ui-agent.md           |
+| ux           | pm-ux-agent.md           |
+| api          | pm-api-agent.md          |
+| data         | pm-data-agent.md         |
+| security     | pm-security-agent.md     |
+| performance  | pm-performance-agent.md  |
+| code-quality | pm-code-quality-agent.md |
+
+`ITEM_LIMIT=5`, `INCLUDE_BANGER=false`
+
+### C.3: Generate PRD for EACH Item
+
+Same template as A.4. Generate for all 5.
+
+### C.4: Generate 5 Benefits for EACH Item
+
+Same as A.5.
+
+### C.5: Risk Analysis for EACH Item
+
+Same as A.6.
+
+### C.6: Evidence Validation for EACH Item
+
+Same as A.7.
+
+### C.7: Validation Gate (BLOCKING)
+
+```bash
+echo "=== VALIDATION GATE (Focus Mode) ==="
+[ "$TOTAL" -gt 5 ] && echo "BLOCKED: Max 5 items"
+[ "$BANGER" -gt 0 ] && echo "WARNING: Focus mode has no banger"
+# Check PRD, benefits, risk for all
+echo "====================================="
+```
+
+### C.8: Submit
+
+See [Submission Process](#anchor-submission).
+
+---
+
+<!-- ANCHOR: anchor-mode-d -->
+
+## Mode D: Banger Mode (1 item)
+
+**Execute ONLY if MODE == "banger"**
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         BANGER MODE ACTIVE                               ║
+║                                                                          ║
+║  DO NOT launch 8 category agents                                         ║
+║  DO NOT generate 8-25 items                                              ║
+║                                                                          ║
+║  ONLY follow phases D.1-D.10 below                                       ║
+║  ONLY produce EXACTLY 1 banger item                                      ║
+║  ONLY submit 1 item to the database                                      ║
+║                                                                          ║
+║  Expected: "All 1 items submitted successfully"                          ║
+║  If you submit more than 1 item, YOU HAVE FAILED.                        ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
+### D.1: Deep Codebase Understanding (3 Parallel Agents)
+
+Launch 3 Explore agents in ONE message:
+
+```
+Agent 1: Analyze architecture. ${FOCUS_CONTEXT ? "Focus: " + FOCUS_CONTEXT : ""}
+Agent 2: Study user flows. ${FOCUS_CONTEXT ? "Focus: " + FOCUS_CONTEXT : ""}
+Agent 3: Find feature gaps. ${FOCUS_CONTEXT ? "Focus: " + FOCUS_CONTEXT : ""}
+```
+
+### D.2: Generate 10 Big Ideas
+
+```
+subagent_type: "feature-ideation"
+prompt: Generate 10 BIG IDEAS. ${FOCUS_CONTEXT ? "All for: " + FOCUS_CONTEXT : ""}
+  NOT: Bug fixes, performance, UI tweaks
+  ARE: Game-changing features, "Holy shit" innovations
+  Return: title, vision, wow_factor, user_value, complexity_estimate
+```
+
+### D.3: Select THE Banger
+
+```
+subagent_type: "general-purpose"
+prompt: Pick THE ONE that is BEST, BRIGHTEST, BIGGEST impact, technically feasible.
+  ${FOCUS_CONTEXT ? "Most relevant to: " + FOCUS_CONTEXT : ""}
+  Return selection with justification.
+```
+
+### D.4: Generate PRD for Banger (MANDATORY)
+
+```markdown
+# PRD: [Selected Banger Title]
+
+## Problem Statement
+
+[Why this capability doesn't exist and why users need it]
+
+## Proposed Solution
+
+[Detailed description]
+
+## Success Criteria
+
+- [ ] [Criterion 1]
+- [ ] [Criterion 2]
+- [ ] [Criterion 3]
+
+## Technical Approach
+
+### Wave 1: Foundation
+
+| #   | Subagent | Task                        |
+| --- | -------- | --------------------------- |
+| 1.1 | Explore  | Research architecture       |
+| 1.2 | Explore  | Identify integration points |
+
+### Wave 2: Implementation
+
+| #   | Subagent        | Task           |
+| --- | --------------- | -------------- |
+| 2.1 | general-purpose | Build core     |
+| 2.2 | general-purpose | Add components |
+
+### Wave 3: Polish
+
+| #   | Subagent        | Task      |
+| --- | --------------- | --------- |
+| 3.1 | general-purpose | Add tests |
+| 3.2 | code-reviewer   | Review    |
+
+## Risks & Mitigations
+
+| Risk   | Mitigation   |
+| ------ | ------------ |
+| [Risk] | [Mitigation] |
+
+## Out of Scope
+
+- [Excluded]
+```
+
+Store: `item.prd_content = prd`
+
+### D.5: Generate 5 Benefits for Banger (MANDATORY)
 
 ```json
 {
-  "title": "Add real-time collaboration",
-  "problem": "Users cannot work together on the same content simultaneously...",
-  "solution": "Implement WebSocket-based real-time sync...",
-  "is_new_feature": true,
-  "is_banger_idea": false
+  "benefits": [
+    {
+      "category": "user_experience",
+      "icon": "user",
+      "title": "USER EXPERIENCE",
+      "description": "[Transformative benefit]"
+    },
+    {
+      "category": "sales_team",
+      "icon": "users",
+      "title": "SALES TEAM",
+      "description": "[Revenue impact]"
+    },
+    {
+      "category": "operations",
+      "icon": "settings",
+      "title": "OPERATIONS",
+      "description": "[Ops gain]"
+    },
+    {
+      "category": "performance",
+      "icon": "chart",
+      "title": "PERFORMANCE",
+      "description": "[Capability added]"
+    },
+    {
+      "category": "reliability",
+      "icon": "wrench",
+      "title": "RELIABILITY",
+      "description": "[System improvement]"
+    }
+  ]
 }
 ```
 
-### Step 5.3: Banger Idea Generation (ONE per analysis)
+### D.6: Risk Analysis for Banger
 
-Every PM review MUST generate exactly ONE "Banger Idea" - a transformative feature that would dramatically increase the app value.
+Calculate `risk_score` (1-10).
 
-**Banger Idea Characteristics:**
+### D.7: Evidence Validation for Banger
 
-- **Ambitious scope** - Not a quick fix, this is a multi-week project
-- **Transformative value** - Would make users say "holy shit, this is next level"
-- **Feature-focused** - Not cosmetic, not reliability, not security - pure functionality
-- **Vision-aligned** - Amplifies what the app is already trying to do
-- **Technically feasible** - Could actually be built with the existing stack
+Verify feature doesn't exist:
 
-**Banger Idea Quality Criteria:**
+- `verified`: New → proceed
+- `refuted`: Exists → pick different idea
 
-- Must be technically feasible with current stack
-- Must align with the app core purpose
-- Must serve the primary user persona
-- Must be a FEATURE (not performance, security, or cosmetic)
-- Should require 2+ weeks of development (substantial, not trivial)
+### D.8: Validation Gate (BLOCKING - Banger Mode)
 
-**Banger Idea Prompt:**
-Think: What feature would make users tell their friends about this app? What capability would justify a premium tier? What would make this app stand out from competitors?
+```bash
+echo "=== VALIDATION GATE (Banger Mode) ==="
+TOTAL=<count>; BANGER=<is_banger_idea count>
 
-**Banger Idea Fields:**
-
-```json
-{
-  "title": "Real-Time Collaborative Editing",
-  "problem": "Users work in isolation, unable to collaborate in real-time...",
-  "solution": "Transform the app from single-user to multiplayer with real-time cursors, instant sync, and presence indicators...",
-  "is_new_feature": true,
-  "is_banger_idea": true
-}
+[ "$TOTAL" -ne 1 ] && echo "BLOCKED: Must be exactly 1 item"
+[ "$BANGER" -ne 1 ] && echo "BLOCKED: Must have is_banger_idea=true"
+[ -z "$PRD_CONTENT" ] && echo "BLOCKED: Missing PRD"
+[ "$BENEFITS_COUNT" -ne 5 ] && echo "BLOCKED: Need 5 benefits"
+[ -z "$RISK_SCORE" ] && echo "BLOCKED: Missing risk score"
+echo "======================================"
 ```
 
-**IMPORTANT:** Only ONE item per analysis can have `is_banger_idea: true`. This is the flagship transformative feature. All other items (including other features) should have `is_banger_idea: false`.
+### D.9: Display Selection
 
-### Step 5.4: Deduplication Check & Banger Rotation (MANDATORY - HARD STOP)
+```markdown
+## Banger Selection Complete
 
-## ⚠️ HARD REQUIREMENT: THIS CHECK CANNOT BE SKIPPED ⚠️
+### THE SELECTED BANGER
 
-**Before generating any suggestions, you MUST query existing backlog items and filter duplicates.**
+**Title:** [Title]
+**Vision:** [Description]
+**Why This One:** [Justification]
 
-This is NOT optional. Submitting duplicate ideas wastes user time and pollutes the backlog.
+### Rejected Candidates (9 NOT selected)
 
-**WHY DEDUPLICATION IS MANDATORY:**
+| #   | Title   | Why Not  |
+| --- | ------- | -------- |
+| 1   | [Title] | [Reason] |
 
-- Users don't want to review the same idea twice
-- Duplicate suggestions make the backlog harder to manage
-- The agent should come up with FRESH suggestions each run
-- Completed items don't need checking (if fixed, the problem won't show up)
+...
+
+Note: Rejected shown for transparency, NOT stored.
+```
+
+### D.10: Submit
+
+See [Submission Process](#anchor-submission). Submit exactly 1 item.
 
 ---
 
-#### Step A: Query Existing Backlog Items
+<!-- ANCHOR: anchor-submission -->
 
-**THIS QUERY MUST RUN BEFORE generating suggestions.**
+# PART 3: SUBMISSION & REFERENCE
 
-```bash
-# Query existing items with status NEW or APPROVED (not completed/rejected)
-EXISTING_ITEMS=$(curl -s "${supabaseUrl}/rest/v1/mason_pm_backlog_items?select=id,title,problem,solution,status,type&or=(status.eq.new,status.eq.approved)&repository_id=eq.${REPOSITORY_ID}" \
-  -H "apikey: ${supabaseAnonKey}" \
-  -H "Authorization: Bearer ${supabaseAnonKey}")
+## Submission Process
 
-EXISTING_COUNT=$(echo "$EXISTING_ITEMS" | jq 'length')
-echo "Found $EXISTING_COUNT existing items to check for duplicates"
-```
-
-**IMPORTANT:** Only check against `new` and `approved` items. Completed items don't matter - if the problem was fixed, it won't show up as a problem anymore.
-
----
-
-#### Step B: Similarity Detection Algorithm
-
-For EACH candidate suggestion, compare against existing items:
-
-**B.1: Extract Key Terms from Title**
-
-Stop words to remove:
-
-```
-the, a, an, to, for, in, on, at, of, and, or, is, are, be, with, this, that,
-add, update, fix, improve, implement, create, make, use, using, when, if
-```
-
-Example:
-
-- Title: "Add loading states to dashboard cards"
-- Key terms: ["loading", "states", "dashboard", "cards"]
-
-**B.2: Extract Primary File from Solution**
+### Step 1: Read Config
 
 ```bash
-# Find file paths in solution text
-PRIMARY_FILE=$(echo "$SOLUTION" | grep -oE '(src|packages|lib|app)/[a-zA-Z0-9/_.-]+\.(ts|tsx|js|jsx)' | head -1)
+apiKey=$(jq -r '.apiKey' mason.config.json)
+supabaseUrl=$(jq -r '.supabaseUrl' mason.config.json)
+supabaseAnonKey=$(jq -r '.supabaseAnonKey' mason.config.json)
+dashboardUrl=$(jq -r '.dashboardUrl // "https://mason.assuredefi.com"' mason.config.json)
 ```
 
-**B.3: Calculate Similarity Score**
+### Step 2: Validate API Key & Get Repository ID
 
 ```bash
-# Extract key terms from candidate title
-CANDIDATE_TERMS=$(extract_key_terms "$CANDIDATE_TITLE")
+VALIDATION=$(curl -s -X POST "${dashboardUrl}/api/v1/analysis" \
+  -H "Authorization: Bearer ${apiKey}" \
+  -H "Content-Type: application/json")
 
-# For each existing item, calculate similarity
-for EXISTING in $EXISTING_ITEMS; do
-  EXISTING_TITLE=$(echo "$EXISTING" | jq -r '.title')
-  EXISTING_TERMS=$(extract_key_terms "$EXISTING_TITLE")
-  EXISTING_SOLUTION=$(echo "$EXISTING" | jq -r '.solution')
-  EXISTING_TYPE=$(echo "$EXISTING" | jq -r '.type')
+USER_ID=$(echo "$VALIDATION" | jq -r '.user_id')
+REPOSITORIES=$(echo "$VALIDATION" | jq -r '.repositories')
 
-  # Calculate title word overlap
-  MATCHING_WORDS=$(count_matching_words "$CANDIDATE_TERMS" "$EXISTING_TERMS")
-  TOTAL_WORDS=$(count_words "$CANDIDATE_TERMS")
-  TITLE_SIMILARITY=$((MATCHING_WORDS * 100 / TOTAL_WORDS))
+GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/\.git$//' | sed -E 's|.*github\.com[:/]||')
+REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select(.github_full_name == $name) | .id // empty')
 
-  # Check if same primary file
-  EXISTING_PRIMARY_FILE=$(echo "$EXISTING_SOLUTION" | grep -oE '(src|packages|lib|app)/[a-zA-Z0-9/_.-]+\.(ts|tsx|js|jsx)' | head -1)
-  SAME_FILE=false
-  if [ "$PRIMARY_FILE" = "$EXISTING_PRIMARY_FILE" ] && [ -n "$PRIMARY_FILE" ]; then
-    SAME_FILE=true
-  fi
-
-  # Check if same type/domain
-  SAME_TYPE=false
-  if [ "$CANDIDATE_TYPE" = "$EXISTING_TYPE" ]; then
-    SAME_TYPE=true
-  fi
-done
+echo "=== REPOSITORY MATCHING ==="
+echo "Git remote: $GIT_REMOTE"
+echo "Repo name: $REPO_FULL_NAME"
+echo "Repository ID: $REPOSITORY_ID"
+echo "==========================="
 ```
 
----
-
-#### Step C: Duplicate Thresholds (Fully Automated - No Manual Review)
-
-| Condition                                    | Action                  | Confidence |
-| -------------------------------------------- | ----------------------- | ---------- |
-| title_similarity >= 70%                      | DUPLICATE - auto-filter | 0.90       |
-| Same primary target file in solution         | DUPLICATE - auto-filter | 0.95       |
-| title_similarity >= 50% AND same type/domain | DUPLICATE - auto-filter | 0.85       |
-
-**All duplicates are automatically filtered. No manual review required.**
-
-**Examples:**
-
-| Candidate                          | Existing                               | Similarity      | Result    |
-| ---------------------------------- | -------------------------------------- | --------------- | --------- |
-| "Add loading states to dashboard"  | "Add loading indicators for KPI cards" | 60% + same type | DUPLICATE |
-| "Fix error handling in API routes" | "Improve error handling in backend"    | 55% + same type | DUPLICATE |
-| "Add real-time notifications"      | "Implement webhook notifications"      | 40%             | UNIQUE    |
-| "Update KPICard.tsx loading state" | "Add skeleton loader to KPICard.tsx"   | Same file       | DUPLICATE |
-
----
-
-#### Step D: Log Duplicates to Filtered Items
-
-Duplicates MUST be logged to `mason_pm_filtered_items` for transparency:
+### Step 3: HARD STOP - Repository ID Required
 
 ```bash
-if [ "$IS_DUPLICATE" = true ]; then
-  curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_filtered_items" \
-    -H "apikey: ${supabaseAnonKey}" \
-    -H "Authorization: Bearer ${supabaseAnonKey}" \
-    -H "Content-Type: application/json" \
-    -d '{
-      "repository_id": "'${REPOSITORY_ID}'",
-      "user_id": "'${USER_ID}'",
-      "title": "'${CANDIDATE_TITLE}'",
-      "problem": "'${CANDIDATE_PROBLEM}'",
-      "solution": "'${CANDIDATE_SOLUTION}'",
-      "type": "'${CANDIDATE_TYPE}'",
-      "area": "'${CANDIDATE_AREA}'",
-      "filter_reason": "Duplicate of existing item: '"${EXISTING_TITLE}"' (similarity: '"${TITLE_SIMILARITY}"'%)",
-      "filter_tier": "tier2-dedup",
-      "filter_confidence": 0.90
-    }'
-
-  echo "Filtered duplicate: ${CANDIDATE_TITLE} (similar to: ${EXISTING_TITLE})"
+if [ -z "$REPOSITORY_ID" ]; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════════════════╗"
+  echo "║                    HARD STOP: REPOSITORY NOT CONNECTED                   ║"
+  echo "║                                                                          ║"
+  echo "║  This repository is not connected to Mason.                              ║"
+  echo "║  Items created without repository_id will NOT appear in dashboard.       ║"
+  echo "║                                                                          ║"
+  echo "║  TO FIX: Connect this repository at:                                     ║"
+  echo "║    ${dashboardUrl}/settings/github                                       ║"
+  echo "║                                                                          ║"
+  echo "║  Then re-run /pm-review                                                  ║"
+  echo "╚══════════════════════════════════════════════════════════════════════════╝"
+  exit 1
 fi
 ```
 
----
-
-#### Step E: Cross-Run Deduplication
-
-Also check for duplicates WITHIN the same analysis run:
+### Step 4: Create Analysis Run
 
 ```bash
-# Before adding a suggestion to FINAL_SUGGESTIONS, check against others in this run
-for OTHER in $FINAL_SUGGESTIONS; do
-  OTHER_TITLE=$(echo "$OTHER" | jq -r '.title')
-  OTHER_TERMS=$(extract_key_terms "$OTHER_TITLE")
+ANALYSIS_RUN_ID=$(uuidgen)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-  MATCHING=$(count_matching_words "$CANDIDATE_TERMS" "$OTHER_TERMS")
-  SIMILARITY=$((MATCHING * 100 / TOTAL_WORDS))
-
-  if [ "$SIMILARITY" -ge 70 ]; then
-    # Keep the higher-priority one (higher impact, lower effort)
-    CANDIDATE_PRIORITY=$(( CANDIDATE_IMPACT * 2 - CANDIDATE_EFFORT ))
-    OTHER_PRIORITY=$(echo "$OTHER" | jq -r '(.impact_score * 2) - .effort_score')
-
-    if [ "$CANDIDATE_PRIORITY" -le "$OTHER_PRIORITY" ]; then
-      IS_DUPLICATE=true
-      echo "Cross-run duplicate: ${CANDIDATE_TITLE} (duplicate of: ${OTHER_TITLE}, keeping higher priority)"
-    fi
-  fi
-done
-```
-
----
-
-#### Step F: Display Deduplication Summary
-
-```
-## Deduplication Check Complete
-- Candidates generated: 25
-- Existing backlog items checked: 12
-- Duplicates found: 4
-  - "Add loading states" → similar to existing "Loading indicators for dashboard"
-  - "Fix API error handling" → same file as existing "Error handling improvements"
-  - "Update validation" → 72% title match with "Input validation for forms"
-  - "Dashboard performance" → same type + 55% match with "Optimize dashboard queries"
-- Unique suggestions: 21
-
-Duplicates logged to Filtered tab in dashboard.
-Proceeding with 21 unique suggestions...
-```
-
----
-
-#### Banger Rotation Logic
-
-**IMPORTANT:** Only ONE active banger should exist in the Banger box at a time.
-
-When submitting a new banger idea, first check if an active banger already exists:
-
-```bash
-# Check for existing active banger idea for this repo
-EXISTING_BANGER=$(curl -s "${supabaseUrl}/rest/v1/mason_pm_backlog_items?select=id,title&is_banger_idea=eq.true&status=neq.rejected&status=neq.completed&repository_id=eq.${REPOSITORY_ID}" \
+curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   -H "apikey: ${supabaseAnonKey}" \
-  -H "Authorization: Bearer ${supabaseAnonKey}")
-
-EXISTING_BANGER_ID=$(echo "$EXISTING_BANGER" | jq -r '.[0].id // empty')
-
-# If exists, move to feature list with BANGER tag
-if [ -n "$EXISTING_BANGER_ID" ]; then
-  echo "Moving existing banger to feature list with BANGER tag..."
-  curl -s -X PATCH "${supabaseUrl}/rest/v1/mason_pm_backlog_items?id=eq.${EXISTING_BANGER_ID}" \
-    -H "apikey: ${supabaseAnonKey}" \
-    -H "Authorization: Bearer ${supabaseAnonKey}" \
-    -H "Content-Type: application/json" \
-    -d '{"is_banger_idea": false, "tags": ["banger"]}'
-  echo "Previous banger '$(echo "$EXISTING_BANGER" | jq -r '.[0].title')' moved to features with BANGER badge."
-fi
+  -H "Authorization: Bearer ${supabaseAnonKey}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "'${ANALYSIS_RUN_ID}'",
+    "mode": "'${MODE}'",
+    "items_found": '${TOTAL_ITEMS}',
+    "status": "completed",
+    "repository_id": "'${REPOSITORY_ID}'"
+  }'
 ```
 
-**Result:** The old banger appears in the feature list with a highlighted "BANGER" badge, while the new banger is the ONLY item in the Banger box.
+### Step 5: Insert Items
 
-### Step 5.5: Validate Suggestions (Parallel)
-
-Before submission, validate each suggestion to filter false positives. This step runs in parallel for efficiency.
-
-#### Validation Process
-
-Invoke the pm-validator agent to check all suggestions:
-
-1. **Tier 1 (Pattern-Based)**: Auto-reject obvious false positives
-   - `.env.example` placeholder values
-   - Test fixtures (`test_api_key`, `mock_secret`)
-   - `NEXT_PUBLIC_*` environment variables
-   - Example/sample data in documentation
-   - Test files (`__tests__/`, `*.test.*`, `*.spec.*`)
-   - Generated code (`.generated.ts`, `@generated`)
-   - Config files (`tsconfig.json`, `tailwind.config.*`)
-   - Demo/Story files (`*.stories.*`, `examples/`)
-
-2. **Tier 2 (Contextual)**: Investigate the codebase
-   - Check for `// why`, `// NOTE`, `// intentional` comments
-   - Look for existing error handling/mitigations
-   - Check `.claude/skills/pm-domain-knowledge/` Off-Limits
-   - Check for in-progress items in same area
-   - Check for items completed within last 7 days
-
-3. **Tier 3 (Impact)**: Verify actionable solutions
-   - Solution references specific files/patterns
-   - Fix improves system without side effects
-   - Solution specificity score (must have file paths or function names)
-   - File existence validation (referenced files must exist)
-
-#### Log Filtered Items
-
-Insert filtered items to `mason_pm_filtered_items` (include repository_id if available):
+**Every item MUST have all required fields:**
 
 ```bash
-curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_filtered_items" \
+curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
   -H "Content-Type: application/json" \
   -d '[{
     "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
-    "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
+    "repository_id": "'${REPOSITORY_ID}'",
     "user_id": "'${USER_ID}'",
     "title": "...",
     "problem": "...",
@@ -1523,906 +696,102 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_filtered_items" \
     "type": "...",
     "area": "...",
     "impact_score": 8,
-    "effort_score": 2,
-    "filter_reason": "Pattern matches .env.example placeholder values",
-    "filter_tier": "tier1",
-    "filter_confidence": 0.95
+    "effort_score": 3,
+    "complexity": 3,
+    "benefits": [...5 objects...],
+    "is_new_feature": true,
+    "is_banger_idea": false,
+    "status": "new",
+    "prd_content": "# PRD: ...",
+    "prd_generated_at": "'${TIMESTAMP}'",
+    "risk_score": 5,
+    "evidence_status": "verified"
   }]'
 ```
 
-#### Display Validation Summary
-
-```
-## Validation Complete
-- Suggestions Generated: 15
-- Validated (will submit): 12
-- Filtered (false positives): 3
-
-Filtered items logged to dashboard → Filtered tab for review.
-```
-
-Continue to Step 5.6 with validated items only.
-
-### Step 5.6: Prioritization & Cap by Mode (MANDATORY)
-
-**Item limits are MODE-SPECIFIC. Do NOT exceed these limits:**
-
-| Mode               | Max Items | Breakdown                        |
-| ------------------ | --------- | -------------------------------- |
-| **Full**           | **25**    | 24 (3 × 8 agents) + 1 banger     |
-| **Quick**          | **9**     | 8 (1 × 8 agents) + 1 banger      |
-| **Focus (area:X)** | **5**     | 5 (from single agent), no banger |
-
-After validation, prioritize and cap the items based on the current mode:
-
-#### Prioritization Logic
-
-1. **Calculate priority_score** for each item: `(impact_score * 2) - effort_score`
-2. **Sort all validated items** by priority_score (highest first)
-3. **Reserve slots** for banger (Full/Quick modes only)
-4. **Fill remaining slots** with top improvements by category
-
-#### Mode-Specific Capping
-
-**Full Mode (25 items):**
-
-```bash
-# Limits for Full mode
-MAX_ITEMS=25
-ITEMS_PER_AGENT=3
-INCLUDE_BANGER=true
-
-# Reserve: 1 banger + 24 regular (3 per agent)
-FINAL_ITEMS=[]
-FINAL_ITEMS.push(BANGER_ITEM)  # 1 banger
-# Each agent contributes up to 3 items (24 total regular)
-```
-
-**Quick Mode (9 items):**
-
-```bash
-# Limits for Quick mode
-MAX_ITEMS=9
-ITEMS_PER_AGENT=1
-INCLUDE_BANGER=true
-
-# Reserve: 1 banger + 8 regular (1 per agent)
-FINAL_ITEMS=[]
-FINAL_ITEMS.push(BANGER_ITEM)  # 1 banger
-# Each agent contributes 1 item (8 total regular)
-```
-
-**Focus Mode (5 items):**
-
-```bash
-# Limits for Focus mode
-MAX_ITEMS=5
-ITEMS_PER_AGENT=5
-INCLUDE_BANGER=false
-
-# Single agent contributes 5 items, no banger
-FINAL_ITEMS=[]
-# Only items from the focused agent (5 total)
-```
-
-**Banger Mode (1 item):**
-
-```bash
-MAX_ITEMS=1
-INCLUDE_BANGER=true
-
-# ONLY the selected banger idea
-FINAL_ITEMS=[SELECTED_BANGER]
-
-# Track rejected candidates for display (NOT stored)
-REJECTED_CANDIDATES = ALL_10_IDEAS.filter(i => i !== SELECTED_BANGER)
-```
-
-#### Display Cap Summary
-
-```
-## Prioritization Complete (${MODE} mode)
-- Mode: ${MODE}
-- Max allowed: ${MAX_ITEMS}
-- Items collected: ${TOTAL_ITEMS}
-- Banger included: ${INCLUDE_BANGER}
-
-### Final ${MAX_ITEMS} Items Breakdown:
-${MODE === 'full' ? '- Banger Idea: 1' : ''}
-${MODE === 'quick' ? '- Banger Idea: 1' : ''}
-- Regular Improvements: ${REGULAR_COUNT}
-
-${DROPPED_COUNT > 0 ? 'Dropped items can be rediscovered in future runs.' : 'All items included.'}
-```
-
-**IMPORTANT:** Items dropped due to the cap are NOT logged as filtered. They are simply not included in this run. Future `/pm-review` runs may rediscover and prioritize them.
-
-Continue to Pre-Submission Validation with the mode-specific items.
-
-### Pre-Submission Validation (ENFORCED)
-
-**THIS IS A HARD STOP. Execute the following validation before proceeding:**
-
-Before submitting items, validate ALL requirements based on the current MODE:
-
-```bash
-# Determine mode-specific limits
-case "$MODE" in
-  "full")
-    MAX_ITEMS=25
-    REQUIRE_BANGER=true
-    ;;
-  "quick")
-    MAX_ITEMS=9
-    REQUIRE_BANGER=true
-    ;;
-  "focus"|area:*)
-    MAX_ITEMS=5
-    REQUIRE_BANGER=false
-    ;;
-  "banger")
-    MAX_ITEMS=1
-    REQUIRE_BANGER=true
-    ;;
-esac
-
-# Count items
-BANGER_COUNT=<count items where is_banger_idea=true>
-TOTAL_ITEMS=<count all items>
-
-# Count items with complete benefits (exactly 5 benefit objects with non-empty descriptions)
-ITEMS_WITH_COMPLETE_BENEFITS=<count items where benefits array has exactly 5 objects AND all descriptions are non-empty and not template text>
-ITEMS_MISSING_BENEFITS=$((TOTAL_ITEMS - ITEMS_WITH_COMPLETE_BENEFITS))
-
-echo "Pre-Submission Validation (${MODE} mode):"
-echo "  Total items: $TOTAL_ITEMS (max: $MAX_ITEMS)"
-echo "  Banger idea (is_banger_idea=true): $BANGER_COUNT (required: ${REQUIRE_BANGER ? '1' : 'none'})"
-echo "  Items with complete benefits (5 categories): $ITEMS_WITH_COMPLETE_BENEFITS / $TOTAL_ITEMS"
-
-# BLOCKING CHECK 0: Maximum items cap (MODE-SPECIFIC)
-if [ "$TOTAL_ITEMS" -gt "$MAX_ITEMS" ]; then
-  echo "BLOCKED: Too many items ($TOTAL_ITEMS). Maximum for ${MODE} mode is $MAX_ITEMS."
-  echo "Go back to Step 5.6 (Prioritization & Cap) and reduce items."
-  # DO NOT PROCEED - cap items first
-fi
-
-# BLOCKING CHECK 1: Banger idea (Full/Quick modes ONLY)
-if [ "$REQUIRE_BANGER" = true ]; then
-  if [ "$BANGER_COUNT" -ne 1 ]; then
-    echo "BLOCKED: Missing or multiple banger ideas."
-    echo "Full/Quick modes MUST have exactly 1 banger idea."
-    # DO NOT PROCEED - fix banger first
-  fi
-else
-  # Focus mode - should have NO banger
-  if [ "$BANGER_COUNT" -gt 0 ]; then
-    echo "WARNING: Focus mode should not include a banger idea. Removing banger flag."
-    # Remove is_banger_idea=true from any items
-  fi
-fi
-
-# BLOCKING CHECK 2: Benefits (MANDATORY for all modes)
-if [ "$ITEMS_MISSING_BENEFITS" -gt 0 ]; then
-  echo "BLOCKED: $ITEMS_MISSING_BENEFITS items are missing complete benefits."
-  echo "EVERY item MUST have exactly 5 benefits with specific descriptions."
-  echo "Go back and add benefits for ALL items before proceeding."
-  echo ""
-  echo "Required benefit categories (ALL 5 REQUIRED):"
-  echo "  1. user_experience - How end users benefit"
-  echo "  2. sales_team - How sales/business benefits"
-  echo "  3. operations - How ops/support benefits"
-  echo "  4. performance - Technical performance impact"
-  echo "  5. reliability - System reliability impact"
-  echo ""
-  echo "Each description must be SPECIFIC to the improvement, NOT template text."
-  # DO NOT PROCEED - fix benefits first
-fi
-
-echo "PASSED: All validations passed for ${MODE} mode. Proceeding to submission."
-```
-
-**If ANY check fails, you MUST fix the issue before proceeding. DO NOT skip this.**
-
-**Mode-Specific Required Counts:**
-
-| Mode  | Max Items | Banger Required | Regular Items               |
-| ----- | --------- | --------------- | --------------------------- |
-| Full  | **25**    | **Yes (1)**     | 24 (3 per agent × 8 agents) |
-| Quick | **9**     | **Yes (1)**     | 8 (1 per agent × 8 agents)  |
-| Focus | **5**     | **No**          | 5 (from single agent)       |
-
-**Benefits requirement (ALL items in ALL modes):**
-
-| Field    | Requirement                                               |
-| -------- | --------------------------------------------------------- |
-| benefits | Array of **exactly 5** benefit objects                    |
-| Each     | Must have category, icon, title, AND specific description |
-| Quality  | Descriptions must be improvement-specific, not templates  |
-
-### Step 6: Generate PRDs, Risk Analysis & Evidence (MANDATORY - BEFORE Submission)
-
-## ⚠️ HARD STOP: NO SUBMISSION WITHOUT PRDS ⚠️
-
-**This step MUST be completed BEFORE any items are submitted to the database.**
-
-Items without PRDs are INCOMPLETE and BLOCKED from submission. The execution order is:
-
-1. Steps 1-5.6: Discovery, validation, scoring, benefits
-2. **Step 6: Generate PRDs, risk analysis, evidence** ← YOU ARE HERE
-3. Step 7: Submit to Supabase (ONLY items with complete PRDs)
-
----
-
-#### Step 6a: Generate PRD for EACH Validated Item
-
-**BLOCKING REQUIREMENT: You MUST generate a PRD for EVERY validated item.**
-
-This is NOT optional. For each of your validated items, generate a complete PRD:
-
-**PRD Structure:**
-
-```markdown
-# PRD: [Title]
-
-## Problem Statement
-
-[From item.problem - expanded with context]
-
-## Proposed Solution
-
-[From item.solution - expanded with implementation details]
-
-## Success Criteria
-
-- [ ] [Measurable criterion based on the problem being solved]
-- [ ] [User-observable improvement or metric]
-- [ ] [Technical validation criterion]
-
-## Technical Approach
-
-### Wave 1: Foundation (Explore subagent)
-
-| #   | Subagent | Task                                        |
-| --- | -------- | ------------------------------------------- |
-| 1.1 | Explore  | Research existing patterns and dependencies |
-| 1.2 | Explore  | Identify affected components and files      |
-
-### Wave 2: Implementation (general-purpose subagent)
-
-| #   | Subagent        | Task                            |
-| --- | --------------- | ------------------------------- |
-| 2.1 | general-purpose | Implement core changes          |
-| 2.2 | general-purpose | Add tests for new functionality |
-
-### Wave 3: Validation (code-reviewer subagent)
-
-| #   | Subagent      | Task                                         |
-| --- | ------------- | -------------------------------------------- |
-| 3.1 | code-reviewer | Review all changes for quality and standards |
-
-## Risks & Mitigations
-
-| Risk                        | Mitigation                     |
-| --------------------------- | ------------------------------ |
-| [Based on complexity score] | [Specific mitigation strategy] |
-
-## Out of Scope
-
-- [Explicitly excluded items to prevent scope creep]
-```
-
-**PRD Quality Guidelines:**
-
-1. **Problem Statement**: Expand on `item.problem` with user impact and business context
-2. **Proposed Solution**: Expand on `item.solution` with specific implementation approach
-3. **Success Criteria**: 3-5 measurable criteria that indicate the problem is solved
-4. **Technical Approach**: Use wave-based parallel execution (per parallel-task-execution.md rules)
-5. **Risks**: Scale complexity based on item's `complexity` score (1-5)
-6. **Out of Scope**: Prevent scope creep by explicitly listing what won't be addressed
-
-**Store the PRD content with each item:**
-
-```javascript
-// For each validated item, add PRD fields
-item.prd_content = generatedPrdMarkdown;
-item.prd_generated_at = new Date().toISOString();
-```
-
----
-
-#### Step 6b: Risk Analysis (For Each Item)
-
-**After PRD generation, analyze risk for EVERY validated item.**
-
-For each item, invoke the risk-analyzer agent:
-
-```
-Task tool call:
-  subagent_type: "general-purpose"
-  prompt: |
-    Analyze risk for this improvement following .claude/agents/risk-analyzer.md:
-
-    Title: ${item.title}
-    Solution: ${item.solution}
-
-    1. Extract target files from solution text
-    2. Build import graph (upstream/downstream dependencies)
-    3. Check test coverage for each file
-    4. Detect breaking changes
-    5. Calculate 5 weighted scores → overall risk score
-
-    Return JSON:
-    {
-      "overall_risk_score": <1-10>,
-      "files_affected_count": <number>,
-      "has_breaking_changes": <boolean>,
-      "test_coverage_gaps": <number>
-    }
-```
-
-**Store risk data with each item:**
-
-```javascript
-item.risk_score = riskResult.overall_risk_score;
-item.risk_analyzed_at = new Date().toISOString();
-item.files_affected_count = riskResult.files_affected_count;
-item.has_breaking_changes = riskResult.has_breaking_changes;
-item.test_coverage_gaps = riskResult.test_coverage_gaps;
-```
-
----
-
-#### Step 6c: Evidence Validation (For Each Item)
-
-**Validate PRD claims against actual codebase evidence.**
-
-For each item with a generated PRD:
-
-**Tiered Evidence Search:**
-
-| Tier                      | Scope                 | When to Use                        |
-| ------------------------- | --------------------- | ---------------------------------- |
-| **Tier A (Quick grep)**   | Fast pattern matching | All items                          |
-| **Tier B (Deep Explore)** | Subagent exploration  | High-impact OR Tier A inconclusive |
-
-**Assign Evidence Status:**
-
-| Status         | Meaning                              | Action                                      |
-| -------------- | ------------------------------------ | ------------------------------------------- |
-| `verified`     | Evidence confirms problem exists     | Keep item, submit normally                  |
-| `refuted`      | Evidence shows problem doesn't exist | **REMOVE item, do NOT submit**              |
-| `inconclusive` | Cannot determine definitively        | Flag with `evidence_status: 'inconclusive'` |
-
-**Store evidence data with each item:**
-
-```javascript
-item.evidence_status = 'verified'; // or 'refuted' or 'inconclusive'
-item.evidence_summary = 'Confirmed: No existing implementation found...';
-item.evidence_checked_at = new Date().toISOString();
-```
-
-**Filter REFUTED Items:**
-
-```javascript
-// Remove refuted items BEFORE submission
-validatedItems = validatedItems.filter(
-  (item) => item.evidence_status !== 'refuted',
-);
-```
-
----
-
-#### Step 6d: Pre-Submission Validation Gate
-
-**BLOCKING CHECK: Verify ALL items have complete data before proceeding to submission.**
-
-```bash
-ITEMS_WITHOUT_PRD=0
-ITEMS_WITHOUT_BENEFITS=0
-
-for item in VALIDATED_ITEMS; do
-  if [ -z "${item.prd_content}" ]; then
-    ITEMS_WITHOUT_PRD=$((ITEMS_WITHOUT_PRD + 1))
-    echo "BLOCKED: Item '${item.title}' missing PRD"
-  fi
-
-  BENEFIT_COUNT=$(echo "${item.benefits}" | jq 'length')
-  if [ "$BENEFIT_COUNT" -ne 5 ]; then
-    ITEMS_WITHOUT_BENEFITS=$((ITEMS_WITHOUT_BENEFITS + 1))
-    echo "BLOCKED: Item '${item.title}' has ${BENEFIT_COUNT} benefits (need 5)"
-  fi
-done
-
-if [ "$ITEMS_WITHOUT_PRD" -gt 0 ] || [ "$ITEMS_WITHOUT_BENEFITS" -gt 0 ]; then
-  echo "HARD STOP: Cannot proceed to submission"
-  echo "  - Items missing PRD: $ITEMS_WITHOUT_PRD"
-  echo "  - Items missing benefits: $ITEMS_WITHOUT_BENEFITS"
-  echo "Go back and complete ALL items before submission."
-  # DO NOT PROCEED TO STEP 7
-fi
-
-echo "All items validated. Proceeding to submission..."
-```
-
----
-
-### Step 7: Submit Results to User's Supabase
-
-**This step ONLY executes after Step 6 completes successfully with ALL items having PRDs.**
-
-**Privacy Architecture:** Data is written DIRECTLY to the user's own Supabase database, never to the central server. The central server only validates the API key for identity.
-
-Read the configuration from `mason.config.json`:
-
-```json
-{
-  "version": "2.0",
-  "apiKey": "mason_xxxxx",
-  "dashboardUrl": "https://mason.assuredefi.com",
-  "supabaseUrl": "https://xxx.supabase.co",
-  "supabaseAnonKey": "eyJ..."
-}
-```
-
-**Required fields:**
-
-- `apiKey`: Your Mason API key (for identity validation)
-- `supabaseUrl`: Your Supabase project URL
-- `supabaseAnonKey`: Your Supabase anon (public) key
-
-**Optional fields:**
-
-- `dashboardUrl`: Dashboard URL (defaults to `https://mason.assuredefi.com`)
-
-**Submission Process (3 Steps):**
-
-#### Step 7a: Validate API Key and Get Repositories (Central Server)
-
-First, validate the API key and retrieve connected repositories:
-
-```bash
-DASHBOARD_URL="${dashboardUrl:-https://mason.assuredefi.com}"
-
-VALIDATION=$(curl -s -X POST "${DASHBOARD_URL}/api/v1/analysis" \
-  -H "Authorization: Bearer ${apiKey}" \
-  -H "Content-Type: application/json")
-
-# Check if valid
-if [ "$(echo "$VALIDATION" | jq -r '.valid')" != "true" ]; then
-  echo "Error: Invalid API key"
-  exit 1
-fi
-
-USER_ID=$(echo "$VALIDATION" | jq -r '.user_id')
-DASHBOARD_BACKLOG_URL=$(echo "$VALIDATION" | jq -r '.dashboard_url')
-# Get connected repositories for matching
-REPOSITORIES=$(echo "$VALIDATION" | jq -r '.repositories')
-```
-
-#### Step 7b: Match Current Repository
-
-Get the current git remote and match it to find the repository_id:
-
-```bash
-# Get the current git remote URL
-GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
-
-# Extract owner/repo from git remote URL (handles both HTTPS and SSH)
-# Examples:
-#   https://github.com/owner/repo.git -> owner/repo
-#   git@github.com:owner/repo.git -> owner/repo
-# Note: Strip .git suffix first, then extract - the previous regex didn't handle .git correctly
-REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/\.git$//' | sed -E 's|.*github\.com[:/]||')
-
-# Debug output for repository matching
-echo "=== REPOSITORY MATCHING DEBUG ==="
-echo "Git remote URL: $GIT_REMOTE"
-echo "Extracted repo name: $REPO_FULL_NAME"
-echo "Available repos from validation:"
-echo "$REPOSITORIES" | jq -r '.[] | "  - \(.github_full_name) (id: \(.id))"' 2>/dev/null || echo "  (none or invalid JSON)"
-echo "================================="
-
-# Find matching repository_id from the validation response
-REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select(.github_full_name == $name) | .id // empty')
-
-if [ -z "$REPOSITORY_ID" ]; then
-  echo ""
-  echo "╔══════════════════════════════════════════════════════════════════════════╗"
-  echo "║  HARD STOP: Repository not connected                                      ║"
-  echo "╠══════════════════════════════════════════════════════════════════════════╣"
-  echo "║  This repository is not connected in your Mason dashboard.               ║"
-  echo "║                                                                          ║"
-  echo "║  Looking for: '$REPO_FULL_NAME'"
-  echo "║                                                                          ║"
-  echo "║  Items CANNOT be created without repository association.                 ║"
-  echo "║  This ensures items always appear in the correct repo view.              ║"
-  echo "║                                                                          ║"
-  echo "║  TO FIX: Connect this repository at:                                     ║"
-  echo "║    ${DASHBOARD_URL}/settings/github                                      ║"
-  echo "║                                                                          ║"
-  echo "║  Then re-run /pm-review                                                  ║"
-  echo "╚══════════════════════════════════════════════════════════════════════════╝"
-  echo ""
-  exit 1  # HARD STOP - execution cannot continue without repository_id
-fi
-
-echo "Repository matched successfully: $REPO_FULL_NAME -> $REPOSITORY_ID"
-```
-
-#### Step 7c: Write Data Directly to User's Supabase
-
-Write the improvements directly to the user's own Supabase using the REST API.
-
-**CRITICAL: Every item MUST include prd_content. This is NON-NEGOTIABLE.**
-
-```bash
-# === FINAL VALIDATION BEFORE SUBMISSION ===
-# This is the last line of defense - NEVER allow null repository_id
-if [ -z "$REPOSITORY_ID" ]; then
-  echo "FATAL: Attempted to submit items without repository_id. Aborting."
-  exit 1
-fi
-# === END VALIDATION ===
-
-# Generate a UUID for the analysis run
-ANALYSIS_RUN_ID=$(uuidgen)
-TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-# Step 1: Create analysis run record (include repository_id if available)
-curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
-  -H "apikey: ${supabaseAnonKey}" \
-  -H "Authorization: Bearer ${supabaseAnonKey}" \
-  -H "Content-Type: application/json" \
-  -H "Prefer: return=minimal" \
-  -d '{
-    "id": "'${ANALYSIS_RUN_ID}'",
-    "mode": "full",
-    "items_found": 15,
-    "items_validated": 15,
-    "started_at": "'${TIMESTAMP}'",
-    "completed_at": "'${TIMESTAMP}'",
-    "status": "completed",
-    "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")'
-  }'
-
-# Step 2: Insert backlog items WITH PRDs
-# CRITICAL: EVERY item MUST include:
-# - prd_content (MANDATORY - NO EXCEPTIONS)
-# - prd_generated_at (MANDATORY)
-# - is_new_feature and is_banger_idea fields
-# - benefits array with EXACTLY 5 benefit objects
-# - risk_score, evidence_status fields
-#
-# Feature flags:
-# - Regular improvements: is_new_feature: false, is_banger_idea: false
-# - New features: is_new_feature: true, is_banger_idea: false
-# - The ONE banger idea: is_new_feature: true, is_banger_idea: true
-curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
-  -H "apikey: ${supabaseAnonKey}" \
-  -H "Authorization: Bearer ${supabaseAnonKey}" \
-  -H "Content-Type: application/json" \
-  -H "Prefer: return=minimal" \
-  -d '[
-    {
-      "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
-      "repository_id": '$([ -n "$REPOSITORY_ID" ] && echo "\"$REPOSITORY_ID\"" || echo "null")',
-      "user_id": "'${USER_ID}'",
-      "title": "Add data freshness timestamps",
-      "problem": "Executives cannot tell when data was updated...",
-      "solution": "Add visible timestamps...",
-      "type": "dashboard",
-      "area": "frontend",
-      "impact_score": 9,
-      "effort_score": 2,
-      "complexity": 2,
-      "benefits": [
-        {"category": "user_experience", "icon": "user", "title": "USER EXPERIENCE", "description": "Clear visibility into data freshness increases trust"},
-        {"category": "sales_team", "icon": "users", "title": "SALES TEAM", "description": "Executives gain confidence in data currency"},
-        {"category": "operations", "icon": "settings", "title": "OPERATIONS", "description": "Reduces support tickets about data staleness"},
-        {"category": "performance", "icon": "chart", "title": "PERFORMANCE", "description": "Minimal performance impact"},
-        {"category": "reliability", "icon": "wrench", "title": "RELIABILITY", "description": "Helps users identify when refresh needed"}
-      ],
-      "is_new_feature": false,
-      "is_banger_idea": false,
-      "status": "new",
-      "prd_content": "# PRD: Add data freshness timestamps\n\n## Problem Statement\nExecutives cannot tell when snapshot data was last updated...\n\n## Proposed Solution\nAdd visible timestamps showing when each section was last refreshed...\n\n## Success Criteria\n- [ ] All KPI cards show last updated timestamp\n- [ ] Global data freshness indicator in header\n\n## Technical Approach\n### Wave 1: Foundation\n| # | Subagent | Task |\n|---|----------|------|\n| 1.1 | Explore | Find existing timestamp patterns |\n\n### Wave 2: Implementation\n| # | Subagent | Task |\n|---|----------|------|\n| 2.1 | general-purpose | Add timestamp display components |\n\n## Risks & Mitigations\n| Risk | Mitigation |\n|------|------------|\n| Timezone confusion | Use relative time (2 min ago) |\n\n## Out of Scope\n- Auto-refresh functionality",
-      "prd_generated_at": "'${TIMESTAMP}'",
-      "risk_score": 3,
-      "risk_analyzed_at": "'${TIMESTAMP}'",
-      "files_affected_count": 4,
-      "has_breaking_changes": false,
-      "test_coverage_gaps": 0,
-      "evidence_status": "verified",
-      "evidence_summary": "Confirmed no existing timestamps in KPI components",
-      "evidence_checked_at": "'${TIMESTAMP}'"
-    }
-  ]'
-```
-
-**Privacy Guarantee:** The central server (Assure DeFi) NEVER sees your backlog items. Data goes directly from your CLI to YOUR Supabase.
-
-After successful submission, show:
+### Step 6: Completion
 
 ```
 Analysis submitted successfully!
-Items created: 15
-PRDs generated: 15 (100%)
-Data stored in: YOUR Supabase (not central server)
-View in Dashboard: https://mason.assuredefi.com/admin/backlog
+Mode: ${MODE}
+Items: ${TOTAL_ITEMS}
+PRDs: 100%
+Dashboard: ${dashboardUrl}/admin/backlog
 ```
 
-## Output Format
+---
 
-After analysis, provide a summary (format varies by mode):
+## Scoring Reference
+
+| Score | Impact (1-10)  | Effort (1-10) |
+| ----- | -------------- | ------------- |
+| 9-10  | Critical/major | Weeks         |
+| 7-8   | Significant    | Days          |
+| 5-6   | Moderate       | Day or two    |
+| 3-4   | Nice to have   | Hours         |
+| 1-2   | Minor          | Minutes       |
+
+**Priority:** `(Impact × 2) - Effort`
+
+**Complexity (1-5):** 1=trivial, 2=straightforward, 3=multiple components, 4=architectural, 5=major system
+
+---
+
+## Category Badges
+
+| Category     | Color       | Use For               |
+| ------------ | ----------- | --------------------- |
+| feature      | Purple+Star | Net-new functionality |
+| ui           | Gold        | Visual, styling       |
+| ux           | Cyan        | User flows            |
+| api          | Green       | Endpoints, backend    |
+| data         | Blue        | Database, queries     |
+| security     | Red         | Auth, vulnerabilities |
+| performance  | Orange      | Speed, caching        |
+| code-quality | Gray        | Refactors, debt       |
+
+---
+
+## False Positive Prevention
+
+Before flagging security issues:
+
+1. `git ls-files <file>` - tracked?
+2. `.gitignore` excludes it?
+3. Real secrets or placeholders?
+
+**Avoid:** `.env.example`, `NEXT_PUBLIC_*`, test fixtures, gitignored files
+
+---
+
+## Output Format
 
 ```markdown
 ## PM Review Complete
 
-**Mode**: [full/quick/area:X]
-**Items Discovered**: [count]
-**Items Validated**: [count] (after filtering false positives)
-**Items Submitted**: [count] (max varies by mode)
-**PRDs Generated**: [count] (MUST equal submitted items count)
+**Mode**: ${MODE}
+**Items**: ${COUNT} / ${MAX}
+**PRDs**: 100%
 
-### Mode-Specific Limits
+### Validation
 
-| Mode  | Max Items | Banger | Actual Submitted |
-| ----- | --------- | ------ | ---------------- |
-| Full  | 25        | Yes    | [N]/25           |
-| Quick | 9         | Yes    | [N]/9            |
-| Focus | 5         | No     | [N]/5            |
+| Check    | Status |
+| -------- | ------ |
+| Count    | PASS   |
+| Banger   | PASS   |
+| PRDs     | PASS   |
+| Benefits | PASS   |
+| Risk     | PASS   |
 
-### Item Summary (Full/Quick Mode)
+### Items
 
-| Category             | Count   | Requirement | Status      |
-| -------------------- | ------- | ----------- | ----------- |
-| Banger Idea          | 1       | = 1         | [PASS/FAIL] |
-| Regular Improvements | [N]     | <= 24 or 8  | PASS        |
-| **Total**            | **[N]** | **<= 25/9** | [PASS/FAIL] |
-
-**Banger Idea**: [title of the ONE banger idea]
-**Banger Rotation**: [Previous banger moved to features with BANGER badge / No previous banger]
-
-### Item Summary (Focus Mode - area:X)
-
-| Category             | Count   | Requirement | Status      |
-| -------------------- | ------- | ----------- | ----------- |
-| Regular Improvements | [N]     | <= 5        | PASS        |
-| **Total**            | **[N]** | **<= 5**    | [PASS/FAIL] |
-
-**Note:** Focus mode does not include a banger idea.
-
-### Item Summary (Banger Mode)
-
-| Category    | Count | Requirement | Status |
-| ----------- | ----- | ----------- | ------ |
-| Banger Idea | 1     | = 1         | PASS   |
-| Regular     | 0     | = 0         | PASS   |
-| **Total**   | **1** | **= 1**     | PASS   |
-
-**The Banger:** [title]
-
-### Rejected Candidates
-
-| #   | Title   | Why Not Selected     |
-| --- | ------- | -------------------- |
-| 1   | [title] | [comparative reason] |
-| ... | ...     | ...                  |
-
-**Note:** These 9 ideas shown for transparency only. NOT stored in database.
-
-### Top Improvements by Priority
-
-| #   | Title | Type      | Impact | Effort | Priority |
-| --- | ----- | --------- | ------ | ------ | -------- |
-| 1   | ...   | dashboard | 9      | 2      | 16       |
-| 2   | ...   | discovery | 8      | 3      | 13       |
-
-### Quick Wins (Low Effort, High Impact)
-
-1. [Title] - Impact: 8, Effort: 2
-2. [Title] - Impact: 7, Effort: 2
+| #   | Title | Type | Impact | Effort | Priority |
+| --- | ----- | ---- | ------ | ------ | -------- |
+| 1   | ...   | ...  | 9      | 2      | 16       |
 
 ### Next Steps
 
-1. View all items in Dashboard: [dashboard_url from API response]
-2. Review and approve items for execution
-3. Click "Execute All" on Approved tab to copy command
-4. Paste command into Claude Code to implement
+1. View: ${dashboardUrl}/admin/backlog
+2. Approve items
+3. Run /execute-approved
 ```
-
-## API Configuration
-
-Read credentials from `mason.config.json`:
-
-```json
-{
-  "version": "2.0",
-  "apiKey": "mason_xxxxx",
-  "dashboardUrl": "https://mason.assuredefi.com",
-  "supabaseUrl": "https://xxx.supabase.co",
-  "supabaseAnonKey": "eyJ..."
-}
-```
-
-**Required fields:**
-
-- `apiKey`: Your Mason API key (generate at https://mason.assuredefi.com/setup)
-- `supabaseUrl`: Your Supabase project URL (found in Supabase Dashboard > Settings > API)
-- `supabaseAnonKey`: Your Supabase anon key (found in same location)
-
-**Optional fields:**
-
-- `dashboardUrl`: Dashboard URL (defaults to `https://mason.assuredefi.com`)
-
-### Error Handling
-
-If you encounter API errors:
-
-1. **401 Unauthorized (API Key validation)**: Invalid or expired API key - regenerate at https://mason.assuredefi.com/setup
-2. **Supabase 401**: Invalid Supabase credentials - verify supabaseUrl and supabaseAnonKey in mason.config.json
-3. **Network error**: Retry up to 3 times with exponential backoff
-4. **500 Server Error**: Report the error and suggest trying again later
-
-Example error response:
-
-```
-Error: Unable to submit analysis.
-
-Please verify:
-1. mason.config.json exists and contains all required fields
-2. Your API key starts with "mason_" (not "mason__")
-3. Your Supabase URL is correct (https://xxx.supabase.co)
-4. Your Supabase anon key is valid
-
-If the problem persists, try again later or contact support.
-```
-
-## Complete Improvement JSON Schema
-
-Each improvement MUST include ALL of these fields:
-
-```json
-{
-  "repository_id": "${REPOSITORY_ID}",
-  "title": "Add data freshness timestamps to Executive Snapshot",
-  "problem": "Executives cannot tell when snapshot data was last updated. No visible 'as of' timestamps or data freshness indicators. This creates uncertainty about whether viewing current or stale information.",
-  "solution": "Add visible timestamps showing when each section was last refreshed. Include 'Last updated: X minutes ago' badges on KPI cards, funnel summary, and revenue chart. Add global 'Data as of [timestamp]' indicator in page header.",
-  "type": "dashboard",
-  "area": "frontend",
-  "impact_score": 9,
-  "effort_score": 2,
-  "complexity": 2,
-  "benefits": [
-    {
-      "category": "user_experience",
-      "icon": "user",
-      "title": "USER EXPERIENCE",
-      "description": "Clear visibility into data freshness increases trust"
-    },
-    {
-      "category": "sales_team",
-      "icon": "users",
-      "title": "SALES TEAM",
-      "description": "Executives gain confidence in data currency for decision-making"
-    },
-    {
-      "category": "operations",
-      "icon": "settings",
-      "title": "OPERATIONS",
-      "description": "Reduces support questions about data staleness"
-    },
-    {
-      "category": "performance",
-      "icon": "chart",
-      "title": "PERFORMANCE",
-      "description": "No performance impact - timestamps already in data"
-    },
-    {
-      "category": "reliability",
-      "icon": "wrench",
-      "title": "RELIABILITY",
-      "description": "Helps users identify when refresh needed"
-    }
-  ],
-  "is_new_feature": false,
-  "is_banger_idea": false
-}
-```
-
-**Feature Classification Rules:**
-
-- `is_new_feature: false` + `is_banger_idea: false` = Regular improvement (bug fix, performance, refactor)
-- `is_new_feature: true` + `is_banger_idea: false` = New feature capability
-- `is_new_feature: true` + `is_banger_idea: true` = The ONE banger idea per analysis
-
-## False Positive Prevention
-
-Before flagging security or quality issues, verify they are real problems:
-
-### Security Analysis Rules
-
-**Environment Files:**
-
-- `.env.example` files with placeholder values (e.g., `your-api-key`, `xxx`) are **standard practice**, NOT vulnerabilities
-- Before flagging secrets exposure, check:
-  1. Is the file tracked in git? (`git ls-files | grep -E '\.env'`)
-  2. Does `.gitignore` exclude `.env`, `.env.local`, etc.?
-  3. Are the values actual secrets or placeholder text?
-- Only flag if: actual secrets are committed AND .gitignore doesn't exclude them
-
-**MANDATORY: Git Tracking Verification for Security Suggestions**
-
-**BEFORE flagging any "secrets exposed in repository" issue:**
-
-1. Run `git ls-files <file>` - if empty, file is NOT tracked (false positive!)
-2. Check `.gitignore` - if file matches a pattern, it's intentionally excluded
-3. Only flag if file IS tracked AND contains real credentials (not placeholders)
-
-```bash
-# MANDATORY check before flagging security file issues
-FILE_PATH="<file from suggestion>"
-
-# Step 1: Check if file is tracked in git
-if ! git ls-files --error-unmatch "$FILE_PATH" 2>/dev/null; then
-  # File is NOT in git - DO NOT FLAG THIS
-  echo "FALSE POSITIVE: $FILE_PATH is not tracked in git"
-  exit 0
-fi
-
-# Step 2: Check gitignore patterns
-if git check-ignore -q "$FILE_PATH" 2>/dev/null; then
-  # File is excluded by gitignore - DO NOT FLAG THIS
-  echo "FALSE POSITIVE: $FILE_PATH is excluded by .gitignore"
-  exit 0
-fi
-
-# Only proceed if file IS tracked
-```
-
-**Common false positives to avoid:**
-
-- `.env.local` - Almost always gitignored (check before flagging!)
-- `.env.*.local` - Development-only files
-- Files in `.gitignore` that exist locally
-
-**Common False Positives to AVOID:**
-| Pattern | Why It's NOT a Vulnerability |
-|---------|------------------------------|
-| `.env.example` with `your-xxx` values | Standard documentation pattern |
-| `.env.example` in git | Expected - shows required variables |
-| `NEXT_PUBLIC_*` env vars | Intentionally public, not secrets |
-| API keys in test files with `test_` prefix | Test fixtures, not real credentials |
-| Placeholder UUIDs like `00000000-0000-...` | Example values, not real IDs |
-| `.env.local` exists in working tree | Usually gitignored - VERIFY first |
-
-**Real Vulnerabilities to Flag:**
-
-- Actual API keys/tokens committed (look for real patterns: `sk-`, `ghp_`, `eyJ`)
-- `.env.local` or `.env` files **tracked in git** (verified with `git ls-files`) with real values
-- Hardcoded credentials in source code (not config files)
-- Missing `.gitignore` patterns for secret files
-
-### General Verification
-
-Before creating ANY improvement:
-
-1. **Verify the problem exists** - Don't assume based on patterns alone
-2. **Check existing mitigations** - The issue may already be handled
-3. **Confirm it's actionable** - Vague concerns aren't improvements
-
-## Important Notes
-
-1. **MANDATORY: PRD for every item** - No item enters the database without a complete PRD. Period.
-2. **Maximum 20 items per run** - Prioritize and cap to top 20 items (1 banger + 3 features + 16 improvements).
-3. **Banger rotation** - When a new banger is generated, move the old banger to the feature list with "banger" tag.
-4. **Be thorough but realistic** - Only suggest improvements that provide clear value
-5. **Consider existing patterns** - Align suggestions with codebase conventions
-6. **Prioritize ruthlessly** - Focus on high-impact, low-effort items first
-7. **Be specific** - Vague suggestions are not actionable
-8. **Include evidence** - Reference specific files/lines when possible
-9. **All 5 benefits required** - Every improvement must have all 5 benefit categories populated
-10. **Use new type values** - dashboard, discovery, auth, backend (not feature, fix, refactor)
-11. **Use new area values** - frontend, backend (not frontend-ux, api-backend, etc.)
-12. **Complexity is numeric** - Use 1-5 integer, not text
-13. **Avoid false positives** - Verify issues are real before flagging (see False Positive Prevention above)
