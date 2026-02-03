@@ -291,12 +291,13 @@ CREATE TABLE IF NOT EXISTS mason_autopilot_runs (
   user_id TEXT NOT NULL,
   repository_id UUID REFERENCES mason_github_repositories(id) ON DELETE CASCADE,
   run_type TEXT NOT NULL CHECK (run_type IN ('analysis', 'execution')),
-  status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed')),
+  status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed', 'skipped')),
   items_analyzed INTEGER DEFAULT 0,
   items_auto_approved INTEGER DEFAULT 0,
   items_executed INTEGER DEFAULT 0,
   prs_created INTEGER DEFAULT 0,
   error_message TEXT,
+  skip_reason TEXT,                          -- Reason for skipped runs (e.g., backlog at capacity)
   started_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ
 );
@@ -394,6 +395,18 @@ ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS checkpoints_comple
 
 -- Add smoke test validation column (for optional --smoke-test flag)
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS validation_smoke_test TEXT DEFAULT 'skipped';
+
+-- Add skip_reason column to autopilot_runs (for existing databases)
+ALTER TABLE mason_autopilot_runs ADD COLUMN IF NOT EXISTS skip_reason TEXT;
+
+-- Update autopilot_runs status constraint to include 'skipped' (for existing databases)
+DO $$ BEGIN
+  ALTER TABLE mason_autopilot_runs DROP CONSTRAINT IF EXISTS mason_autopilot_runs_status_check;
+  ALTER TABLE mason_autopilot_runs ADD CONSTRAINT mason_autopilot_runs_status_check
+    CHECK (status IN ('running', 'completed', 'failed', 'skipped'));
+EXCEPTION WHEN duplicate_object THEN
+  NULL; -- Constraint already exists with correct values
+END $$;
 
 -- Add run_id column for batch execution grouping (for existing databases)
 ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS run_id TEXT;

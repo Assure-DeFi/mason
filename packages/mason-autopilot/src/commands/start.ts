@@ -66,6 +66,44 @@ let localConfig: AutopilotConfig;
 let isRunning = false;
 let lastScheduleCheck: Date | null = null;
 
+interface BacklogThresholdResult {
+  count: number;
+  threshold: number;
+  isFull: boolean;
+  percentFull: number;
+}
+
+/**
+ * Check if the backlog has reached capacity threshold.
+ * Threshold is dynamically calculated as 5x maxItemsPerDay (~1 week buffer).
+ */
+async function checkBacklogThreshold(
+  repositoryId: string,
+  maxItemsPerDay: number,
+): Promise<BacklogThresholdResult> {
+  // Dynamic threshold: 5x daily limit = ~1 week of work buffer
+  const threshold = maxItemsPerDay * 5;
+
+  // Count pending items (new + approved = unprocessed work)
+  const { count, error } = await supabase
+    .from('mason_pm_backlog_items')
+    .select('*', { count: 'exact', head: true })
+    .eq('repository_id', repositoryId)
+    .in('status', ['new', 'approved']);
+
+  if (error) {
+    console.error('Failed to check backlog threshold:', error.message);
+    // On error, assume not full to allow processing
+    return { count: 0, threshold, isFull: false, percentFull: 0 };
+  }
+
+  const actualCount = count ?? 0;
+  const percentFull = Math.round((actualCount / threshold) * 100);
+  const isFull = actualCount >= threshold;
+
+  return { count: actualCount, threshold, isFull, percentFull };
+}
+
 export async function startCommand(options: StartOptions): Promise<void> {
   const verbose = options.verbose ?? false;
 
@@ -164,14 +202,47 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
         `[${now.toISOString()}] Schedule triggered! Running autopilot...`,
       );
 
-      // 5. Run PM review
-      await runPmReview(config, verbose);
+      // 5. Pre-flight check: Is backlog at capacity?
+      const backlogStatus = await checkBacklogThreshold(
+        config.repository_id,
+        config.guardian_rails.maxItemsPerDay,
+      );
 
-      // 6. Auto-approve items matching rules
+      console.log(
+        `  Backlog: ${backlogStatus.count}/${backlogStatus.threshold} (${backlogStatus.percentFull}% full)`,
+      );
+
+      if (backlogStatus.isFull) {
+        // Skip PM review but continue with auto-approve and execution
+        console.log(
+          '  Skipping PM review - backlog at capacity. Continuing with execution...',
+        );
+
+        // Record skipped analysis run for visibility
+        await supabase.from('mason_autopilot_runs').insert({
+          user_id: config.user_id,
+          repository_id: config.repository_id,
+          run_type: 'analysis',
+          status: 'skipped',
+          items_analyzed: 0,
+          skip_reason: `Backlog at capacity: ${backlogStatus.count}/${backlogStatus.threshold} pending items (${backlogStatus.percentFull}%)`,
+          started_at: now.toISOString(),
+          completed_at: now.toISOString(),
+        });
+      } else {
+        // 6. Run PM review (backlog has capacity)
+        await runPmReview(config, verbose);
+      }
+
+      // 7. Auto-approve items matching rules (always run - processes existing items)
       await autoApproveItems(config, verbose);
 
-      // 7. Execute approved items
-      await executeApprovedItems(config, verbose);
+      // 8. Execute approved items (always run - drains the backlog)
+      await executeApprovedItems(
+        config,
+        verbose,
+        config.guardian_rails.maxItemsPerDay,
+      );
 
       lastScheduleCheck = now;
     } else if (verbose) {
@@ -337,8 +408,8 @@ async function runPmReview(
     .single();
 
   try {
-    // Execute claude with pm-review command (--auto flag for non-interactive mode)
-    const result = await executeClaudeCommand('/pm-review --auto', verbose);
+    // Execute claude with pm-review command
+    const result = await executeClaudeCommand('/pm-review', verbose);
 
     if (result.success && run?.id) {
       // Link newly created items to this autopilot run
@@ -406,7 +477,7 @@ async function runPmReview(
 async function autoApproveItems(
   config: AutopilotDbConfig,
   verbose: boolean,
-): Promise<void> {
+): Promise<number> {
   const rules = config.auto_approval_rules;
   const rails = config.guardian_rails;
 
@@ -419,7 +490,7 @@ async function autoApproveItems(
 
   if (error || !items) {
     console.error('Failed to fetch backlog items:', error?.message);
-    return;
+    return 0;
   }
 
   let approvedCount = 0;
@@ -463,27 +534,46 @@ async function autoApproveItems(
   }
 
   console.log(`Auto-approved ${approvedCount} items.`);
+
+  // Return the count so it can be recorded
+  return approvedCount;
 }
 
 async function executeApprovedItems(
   config: AutopilotDbConfig,
   verbose: boolean,
+  maxItems: number,
 ): Promise<void> {
-  // Check if there are approved items to execute
-  const { data: items, error } = await supabase
+  // Check if there are approved items to execute (ordered by impact for priority)
+  const { data: allItems, error } = await supabase
     .from('mason_pm_backlog_items')
-    .select('id')
+    .select('id, title, impact_score')
     .eq('repository_id', config.repository_id)
-    .eq('status', 'approved');
+    .eq('status', 'approved')
+    .order('impact_score', { ascending: false });
 
-  if (error || !items || items.length === 0) {
+  if (error || !allItems || allItems.length === 0) {
     if (verbose) {
       console.log('No approved items to execute.');
     }
     return;
   }
 
-  console.log(`Executing ${items.length} approved items...`);
+  // Limit to maxItemsPerDay
+  const items = allItems.slice(0, maxItems);
+
+  if (items.length < allItems.length) {
+    console.log(
+      `Found ${allItems.length} approved items, limiting to top ${maxItems} (maxItemsPerDay).`,
+    );
+  }
+
+  console.log(
+    `Executing ${items.length} approved items (by highest impact)...`,
+  );
+  for (const item of items) {
+    console.log(`  - ${item.title} (impact: ${item.impact_score})`);
+  }
 
   // Record execution run
   const { data: run } = await supabase
@@ -499,8 +589,11 @@ async function executeApprovedItems(
     .single();
 
   try {
-    // Execute claude with execute-approved command
-    const result = await executeClaudeCommand('/execute-approved', verbose);
+    // Execute claude with execute-approved command (with limit and auto mode)
+    const result = await executeClaudeCommand(
+      `/execute-approved --limit ${maxItems} --auto`,
+      verbose,
+    );
 
     // Update run status
     await supabase
@@ -583,11 +676,15 @@ async function executeClaudeCommand(
       }
     }
 
+    // Always use -p mode for automation (required for non-interactive execution)
+    // In verbose mode, use stream-json to see real-time output
     const args = [
       '-p',
       command,
+      '--dangerously-skip-permissions',
       '--allowedTools',
       'Bash,Read,Write,Edit,Grep,Glob,Task',
+      ...(verbose ? ['--output-format', 'stream-json'] : []),
     ];
 
     if (verbose) {
@@ -603,16 +700,51 @@ async function executeClaudeCommand(
 
     const child = spawn(claudePath, args, {
       cwd: localConfig.repositoryPath,
-      stdio: verbose ? 'inherit' : 'pipe',
+      stdio: 'pipe', // Always pipe so we can process output
       env: enhancedEnv,
       shell: false, // Don't use shell - we have the full path
     });
 
     let stderr = '';
 
-    if (!verbose && child.stderr) {
+    if (child.stdout) {
+      child.stdout.on('data', (data) => {
+        const text = data.toString();
+        if (verbose) {
+          // In verbose mode with stream-json, parse and display activity
+          for (const line of text.split('\n').filter(Boolean)) {
+            try {
+              const json = JSON.parse(line);
+              // Show assistant messages and tool usage
+              if (json.type === 'assistant' && json.message?.content) {
+                for (const block of json.message.content) {
+                  if (block.type === 'text' && block.text) {
+                    console.log('  Claude:', block.text.slice(0, 200));
+                  } else if (block.type === 'tool_use') {
+                    console.log(`  [Tool] ${block.name}`);
+                  }
+                }
+              } else if (json.type === 'result') {
+                console.log(
+                  '  [Complete]',
+                  json.result?.slice(0, 100) || 'Done',
+                );
+              }
+            } catch {
+              // Not JSON or parse error, show raw if verbose
+              if (text.trim()) console.log('  ', text.trim().slice(0, 200));
+            }
+          }
+        }
+      });
+    }
+
+    if (child.stderr) {
       child.stderr.on('data', (data) => {
         stderr += data.toString();
+        if (verbose) {
+          console.error('  [stderr]', data.toString().trim());
+        }
       });
     }
 

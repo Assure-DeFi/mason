@@ -8,6 +8,8 @@ import {
   Check,
   AlertCircle,
   Info,
+  AlertTriangle,
+  Package,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -170,6 +172,45 @@ const CATEGORY_OPTIONS = [
   { value: 'backend', label: 'Backend' },
 ];
 
+interface BacklogStatus {
+  count: number;
+  threshold: number;
+  percentFull: number;
+  isFull: boolean;
+}
+
+// Calculate estimated runs per day based on frequency config
+function getEstimatedRunsPerDay(freq: FrequencyConfig): number {
+  switch (freq.type) {
+    case 'minutes':
+      return Math.floor((24 * 60) / freq.interval);
+    case 'hours':
+      return Math.floor(24 / freq.interval);
+    case 'daily':
+      return 1;
+    case 'weekly':
+      return 1 / 7;
+    default:
+      return 1;
+  }
+}
+
+// Check if schedule generates way more items than can be processed
+function getFrequencyWarning(
+  freq: FrequencyConfig,
+  maxItemsPerDay: number,
+): string | null {
+  const runsPerDay = getEstimatedRunsPerDay(freq);
+  // Assume average 15 items per run
+  const estimatedItemsPerDay = runsPerDay * 15;
+
+  if (estimatedItemsPerDay > maxItemsPerDay * 10) {
+    return `This schedule runs ~${Math.round(runsPerDay)} times/day, potentially generating ${Math.round(estimatedItemsPerDay)} items while only ${maxItemsPerDay} can be processed. PM reviews will pause when backlog reaches ${maxItemsPerDay * 5} items.`;
+  }
+
+  return null;
+}
+
 export function AutopilotConfig({ repositoryId, userId }: Props) {
   const { client } = useUserDatabase();
   const [config, setConfig] = useState<AutopilotConfigData>({
@@ -199,6 +240,9 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
     timeHour: 2,
     dayOfWeek: 1,
   });
+  const [backlogStatus, setBacklogStatus] = useState<BacklogStatus | null>(
+    null,
+  );
 
   // Load config from Supabase
   useEffect(() => {
@@ -225,6 +269,36 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
 
     void loadConfig();
   }, [client, repositoryId]);
+
+  // Load backlog status (separate effect to recalculate when maxItemsPerDay changes)
+  useEffect(() => {
+    async function loadBacklogStatus() {
+      if (!client || !repositoryId) {
+        return;
+      }
+
+      // Count pending items (new + approved)
+      const { count, error } = await client
+        .from(TABLES.PM_BACKLOG_ITEMS)
+        .select('*', { count: 'exact', head: true })
+        .eq('repository_id', repositoryId)
+        .in('status', ['new', 'approved']);
+
+      if (!error) {
+        const actualCount = count ?? 0;
+        const threshold = config.guardian_rails.maxItemsPerDay * 5;
+        const percentFull = Math.round((actualCount / threshold) * 100);
+        setBacklogStatus({
+          count: actualCount,
+          threshold,
+          percentFull: Math.min(percentFull, 100),
+          isFull: actualCount >= threshold,
+        });
+      }
+    }
+
+    void loadBacklogStatus();
+  }, [client, repositoryId, config.guardian_rails.maxItemsPerDay]);
 
   // Save config to Supabase
   const saveConfig = async () => {
@@ -346,6 +420,62 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
           <div className="peer h-6 w-11 rounded-full bg-gray-700 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-gold peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none"></div>
         </label>
       </div>
+
+      {/* Backlog Status Indicator */}
+      {backlogStatus && (
+        <div
+          className={`rounded-lg border p-4 ${
+            backlogStatus.isFull
+              ? 'border-yellow-900/50 bg-yellow-950/30'
+              : 'border-gray-800 bg-black/50'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Package
+                className={`h-5 w-5 ${backlogStatus.isFull ? 'text-yellow-400' : 'text-gray-400'}`}
+              />
+              <div>
+                <h4 className="text-sm font-medium text-white">
+                  Backlog Status
+                </h4>
+                <p className="text-xs text-gray-400">
+                  {backlogStatus.count}/{backlogStatus.threshold} pending items
+                  ({backlogStatus.percentFull}% full)
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span
+                className={`text-sm font-medium ${
+                  backlogStatus.isFull ? 'text-yellow-400' : 'text-green-400'
+                }`}
+              >
+                {backlogStatus.isFull ? 'At Capacity' : 'Has Capacity'}
+              </span>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-gray-800">
+            <div
+              className={`h-full transition-all ${
+                backlogStatus.percentFull >= 100
+                  ? 'bg-yellow-500'
+                  : backlogStatus.percentFull >= 80
+                    ? 'bg-yellow-600'
+                    : 'bg-green-500'
+              }`}
+              style={{ width: `${Math.min(backlogStatus.percentFull, 100)}%` }}
+            />
+          </div>
+
+          <p className="mt-2 text-xs text-gray-500">
+            PM reviews pause at {backlogStatus.threshold} items (5x daily limit
+            of {config.guardian_rails.maxItemsPerDay})
+          </p>
+        </div>
+      )}
 
       {/* Schedule */}
       <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
@@ -492,6 +622,22 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
               </span>
             </p>
           </div>
+
+          {/* Frequency warning */}
+          {getFrequencyWarning(
+            frequency,
+            config.guardian_rails.maxItemsPerDay,
+          ) && (
+            <div className="flex items-start gap-3 rounded-lg border border-yellow-900/50 bg-yellow-950/30 p-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-400" />
+              <p className="text-sm text-yellow-400">
+                {getFrequencyWarning(
+                  frequency,
+                  config.guardian_rails.maxItemsPerDay,
+                )}
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-300">

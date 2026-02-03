@@ -7,6 +7,7 @@ import {
   Search,
   Play,
   GitPullRequest,
+  SkipForward,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -16,12 +17,13 @@ import { TABLES } from '@/lib/constants';
 interface AutopilotRun {
   id: string;
   run_type: 'analysis' | 'execution';
-  status: 'running' | 'completed' | 'failed';
+  status: 'running' | 'completed' | 'failed' | 'skipped';
   items_analyzed: number;
   items_auto_approved: number;
   items_executed: number;
   prs_created: number;
   error_message: string | null;
+  skip_reason: string | null;
   started_at: string;
   completed_at: string | null;
 }
@@ -133,12 +135,14 @@ function RunCard({ run }: { run: AutopilotRun }) {
     running: Loader2,
     completed: CheckCircle,
     failed: XCircle,
+    skipped: SkipForward,
   }[run.status];
 
   const statusColor = {
     running: 'text-blue-400',
     completed: 'text-green-400',
     failed: 'text-red-400',
+    skipped: 'text-yellow-400',
   }[run.status];
 
   const TypeIcon = run.run_type === 'analysis' ? Search : Play;
@@ -206,6 +210,12 @@ function RunCard({ run }: { run: AutopilotRun }) {
       {run.error_message && (
         <div className="mt-3 rounded-lg border border-red-900/50 bg-red-950/30 p-3">
           <p className="text-sm text-red-400">{run.error_message}</p>
+        </div>
+      )}
+
+      {run.skip_reason && (
+        <div className="mt-3 rounded-lg border border-yellow-900/50 bg-yellow-950/30 p-3">
+          <p className="text-sm text-yellow-400">{run.skip_reason}</p>
         </div>
       )}
     </div>
