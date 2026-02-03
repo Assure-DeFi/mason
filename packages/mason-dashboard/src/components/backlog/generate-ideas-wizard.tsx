@@ -264,17 +264,25 @@ export function GenerateIdeasWizard({
         : 2; // other modes: 3→1, 4→2
 
   const generateCommand = (): string => {
-    let cmd = '/pm-review';
+    let cmd = '';
 
-    if (goal === 'banger') {
-      cmd += ' banger';
-    } else if (goal === 'quick') {
-      cmd += ' quick';
-    } else if (goal === 'area' && area) {
-      cmd += ` area:${area}`;
+    switch (goal) {
+      case 'banger':
+        cmd = '/pm-banger';
+        break;
+      case 'quick':
+        cmd = '/pm-quick';
+        break;
+      case 'area':
+        cmd = `/pm-focus area:${area}`;
+        break;
+      case 'full':
+      default:
+        cmd = '/pm-review';
+        break;
     }
-    // full mode has no suffix
 
+    // Add focus context if specified
     const focusText = getFocusText();
     if (focusText) {
       cmd += `\n\nFocus on: ${focusText}`;

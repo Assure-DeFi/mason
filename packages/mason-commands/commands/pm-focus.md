@@ -1,53 +1,21 @@
 ---
-name: pm-review
+name: pm-focus
 version: 3.0.0
-description: Full comprehensive PM review - 25 items (24 regular + 1 banger)
+description: Deep dive into one specific domain - 5 focused items
 ---
 
-# PM Review Command
+# PM Focus Command
 
-Full comprehensive review with **8 parallel agents** returning **25 items** (3 from each category + 1 banger).
+Deep dive into **one specific area** returning **5 focused items**.
 
-**For other modes, use the dedicated commands:**
-
-- `/pm-banger` - 1 game-changing idea
-- `/pm-quick` - 9 items (fast pulse check)
-- `/pm-focus area:X` - 5 items in specific domain
-
----
-
-## Backward Compatibility Notice
-
-```bash
-# Check for old mode arguments
-if echo "$*" | grep -qiE "banger|quick|area:"; then
-  echo ""
-  echo "╔══════════════════════════════════════════════════════════════════════════╗"
-  echo "║           MODE ARGUMENTS REMOVED IN v3.0.0                               ║"
-  echo "║                                                                          ║"
-  echo "║  The /pm-review command now only runs full reviews.                      ║"
-  echo "║  Use the dedicated commands for other modes:                             ║"
-  echo "║                                                                          ║"
-  echo "║    Instead of: /pm-review banger                                         ║"
-  echo "║           Use: /pm-banger                                                ║"
-  echo "║                                                                          ║"
-  echo "║    Instead of: /pm-review quick                                          ║"
-  echo "║           Use: /pm-quick                                                 ║"
-  echo "║                                                                          ║"
-  echo "║    Instead of: /pm-review area:security                                  ║"
-  echo "║           Use: /pm-focus area:security                                   ║"
-  echo "║                                                                          ║"
-  echo "╚══════════════════════════════════════════════════════════════════════════╝"
-  exit 1
-fi
-```
+**Usage:** `/pm-focus area:security` or `/pm-focus area:performance`
 
 ---
 
 ## STEP 1: Version Check (BLOCKING)
 
 ```bash
-COMMAND_NAME="pm-review"
+COMMAND_NAME="pm-focus"
 LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/${COMMAND_NAME}.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
 REMOTE=$(curl -fsSL --connect-timeout 3 "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/versions.json" 2>/dev/null)
 REQUIRED_MIN=$(echo "$REMOTE" | jq -r ".commands.\"${COMMAND_NAME}\".required_minimum // \"\"" 2>/dev/null)
@@ -116,7 +84,7 @@ if [ -z "$REPOSITORY_ID" ]; then
   echo "║  TO FIX: Connect this repository at:                                     ║"
   echo "║    ${dashboardUrl}/settings/github                                       ║"
   echo "║                                                                          ║"
-  echo "║  Then re-run /pm-review                                                  ║"
+  echo "║  Then re-run /pm-focus                                                   ║"
   echo "╚══════════════════════════════════════════════════════════════════════════╝"
   exit 1
 fi
@@ -124,72 +92,119 @@ fi
 
 ---
 
-## STEP 3: Parse Focus Context (Optional)
+## STEP 3: Parse Area Argument (REQUIRED)
 
 ```bash
+AREA_TYPE=""
+if echo "$*" | grep -qi "area:"; then
+  AREA_TYPE=$(echo "$*" | grep -oE "area:[a-z-]+" | cut -d: -f2)
+fi
+
 FOCUS_CONTEXT=""
 if echo "$*" | grep -q "Focus on:"; then
   FOCUS_CONTEXT=$(echo "$*" | sed -n 's/.*Focus on: *\(.*\)/\1/p')
 fi
 
-echo "=== FULL REVIEW CONFIGURATION ==="
-echo "MODE: full"
+echo "=== FOCUS CONFIGURATION ==="
+echo "AREA_TYPE: $AREA_TYPE"
 echo "FOCUS_CONTEXT: ${FOCUS_CONTEXT:-entire codebase}"
-echo "=================================="
+echo "==========================="
+```
+
+### HARD STOP - Area Required
+
+```bash
+VALID_AREAS="feature ui ux api data security performance code-quality"
+
+if [ -z "$AREA_TYPE" ]; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════════════════╗"
+  echo "║                    ERROR: AREA ARGUMENT REQUIRED                         ║"
+  echo "║                                                                          ║"
+  echo "║  Usage: /pm-focus area:<type>                                            ║"
+  echo "║                                                                          ║"
+  echo "║  Valid areas:                                                            ║"
+  echo "║    - feature      (net-new functionality)                                ║"
+  echo "║    - ui           (visual, styling)                                      ║"
+  echo "║    - ux           (user flows, friction)                                 ║"
+  echo "║    - api          (endpoints, backend)                                   ║"
+  echo "║    - data         (database, queries)                                    ║"
+  echo "║    - security     (vulnerabilities, auth)                                ║"
+  echo "║    - performance  (speed, caching)                                       ║"
+  echo "║    - code-quality (refactors, tech debt)                                 ║"
+  echo "║                                                                          ║"
+  echo "║  Example: /pm-focus area:security                                        ║"
+  echo "╚══════════════════════════════════════════════════════════════════════════╝"
+  exit 1
+fi
+
+if ! echo "$VALID_AREAS" | grep -qw "$AREA_TYPE"; then
+  echo "ERROR: Invalid area '$AREA_TYPE'. Valid: $VALID_AREAS"
+  exit 1
+fi
 ```
 
 ---
 
-## STEP 4: Launch 8 Agents (Parallel, ITEM_LIMIT=3 each)
+## STEP 4: Launch Single Domain Agent
 
-Launch ALL 8 agents in ONE message. Each returns exactly 3 items.
+Launch ONE agent specialized in the selected area:
 
-| Agent        | subagent_type   | ITEM_LIMIT | INCLUDE_BANGER |
-| ------------ | --------------- | ---------- | -------------- |
-| Feature      | general-purpose | 3          | true           |
-| UI           | general-purpose | 3          | false          |
-| UX           | general-purpose | 3          | false          |
-| API          | general-purpose | 3          | false          |
-| Data         | general-purpose | 3          | false          |
-| Security     | general-purpose | 3          | false          |
-| Performance  | general-purpose | 3          | false          |
-| Code Quality | general-purpose | 3          | false          |
+| AREA_TYPE    | Agent Focus                     |
+| ------------ | ------------------------------- |
+| feature      | Net-new functionality gaps      |
+| ui           | Visual, styling improvements    |
+| ux           | User flow friction points       |
+| api          | Endpoint and backend issues     |
+| data         | Database and query problems     |
+| security     | Vulnerabilities and auth gaps   |
+| performance  | Speed and caching opportunities |
+| code-quality | Tech debt and refactor needs    |
 
-**Agent Prompt Template:**
+**Agent Prompt:**
 
 ```
-You are a PM agent specializing in [CATEGORY].
+subagent_type: "general-purpose"
+prompt: |
+  You are a PM agent specializing in ${AREA_TYPE}.
 
-Analyze this codebase and find the TOP 3 most important improvements in your domain.
-${FOCUS_CONTEXT ? 'Focus your analysis on: ' + FOCUS_CONTEXT : ''}
+  Analyze this codebase deeply and find the TOP 5 most important improvements in your domain.
+  ${FOCUS_CONTEXT ? 'Focus your analysis on: ' + FOCUS_CONTEXT : ''}
 
-Return exactly 3 items with:
-- title: string
-- problem: string
-- solution: string
-- type: "[category]"
-- area: string (affected codebase area)
-- impact_score: 1-10
-- effort_score: 1-10
-- complexity: 1-5
-- is_new_feature: boolean
-- is_banger_idea: ${INCLUDE_BANGER ? 'true for your BEST idea' : 'false'}
+  For ${AREA_TYPE}, look for:
+  ${AREA_SPECIFIC_GUIDANCE}
 
-Rank by impact. Return your 3 BEST findings.
+  Return exactly 5 items, each with:
+  - title: string
+  - problem: string (detailed problem description)
+  - solution: string (proposed fix)
+  - type: "${AREA_TYPE}"
+  - area: string (specific codebase area affected)
+  - impact_score: 1-10
+  - effort_score: 1-10
+  - complexity: 1-5
+  - is_new_feature: boolean
+  - is_banger_idea: false (no banger in focus mode)
+
+  Rank by impact. Return your 5 BEST findings.
 ```
+
+**Area-Specific Guidance:**
+
+| Area         | Look For                                                |
+| ------------ | ------------------------------------------------------- |
+| feature      | Missing capabilities, user requests, competitive gaps   |
+| ui           | Inconsistent styling, accessibility issues, visual bugs |
+| ux           | Confusing flows, high friction, unclear navigation      |
+| api          | Missing endpoints, inconsistent responses, slow calls   |
+| data         | N+1 queries, missing indexes, schema issues             |
+| security     | Injection risks, auth gaps, data exposure               |
+| performance  | Slow pages, missing caching, large bundles              |
+| code-quality | Duplicated code, missing types, poor error handling     |
 
 ---
 
-## STEP 5: Aggregate Results
-
-Wait for all 8 agents. Combine results:
-
-- 24 regular items (3 from each category)
-- 1 banger (from Feature agent with `is_banger_idea=true`)
-
-**Total: 25 items**
-
-Check duplicates against existing backlog:
+## STEP 5: Deduplicate Against Existing
 
 ```bash
 EXISTING=$(curl -s "${supabaseUrl}/rest/v1/mason_pm_backlog_items?select=id,title&or=(status.eq.new,status.eq.approved)&repository_id=eq.${REPOSITORY_ID}" \
@@ -197,23 +212,24 @@ EXISTING=$(curl -s "${supabaseUrl}/rest/v1/mason_pm_backlog_items?select=id,titl
 ```
 
 - title_similarity >= 70% → DUPLICATE (remove)
+- After dedup, should have ≤5 items
 
 ---
 
-## STEP 6: Generate PRD for EACH Item (25 PRDs)
+## STEP 6: Generate PRD for EACH Item (5 PRDs)
 
-For each of the 25 items:
+For each of the 5 items:
 
 ```markdown
 # PRD: [Title]
 
 ## Problem Statement
 
-[Expanded from item.problem]
+[Expanded from item.problem with specific details]
 
 ## Proposed Solution
 
-[Expanded from item.solution]
+[Expanded from item.solution with implementation approach]
 
 ## Success Criteria
 
@@ -225,15 +241,15 @@ For each of the 25 items:
 
 ### Wave 1: Exploration
 
-| #   | Subagent | Task              |
-| --- | -------- | ----------------- |
-| 1.1 | Explore  | Research patterns |
+| #   | Subagent | Task                       |
+| --- | -------- | -------------------------- |
+| 1.1 | Explore  | Research existing patterns |
 
 ### Wave 2: Implementation
 
-| #   | Subagent        | Task      |
-| --- | --------------- | --------- |
-| 2.1 | general-purpose | Implement |
+| #   | Subagent        | Task              |
+| --- | --------------- | ----------------- |
+| 2.1 | general-purpose | Implement changes |
 
 ## Risks & Mitigations
 
@@ -250,7 +266,7 @@ Store: `item.prd_content = prd`
 
 ---
 
-## STEP 7: Generate 5 Benefits for EACH Item (25 × 5 = 125 benefits)
+## STEP 7: Generate 5 Benefits for EACH Item (5 × 5 = 25 benefits)
 
 For each item:
 
@@ -261,31 +277,31 @@ For each item:
       "category": "user_experience",
       "icon": "user",
       "title": "USER EXPERIENCE",
-      "description": "[Specific to this item]"
+      "description": "[Specific to this ${AREA_TYPE} improvement]"
     },
     {
       "category": "sales_team",
       "icon": "users",
       "title": "SALES TEAM",
-      "description": "[Specific to this item]"
+      "description": "[Specific to this ${AREA_TYPE} improvement]"
     },
     {
       "category": "operations",
       "icon": "settings",
       "title": "OPERATIONS",
-      "description": "[Specific to this item]"
+      "description": "[Specific to this ${AREA_TYPE} improvement]"
     },
     {
       "category": "performance",
       "icon": "chart",
       "title": "PERFORMANCE",
-      "description": "[Specific to this item]"
+      "description": "[Specific to this ${AREA_TYPE} improvement]"
     },
     {
       "category": "reliability",
       "icon": "wrench",
       "title": "RELIABILITY",
-      "description": "[Specific to this item]"
+      "description": "[Specific to this ${AREA_TYPE} improvement]"
     }
   ]
 }
@@ -317,16 +333,16 @@ For each item:
 ## STEP 10: Validation Gate (BLOCKING)
 
 ```bash
-echo "=== VALIDATION GATE (Full Mode) ==="
+echo "=== VALIDATION GATE (Focus Mode) ==="
 
 TOTAL=<count>
-BANGER_COUNT=<is_banger_idea true count>
 PRD_COUNT=<items with prd_content count>
 BENEFITS_COUNT=<items with 5 benefits count>
 RISK_COUNT=<items with risk_score count>
+BANGER_COUNT=<is_banger_idea true count>
 
-[ "$TOTAL" -gt 25 ] && echo "BLOCKED: Max 25 items (got $TOTAL)" && exit 1
-[ "$BANGER_COUNT" -ne 1 ] && echo "BLOCKED: Need exactly 1 banger (got $BANGER_COUNT)" && exit 1
+[ "$TOTAL" -gt 5 ] && echo "BLOCKED: Max 5 items (got $TOTAL)" && exit 1
+[ "$BANGER_COUNT" -gt 0 ] && echo "WARNING: Focus mode should have no banger (got $BANGER_COUNT)"
 [ "$PRD_COUNT" -ne "$TOTAL" ] && echo "BLOCKED: Missing PRDs ($PRD_COUNT/$TOTAL)" && exit 1
 [ "$BENEFITS_COUNT" -ne "$TOTAL" ] && echo "BLOCKED: Missing benefits ($BENEFITS_COUNT/$TOTAL)" && exit 1
 [ "$RISK_COUNT" -ne "$TOTAL" ] && echo "BLOCKED: Missing risk scores ($RISK_COUNT/$TOTAL)" && exit 1
@@ -334,8 +350,6 @@ RISK_COUNT=<items with risk_score count>
 echo "PASSED: All validations complete"
 echo "===================================="
 ```
-
-**If ANY fails: Fix before proceeding.**
 
 ---
 
@@ -353,7 +367,8 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
   -H "Content-Type: application/json" \
   -d '{
     "id": "'${ANALYSIS_RUN_ID}'",
-    "mode": "full",
+    "mode": "area",
+    "area_type": "'${AREA_TYPE}'",
     "items_found": '${TOTAL}',
     "status": "completed",
     "repository_id": "'${REPOSITORY_ID}'"
@@ -375,21 +390,21 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
       "title": "...",
       "problem": "...",
       "solution": "...",
-      "type": "...",
+      "type": "'${AREA_TYPE}'",
       "area": "...",
       "impact_score": X,
       "effort_score": X,
       "complexity": X,
       "benefits": [...5 objects...],
       "is_new_feature": true/false,
-      "is_banger_idea": true/false,
+      "is_banger_idea": false,
       "status": "new",
       "prd_content": "# PRD: ...",
       "prd_generated_at": "'${TIMESTAMP}'",
       "risk_score": X,
       "evidence_status": "verified"
     }
-    // ... 25 items total
+    // ... 5 items total
   ]'
 ```
 
@@ -398,40 +413,29 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
 ## STEP 12: Output
 
 ```markdown
-## Full Review Complete
+## Focus Review Complete
 
-**Mode**: full
-**Items**: 25 / 25
+**Mode**: focus
+**Area**: ${AREA_TYPE}
+**Items**: 5 / 5
 **PRDs**: 100%
 
 ### Validation
 
-| Check    | Status     |
-| -------- | ---------- |
-| Count    | PASS (25)  |
-| Banger   | PASS (1)   |
-| PRDs     | PASS (25)  |
-| Benefits | PASS (125) |
-| Risk     | PASS (25)  |
+| Check    | Status           |
+| -------- | ---------------- |
+| Count    | PASS (5)         |
+| Banger   | N/A (focus mode) |
+| PRDs     | PASS (5)         |
+| Benefits | PASS (25)        |
+| Risk     | PASS (5)         |
 
-### Items by Category
+### ${AREA_TYPE} Items
 
-| Category     | Count | Avg Impact |
-| ------------ | ----- | ---------- |
-| feature      | 3     | 8.3        |
-| ui           | 3     | 7.0        |
-| ux           | 3     | 7.7        |
-| api          | 3     | 6.3        |
-| data         | 3     | 6.7        |
-| security     | 3     | 8.0        |
-| performance  | 3     | 7.3        |
-| code-quality | 3     | 5.7        |
-
-### Top 10 by Priority
-
-| #   | Title   | Type    | Impact | Effort | Priority |
-| --- | ------- | ------- | ------ | ------ | -------- |
-| 1   | [Title] | feature | 9      | 2      | 16       |
+| #   | Title   | Impact | Effort | Priority |
+| --- | ------- | ------ | ------ | -------- |
+| 1   | [Title] | 9      | 2      | 16       |
+| 2   | [Title] | 8      | 3      | 13       |
 
 ...
 
@@ -458,9 +462,9 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
 
 ---
 
-## Category Reference
+## Area Badge Reference
 
-| Category     | Type Badge  |
+| Area         | Badge Color |
 | ------------ | ----------- |
 | feature      | Purple+Star |
 | ui           | Gold        |
@@ -470,15 +474,3 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
 | security     | Red         |
 | performance  | Orange      |
 | code-quality | Gray        |
-
----
-
-## False Positive Prevention
-
-Before flagging security issues:
-
-1. `git ls-files <file>` - tracked?
-2. `.gitignore` excludes it?
-3. Real secrets or placeholders?
-
-**Avoid:** `.env.example`, `NEXT_PUBLIC_*`, test fixtures, gitignored files

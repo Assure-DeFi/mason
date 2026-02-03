@@ -1,6 +1,6 @@
 ---
 name: mason-update
-version: 1.0.0
+version: 2.0.0
 description: Update Mason commands to latest versions
 ---
 
@@ -60,47 +60,23 @@ echo ""
 
 UPDATES_AVAILABLE=0
 
-# Check pm-review
-LOCAL_PM_VERSION=$(grep -m1 "^version:" ".claude/commands/pm-review.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
-REMOTE_PM_VERSION=$(echo "$REMOTE_MANIFEST" | jq -r '.commands."pm-review".version // ""')
+# Define all commands to check
+COMMANDS=("pm-review" "pm-banger" "pm-quick" "pm-focus" "execute-approved" "mason-update" "battle-test")
 
-if [ -z "$LOCAL_PM_VERSION" ]; then
-  echo "  pm-review: Not installed → $REMOTE_PM_VERSION (new)"
-  UPDATES_AVAILABLE=1
-elif [ "$LOCAL_PM_VERSION" != "$REMOTE_PM_VERSION" ]; then
-  echo "  pm-review: $LOCAL_PM_VERSION → $REMOTE_PM_VERSION (update available)"
-  UPDATES_AVAILABLE=1
-else
-  echo "  pm-review: $LOCAL_PM_VERSION (up to date)"
-fi
+for cmd in "${COMMANDS[@]}"; do
+  LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/${cmd}.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+  REMOTE_VERSION=$(echo "$REMOTE_MANIFEST" | jq -r ".commands.\"${cmd}\".version // \"\"")
 
-# Check execute-approved
-LOCAL_EXEC_VERSION=$(grep -m1 "^version:" ".claude/commands/execute-approved.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
-REMOTE_EXEC_VERSION=$(echo "$REMOTE_MANIFEST" | jq -r '.commands."execute-approved".version // ""')
-
-if [ -z "$LOCAL_EXEC_VERSION" ]; then
-  echo "  execute-approved: Not installed → $REMOTE_EXEC_VERSION (new)"
-  UPDATES_AVAILABLE=1
-elif [ "$LOCAL_EXEC_VERSION" != "$REMOTE_EXEC_VERSION" ]; then
-  echo "  execute-approved: $LOCAL_EXEC_VERSION → $REMOTE_EXEC_VERSION (update available)"
-  UPDATES_AVAILABLE=1
-else
-  echo "  execute-approved: $LOCAL_EXEC_VERSION (up to date)"
-fi
-
-# Check mason-update
-LOCAL_UPDATE_VERSION=$(grep -m1 "^version:" ".claude/commands/mason-update.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
-REMOTE_UPDATE_VERSION=$(echo "$REMOTE_MANIFEST" | jq -r '.commands."mason-update".version // ""')
-
-if [ -z "$LOCAL_UPDATE_VERSION" ]; then
-  echo "  mason-update: Not installed → $REMOTE_UPDATE_VERSION (new)"
-  UPDATES_AVAILABLE=1
-elif [ "$LOCAL_UPDATE_VERSION" != "$REMOTE_UPDATE_VERSION" ]; then
-  echo "  mason-update: $LOCAL_UPDATE_VERSION → $REMOTE_UPDATE_VERSION (update available)"
-  UPDATES_AVAILABLE=1
-else
-  echo "  mason-update: $LOCAL_UPDATE_VERSION (up to date)"
-fi
+  if [ -z "$LOCAL_VERSION" ]; then
+    echo "  ${cmd}: Not installed → $REMOTE_VERSION (new)"
+    UPDATES_AVAILABLE=1
+  elif [ "$LOCAL_VERSION" != "$REMOTE_VERSION" ]; then
+    echo "  ${cmd}: $LOCAL_VERSION → $REMOTE_VERSION (update available)"
+    UPDATES_AVAILABLE=1
+  else
+    echo "  ${cmd}: $LOCAL_VERSION (up to date)"
+  fi
+done
 
 echo ""
 ```
@@ -170,7 +146,8 @@ mkdir -p "$BACKUP_DIR"
 echo "Creating backups..."
 
 # Backup existing files
-for cmd in pm-review execute-approved mason-update; do
+COMMANDS=("pm-review" "pm-banger" "pm-quick" "pm-focus" "execute-approved" "mason-update" "battle-test")
+for cmd in "${COMMANDS[@]}"; do
   if [ -f ".claude/commands/${cmd}.md" ]; then
     cp ".claude/commands/${cmd}.md" "$BACKUP_DIR/"
     echo "  Backed up: ${cmd}.md"
@@ -204,10 +181,13 @@ download_command() {
   fi
 }
 
-# Update commands that need it
-download_command "pm-review" "$LOCAL_PM_VERSION" "$REMOTE_PM_VERSION"
-download_command "execute-approved" "$LOCAL_EXEC_VERSION" "$REMOTE_EXEC_VERSION"
-download_command "mason-update" "$LOCAL_UPDATE_VERSION" "$REMOTE_UPDATE_VERSION"
+# Update all commands
+COMMANDS=("pm-review" "pm-banger" "pm-quick" "pm-focus" "execute-approved" "mason-update" "battle-test")
+for cmd in "${COMMANDS[@]}"; do
+  LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/${cmd}.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+  REMOTE_VERSION=$(echo "$REMOTE_MANIFEST" | jq -r ".commands.\"${cmd}\".version // \"\"")
+  download_command "$cmd" "$LOCAL_VERSION" "$REMOTE_VERSION"
+done
 
 echo ""
 ```
@@ -215,15 +195,28 @@ echo ""
 ### Step 7: Update State File
 
 ```bash
+# Get all remote versions for state file
+PM_REVIEW_VER=$(echo "$REMOTE_MANIFEST" | jq -r '.commands."pm-review".version // ""')
+PM_BANGER_VER=$(echo "$REMOTE_MANIFEST" | jq -r '.commands."pm-banger".version // ""')
+PM_QUICK_VER=$(echo "$REMOTE_MANIFEST" | jq -r '.commands."pm-quick".version // ""')
+PM_FOCUS_VER=$(echo "$REMOTE_MANIFEST" | jq -r '.commands."pm-focus".version // ""')
+EXEC_VER=$(echo "$REMOTE_MANIFEST" | jq -r '.commands."execute-approved".version // ""')
+UPDATE_VER=$(echo "$REMOTE_MANIFEST" | jq -r '.commands."mason-update".version // ""')
+BATTLE_VER=$(echo "$REMOTE_MANIFEST" | jq -r '.commands."battle-test".version // ""')
+
 # Record installed versions
 cat > .claude/.mason-state.json << EOF
 {
   "updated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "manifest_version": $MANIFEST_VERSION,
   "installed_versions": {
-    "pm-review": "$REMOTE_PM_VERSION",
-    "execute-approved": "$REMOTE_EXEC_VERSION",
-    "mason-update": "$REMOTE_UPDATE_VERSION"
+    "pm-review": "$PM_REVIEW_VER",
+    "pm-banger": "$PM_BANGER_VER",
+    "pm-quick": "$PM_QUICK_VER",
+    "pm-focus": "$PM_FOCUS_VER",
+    "execute-approved": "$EXEC_VER",
+    "mason-update": "$UPDATE_VER",
+    "battle-test": "$BATTLE_VER"
   }
 }
 EOF
@@ -252,9 +245,11 @@ verify_version() {
   fi
 }
 
-verify_version "pm-review" "$REMOTE_PM_VERSION"
-verify_version "execute-approved" "$REMOTE_EXEC_VERSION"
-verify_version "mason-update" "$REMOTE_UPDATE_VERSION"
+COMMANDS=("pm-review" "pm-banger" "pm-quick" "pm-focus" "execute-approved" "mason-update" "battle-test")
+for cmd in "${COMMANDS[@]}"; do
+  REMOTE_VERSION=$(echo "$REMOTE_MANIFEST" | jq -r ".commands.\"${cmd}\".version // \"\"")
+  verify_version "$cmd" "$REMOTE_VERSION"
+done
 
 echo ""
 
@@ -274,26 +269,39 @@ fi
 Mason Commands - Update Check
 ==============================
 
-Remote manifest version: 1
+Remote manifest version: 3
 
 Checking command versions...
 
-  pm-review: 1.0.0 → 1.1.0 (update available)
-  execute-approved: 1.0.0 (up to date)
-  mason-update: 1.0.0 (up to date)
+  pm-review: 2.15.0 → 3.0.0 (update available)
+  pm-banger: Not installed → 3.0.0 (new)
+  pm-quick: Not installed → 3.0.0 (new)
+  pm-focus: Not installed → 3.0.0 (new)
+  execute-approved: 2.10.0 (up to date)
+  mason-update: 1.0.0 → 2.0.0 (update available)
+  battle-test: 1.0.0 (up to date)
 
 Creating backups...
   Backed up: pm-review.md
+  Backed up: mason-update.md
 
 Downloading updates...
-  Updated: pm-review.md (1.0.0 → 1.1.0)
+  Updated: pm-review.md (2.15.0 → 3.0.0)
+  Updated: pm-banger.md (null → 3.0.0)
+  Updated: pm-quick.md (null → 3.0.0)
+  Updated: pm-focus.md (null → 3.0.0)
+  Updated: mason-update.md (1.0.0 → 2.0.0)
 
 State file updated: .claude/.mason-state.json
 
 Verifying installation...
-  [OK] pm-review: 1.1.0
-  [OK] execute-approved: 1.0.0
-  [OK] mason-update: 1.0.0
+  [OK] pm-review: 3.0.0
+  [OK] pm-banger: 3.0.0
+  [OK] pm-quick: 3.0.0
+  [OK] pm-focus: 3.0.0
+  [OK] execute-approved: 2.10.0
+  [OK] mason-update: 2.0.0
+  [OK] battle-test: 1.0.0
 
 Update complete! All commands verified.
 ```
@@ -304,13 +312,17 @@ Update complete! All commands verified.
 Mason Commands - Update Check
 ==============================
 
-Remote manifest version: 1
+Remote manifest version: 3
 
 Checking command versions...
 
-  pm-review: 1.0.0 (up to date)
-  execute-approved: 1.0.0 (up to date)
-  mason-update: 1.0.0 (up to date)
+  pm-review: 3.0.0 (up to date)
+  pm-banger: 3.0.0 (up to date)
+  pm-quick: 3.0.0 (up to date)
+  pm-focus: 3.0.0 (up to date)
+  execute-approved: 2.10.0 (up to date)
+  mason-update: 2.0.0 (up to date)
+  battle-test: 1.0.0 (up to date)
 
 All commands are up to date!
 ```
@@ -331,3 +343,15 @@ All commands are up to date!
 3. **Domain knowledge is preserved** - your customizations remain intact
 4. **State file tracks versions** - enables future update checks
 5. **Idempotent** - safe to run multiple times
+
+## Command Reference
+
+| Command             | Purpose                        |
+| ------------------- | ------------------------------ |
+| `/pm-review`        | Full review (25 items)         |
+| `/pm-banger`        | Single banger idea (1 item)    |
+| `/pm-quick`         | Quick pulse check (9 items)    |
+| `/pm-focus`         | Domain deep dive (5 items)     |
+| `/execute-approved` | Execute approved backlog items |
+| `/mason-update`     | Update commands (this)         |
+| `/battle-test`      | E2E testing framework          |

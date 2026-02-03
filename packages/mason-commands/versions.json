@@ -1,11 +1,29 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "commands": {
     "pm-review": {
-      "version": "2.15.0",
+      "version": "3.0.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "2.15.0",
-      "breaking_reason": "Banger mode routing fix - Mode D moved to top of Part 2, mode guards added"
+      "required_minimum": "3.0.0",
+      "breaking_reason": "Split into dedicated commands - /pm-review now full mode only"
+    },
+    "pm-banger": {
+      "version": "3.0.0",
+      "file_path": "commands/pm-banger.md",
+      "required_minimum": "3.0.0",
+      "breaking_reason": "New command - generates 1 game-changing idea"
+    },
+    "pm-quick": {
+      "version": "3.0.0",
+      "file_path": "commands/pm-quick.md",
+      "required_minimum": "3.0.0",
+      "breaking_reason": "New command - quick pulse check with 9 items"
+    },
+    "pm-focus": {
+      "version": "3.0.0",
+      "file_path": "commands/pm-focus.md",
+      "required_minimum": "3.0.0",
+      "breaking_reason": "New command - 5 items for specific domain focus"
     },
     "execute-approved": {
       "version": "2.10.0",
@@ -14,10 +32,10 @@
       "breaking_reason": "Version check moved to MANDATORY FIRST STEP for consistent enforcement"
     },
     "mason-update": {
-      "version": "1.0.0",
+      "version": "2.0.0",
       "file_path": "commands/mason-update.md",
-      "required_minimum": null,
-      "breaking_reason": null
+      "required_minimum": "2.0.0",
+      "breaking_reason": "Updated to handle 7 commands including new PM commands"
     },
     "battle-test": {
       "version": "1.0.0",
