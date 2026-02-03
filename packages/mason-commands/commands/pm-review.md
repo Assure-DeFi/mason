@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.14.0
+version: 2.15.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -95,6 +95,36 @@ echo "==============================="
 
 ---
 
+## Step 3: Mode Execution Barrier (MANDATORY - READ THIS)
+
+**This step determines which section you execute. This is a HARD STOP.**
+
+```bash
+echo ""
+echo "=== MODE EXECUTION BARRIER ==="
+echo "MODE: $MODE"
+
+if [ "$MODE" = "banger" ]; then
+  echo "╔══════════════════════════════════════════════════════════════════╗"
+  echo "║  BANGER MODE DETECTED                                            ║"
+  echo "║                                                                  ║"
+  echo "║  SKIP TO: anchor-mode-d (Mode D section below)                   ║"
+  echo "║  DO NOT: Read or execute Mode A, B, or C                         ║"
+  echo "║  DO NOT: Launch 8 category agents                                ║"
+  echo "║  DO NOT: Generate 8-25 items                                     ║"
+  echo "║                                                                  ║"
+  echo "║  ONLY: Follow Mode D phases D.1-D.10                             ║"
+  echo "║  ONLY: Produce EXACTLY 1 banger item                             ║"
+  echo "╚══════════════════════════════════════════════════════════════════╝"
+fi
+
+echo "==============================="
+```
+
+**BANGER MODE AGENTS:** After seeing the above message, scroll down to `anchor-mode-d` and start there. Do NOT continue reading Mode A/B/C below.
+
+---
+
 ## Universal Requirements Table
 
 **EVERY item MUST have ALL of these fields before submission:**
@@ -127,286 +157,22 @@ echo "==============================="
 
 **Execute ONLY your mode section. Each section is complete.**
 
----
-
-<!-- ANCHOR: anchor-mode-a -->
-
-## Mode A: Full Review (25 items)
-
-**Execute ONLY if MODE == "full"**
-
-### A.1: Load Domain Knowledge
-
-```bash
-SKILL_FILE=".claude/skills/pm-domain-knowledge/SKILL.md"
-if [ -f "$SKILL_FILE" ] && head -1 "$SKILL_FILE" | grep -q "INITIALIZED: true"; then
-  echo "Domain knowledge loaded"
-else
-  mkdir -p .claude/skills/pm-domain-knowledge
-  # Create default domain knowledge
-fi
-```
-
-### A.2: Launch 8 Agents (Parallel)
-
-**Launch ALL 8 in ONE message:**
-
-| Agent        | File                     | ITEM_LIMIT | INCLUDE_BANGER |
-| ------------ | ------------------------ | ---------- | -------------- |
-| Feature      | pm-feature-agent.md      | 3          | true           |
-| UI           | pm-ui-agent.md           | 3          | false          |
-| UX           | pm-ux-agent.md           | 3          | false          |
-| API          | pm-api-agent.md          | 3          | false          |
-| Data         | pm-data-agent.md         | 3          | false          |
-| Security     | pm-security-agent.md     | 3          | false          |
-| Performance  | pm-performance-agent.md  | 3          | false          |
-| Code Quality | pm-code-quality-agent.md | 3          | false          |
-
-Each agent returns validated items with: title, problem, solution, type, area, impact_score, effort_score, complexity, is_new_feature, is_banger_idea
-
-### A.3: Aggregate & Deduplicate
-
-Wait for all agents. Combine: 24 regular + 1 banger = 25 items.
-
-Check duplicates against existing backlog:
-
-```bash
-EXISTING=$(curl -s "${supabaseUrl}/rest/v1/mason_pm_backlog_items?select=id,title&or=(status.eq.new,status.eq.approved)&repository_id=eq.${REPOSITORY_ID}" \
-  -H "apikey: ${supabaseAnonKey}")
-```
-
-- title_similarity >= 70% → DUPLICATE
-- Same target file → DUPLICATE
-
-### A.4: Generate PRD for EACH Item (MANDATORY)
-
-**Every item needs a PRD. Generate for all 25:**
-
-```markdown
-# PRD: [Title]
-
-## Problem Statement
-
-[Expanded from item.problem]
-
-## Proposed Solution
-
-[Expanded from item.solution]
-
-## Success Criteria
-
-- [ ] [Criterion 1]
-- [ ] [Criterion 2]
-- [ ] [Criterion 3]
-
-## Technical Approach
-
-### Wave 1: Exploration
-
-| #   | Subagent | Task              |
-| --- | -------- | ----------------- |
-| 1.1 | Explore  | Research patterns |
-
-### Wave 2: Implementation
-
-| #   | Subagent        | Task      |
-| --- | --------------- | --------- |
-| 2.1 | general-purpose | Implement |
-
-## Risks & Mitigations
-
-| Risk   | Mitigation   |
-| ------ | ------------ |
-| [Risk] | [Mitigation] |
-
-## Out of Scope
-
-- [Excluded items]
-```
-
-Store: `item.prd_content = prd`
-
-### A.5: Generate 5 Benefits for EACH Item (MANDATORY)
-
-```json
-{
-  "benefits": [
-    {
-      "category": "user_experience",
-      "icon": "user",
-      "title": "USER EXPERIENCE",
-      "description": "[SPECIFIC]"
-    },
-    {
-      "category": "sales_team",
-      "icon": "users",
-      "title": "SALES TEAM",
-      "description": "[SPECIFIC]"
-    },
-    {
-      "category": "operations",
-      "icon": "settings",
-      "title": "OPERATIONS",
-      "description": "[SPECIFIC]"
-    },
-    {
-      "category": "performance",
-      "icon": "chart",
-      "title": "PERFORMANCE",
-      "description": "[SPECIFIC]"
-    },
-    {
-      "category": "reliability",
-      "icon": "wrench",
-      "title": "RELIABILITY",
-      "description": "[SPECIFIC]"
-    }
-  ]
-}
-```
-
-### A.6: Risk Analysis for EACH Item
-
-Calculate `risk_score` (1-10) based on: files affected, breaking changes, test coverage gaps.
-
-### A.7: Evidence Validation for EACH Item
-
-- `verified`: Problem exists → keep
-- `refuted`: Problem doesn't exist → REMOVE
-- `inconclusive`: Uncertain → flag
-
-### A.8: Validation Gate (BLOCKING)
-
-```bash
-echo "=== VALIDATION GATE (Full Mode) ==="
-TOTAL=<count>; BANGER=<is_banger_idea count>; PRD=<prd_content count>; BENEFITS=<5 benefits count>; RISK=<risk_score count>
-
-[ "$TOTAL" -gt 25 ] && echo "BLOCKED: Max 25 items"
-[ "$BANGER" -ne 1 ] && echo "BLOCKED: Need exactly 1 banger"
-[ "$PRD" -ne "$TOTAL" ] && echo "BLOCKED: Missing PRDs"
-[ "$BENEFITS" -ne "$TOTAL" ] && echo "BLOCKED: Missing benefits"
-[ "$RISK" -ne "$TOTAL" ] && echo "BLOCKED: Missing risk scores"
-echo "===================================="
-```
-
-**If ANY fails: Fix before proceeding.**
-
-### A.9: Submit
-
-See [Submission Process](#anchor-submission).
-
----
-
-<!-- ANCHOR: anchor-mode-b -->
-
-## Mode B: Quick Review (9 items)
-
-**Execute ONLY if MODE == "quick"**
-
-### B.1: Load Domain Knowledge
-
-Same as A.1.
-
-### B.2: Launch 8 Agents (ITEM_LIMIT=1 each)
-
-Same agents as Mode A, but `ITEM_LIMIT=1`. Feature agent has `INCLUDE_BANGER=true`.
-
-### B.3: Aggregate & Deduplicate
-
-8 regular + 1 banger = 9 items.
-
-### B.4: Generate PRD for EACH Item
-
-Same template as A.4. Generate for all 9.
-
-### B.5: Generate 5 Benefits for EACH Item
-
-Same as A.5.
-
-### B.6: Risk Analysis for EACH Item
-
-Same as A.6.
-
-### B.7: Evidence Validation for EACH Item
-
-Same as A.7.
-
-### B.8: Validation Gate (BLOCKING)
-
-```bash
-echo "=== VALIDATION GATE (Quick Mode) ==="
-[ "$TOTAL" -gt 9 ] && echo "BLOCKED: Max 9 items"
-[ "$BANGER" -ne 1 ] && echo "BLOCKED: Need exactly 1 banger"
-# Check PRD, benefits, risk for all
-echo "====================================="
-```
-
-### B.9: Submit
-
-See [Submission Process](#anchor-submission).
-
----
-
-<!-- ANCHOR: anchor-mode-c -->
-
-## Mode C: Focus Area (5 items)
-
-**Execute ONLY if MODE == "area"**
-
-### C.1: Load Domain Knowledge
-
-Same as A.1.
-
-### C.2: Launch SINGLE Agent
-
-| AREA_TYPE    | Agent File               |
-| ------------ | ------------------------ |
-| feature      | pm-feature-agent.md      |
-| ui           | pm-ui-agent.md           |
-| ux           | pm-ux-agent.md           |
-| api          | pm-api-agent.md          |
-| data         | pm-data-agent.md         |
-| security     | pm-security-agent.md     |
-| performance  | pm-performance-agent.md  |
-| code-quality | pm-code-quality-agent.md |
-
-`ITEM_LIMIT=5`, `INCLUDE_BANGER=false`
-
-### C.3: Generate PRD for EACH Item
-
-Same template as A.4. Generate for all 5.
-
-### C.4: Generate 5 Benefits for EACH Item
-
-Same as A.5.
-
-### C.5: Risk Analysis for EACH Item
-
-Same as A.6.
-
-### C.6: Evidence Validation for EACH Item
-
-Same as A.7.
-
-### C.7: Validation Gate (BLOCKING)
-
-```bash
-echo "=== VALIDATION GATE (Focus Mode) ==="
-[ "$TOTAL" -gt 5 ] && echo "BLOCKED: Max 5 items"
-[ "$BANGER" -gt 0 ] && echo "WARNING: Focus mode has no banger"
-# Check PRD, benefits, risk for all
-echo "====================================="
-```
-
-### C.8: Submit
-
-See [Submission Process](#anchor-submission).
+**IMPORTANT: Mode D (Banger) is listed FIRST. If MODE="banger", start here.**
 
 ---
 
 <!-- ANCHOR: anchor-mode-d -->
 
 ## Mode D: Banger Mode (1 item)
+
+```bash
+# === MODE GUARD: BANGER ===
+if [ "$MODE" != "banger" ]; then
+  echo "WRONG SECTION: You are in Mode D (Banger) but MODE=$MODE"
+  echo "Go to correct section for $MODE mode"
+  exit 1
+fi
+```
 
 **Execute ONLY if MODE == "banger"**
 
@@ -599,6 +365,372 @@ Note: Rejected shown for transparency, NOT stored.
 ### D.10: Submit
 
 See [Submission Process](#anchor-submission). Submit exactly 1 item.
+
+---
+
+<!-- ANCHOR: anchor-mode-c -->
+
+## Mode C: Focus Area (5 items)
+
+```bash
+# === MODE GUARD: AREA ===
+if [ "$MODE" != "area" ]; then
+  echo "WRONG SECTION: You are in Mode C (Area) but MODE=$MODE"
+  echo "Go to correct section for $MODE mode"
+  exit 1
+fi
+```
+
+**Execute ONLY if MODE == "area"**
+
+### C.1: Load Domain Knowledge
+
+```bash
+SKILL_FILE=".claude/skills/pm-domain-knowledge/SKILL.md"
+if [ -f "$SKILL_FILE" ] && head -1 "$SKILL_FILE" | grep -q "INITIALIZED: true"; then
+  echo "Domain knowledge loaded"
+else
+  mkdir -p .claude/skills/pm-domain-knowledge
+  # Create default domain knowledge
+fi
+```
+
+### C.2: Launch SINGLE Agent
+
+| AREA_TYPE    | Agent File               |
+| ------------ | ------------------------ |
+| feature      | pm-feature-agent.md      |
+| ui           | pm-ui-agent.md           |
+| ux           | pm-ux-agent.md           |
+| api          | pm-api-agent.md          |
+| data         | pm-data-agent.md         |
+| security     | pm-security-agent.md     |
+| performance  | pm-performance-agent.md  |
+| code-quality | pm-code-quality-agent.md |
+
+`ITEM_LIMIT=5`, `INCLUDE_BANGER=false`
+
+### C.3: Generate PRD for EACH Item
+
+Same template as Mode A. Generate for all 5.
+
+### C.4: Generate 5 Benefits for EACH Item
+
+```json
+{
+  "benefits": [
+    {
+      "category": "user_experience",
+      "icon": "user",
+      "title": "USER EXPERIENCE",
+      "description": "[SPECIFIC]"
+    },
+    {
+      "category": "sales_team",
+      "icon": "users",
+      "title": "SALES TEAM",
+      "description": "[SPECIFIC]"
+    },
+    {
+      "category": "operations",
+      "icon": "settings",
+      "title": "OPERATIONS",
+      "description": "[SPECIFIC]"
+    },
+    {
+      "category": "performance",
+      "icon": "chart",
+      "title": "PERFORMANCE",
+      "description": "[SPECIFIC]"
+    },
+    {
+      "category": "reliability",
+      "icon": "wrench",
+      "title": "RELIABILITY",
+      "description": "[SPECIFIC]"
+    }
+  ]
+}
+```
+
+### C.5: Risk Analysis for EACH Item
+
+Calculate `risk_score` (1-10) based on: files affected, breaking changes, test coverage gaps.
+
+### C.6: Evidence Validation for EACH Item
+
+- `verified`: Problem exists → keep
+- `refuted`: Problem doesn't exist → REMOVE
+- `inconclusive`: Uncertain → flag
+
+### C.7: Validation Gate (BLOCKING)
+
+```bash
+echo "=== VALIDATION GATE (Focus Mode) ==="
+[ "$TOTAL" -gt 5 ] && echo "BLOCKED: Max 5 items"
+[ "$BANGER" -gt 0 ] && echo "WARNING: Focus mode has no banger"
+# Check PRD, benefits, risk for all
+echo "====================================="
+```
+
+### C.8: Submit
+
+See [Submission Process](#anchor-submission).
+
+---
+
+<!-- ANCHOR: anchor-mode-b -->
+
+## Mode B: Quick Review (9 items)
+
+```bash
+# === MODE GUARD: QUICK ===
+if [ "$MODE" != "quick" ]; then
+  echo "WRONG SECTION: You are in Mode B (Quick) but MODE=$MODE"
+  echo "Go to correct section for $MODE mode"
+  exit 1
+fi
+```
+
+**Execute ONLY if MODE == "quick"**
+
+### B.1: Load Domain Knowledge
+
+```bash
+SKILL_FILE=".claude/skills/pm-domain-knowledge/SKILL.md"
+if [ -f "$SKILL_FILE" ] && head -1 "$SKILL_FILE" | grep -q "INITIALIZED: true"; then
+  echo "Domain knowledge loaded"
+else
+  mkdir -p .claude/skills/pm-domain-knowledge
+  # Create default domain knowledge
+fi
+```
+
+### B.2: Launch 8 Agents (ITEM_LIMIT=1 each)
+
+| Agent        | File                     | ITEM_LIMIT | INCLUDE_BANGER |
+| ------------ | ------------------------ | ---------- | -------------- |
+| Feature      | pm-feature-agent.md      | 1          | true           |
+| UI           | pm-ui-agent.md           | 1          | false          |
+| UX           | pm-ux-agent.md           | 1          | false          |
+| API          | pm-api-agent.md          | 1          | false          |
+| Data         | pm-data-agent.md         | 1          | false          |
+| Security     | pm-security-agent.md     | 1          | false          |
+| Performance  | pm-performance-agent.md  | 1          | false          |
+| Code Quality | pm-code-quality-agent.md | 1          | false          |
+
+### B.3: Aggregate & Deduplicate
+
+8 regular + 1 banger = 9 items.
+
+### B.4: Generate PRD for EACH Item
+
+Same template as Mode A. Generate for all 9.
+
+### B.5: Generate 5 Benefits for EACH Item
+
+Same structure as C.4.
+
+### B.6: Risk Analysis for EACH Item
+
+Calculate `risk_score` (1-10).
+
+### B.7: Evidence Validation for EACH Item
+
+- `verified`: Problem exists → keep
+- `refuted`: Problem doesn't exist → REMOVE
+- `inconclusive`: Uncertain → flag
+
+### B.8: Validation Gate (BLOCKING)
+
+```bash
+echo "=== VALIDATION GATE (Quick Mode) ==="
+[ "$TOTAL" -gt 9 ] && echo "BLOCKED: Max 9 items"
+[ "$BANGER" -ne 1 ] && echo "BLOCKED: Need exactly 1 banger"
+# Check PRD, benefits, risk for all
+echo "====================================="
+```
+
+### B.9: Submit
+
+See [Submission Process](#anchor-submission).
+
+---
+
+<!-- ANCHOR: anchor-mode-a -->
+
+## Mode A: Full Review (25 items)
+
+```bash
+# === MODE GUARD: FULL ===
+if [ "$MODE" != "full" ]; then
+  echo "WRONG SECTION: You are in Mode A (Full) but MODE=$MODE"
+  echo "Go to correct section for $MODE mode"
+  exit 1
+fi
+```
+
+**Execute ONLY if MODE == "full"**
+
+### A.1: Load Domain Knowledge
+
+```bash
+SKILL_FILE=".claude/skills/pm-domain-knowledge/SKILL.md"
+if [ -f "$SKILL_FILE" ] && head -1 "$SKILL_FILE" | grep -q "INITIALIZED: true"; then
+  echo "Domain knowledge loaded"
+else
+  mkdir -p .claude/skills/pm-domain-knowledge
+  # Create default domain knowledge
+fi
+```
+
+### A.2: Launch 8 Agents (Parallel)
+
+**Launch ALL 8 in ONE message:**
+
+| Agent        | File                     | ITEM_LIMIT | INCLUDE_BANGER |
+| ------------ | ------------------------ | ---------- | -------------- |
+| Feature      | pm-feature-agent.md      | 3          | true           |
+| UI           | pm-ui-agent.md           | 3          | false          |
+| UX           | pm-ux-agent.md           | 3          | false          |
+| API          | pm-api-agent.md          | 3          | false          |
+| Data         | pm-data-agent.md         | 3          | false          |
+| Security     | pm-security-agent.md     | 3          | false          |
+| Performance  | pm-performance-agent.md  | 3          | false          |
+| Code Quality | pm-code-quality-agent.md | 3          | false          |
+
+Each agent returns validated items with: title, problem, solution, type, area, impact_score, effort_score, complexity, is_new_feature, is_banger_idea
+
+### A.3: Aggregate & Deduplicate
+
+Wait for all agents. Combine: 24 regular + 1 banger = 25 items.
+
+Check duplicates against existing backlog:
+
+```bash
+EXISTING=$(curl -s "${supabaseUrl}/rest/v1/mason_pm_backlog_items?select=id,title&or=(status.eq.new,status.eq.approved)&repository_id=eq.${REPOSITORY_ID}" \
+  -H "apikey: ${supabaseAnonKey}")
+```
+
+- title_similarity >= 70% → DUPLICATE
+- Same target file → DUPLICATE
+
+### A.4: Generate PRD for EACH Item (MANDATORY)
+
+**Every item needs a PRD. Generate for all 25:**
+
+```markdown
+# PRD: [Title]
+
+## Problem Statement
+
+[Expanded from item.problem]
+
+## Proposed Solution
+
+[Expanded from item.solution]
+
+## Success Criteria
+
+- [ ] [Criterion 1]
+- [ ] [Criterion 2]
+- [ ] [Criterion 3]
+
+## Technical Approach
+
+### Wave 1: Exploration
+
+| #   | Subagent | Task              |
+| --- | -------- | ----------------- |
+| 1.1 | Explore  | Research patterns |
+
+### Wave 2: Implementation
+
+| #   | Subagent        | Task      |
+| --- | --------------- | --------- |
+| 2.1 | general-purpose | Implement |
+
+## Risks & Mitigations
+
+| Risk   | Mitigation   |
+| ------ | ------------ |
+| [Risk] | [Mitigation] |
+
+## Out of Scope
+
+- [Excluded items]
+```
+
+Store: `item.prd_content = prd`
+
+### A.5: Generate 5 Benefits for EACH Item (MANDATORY)
+
+```json
+{
+  "benefits": [
+    {
+      "category": "user_experience",
+      "icon": "user",
+      "title": "USER EXPERIENCE",
+      "description": "[SPECIFIC]"
+    },
+    {
+      "category": "sales_team",
+      "icon": "users",
+      "title": "SALES TEAM",
+      "description": "[SPECIFIC]"
+    },
+    {
+      "category": "operations",
+      "icon": "settings",
+      "title": "OPERATIONS",
+      "description": "[SPECIFIC]"
+    },
+    {
+      "category": "performance",
+      "icon": "chart",
+      "title": "PERFORMANCE",
+      "description": "[SPECIFIC]"
+    },
+    {
+      "category": "reliability",
+      "icon": "wrench",
+      "title": "RELIABILITY",
+      "description": "[SPECIFIC]"
+    }
+  ]
+}
+```
+
+### A.6: Risk Analysis for EACH Item
+
+Calculate `risk_score` (1-10) based on: files affected, breaking changes, test coverage gaps.
+
+### A.7: Evidence Validation for EACH Item
+
+- `verified`: Problem exists → keep
+- `refuted`: Problem doesn't exist → REMOVE
+- `inconclusive`: Uncertain → flag
+
+### A.8: Validation Gate (BLOCKING)
+
+```bash
+echo "=== VALIDATION GATE (Full Mode) ==="
+TOTAL=<count>; BANGER=<is_banger_idea count>; PRD=<prd_content count>; BENEFITS=<5 benefits count>; RISK=<risk_score count>
+
+[ "$TOTAL" -gt 25 ] && echo "BLOCKED: Max 25 items"
+[ "$BANGER" -ne 1 ] && echo "BLOCKED: Need exactly 1 banger"
+[ "$PRD" -ne "$TOTAL" ] && echo "BLOCKED: Missing PRDs"
+[ "$BENEFITS" -ne "$TOTAL" ] && echo "BLOCKED: Missing benefits"
+[ "$RISK" -ne "$TOTAL" ] && echo "BLOCKED: Missing risk scores"
+echo "===================================="
+```
+
+**If ANY fails: Fix before proceeding.**
+
+### A.9: Submit
+
+See [Submission Process](#anchor-submission).
 
 ---
 
