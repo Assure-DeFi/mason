@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.11.0
+version: 2.12.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -142,6 +142,41 @@ ELSE (MODE == "full"):
 ```
 
 **THIS ROUTING IS NON-NEGOTIABLE.** If MODE=banger, you MUST NOT launch 8 category agents.
+
+---
+
+## BANGER MODE HARD STOP
+
+**IF MODE == "banger", THIS SECTION IS A BLOCKING REQUIREMENT:**
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    BANGER MODE DETECTED                                  ║
+║                                                                          ║
+║  YOU ARE IN BANGER MODE.                                                 ║
+║                                                                          ║
+║  DO NOT launch 8 category agents                                         ║
+║  DO NOT generate 8-25 items                                              ║
+║  DO NOT run quick mode or area mode                                      ║
+║                                                                          ║
+║  ONLY follow "Mode D: Banger Mode" section                               ║
+║  ONLY produce EXACTLY 1 banger item                                      ║
+║  ONLY submit 1 item to the database                                      ║
+║                                                                          ║
+║  Expected output: "All 1 items submitted successfully"                   ║
+║  If you submit more than 1 item, YOU HAVE FAILED.                        ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
+**Banger Mode Execution Summary:**
+
+1. Launch 3 explore agents (architecture, user flows, feature gaps)
+2. Launch 1 feature-ideation agent (generates 10 ideas)
+3. Launch 1 selection agent (picks THE ONE best idea)
+4. Validate and generate PRD for ONLY that 1 idea
+5. Submit EXACTLY 1 item with `is_banger_idea: true`
+
+**HARD STOP:** Skip directly to "Mode D: Banger Mode" section (line ~730). Do NOT read the category agent sections.
 
 ---
 
@@ -1979,13 +2014,25 @@ GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
 # Note: Strip .git suffix first, then extract - the previous regex didn't handle .git correctly
 REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/\.git$//' | sed -E 's|.*github\.com[:/]||')
 
+# Debug output for repository matching
+echo "=== REPOSITORY MATCHING DEBUG ==="
+echo "Git remote URL: $GIT_REMOTE"
+echo "Extracted repo name: $REPO_FULL_NAME"
+echo "Available repos from validation:"
+echo "$REPOSITORIES" | jq -r '.[] | "  - \(.github_full_name) (id: \(.id))"' 2>/dev/null || echo "  (none or invalid JSON)"
+echo "================================="
+
 # Find matching repository_id from the validation response
 REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select(.github_full_name == $name) | .id // empty')
 
 if [ -z "$REPOSITORY_ID" ]; then
-  echo "Warning: Repository '$REPO_FULL_NAME' not connected in Mason dashboard."
-  echo "Items will be created without repository association."
-  echo "To enable multi-repo filtering, connect this repository at: ${DASHBOARD_URL}/settings/github"
+  echo "WARNING: Repository matching failed!"
+  echo "  Looking for: '$REPO_FULL_NAME'"
+  echo "  Items will be created without repository association (repository_id=null)."
+  echo "  These items will NOT appear in repo-filtered dashboard views."
+  echo "  To fix: Connect this repository at: ${DASHBOARD_URL}/settings/github"
+else
+  echo "Repository matched successfully: $REPO_FULL_NAME -> $REPOSITORY_ID"
 fi
 ```
 

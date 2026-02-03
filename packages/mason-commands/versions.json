@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "commands": {
     "pm-review": {
-      "version": "2.11.0",
+      "version": "2.12.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "2.11.0",
-      "breaking_reason": "Version check now always displays status for visibility"
+      "required_minimum": "2.12.0",
+      "breaking_reason": "Fix banger mode enforcement and add repository_id matching debug output"
     },
     "execute-approved": {
       "version": "2.10.0",
