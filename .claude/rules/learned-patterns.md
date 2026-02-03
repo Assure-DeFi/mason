@@ -359,3 +359,39 @@ Banger mode fully supports focus context. When provided:
 **Why**: Users expect parameters to work consistently across modes. Silent ignoring of parameters causes confusion and wasted runs.
 
 ---
+
+## Command Routing: Visual Hard Stops for Mode Branching
+
+**Discovered**: 2026-02-02
+**Context**: pm-review banger mode executed 12 items instead of 1 - agent didn't follow mode routing instructions
+**Pattern**: When a command has multiple execution modes with different behaviors, text instructions alone are NOT sufficient. Add visual "HARD STOP" sections with box diagrams that make it impossible to miss:
+
+1. **Visual prominence** - Use ASCII box art or prominent formatting
+2. **Explicit DO NOT list** - State what the mode must NOT do
+3. **Explicit ONLY list** - State what the mode MUST do
+4. **Expected output** - Show what correct execution looks like
+5. **Failure indicator** - "If you submit more than X, YOU HAVE FAILED"
+
+**Example (insufficient):**
+
+```markdown
+**ROUTING LOGIC:**
+IF MODE == "banger": Skip to Mode D section
+```
+
+**Example (sufficient):**
+
+```markdown
+╔══════════════════════════════════════════════════════════════════════════╗
+║ BANGER MODE DETECTED ║
+║ DO NOT launch 8 category agents ║
+║ DO NOT generate 8-25 items ║
+║ ONLY produce EXACTLY 1 banger item ║
+║ Expected output: "All 1 items submitted successfully" ║
+║ If you submit more than 1 item, YOU HAVE FAILED. ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
+**Why**: LLMs can skip over text instructions, especially when document is long. Visual prominence and explicit failure conditions create stronger routing enforcement.
+
+---
