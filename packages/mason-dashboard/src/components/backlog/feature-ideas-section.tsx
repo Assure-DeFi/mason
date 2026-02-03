@@ -129,7 +129,7 @@ export function FeatureIdeasSection({
             <div className="flex flex-col items-center gap-3">
               <div className="flex items-center gap-2 px-4 py-2 bg-black border border-gray-700 font-mono text-sm">
                 <Terminal className="w-4 h-4 text-purple-400" />
-                <span className="text-gray-300">/pm-review --features</span>
+                <span className="text-gray-300">/pm-review area:feature</span>
               </div>
               <p className="text-xs text-gray-600">
                 Run this command in Claude Code to generate feature ideas
@@ -342,7 +342,7 @@ export function FeatureIdeasSection({
                         Slot available
                       </p>
                       <p className="text-xs text-gray-600 text-center">
-                        Run /pm-review --features
+                        Run /pm-review area:feature
                       </p>
                     </motion.div>
                   ))}
@@ -358,7 +358,9 @@ export function FeatureIdeasSection({
                   </p>
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-black border border-gray-700 font-mono text-xs">
                     <Terminal className="w-3 h-3 text-purple-400" />
-                    <span className="text-gray-400">/pm-review --features</span>
+                    <span className="text-gray-400">
+                      /pm-review area:feature
+                    </span>
                   </div>
                 </div>
               </div>

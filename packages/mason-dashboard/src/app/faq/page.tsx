@@ -172,7 +172,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         question: 'Can I customize the analysis focus?',
         answer:
-          'Yes! You can use flags with /pm-review: --domain=security, --domain=performance, --domain=ux, etc. to focus on specific areas.',
+          'Yes! You can use flags with /pm-review: area:security, area:performance, area:ux, etc. to focus on specific areas.',
       },
       {
         question: 'How does the priority score work?',

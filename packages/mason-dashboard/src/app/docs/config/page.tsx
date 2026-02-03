@@ -102,7 +102,7 @@ mason.config.json`}</code>
       <h3>Testing Your Config</h3>
       <p>Run a quick review to verify:</p>
       <pre>
-        <code>/pm-review --mode quick</code>
+        <code>/pm-review quick</code>
       </pre>
 
       <h2>Multiple Projects</h2>

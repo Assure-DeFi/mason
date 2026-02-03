@@ -25,11 +25,11 @@ export function PMReviewSection() {
               description="Full analysis (10-20 items)"
             />
             <CodeBlock
-              code="/pm-review area:frontend-ux"
+              code="/pm-review area:ux"
               description="Focus on frontend/UX"
             />
             <CodeBlock
-              code="/pm-review area:api-backend"
+              code="/pm-review area:api"
               description="Focus on backend/API"
             />
             <CodeBlock

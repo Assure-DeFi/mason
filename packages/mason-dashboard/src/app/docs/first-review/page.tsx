@@ -174,7 +174,7 @@ export default function FirstReviewPage() {
         codebase size. For faster iteration, use quick mode:
       </p>
       <pre>
-        <code>/pm-review --mode quick</code>
+        <code>/pm-review quick</code>
       </pre>
       <p>
         Quick mode generates fewer items (1 per category vs 3) and completes in

@@ -43,7 +43,7 @@ export default function PmReviewPage() {
 
       <h3>Quick Mode</h3>
       <pre>
-        <code>/pm-review --mode quick</code>
+        <code>/pm-review quick</code>
       </pre>
       <ul>
         <li>8 agents analyzing in parallel</li>
@@ -156,10 +156,10 @@ export default function PmReviewPage() {
 
       <h2>Flags</h2>
 
-      <h3>--mode</h3>
-      <p>Select analysis depth:</p>
+      <h3>quick</h3>
+      <p>Quick analysis mode (9 items instead of 25):</p>
       <pre>
-        <code>/pm-review --mode quick</code>
+        <code>/pm-review quick</code>
       </pre>
 
       <h3>--auto</h3>
@@ -168,11 +168,13 @@ export default function PmReviewPage() {
         <code>/pm-review --auto</code>
       </pre>
 
-      <h3>--focus</h3>
-      <p>Provide additional context for the analysis:</p>
+      <h3>Focus Context</h3>
+      <p>Provide additional context to narrow the analysis:</p>
       <pre>
         <code>
-          /pm-review --focus &quot;focus on mobile responsiveness&quot;
+          {`/pm-review
+
+Focus on: mobile responsiveness`}
         </code>
       </pre>
 

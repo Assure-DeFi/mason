@@ -43,11 +43,11 @@ export function ShortcutsSection() {
               description="Run codebase analysis"
             />
             <CommandRow
-              command="/pm-review area:frontend-ux"
+              command="/pm-review area:ux"
               description="Analyze frontend only"
             />
             <CommandRow
-              command="/pm-review area:api-backend"
+              command="/pm-review area:api"
               description="Analyze backend only"
             />
             <CommandRow

@@ -180,7 +180,7 @@ mason.config.json`}</code>
       <h2>5. Verify Setup</h2>
       <p>Test your configuration by running a quick analysis:</p>
       <pre>
-        <code>/pm-review --mode quick</code>
+        <code>/pm-review quick</code>
       </pre>
       <p>
         Quick mode generates fewer items and completes in 1-2 minutes — perfect
