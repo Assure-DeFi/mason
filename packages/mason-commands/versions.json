@@ -2,10 +2,10 @@
   "manifest_version": 3,
   "commands": {
     "pm-review": {
-      "version": "3.0.0",
+      "version": "3.1.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "3.0.0",
-      "breaking_reason": "Split into dedicated commands - /pm-review now full mode only"
+      "required_minimum": "3.1.0",
+      "breaking_reason": "Added bootstrap step to download missing sibling commands (pm-banger, pm-quick, pm-focus)"
     },
     "pm-banger": {
       "version": "3.0.0",

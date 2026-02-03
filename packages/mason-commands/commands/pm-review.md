@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 3.0.0
+version: 3.1.0
 description: Full comprehensive PM review - 25 items (24 regular + 1 banger)
 ---
 
@@ -13,6 +13,30 @@ Full comprehensive review with **8 parallel agents** returning **25 items** (3 f
 - `/pm-banger` - 1 game-changing idea
 - `/pm-quick` - 9 items (fast pulse check)
 - `/pm-focus area:X` - 5 items in specific domain
+
+---
+
+## STEP 0: Bootstrap Sibling Commands (One-Time)
+
+**This step ensures all PM commands exist locally.** Run once on first execution after v3.0.0 update.
+
+```bash
+BASE_URL="https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/commands"
+COMMANDS_DIR=".claude/commands"
+
+echo "=== BOOTSTRAP CHECK ==="
+
+# Download missing commands
+for cmd in pm-banger pm-quick pm-focus mason-update; do
+  if [ ! -f "${COMMANDS_DIR}/${cmd}.md" ]; then
+    echo "Downloading missing: ${cmd}.md"
+    curl -fsSL "${BASE_URL}/${cmd}.md" -o "${COMMANDS_DIR}/${cmd}.md" 2>/dev/null
+  fi
+done
+
+echo "All PM commands available."
+echo "========================"
+```
 
 ---
 
