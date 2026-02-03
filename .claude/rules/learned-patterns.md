@@ -395,3 +395,12 @@ IF MODE == "banger": Skip to Mode D section
 **Why**: LLMs can skip over text instructions, especially when document is long. Visual prominence and explicit failure conditions create stronger routing enforcement.
 
 ---
+
+## Repository ID: Hard Stop Required, Not Warning
+
+**Discovered**: 2026-02-02
+**Context**: PM review items created with repository_id=null didn't appear in dashboard repo-filtered views
+**Pattern**: When repository matching fails in CLI commands, use a HARD STOP (exit 1) not a warning. Items without repository_id break dashboard filtering. Never allow submission to proceed without valid repository association.
+**Why**: Warnings get ignored by agents. Items with null repository_id silently disappear from repo-filtered views, causing confusion about "where did my items go?"
+
+---

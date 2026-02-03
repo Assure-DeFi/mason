@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 2.12.0
+version: 2.13.0
 description: PM Review Command - Agent Swarm with iterative validation loop
 ---
 
@@ -2026,14 +2026,27 @@ echo "================================="
 REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select(.github_full_name == $name) | .id // empty')
 
 if [ -z "$REPOSITORY_ID" ]; then
-  echo "WARNING: Repository matching failed!"
-  echo "  Looking for: '$REPO_FULL_NAME'"
-  echo "  Items will be created without repository association (repository_id=null)."
-  echo "  These items will NOT appear in repo-filtered dashboard views."
-  echo "  To fix: Connect this repository at: ${DASHBOARD_URL}/settings/github"
-else
-  echo "Repository matched successfully: $REPO_FULL_NAME -> $REPOSITORY_ID"
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════════════════╗"
+  echo "║  HARD STOP: Repository not connected                                      ║"
+  echo "╠══════════════════════════════════════════════════════════════════════════╣"
+  echo "║  This repository is not connected in your Mason dashboard.               ║"
+  echo "║                                                                          ║"
+  echo "║  Looking for: '$REPO_FULL_NAME'"
+  echo "║                                                                          ║"
+  echo "║  Items CANNOT be created without repository association.                 ║"
+  echo "║  This ensures items always appear in the correct repo view.              ║"
+  echo "║                                                                          ║"
+  echo "║  TO FIX: Connect this repository at:                                     ║"
+  echo "║    ${DASHBOARD_URL}/settings/github                                      ║"
+  echo "║                                                                          ║"
+  echo "║  Then re-run /pm-review                                                  ║"
+  echo "╚══════════════════════════════════════════════════════════════════════════╝"
+  echo ""
+  exit 1  # HARD STOP - execution cannot continue without repository_id
 fi
+
+echo "Repository matched successfully: $REPO_FULL_NAME -> $REPOSITORY_ID"
 ```
 
 #### Step 7c: Write Data Directly to User's Supabase
@@ -2043,6 +2056,14 @@ Write the improvements directly to the user's own Supabase using the REST API.
 **CRITICAL: Every item MUST include prd_content. This is NON-NEGOTIABLE.**
 
 ```bash
+# === FINAL VALIDATION BEFORE SUBMISSION ===
+# This is the last line of defense - NEVER allow null repository_id
+if [ -z "$REPOSITORY_ID" ]; then
+  echo "FATAL: Attempted to submit items without repository_id. Aborting."
+  exit 1
+fi
+# === END VALIDATION ===
+
 # Generate a UUID for the analysis run
 ANALYSIS_RUN_ID=$(uuidgen)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
