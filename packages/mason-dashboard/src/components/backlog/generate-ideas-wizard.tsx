@@ -20,7 +20,6 @@ import {
   Palette,
   Users,
   Layers,
-  Info,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -169,7 +168,11 @@ const AREAS = [
 ];
 
 const FOCUS_OPTIONS = [
-  { value: 'none' as FocusArea, label: 'Entire codebase', description: 'Analyze everything' },
+  {
+    value: 'none' as FocusArea,
+    label: 'Entire codebase',
+    description: 'Analyze everything',
+  },
   {
     value: 'auth' as FocusArea,
     label: 'Authentication',
@@ -180,7 +183,11 @@ const FOCUS_OPTIONS = [
     label: 'Dashboard',
     description: 'Admin panels, data views',
   },
-  { value: 'api' as FocusArea, label: 'API Layer', description: 'Routes, controllers' },
+  {
+    value: 'api' as FocusArea,
+    label: 'API Layer',
+    description: 'Routes, controllers',
+  },
   {
     value: 'database' as FocusArea,
     label: 'Database',
@@ -191,7 +198,11 @@ const FOCUS_OPTIONS = [
     label: 'UI Components',
     description: 'Reusable elements',
   },
-  { value: 'custom' as FocusArea, label: 'Custom path...', description: 'Specify your own' },
+  {
+    value: 'custom' as FocusArea,
+    label: 'Custom path...',
+    description: 'Specify your own',
+  },
 ];
 
 export function GenerateIdeasWizard({
@@ -201,7 +212,7 @@ export function GenerateIdeasWizard({
 }: GenerateIdeasWizardProps) {
   const [step, setStep] = useState(1);
   const [goal, setGoal] = useState<GoalType | null>(
-    initialMode === 'banger' ? 'banger' : null
+    initialMode === 'banger' ? 'banger' : null,
   );
   const [area, setArea] = useState<AreaType | null>(null);
   const [focusArea, setFocusArea] = useState<FocusArea>('none');
@@ -213,7 +224,7 @@ export function GenerateIdeasWizard({
     if (isOpen) {
       if (initialMode === 'banger') {
         setGoal('banger');
-        setStep(3); // Skip to focus step for banger
+        setStep(3); // Skip to focus step (step 3) for banger
       } else {
         setGoal(null);
         setStep(1);
@@ -242,7 +253,15 @@ export function GenerateIdeasWizard({
     return null;
   }
 
-  const totalSteps = goal === 'area' ? 4 : 3;
+  // All modes: step 1=goal, step 2=area (area mode only), step 3=focus, step 4=review
+  // Non-area modes skip step 2 (display as 2 steps: focus, review)
+  const displayTotalSteps = goal === 'area' ? 3 : 2;
+  const displayStep =
+    goal === 'area'
+      ? step - 1 // area mode: 2,3,4 → display 1,2,3
+      : step === 3
+        ? 1
+        : 2; // other modes: 3→1, 4→2
 
   const generateCommand = (): string => {
     let cmd = '/pm-review';
@@ -283,9 +302,9 @@ export function GenerateIdeasWizard({
   const handleGoalSelect = (selectedGoal: GoalType) => {
     setGoal(selectedGoal);
     if (selectedGoal === 'area') {
-      setStep(2);
+      setStep(2); // Go to area selection
     } else {
-      setStep(3); // Skip area selection, go to focus
+      setStep(3); // Skip area selection, go to focus (step 3)
     }
   };
 
@@ -295,23 +314,27 @@ export function GenerateIdeasWizard({
   };
 
   const handleNext = () => {
-    if (step < totalSteps) {
-      setStep(step + 1);
+    // Step 3 (focus) → Step 4 (review)
+    if (step === 3) {
+      setStep(4);
     }
   };
 
   const handleBack = () => {
     if (step === 2) {
+      // Area selection → Goal selection
       setStep(1);
       setArea(null);
     } else if (step === 3) {
+      // Focus selection → depends on mode
       if (goal === 'area') {
-        setStep(2);
+        setStep(2); // Back to area selection
       } else {
-        setStep(1);
+        setStep(1); // Back to goal selection
         setGoal(null);
       }
     } else if (step === 4) {
+      // Review → Focus selection
       setStep(3);
     }
   };
@@ -336,7 +359,7 @@ export function GenerateIdeasWizard({
       case 2:
         return 'Which area?';
       case 3:
-        return 'Narrow the scope?';
+        return 'Where should Mason look?';
       case 4:
         return 'Your command is ready';
       default:
@@ -353,7 +376,7 @@ export function GenerateIdeasWizard({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-2xl mx-4 bg-navy border border-gray-700 shadow-2xl overflow-hidden"
+        className="relative w-full max-w-xl mx-4 max-h-[85vh] bg-navy border border-gray-700 shadow-2xl overflow-hidden flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
@@ -376,25 +399,27 @@ export function GenerateIdeasWizard({
           </button>
         </div>
 
-        {/* Progress */}
-        <div className="px-6 pt-4">
-          <div className="flex items-center gap-2">
-            {Array.from({ length: totalSteps }).map((_, i) => (
-              <div
-                key={i}
-                className={`h-1 flex-1 rounded-full transition-colors ${
-                  i + 1 <= step ? 'bg-gold' : 'bg-gray-700'
-                }`}
-              />
-            ))}
+        {/* Progress - only show after step 1 */}
+        {step > 1 && (
+          <div className="px-6 pt-4">
+            <div className="flex items-center gap-2">
+              {Array.from({ length: displayTotalSteps }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-1 flex-1 rounded-full transition-colors ${
+                    i + 1 <= displayStep ? 'bg-gold' : 'bg-gray-700'
+                  }`}
+                />
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Step {displayStep} of {displayTotalSteps}
+            </p>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Step {step} of {totalSteps}
-          </p>
-        </div>
+        )}
 
         {/* Content */}
-        <div className="px-6 py-5 min-h-[400px]">
+        <div className="px-6 py-5 overflow-y-auto flex-1">
           <AnimatePresence mode="wait">
             {/* Step 1: Goal Selection */}
             {step === 1 && (
@@ -456,8 +481,7 @@ export function GenerateIdeasWizard({
                               <span className="text-white">{g.output}</span>
                             </span>
                             <span className="text-gray-400">
-                              Time:{' '}
-                              <span className="text-white">{g.time}</span>
+                              Time: <span className="text-white">{g.time}</span>
                             </span>
                           </div>
                         </div>
@@ -548,143 +572,86 @@ export function GenerateIdeasWizard({
                   </div>
                 </div>
 
-                <div>
-                  <p className="text-sm text-gray-400 mb-3">
-                    Optionally narrow down which part of your codebase to
-                    analyze:
-                  </p>
-                  <div className="space-y-2">
-                    {FOCUS_OPTIONS.map((option) => (
+                {/* Compact chip selection */}
+                <div className="flex flex-wrap gap-2">
+                  {FOCUS_OPTIONS.filter((o) => o.value !== 'custom').map(
+                    (option) => (
                       <button
                         key={option.value}
                         onClick={() => setFocusArea(option.value)}
-                        className={`w-full p-3 text-left border transition-all ${
+                        className={`px-3 py-1.5 text-sm border rounded transition-all ${
                           focusArea === option.value
-                            ? 'border-gold bg-gold/10'
-                            : 'border-gray-700 bg-black/30 hover:border-gray-600'
+                            ? 'border-gold bg-gold/10 text-gold'
+                            : 'border-gray-700 bg-black/30 text-gray-300 hover:border-gray-600 hover:text-white'
                         }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-white">{option.label}</span>
-                            <p className="text-xs text-gray-500">
-                              {option.description}
-                            </p>
-                          </div>
-                          {focusArea === option.value && (
-                            <Check className="w-4 h-4 text-gold" />
-                          )}
-                        </div>
+                        {focusArea === option.value && (
+                          <Check className="w-3 h-3 inline mr-1.5" />
+                        )}
+                        {option.label}
                       </button>
-                    ))}
-                  </div>
-
-                  {focusArea === 'custom' && (
-                    <input
-                      type="text"
-                      value={customFocus}
-                      onChange={(e) => setCustomFocus(e.target.value)}
-                      placeholder="e.g., src/features/billing/ or 'checkout flow'"
-                      className="w-full mt-3 px-4 py-3 bg-black border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-gold"
-                    />
+                    ),
                   )}
+                </div>
+
+                {/* Custom input */}
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={customFocus}
+                    onChange={(e) => {
+                      setCustomFocus(e.target.value);
+                      if (e.target.value) {
+                        setFocusArea('custom');
+                      }
+                    }}
+                    onFocus={() => {
+                      if (customFocus) {
+                        setFocusArea('custom');
+                      }
+                    }}
+                    placeholder="Or type a custom path: src/features/billing/"
+                    className={`w-full px-4 py-2.5 bg-black border text-white text-sm placeholder-gray-500 focus:outline-none transition-colors ${
+                      focusArea === 'custom'
+                        ? 'border-gold'
+                        : 'border-gray-700 focus:border-gold'
+                    }`}
+                  />
                 </div>
               </motion.div>
             )}
 
             {/* Step 4: Review & Copy (final step) */}
-            {step === totalSteps && (
+            {step === 4 && (
               <motion.div
                 key="step4"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="space-y-5"
+                className="space-y-4"
               >
-                {/* Summary */}
-                <div className="p-4 bg-gray-900/50 border border-gray-800 rounded">
-                  <h4 className="text-sm font-medium text-white mb-3">
-                    Review your selection
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Mode:</span>
-                      <span className="text-white font-medium">
-                        {selectedGoal?.title}
-                        {selectedArea && ` → ${selectedArea.label}`}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Expected output:</span>
-                      <span className="text-white">
-                        {goal === 'area' ? '5 items' : selectedGoal?.output}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Focus:</span>
-                      <span className="text-white">
-                        {getFocusText() || 'Entire codebase'}
-                      </span>
-                    </div>
+                {/* Command Preview - prominent */}
+                <div className="p-4 bg-black border border-gray-700 rounded">
+                  <pre className="text-gold font-mono text-sm whitespace-pre-wrap">
+                    {generateCommand()}
+                  </pre>
+                  <div className="mt-3 pt-3 border-t border-gray-800 text-xs text-gray-400">
+                    {selectedGoal?.title}
+                    {selectedArea && ` → ${selectedArea.label}`}
+                    {' • '}
+                    {goal === 'area' ? '5 items' : selectedGoal?.output}
+                    {getFocusText() && ` • Focus: ${getFocusText()}`}
                   </div>
                 </div>
 
-                {/* Command Preview */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Your Command
-                  </label>
-                  <div className="relative">
-                    <pre className="px-4 py-4 bg-black border border-gray-700 text-gold font-mono text-sm whitespace-pre-wrap">
-                      {generateCommand()}
-                    </pre>
-                  </div>
-                </div>
-
-                {/* Instructions */}
-                <div className="p-4 bg-gold/5 border border-gold/20 rounded">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-gold flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="text-sm font-medium text-gold mb-2">
-                        How to run this command
-                      </h4>
-                      <ol className="text-sm text-gray-300 space-y-1.5 list-decimal list-inside">
-                        <li>
-                          Click{' '}
-                          <strong className="text-white">Copy Command</strong>{' '}
-                          below
-                        </li>
-                        <li>Open your terminal in your project directory</li>
-                        <li>
-                          Run{' '}
-                          <code className="px-1.5 py-0.5 bg-black text-gold rounded">
-                            claude
-                          </code>{' '}
-                          to start Claude Code
-                        </li>
-                        <li>Paste the command and press Enter</li>
-                      </ol>
-                    </div>
-                  </div>
-                </div>
-
-                {/* What to expect */}
-                <div className="p-4 bg-gray-900/30 border border-gray-800 rounded">
-                  <h4 className="text-sm font-medium text-white mb-2">
-                    What to expect
-                  </h4>
-                  <p className="text-sm text-gray-400">
-                    {goal === 'banger' &&
-                      'Mason will deep dive into your codebase, generate 10 transformative ideas, then deliver THE ONE best idea with a full PRD.'}
-                    {goal === 'full' &&
-                      '8 specialized agents will analyze your codebase in parallel, returning 25 prioritized improvements across all domains.'}
-                    {goal === 'quick' &&
-                      'A fast scan across all 8 domains, returning the single best finding from each plus one banger idea.'}
-                    {goal === 'area' &&
-                      `The ${selectedArea?.label} agent will analyze your codebase and return 5 focused recommendations.`}
-                  </p>
-                </div>
+                {/* Simple instruction */}
+                <p className="text-sm text-gray-400">
+                  Run{' '}
+                  <code className="px-1.5 py-0.5 bg-black text-gold rounded text-xs">
+                    claude
+                  </code>{' '}
+                  in your terminal, paste this command, and press Enter.
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -706,7 +673,7 @@ export function GenerateIdeasWizard({
             )}
           </button>
 
-          {step === totalSteps ? (
+          {step === 4 ? (
             <button
               onClick={handleCopy}
               className="flex items-center gap-2 px-6 py-2.5 bg-gold text-navy font-semibold hover:bg-gold/90 transition-colors"
