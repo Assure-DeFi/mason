@@ -404,3 +404,36 @@ IF MODE == "banger": Skip to Mode D section
 **Why**: Warnings get ignored by agents. Items with null repository_id silently disappear from repo-filtered views, causing confusion about "where did my items go?"
 
 ---
+
+## Command Structure: Self-Contained Mode Sections
+
+**Discovered**: 2026-02-02
+**Context**: pm-review 2,428-line command was failing to follow instructions - agents would skip sections, miss requirements, or blend modes
+**Pattern**: When a command supports multiple modes, make each mode section FULLY SELF-CONTAINED:
+
+1. **Universal Requirements Table** - Put at top with checkboxes agents can mentally tick
+2. **Each mode repeats its requirements inline** - Don't say "see Section X" - include it right there
+3. **Reduce total length** - Long documents cause agents to skip sections (2,428 → 797 lines)
+4. **Use anchor markers instead of line numbers** - Line numbers break when file changes
+5. **Validation gates per mode** - Each mode specifies its own pass/fail criteria
+
+**Why**: Agents read linearly and have limited attention. A 2000+ line command with cross-references fails because agents don't reliably jump around. Self-contained sections with repeated requirements work better than DRY principles.
+
+---
+
+## Wizard UX: Educational Selection for Complex Commands
+
+**Discovered**: 2026-02-02
+**Context**: Users didn't understand pm-review modes from dropdown - needed to read docs to know what "Standard Review" vs "Banger Mode" meant
+**Pattern**: When UI triggers commands with multiple modes/options:
+
+1. **Step-by-step wizard** instead of single dropdown
+2. **Educational descriptions** for each option explaining what it does
+3. **Expected output preview** - "Generates 8-25 items" vs "Generates exactly 1 item"
+4. **Time expectations** - Help users understand scope
+5. **Review step** - Show the complete command before execution
+6. **Copy-paste instructions** - Users run commands in terminal, not through UI buttons
+
+**Why**: Complex commands with multiple modes need explanation. A dropdown with "Mode A, Mode B, Mode C" requires users to read documentation. An educational wizard teaches as it guides.
+
+---
