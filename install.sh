@@ -101,20 +101,42 @@ download_file() {
 echo ""
 echo "Installing Claude Code commands..."
 
+BASE_CMD_URL="https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/commands"
+
 download_file \
-    "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/commands/pm-review.md" \
+    "${BASE_CMD_URL}/pm-review.md" \
     ".claude/commands/pm-review.md" \
     "pm-review.md"
 
 download_file \
-    "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/commands/execute-approved.md" \
+    "${BASE_CMD_URL}/pm-banger.md" \
+    ".claude/commands/pm-banger.md" \
+    "pm-banger.md"
+
+download_file \
+    "${BASE_CMD_URL}/pm-quick.md" \
+    ".claude/commands/pm-quick.md" \
+    "pm-quick.md"
+
+download_file \
+    "${BASE_CMD_URL}/pm-focus.md" \
+    ".claude/commands/pm-focus.md" \
+    "pm-focus.md"
+
+download_file \
+    "${BASE_CMD_URL}/execute-approved.md" \
     ".claude/commands/execute-approved.md" \
     "execute-approved.md"
 
 download_file \
-    "https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands/commands/mason-update.md" \
+    "${BASE_CMD_URL}/mason-update.md" \
     ".claude/commands/mason-update.md" \
     "mason-update.md"
+
+download_file \
+    "${BASE_CMD_URL}/battle-test.md" \
+    ".claude/commands/battle-test.md" \
+    "battle-test.md"
 
 # Download skill template
 echo ""
@@ -253,8 +275,12 @@ verify_file() {
 }
 
 verify_file ".claude/commands/pm-review.md"
+verify_file ".claude/commands/pm-banger.md"
+verify_file ".claude/commands/pm-quick.md"
+verify_file ".claude/commands/pm-focus.md"
 verify_file ".claude/commands/execute-approved.md"
 verify_file ".claude/commands/mason-update.md"
+verify_file ".claude/commands/battle-test.md"
 verify_file ".claude/skills/pm-domain-knowledge/SKILL.md"
 verify_file "mason.config.json"
 
@@ -270,17 +296,29 @@ echo ""
 echo "Recording installed versions..."
 
 # Extract versions from installed files
-PM_VERSION=$(grep -m1 "^version:" ".claude/commands/pm-review.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
-EXEC_VERSION=$(grep -m1 "^version:" ".claude/commands/execute-approved.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
-UPDATE_VERSION=$(grep -m1 "^version:" ".claude/commands/mason-update.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+get_version() {
+    grep -m1 "^version:" ".claude/commands/$1.md" 2>/dev/null | cut -d: -f2 | tr -d ' '
+}
+
+PM_REVIEW_VER=$(get_version "pm-review")
+PM_BANGER_VER=$(get_version "pm-banger")
+PM_QUICK_VER=$(get_version "pm-quick")
+PM_FOCUS_VER=$(get_version "pm-focus")
+EXEC_VER=$(get_version "execute-approved")
+UPDATE_VER=$(get_version "mason-update")
+BATTLE_VER=$(get_version "battle-test")
 
 cat > .claude/.mason-state.json << EOF
 {
   "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "installed_versions": {
-    "pm-review": "${PM_VERSION:-1.0.0}",
-    "execute-approved": "${EXEC_VERSION:-1.0.0}",
-    "mason-update": "${UPDATE_VERSION:-1.0.0}"
+    "pm-review": "${PM_REVIEW_VER:-3.1.0}",
+    "pm-banger": "${PM_BANGER_VER:-3.0.0}",
+    "pm-quick": "${PM_QUICK_VER:-3.0.0}",
+    "pm-focus": "${PM_FOCUS_VER:-3.0.0}",
+    "execute-approved": "${EXEC_VER:-2.10.0}",
+    "mason-update": "${UPDATE_VER:-2.1.0}",
+    "battle-test": "${BATTLE_VER:-1.0.0}"
   }
 }
 EOF
