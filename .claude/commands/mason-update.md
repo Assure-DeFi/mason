@@ -1,6 +1,6 @@
 ---
 name: mason-update
-version: 2.0.0
+version: 2.1.0
 description: Update Mason commands to latest versions
 ---
 
@@ -30,6 +30,42 @@ Examples:
 - `/mason-update --force` - Force reinstall all commands
 
 ## Process
+
+### Step 0: Self-Bootstrap (CRITICAL - RUN FIRST)
+
+**This step ensures mason-update itself is current before updating other commands.**
+
+```bash
+echo "=== MASON-UPDATE SELF-CHECK ==="
+
+BASE_URL="https://raw.githubusercontent.com/Assure-DeFi/mason/main/packages/mason-commands"
+LOCAL_VERSION=$(grep -m1 "^version:" ".claude/commands/mason-update.md" 2>/dev/null | cut -d: -f2 | tr -d ' ')
+REMOTE_MANIFEST=$(curl -fsSL --connect-timeout 5 "${BASE_URL%/commands}/versions.json" 2>/dev/null)
+REMOTE_VERSION=$(echo "$REMOTE_MANIFEST" | jq -r '.commands."mason-update".version // ""' 2>/dev/null)
+
+echo "Local mason-update: v${LOCAL_VERSION:-not found}"
+echo "Remote mason-update: v${REMOTE_VERSION}"
+
+if [ "$LOCAL_VERSION" != "$REMOTE_VERSION" ]; then
+  echo ""
+  echo "Updating mason-update itself..."
+  curl -fsSL "${BASE_URL}/commands/mason-update.md" -o ".claude/commands/mason-update.md" 2>/dev/null
+  echo "mason-update updated to v${REMOTE_VERSION}"
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════════════════╗"
+  echo "║  RESTART REQUIRED: Re-invoke /mason-update to use new version           ║"
+  echo "╚══════════════════════════════════════════════════════════════════════════╝"
+  exit 0
+fi
+
+echo "mason-update is current."
+echo "==============================="
+echo ""
+```
+
+**IF mason-update was updated:** The agent MUST re-invoke `/mason-update` to continue with the new version. Do NOT proceed with the old logic.
+
+---
 
 ### Step 1: Fetch Remote Version Manifest
 

@@ -32,10 +32,10 @@
       "breaking_reason": "Version check moved to MANDATORY FIRST STEP for consistent enforcement"
     },
     "mason-update": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "file_path": "commands/mason-update.md",
-      "required_minimum": "2.0.0",
-      "breaking_reason": "Updated to handle 7 commands including new PM commands"
+      "required_minimum": "2.1.0",
+      "breaking_reason": "Added self-bootstrap - updates itself first before other commands"
     },
     "battle-test": {
       "version": "1.0.0",
