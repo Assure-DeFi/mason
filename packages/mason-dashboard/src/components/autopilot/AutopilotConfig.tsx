@@ -910,12 +910,29 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
               <li>Executes PM review and auto-approves matching items</li>
               <li>Creates PRs for approved items automatically</li>
             </ul>
-            <p className="mt-3">
-              <span className="font-medium text-gold">Setup required:</span> Run{' '}
-              <code className="rounded bg-gray-800 px-1.5 py-0.5">
-                npm install -g mason-autopilot && mason-autopilot init
-              </code>
-            </p>
+            <div className="mt-4 space-y-2">
+              <p className="font-medium text-gray-300">Setup Instructions</p>
+              <div className="space-y-1.5">
+                <p>
+                  <span className="text-gray-500">1. Install:</span>{' '}
+                  <code className="rounded bg-gray-800 px-1.5 py-0.5">
+                    npm install -g mason-autopilot
+                  </code>
+                </p>
+                <p>
+                  <span className="text-gray-500">2. Initialize:</span>{' '}
+                  <code className="rounded bg-gray-800 px-1.5 py-0.5">
+                    mason-autopilot init
+                  </code>
+                </p>
+                <p>
+                  <span className="text-gray-500">3. Start daemon:</span>{' '}
+                  <code className="select-all rounded bg-gold/20 px-1.5 py-0.5 font-medium text-gold">
+                    mason-autopilot start
+                  </code>
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
