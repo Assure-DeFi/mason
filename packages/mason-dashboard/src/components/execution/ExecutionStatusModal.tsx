@@ -135,17 +135,54 @@ export function ExecutionStatusModal({
     }
   }, [client, itemId, onComplete, pollAttempts, isConnecting]);
 
-  // Start polling when component mounts
+  // Start polling when component mounts (visibility-aware)
+  // Pauses when tab is hidden to conserve CPU and bandwidth
   useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null;
+    let isVisible = !document.hidden;
+
+    const startPolling = () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+      pollInterval = setInterval(() => {
+        void pollProgress();
+      }, 1500);
+    };
+
+    const stopPolling = () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      isVisible = !document.hidden;
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        // Poll immediately when becoming visible
+        void pollProgress();
+        startPolling();
+      }
+    };
+
     // Initial fetch
     void pollProgress();
 
-    // Poll every 1.5 seconds
-    const pollInterval = setInterval(() => {
-      void pollProgress();
-    }, 1500);
+    // Start polling if tab is visible
+    if (isVisible) {
+      startPolling();
+    }
 
-    return () => clearInterval(pollInterval);
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [pollProgress]);
 
   // Also set up realtime subscription as backup

@@ -144,6 +144,7 @@ export function useExecutionListener({
 
   // POLLING: Guaranteed fallback that runs regardless of realtime status
   // Uses dynamic interval with backoff on errors to prevent resource exhaustion
+  // VISIBILITY-AWARE: Pauses when tab is hidden to conserve resources
   useEffect(() => {
     if (!client || !enabled) {
       return;
@@ -152,11 +153,12 @@ export function useExecutionListener({
     let currentInterval = BASE_POLLING_INTERVAL_MS;
     let consecutiveErrors = 0;
     let intervalId: NodeJS.Timeout | null = null;
+    let isPageVisible = !document.hidden;
 
     console.log(
       '[ExecutionListener] Starting polling fallback (every',
       currentInterval / 1000,
-      'seconds)',
+      'seconds, visibility-aware)',
     );
 
     const poll = async () => {
@@ -249,19 +251,51 @@ export function useExecutionListener({
       }
     };
 
-    // Poll immediately on mount to catch any executions that started before we were ready
-    void poll();
-
-    // Then poll at the current interval
-    intervalId = setInterval(() => {
-      void poll();
-    }, currentInterval);
-
-    return () => {
-      console.log('[ExecutionListener] Stopping polling fallback');
+    // Helper to start/restart polling
+    const startPolling = () => {
       if (intervalId) {
         clearInterval(intervalId);
       }
+      intervalId = setInterval(() => {
+        void poll();
+      }, currentInterval);
+    };
+
+    // Helper to stop polling
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    // Handle visibility changes - pause polling when tab hidden
+    const handleVisibilityChange = () => {
+      isPageVisible = !document.hidden;
+      if (document.hidden) {
+        console.log('[ExecutionListener] Tab hidden - pausing polling');
+        stopPolling();
+      } else {
+        console.log('[ExecutionListener] Tab visible - resuming polling');
+        // Poll immediately when becoming visible to catch any missed executions
+        void poll();
+        startPolling();
+      }
+    };
+
+    // Poll immediately on mount to catch any executions that started before we were ready
+    if (isPageVisible) {
+      void poll();
+      startPolling();
+    }
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      console.log('[ExecutionListener] Stopping polling fallback');
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [client, enabled, processExecution]);
 }

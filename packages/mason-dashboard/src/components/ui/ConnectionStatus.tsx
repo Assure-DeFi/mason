@@ -20,8 +20,11 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
     useState<ConnectionState>('unknown');
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
-  // Check connection status
+  // Check connection status (visibility-aware)
+  // Pauses periodic checks when tab is hidden to conserve resources
   useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+
     const checkConnection = async () => {
       if (!isConfigured || !client) {
         setConnectionState('disconnected');
@@ -48,14 +51,47 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
       }
     };
 
+    const startPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+      interval = setInterval(() => void checkConnection(), 30000);
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        // Check immediately when tab becomes visible
+        void checkConnection();
+        startPolling();
+      }
+    };
+
     // Check on mount
     if (!isLoading) {
       void checkConnection();
     }
 
-    // Periodic check every 30 seconds
-    const interval = setInterval(() => void checkConnection(), 30000);
-    return () => clearInterval(interval);
+    // Start periodic checks only if tab is visible
+    if (!document.hidden) {
+      startPolling();
+    }
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [isConfigured, client, isLoading]);
 
   if (isLoading || connectionState === 'unknown') {

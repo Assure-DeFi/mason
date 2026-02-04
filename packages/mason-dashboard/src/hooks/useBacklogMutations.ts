@@ -204,34 +204,32 @@ export function useBacklogMutations({
         }
       });
 
-      // Update all items
-      const updates = ids.map(async (id) => {
+      // Batch update all items in a single query (fixes N+1 problem)
+      // Before: 50 items = 50 queries. After: 50 items = 1 query.
+      const { data: results, error } = await client
+        .from(TABLES.PM_BACKLOG_ITEMS)
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .in('id', ids)
+        .select();
+
+      if (error) {
+        console.error('Batch update failed:', error);
+        return;
+      }
+
+      // Record status change events (fire-and-forget)
+      ids.forEach((id) => {
         const oldStatus = previousStatuses.get(id);
-        const { data, error } = await client
-          .from(TABLES.PM_BACKLOG_ITEMS)
-          .update({ status: newStatus, updated_at: new Date().toISOString() })
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (error) {
-          return null;
-        }
-
-        // Record the status change event (fire-and-forget)
         if (oldStatus && oldStatus !== newStatus) {
           void recordStatusEvent(id, oldStatus, newStatus);
         }
-
-        return data as BacklogItem;
       });
 
-      const results = await Promise.all(updates);
-
-      // Update local state
+      // Update local state with batch results
+      const updatedResults = (results || []) as BacklogItem[];
       setItems((prev) =>
         prev.map((item) => {
-          const updated = results.find((r) => r?.id === item.id);
+          const updated = updatedResults.find((r) => r.id === item.id);
           return updated || item;
         }),
       );
@@ -240,7 +238,7 @@ export function useBacklogMutations({
       setSelectedIds([]);
 
       // Set undo state
-      const successCount = results.filter((r) => r !== null).length;
+      const successCount = updatedResults.length;
       setUndoState({
         action,
         itemIds: ids,
@@ -382,53 +380,56 @@ export function useBacklogMutations({
       undoTimeoutRef.current = null;
     }
 
-    // Handle delete undo (re-insert items)
+    // Handle delete undo (re-insert items) - batch insert in single query
     if (undoState.action === 'delete' && undoState.deletedItems) {
-      const inserts = undoState.deletedItems.map(async (item) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { id, ...itemWithoutId } = item;
-        const { data, error } = await client
-          .from(TABLES.PM_BACKLOG_ITEMS)
-          .insert({ ...itemWithoutId, id })
-          .select()
-          .single();
+      // Prepare items for batch insert (preserving original IDs)
+      const itemsToInsert = undoState.deletedItems.map((item) => ({
+        ...item,
+      }));
 
-        if (error) {
-          return null;
-        }
-        return data as BacklogItem;
-      });
+      const { data: restoredItems, error } = await client
+        .from(TABLES.PM_BACKLOG_ITEMS)
+        .insert(itemsToInsert)
+        .select();
 
-      const results = await Promise.all(inserts);
-      const restoredItems = results.filter((r): r is BacklogItem => r !== null);
+      if (error) {
+        console.error('Failed to restore deleted items:', error);
+        setUndoState(null);
+        return;
+      }
 
-      setItems((prev) => [...restoredItems, ...prev]);
+      setItems((prev) => [...(restoredItems as BacklogItem[]), ...prev]);
       setUndoState(null);
       return;
     }
 
     // Restore all items to their previous statuses
-    const updates = Array.from(undoState.previousStatuses.entries()).map(
-      async ([id, status]) => {
-        const { data, error } = await client
-          .from(TABLES.PM_BACKLOG_ITEMS)
-          .update({ status, updated_at: new Date().toISOString() })
-          .eq('id', id)
-          .select()
-          .single();
+    // Group items by target status to minimize queries (1 query per unique status vs 1 per item)
+    const statusGroups = new Map<BacklogStatus, string[]>();
+    undoState.previousStatuses.forEach((status, id) => {
+      const group = statusGroups.get(status) || [];
+      group.push(id);
+      statusGroups.set(status, group);
+    });
 
-        if (error) {
-          return null;
-        }
-        return data as BacklogItem;
-      },
-    );
+    // Execute batch updates for each status group
+    const allResults: BacklogItem[] = [];
+    const statusEntries = Array.from(statusGroups.entries());
+    for (const [status, ids] of statusEntries) {
+      const { data, error } = await client
+        .from(TABLES.PM_BACKLOG_ITEMS)
+        .update({ status, updated_at: new Date().toISOString() })
+        .in('id', ids)
+        .select();
 
-    const results = await Promise.all(updates);
+      if (!error && data) {
+        allResults.push(...(data as BacklogItem[]));
+      }
+    }
 
     setItems((prev) =>
       prev.map((item) => {
-        const restored = results.find((r) => r?.id === item.id);
+        const restored = allResults.find((r) => r.id === item.id);
         return restored || item;
       }),
     );
