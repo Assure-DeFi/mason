@@ -10,7 +10,11 @@ import {
 } from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
-import { backlogRestoreSchema, validateRequest } from '@/lib/schemas';
+import {
+  backlogRestoreSchema,
+  validateRequest,
+  safeParseBenefits,
+} from '@/lib/schemas';
 
 /**
  * POST /api/backlog/restore - Restore a filtered item to the backlog
@@ -67,6 +71,13 @@ export async function POST(request: Request) {
       return badRequest('Item has already been restored');
     }
 
+    // Validate benefits data before insert
+    const validatedBenefits = safeParseBenefits(filteredItem.benefits);
+    if (filteredItem.benefits && !validatedBenefits) {
+      // eslint-disable-next-line no-console
+      console.warn('Invalid benefits data in filtered item, using empty array');
+    }
+
     // Create backlog item from filtered item
     const backlogItem = {
       title: filteredItem.title,
@@ -78,7 +89,7 @@ export async function POST(request: Request) {
       effort_score: filteredItem.effort_score,
       priority_score: filteredItem.impact_score * 2 - filteredItem.effort_score,
       complexity: filteredItem.complexity || 2,
-      benefits: filteredItem.benefits || [],
+      benefits: validatedBenefits || [],
       status: 'new',
       analysis_run_id: filteredItem.analysis_run_id,
     };

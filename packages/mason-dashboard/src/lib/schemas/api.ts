@@ -117,3 +117,54 @@ export const apiKeyCreateSchema = z.object({
 });
 
 export type ApiKeyCreateRequest = z.infer<typeof apiKeyCreateSchema>;
+
+/**
+ * Benefit category enum
+ * Defines valid benefit categories for backlog items
+ */
+export const benefitCategorySchema = z.enum([
+  'user_experience',
+  'sales_team',
+  'operations',
+  'performance',
+  'reliability',
+]);
+
+export type BenefitCategory = z.infer<typeof benefitCategorySchema>;
+
+/**
+ * Single benefit item schema
+ * Validates the structure of a benefit in the benefits JSONB array
+ */
+export const benefitSchema = z.object({
+  category: benefitCategorySchema,
+  icon: z.string().min(1, 'Icon is required').max(50, 'Icon name too long'),
+  title: z.string().min(1, 'Title is required').max(100, 'Title too long'),
+  description: z.string().min(1, 'Description is required').max(500, 'Description too long'),
+});
+
+export type Benefit = z.infer<typeof benefitSchema>;
+
+/**
+ * Benefits array schema
+ * Validates the full benefits JSONB column structure
+ */
+export const benefitsArraySchema = z.array(benefitSchema).max(10, 'Maximum 10 benefits allowed');
+
+export type BenefitsArray = z.infer<typeof benefitsArraySchema>;
+
+/**
+ * Helper to validate benefits data before database insert/update
+ * Returns validated data or throws ZodError
+ */
+export function validateBenefits(data: unknown): BenefitsArray {
+  return benefitsArraySchema.parse(data);
+}
+
+/**
+ * Helper to safely validate benefits, returning null on invalid data
+ */
+export function safeParseBenefits(data: unknown): BenefitsArray | null {
+  const result = benefitsArraySchema.safeParse(data);
+  return result.success ? result.data : null;
+}
