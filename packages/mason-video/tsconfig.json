@@ -12,6 +12,6 @@
     "declaration": true,
     "moduleResolution": "node"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "remotion.config.ts"],
   "exclude": ["node_modules"]
 }

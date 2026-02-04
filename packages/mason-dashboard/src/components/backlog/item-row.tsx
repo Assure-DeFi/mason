@@ -4,9 +4,10 @@ import { formatDistanceToNow, differenceInHours } from 'date-fns';
 import { FileText, Check, X, Clock, Files } from 'lucide-react';
 import { memo, useState } from 'react';
 
+import { STATUS_COLORS, STATUS_LABELS } from '@/components/ui/StatusBadge';
 import type { ColumnWidths } from '@/hooks/useColumnResize';
-import { getComplexityValue } from '@/types/backlog';
 import type { BacklogItem, BacklogStatus } from '@/types/backlog';
+import { getComplexityValue } from '@/types/backlog';
 
 import { BangerBadge } from './BangerBadge';
 import { CategoryBadge } from './category-badge';
@@ -16,24 +17,6 @@ import { QuickWinBadge } from './QuickWinBadge';
 import { RiskBadge } from './RiskBadge';
 
 type TabStatus = BacklogStatus | 'filtered' | null;
-
-const STATUS_COLORS: Record<BacklogStatus, { text: string; bg: string }> = {
-  new: { text: 'text-cyan-400', bg: 'bg-cyan-500/10' },
-  approved: { text: 'text-green-400', bg: 'bg-green-500/10' },
-  in_progress: { text: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-  completed: { text: 'text-green-400', bg: 'bg-green-500/10' },
-  deferred: { text: 'text-gray-400', bg: 'bg-gray-500/10' },
-  rejected: { text: 'text-red-400', bg: 'bg-red-500/10' },
-};
-
-const STATUS_LABELS: Record<BacklogStatus, string> = {
-  new: 'New',
-  approved: 'Approved',
-  in_progress: 'In Progress',
-  completed: 'Completed',
-  deferred: 'Deferred',
-  rejected: 'Rejected',
-};
 
 /**
  * Get the approval age color based on hours since approval.

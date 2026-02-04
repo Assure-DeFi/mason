@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 
 import type { BacklogStatus } from '@/types/backlog';
 
-const STATUS_COLORS: Record<BacklogStatus, { text: string; bg: string }> = {
+export const STATUS_COLORS: Record<BacklogStatus, { text: string; bg: string }> = {
   new: { text: 'text-cyan-400', bg: 'bg-cyan-500/10' },
   approved: { text: 'text-green-400', bg: 'bg-green-500/10' },
   in_progress: { text: 'text-yellow-400', bg: 'bg-yellow-500/10' },
@@ -14,7 +14,7 @@ const STATUS_COLORS: Record<BacklogStatus, { text: string; bg: string }> = {
   rejected: { text: 'text-red-400', bg: 'bg-red-500/10' },
 };
 
-const STATUS_LABELS: Record<BacklogStatus, string> = {
+export const STATUS_LABELS: Record<BacklogStatus, string> = {
   new: 'New',
   approved: 'Approved',
   in_progress: 'In Progress',
@@ -23,7 +23,7 @@ const STATUS_LABELS: Record<BacklogStatus, string> = {
   rejected: 'Rejected',
 };
 
-const STATUS_DESCRIPTIONS: Record<BacklogStatus, string> = {
+export const STATUS_DESCRIPTIONS: Record<BacklogStatus, string> = {
   new: 'Just discovered, needs your review',
   approved: 'Ready to be implemented',
   in_progress: 'Currently being worked on',
