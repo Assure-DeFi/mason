@@ -175,13 +175,17 @@ export async function startCommand(options: StartOptions): Promise<void> {
 
   // Schedule recurring runs with dynamic interval
   const scheduleNextRun = () => {
-    if (!isRunning) return;
+    if (!isRunning) {
+      return;
+    }
 
-    setTimeout(async () => {
-      if (isRunning) {
-        await runDaemonCycle(verbose);
-        scheduleNextRun();
-      }
+    setTimeout(() => {
+      void (async () => {
+        if (isRunning) {
+          await runDaemonCycle(verbose);
+          scheduleNextRun();
+        }
+      })();
     }, currentPollInterval);
   };
 
