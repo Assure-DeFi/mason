@@ -2,8 +2,15 @@
  * Standardized API Response Utilities
  *
  * Provides consistent response formatting across all API routes.
- * All responses follow the shape: { success, data?, error? }
+ * All responses follow the shape: { success, data?, error?, requestId? }
+ *
+ * Features:
+ * - Consistent { success, data/error } envelope
+ * - X-Request-ID header tracking for debugging
+ * - Pre-configured error responses for common cases
  */
+
+import { randomUUID } from 'crypto';
 
 import { NextResponse } from 'next/server';
 
@@ -18,6 +25,42 @@ export interface ApiResponse<T = unknown> {
     message: string;
     details?: unknown;
   };
+  requestId?: string;
+}
+
+/**
+ * Response options for request tracking
+ */
+export interface ResponseOptions {
+  /** Optional request ID for tracking. If not provided, one will be generated. */
+  requestId?: string;
+  /** Whether to include request ID in response body (default: false) */
+  includeRequestIdInBody?: boolean;
+}
+
+/**
+ * Generates or extracts a request ID
+ * Extracts from incoming request header if present, otherwise generates new UUID
+ */
+export function getRequestId(request?: Request): string {
+  if (request) {
+    const existingId = request.headers.get('X-Request-ID');
+    if (existingId) {
+      return existingId;
+    }
+  }
+  return randomUUID();
+}
+
+/**
+ * Adds standard headers to a response including X-Request-ID
+ */
+function addStandardHeaders<T>(
+  response: NextResponse<T>,
+  requestId: string,
+): NextResponse<T> {
+  response.headers.set('X-Request-ID', requestId);
+  return response;
 }
 
 /**
@@ -60,17 +103,33 @@ export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
  *
  * @param data - The response data
  * @param status - HTTP status code (default: 200)
- * @returns NextResponse with standardized format
+ * @param options - Optional request tracking options
+ * @returns NextResponse with standardized format and X-Request-ID header
  *
  * @example
  * return apiSuccess({ user: { id: '123', name: 'John' } });
  * // Returns: { success: true, data: { user: { id: '123', name: 'John' } } }
+ * // Headers: X-Request-ID: <uuid>
+ *
+ * @example
+ * // With request ID tracking
+ * const requestId = getRequestId(request);
+ * return apiSuccess(data, 200, { requestId });
  */
 export function apiSuccess<T>(
   data: T,
   status: number = 200,
+  options?: ResponseOptions,
 ): NextResponse<ApiResponse<T>> {
-  return NextResponse.json({ success: true, data }, { status });
+  const requestId = options?.requestId || randomUUID();
+  const body: ApiResponse<T> = { success: true, data };
+
+  if (options?.includeRequestIdInBody) {
+    body.requestId = requestId;
+  }
+
+  const response = NextResponse.json(body, { status });
+  return addStandardHeaders(response, requestId);
 }
 
 /**
@@ -80,23 +139,34 @@ export function apiSuccess<T>(
  * @param message - Human-readable error message
  * @param status - HTTP status code
  * @param details - Optional additional error details
- * @returns NextResponse with standardized error format
+ * @param options - Optional request tracking options
+ * @returns NextResponse with standardized error format and X-Request-ID header
  *
  * @example
  * return apiError(ErrorCodes.NOT_FOUND, 'User not found', 404);
  * // Returns: { success: false, error: { code: 'NOT_FOUND', message: 'User not found' } }
+ * // Headers: X-Request-ID: <uuid>
  */
 export function apiError(
   code: ErrorCode,
   message: string,
   status: number,
   details?: unknown,
+  options?: ResponseOptions,
 ): NextResponse<ApiResponse<never>> {
+  const requestId = options?.requestId || randomUUID();
   const error: ApiResponse<never>['error'] = { code, message };
   if (details !== undefined) {
     error.details = details;
   }
-  return NextResponse.json({ success: false, error }, { status });
+
+  const body: ApiResponse<never> = { success: false, error };
+  if (options?.includeRequestIdInBody) {
+    body.requestId = requestId;
+  }
+
+  const response = NextResponse.json(body, { status });
+  return addStandardHeaders(response, requestId);
 }
 
 // Pre-configured error responses for common cases
@@ -106,8 +176,9 @@ export function apiError(
  */
 export function unauthorized(
   message = 'Authentication required',
+  options?: ResponseOptions,
 ): NextResponse<ApiResponse<never>> {
-  return apiError(ErrorCodes.UNAUTHORIZED, message, 401);
+  return apiError(ErrorCodes.UNAUTHORIZED, message, 401, undefined, options);
 }
 
 /**
@@ -115,8 +186,9 @@ export function unauthorized(
  */
 export function forbidden(
   message = 'Access denied',
+  options?: ResponseOptions,
 ): NextResponse<ApiResponse<never>> {
-  return apiError(ErrorCodes.FORBIDDEN, message, 403);
+  return apiError(ErrorCodes.FORBIDDEN, message, 403, undefined, options);
 }
 
 /**
@@ -125,8 +197,9 @@ export function forbidden(
 export function badRequest(
   message: string,
   details?: unknown,
+  options?: ResponseOptions,
 ): NextResponse<ApiResponse<never>> {
-  return apiError(ErrorCodes.BAD_REQUEST, message, 400, details);
+  return apiError(ErrorCodes.BAD_REQUEST, message, 400, details, options);
 }
 
 /**
@@ -134,8 +207,9 @@ export function badRequest(
  */
 export function notFound(
   message = 'Resource not found',
+  options?: ResponseOptions,
 ): NextResponse<ApiResponse<never>> {
-  return apiError(ErrorCodes.NOT_FOUND, message, 404);
+  return apiError(ErrorCodes.NOT_FOUND, message, 404, undefined, options);
 }
 
 /**
@@ -144,8 +218,9 @@ export function notFound(
 export function conflict(
   message: string,
   details?: unknown,
+  options?: ResponseOptions,
 ): NextResponse<ApiResponse<never>> {
-  return apiError(ErrorCodes.CONFLICT, message, 409, details);
+  return apiError(ErrorCodes.CONFLICT, message, 409, details, options);
 }
 
 /**
@@ -154,32 +229,39 @@ export function conflict(
 export function serverError(
   message = 'Internal server error',
   details?: unknown,
+  options?: ResponseOptions,
 ): NextResponse<ApiResponse<never>> {
-  return apiError(ErrorCodes.INTERNAL_ERROR, message, 500, details);
+  return apiError(ErrorCodes.INTERNAL_ERROR, message, 500, details, options);
 }
 
 /**
- * Wraps an async handler with standardized error handling
+ * Wraps an async handler with standardized error handling and request ID tracking
  *
  * @param handler - The async route handler
  * @returns Wrapped handler that catches errors and returns standardized responses
  *
  * @example
- * export const POST = withErrorHandler(async (request) => {
+ * export const POST = withErrorHandler(async (request, { requestId }) => {
  *   const data = await doSomething();
- *   return apiSuccess(data);
+ *   return apiSuccess(data, 200, { requestId });
  * });
  */
 export function withErrorHandler<T>(
-  handler: (request: Request) => Promise<NextResponse<ApiResponse<T>>>,
+  handler: (
+    request: Request,
+    context: { requestId: string },
+  ) => Promise<NextResponse<ApiResponse<T>>>,
 ): (request: Request) => Promise<NextResponse<ApiResponse<T | never>>> {
   return async (request: Request) => {
+    const requestId = getRequestId(request);
     try {
-      return await handler(request);
+      return await handler(request, { requestId });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'An unexpected error occurred';
-      return serverError(message);
+      return serverError(message, undefined, { requestId });
     }
   };
 }
+
+// Note: getRequestId is already exported above where it's defined
