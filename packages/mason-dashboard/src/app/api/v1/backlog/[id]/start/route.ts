@@ -1,33 +1,12 @@
 import {
   apiSuccess,
-  unauthorized,
   badRequest,
   notFound,
   conflict,
-  serverError,
 } from '@/lib/api-response';
-import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
+import { withApiKeyAuth } from '@/lib/auth/middleware';
 import { TABLES } from '@/lib/constants';
-import {
-  checkRateLimit,
-  createRateLimitResponse,
-  addRateLimitHeaders,
-  getRateLimitIdentifier,
-} from '@/lib/rate-limit/middleware';
 import { createServiceClient } from '@/lib/supabase/client';
-
-// Helper to extract client IP from request
-function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-  return request.headers.get('x-real-ip') || 'unknown';
-}
-
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
 
 /**
  * POST /api/v1/backlog/[id]/start - Mark a backlog item as in_progress
@@ -44,36 +23,10 @@ interface RouteParams {
  * - status → 'in_progress'
  * - branch_name → provided value
  */
-export async function POST(request: Request, { params }: RouteParams) {
-  try {
-    // Extract and validate API key
-    const authHeader = request.headers.get('Authorization');
-    const apiKey = extractApiKeyFromHeader(authHeader);
-
-    if (!apiKey) {
-      return unauthorized('Missing or invalid Authorization header');
-    }
-
-    const user = await validateApiKey(apiKey);
-
-    if (!user) {
-      return unauthorized('Invalid API key');
-    }
-
-    // Rate limit check using validated user ID
-    const rateLimitId = getRateLimitIdentifier(
-      'backlog-start',
-      user.github_id,
-      getClientIp(request),
-    );
-    const rateLimitResult = await checkRateLimit(rateLimitId, 'standard');
-
-    if (!rateLimitResult.success) {
-      return createRateLimitResponse(rateLimitResult);
-    }
-
+export const POST = withApiKeyAuth<{ id: string }>(
+  async (request, context, { user }) => {
     // Get item ID from route params
-    const { id: itemId } = await params;
+    const { id: itemId } = await context.params;
 
     if (!itemId) {
       return badRequest('Missing item ID in URL');
@@ -130,7 +83,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    const response = apiSuccess({
+    return apiSuccess({
       item: {
         id: updatedItem.id,
         title: updatedItem.title,
@@ -139,9 +92,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       },
       message: `Item '${updatedItem.title}' is now in progress`,
     });
-    return addRateLimitHeaders(response, rateLimitResult);
-  } catch (error) {
-    console.error('Error starting backlog item:', error);
-    return serverError();
-  }
-}
+  },
+  { rateLimitOperation: 'backlog-start' },
+);
