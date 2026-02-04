@@ -6,13 +6,18 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { runCommand, type AgentConfig } from './agent-runner';
+import {
+  runCommand,
+  runCommandWithArgs,
+  type AgentConfig,
+} from './agent-runner';
 
 interface PmReviewConfig {
   userId: string;
   repositoryId: string;
   repositoryPath: string;
   verbose: boolean;
+  itemLimit?: number;
 }
 
 interface PmReviewResult {
@@ -57,7 +62,13 @@ export async function runPmReview(
   };
 
   try {
-    const result = await runCommand('pm-review', agentConfig);
+    const result = config.itemLimit
+      ? await runCommandWithArgs(
+          'pm-autopilot',
+          `--limit ${config.itemLimit}`,
+          agentConfig,
+        )
+      : await runCommand('pm-review', agentConfig);
 
     if (result.success && run?.id) {
       // Find items created during this run

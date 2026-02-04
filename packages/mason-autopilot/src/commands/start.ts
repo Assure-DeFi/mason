@@ -4,6 +4,10 @@
  * Start the autopilot daemon that polls Supabase for config and runs
  * scheduled PM reviews and executions.
  *
+ * Two-phase cycle:
+ *   Phase 1 (schedule-triggered, once daily): archive stale → generate N items → auto-approve all
+ *   Phase 2 (every cycle, every 5 min): execute 2 approved items if any remain
+ *
  * Uses Claude Agent SDK for direct API execution instead of subprocess spawning.
  */
 
@@ -45,6 +49,7 @@ interface AutopilotDbConfig {
   repository_id: string;
   enabled: boolean;
   schedule_cron: string | null;
+  // Kept for schema backward compat but unused in simplified flow
   auto_approval_rules: {
     maxComplexity: number;
     minImpact: number;
@@ -53,8 +58,9 @@ interface AutopilotDbConfig {
   guardian_rails: {
     maxItemsPerDay: number;
     pauseOnFailure: boolean;
-    requireHumanReviewComplexity: number;
+    requireHumanReviewComplexity?: number;
   };
+  // Kept for schema backward compat but unused in simplified flow
   execution_window: {
     startHour: number;
     endHour: number;
@@ -84,44 +90,6 @@ let isRunning = false;
 let lastScheduleCheck: Date | null = null;
 let currentPollInterval = BASE_POLL_INTERVAL_MS;
 let cooldownUntil: Date | null = null;
-
-interface BacklogThresholdResult {
-  count: number;
-  threshold: number;
-  isFull: boolean;
-  percentFull: number;
-}
-
-/**
- * Check if the backlog has reached capacity threshold.
- * Threshold is dynamically calculated as 5x maxItemsPerDay (~1 week buffer).
- */
-async function checkBacklogThreshold(
-  repositoryId: string,
-  maxItemsPerDay: number,
-): Promise<BacklogThresholdResult> {
-  // Dynamic threshold: 5x daily limit = ~1 week of work buffer
-  const threshold = maxItemsPerDay * 5;
-
-  // Count pending items (new + approved = unprocessed work)
-  const { count, error } = await supabase
-    .from('mason_pm_backlog_items')
-    .select('*', { count: 'exact', head: true })
-    .eq('repository_id', repositoryId)
-    .in('status', ['new', 'approved']);
-
-  if (error) {
-    console.error('Failed to check backlog threshold:', error.message);
-    // On error, assume not full to allow processing
-    return { count: 0, threshold, isFull: false, percentFull: 0 };
-  }
-
-  const actualCount = count ?? 0;
-  const percentFull = Math.round((actualCount / threshold) * 100);
-  const isFull = actualCount >= threshold;
-
-  return { count: actualCount, threshold, isFull, percentFull };
-}
 
 interface DailyExecutionResult {
   dailyExecutedCount: number;
@@ -153,7 +121,6 @@ async function getDailyExecutedCount(
 
   if (error) {
     console.error('Failed to check daily execution count:', error.message);
-    // On error, be conservative and assume we haven't executed anything
     return {
       dailyExecutedCount: 0,
       maxItemsPerDay,
@@ -176,6 +143,73 @@ async function getDailyExecutedCount(
     percentUsed,
     limitReached,
   };
+}
+
+/**
+ * Archive stale autopilot items from previous runs.
+ * Sets status='archived' on items with source='autopilot' still in 'new' status.
+ */
+async function archiveStaleAutopilotItems(
+  repositoryId: string,
+  verbose: boolean,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('mason_pm_backlog_items')
+    .update({ status: 'archived' })
+    .eq('repository_id', repositoryId)
+    .eq('source', 'autopilot')
+    .eq('status', 'new')
+    .select('id');
+
+  if (error) {
+    console.error('Failed to archive stale items:', error.message);
+    return;
+  }
+
+  const count = data?.length ?? 0;
+  if (count > 0) {
+    console.log(
+      `  Archived ${count} stale autopilot items from previous runs.`,
+    );
+  } else if (verbose) {
+    console.log('  No stale autopilot items to archive.');
+  }
+}
+
+/**
+ * Auto-approve ALL autopilot items with status='new'.
+ * Simplified: no filtering by complexity, impact, or category.
+ */
+async function autoApproveAllAutopilotItems(
+  config: AutopilotDbConfig,
+  verbose: boolean,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('mason_pm_backlog_items')
+    .update({ status: 'approved' })
+    .eq('repository_id', config.repository_id)
+    .eq('source', 'autopilot')
+    .eq('status', 'new')
+    .select('id, title');
+
+  if (error) {
+    console.error('Failed to auto-approve items:', error.message);
+    return 0;
+  }
+
+  const count = data?.length ?? 0;
+  if (count > 0) {
+    console.log(`  Auto-approved ${count} autopilot items.`);
+    if (verbose && data) {
+      for (const item of data) {
+        console.log(`    - ${item.title}`);
+      }
+    }
+  } else if (verbose) {
+    console.log('  No new autopilot items to approve.');
+  }
+
+  return count;
 }
 
 export async function startCommand(options: StartOptions): Promise<void> {
@@ -311,67 +345,33 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
     // 2. Update heartbeat
     await updateHeartbeat(config.id);
 
-    // 3. Check if within execution window
-    if (!isWithinExecutionWindow(config.execution_window)) {
-      if (verbose) {
-        console.log('  Outside execution window. Skipping.');
-      }
-      return;
-    }
-
-    // 4. Check if schedule triggers
+    // === PHASE 1: Daily generation (schedule-triggered) ===
     if (config.schedule_cron && shouldRunSchedule(config.schedule_cron)) {
       console.log(
-        `[${now.toISOString()}] Schedule triggered! Running autopilot...`,
+        `[${now.toISOString()}] Schedule triggered! Running daily review...`,
       );
 
-      // 5. Pre-flight check: Is backlog at capacity?
-      const backlogStatus = await checkBacklogThreshold(
-        config.repository_id,
-        config.guardian_rails.maxItemsPerDay,
-      );
+      // Archive stale autopilot items from previous runs
+      await archiveStaleAutopilotItems(config.repository_id, verbose);
 
-      console.log(
-        `  Backlog: ${backlogStatus.count}/${backlogStatus.threshold} (${backlogStatus.percentFull}% full)`,
-      );
+      // Run PM review with item limit
+      await runPmReviewHandler(config, verbose);
 
-      if (backlogStatus.isFull) {
-        // Skip PM review but continue with auto-approve and execution
-        console.log(
-          '  Skipping PM review - backlog at capacity. Continuing with execution...',
-        );
-
-        // Record skipped analysis run for visibility
-        await supabase.from('mason_autopilot_runs').insert({
-          user_id: config.user_id,
-          repository_id: config.repository_id,
-          run_type: 'analysis',
-          status: 'skipped',
-          items_analyzed: 0,
-          skip_reason: `Backlog at capacity: ${backlogStatus.count}/${backlogStatus.threshold} pending items (${backlogStatus.percentFull}%)`,
-          started_at: now.toISOString(),
-          completed_at: now.toISOString(),
-        });
-      } else {
-        // 6. Run PM review (backlog has capacity)
-        await runPmReviewHandler(config, verbose);
-      }
-
-      // 7. Auto-approve items matching rules (always run - processes existing items)
-      await autoApproveItems(config, verbose);
-
-      // 8. Execute approved items (always run - drains the backlog)
-      await executeApprovedItemsHandler(config, verbose);
+      // Auto-approve all generated items
+      await autoApproveAllAutopilotItems(config, verbose);
 
       lastScheduleCheck = now;
-
-      // Success! Reset backoff
-      currentPollInterval = BASE_POLL_INTERVAL_MS;
-      cooldownUntil = null;
-      resetFailureCounter();
     } else if (verbose) {
       console.log('  Schedule not triggered yet.');
     }
+
+    // === PHASE 2: Continuous execution (every cycle) ===
+    await executeApprovedItemsHandler(config, verbose);
+
+    // Success! Reset backoff
+    currentPollInterval = BASE_POLL_INTERVAL_MS;
+    cooldownUntil = null;
+    resetFailureCounter();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
@@ -497,21 +497,6 @@ async function updateHeartbeat(configId: string): Promise<void> {
     .eq('id', configId);
 }
 
-function isWithinExecutionWindow(window: {
-  startHour: number;
-  endHour: number;
-}): boolean {
-  const now = new Date();
-  const hour = now.getHours();
-
-  // Handle overnight windows (e.g., 22:00 to 06:00)
-  if (window.startHour > window.endHour) {
-    return hour >= window.startHour || hour < window.endHour;
-  }
-
-  return hour >= window.startHour && hour < window.endHour;
-}
-
 function shouldRunSchedule(cronExpression: string): boolean {
   try {
     const interval = parseExpression(cronExpression);
@@ -533,12 +518,15 @@ async function runPmReviewHandler(
   config: AutopilotDbConfig,
   verbose: boolean,
 ): Promise<void> {
-  // Use SDK-based PM review execution
+  const itemLimit = config.guardian_rails.maxItemsPerDay;
+
+  // Use SDK-based PM review execution with item limit
   const result = await runPmReview(supabase, {
     userId: config.user_id,
     repositoryId: config.repository_id,
     repositoryPath: localConfig.repositoryPath,
     verbose,
+    itemLimit,
   });
 
   if (!result.success) {
@@ -554,71 +542,6 @@ async function runPmReviewHandler(
   }
 }
 
-async function autoApproveItems(
-  config: AutopilotDbConfig,
-  verbose: boolean,
-): Promise<number> {
-  const rules = config.auto_approval_rules;
-  const rails = config.guardian_rails;
-
-  // Fetch new items from this repository
-  const { data: items, error } = await supabase
-    .from('mason_pm_backlog_items')
-    .select('*')
-    .eq('repository_id', config.repository_id)
-    .eq('status', 'new');
-
-  if (error || !items) {
-    console.error('Failed to fetch backlog items:', error?.message);
-    return 0;
-  }
-
-  let approvedCount = 0;
-
-  for (const item of items) {
-    // Check if item matches auto-approval rules
-    const shouldApprove =
-      item.complexity <= rules.maxComplexity &&
-      item.impact_score >= rules.minImpact &&
-      !rules.excludedCategories.includes(item.type);
-
-    // Check guardian rails
-    if (item.complexity > rails.requireHumanReviewComplexity) {
-      if (verbose) {
-        console.log(
-          `  Skipping "${item.title}" - complexity ${item.complexity} requires human review`,
-        );
-      }
-      continue;
-    }
-
-    if (approvedCount >= rails.maxItemsPerDay) {
-      if (verbose) {
-        console.log(`  Reached daily limit of ${rails.maxItemsPerDay} items`);
-      }
-      break;
-    }
-
-    if (shouldApprove) {
-      // Auto-approve the item
-      await supabase
-        .from('mason_pm_backlog_items')
-        .update({ status: 'approved' })
-        .eq('id', item.id);
-
-      approvedCount++;
-      console.log(
-        `  Auto-approved: "${item.title}" (complexity: ${item.complexity}, impact: ${item.impact_score})`,
-      );
-    }
-  }
-
-  console.log(`Auto-approved ${approvedCount} items.`);
-
-  // Return the count so it can be recorded
-  return approvedCount;
-}
-
 async function executeApprovedItemsHandler(
   config: AutopilotDbConfig,
   verbose: boolean,
@@ -631,12 +554,16 @@ async function executeApprovedItemsHandler(
     maxItemsPerDay,
   );
 
-  console.log(
-    `  Daily execution progress: ${dailyStatus.dailyExecutedCount}/${dailyStatus.maxItemsPerDay} items (${dailyStatus.percentUsed}%)`,
-  );
+  if (verbose) {
+    console.log(
+      `  Daily execution progress: ${dailyStatus.dailyExecutedCount}/${dailyStatus.maxItemsPerDay} items (${dailyStatus.percentUsed}%)`,
+    );
+  }
 
   if (dailyStatus.limitReached) {
-    console.log('  Daily limit reached. Skipping execution until tomorrow.');
+    if (verbose) {
+      console.log('  Daily limit reached. Skipping execution until tomorrow.');
+    }
 
     // Record skipped execution for visibility
     await supabase.from('mason_autopilot_runs').insert({
@@ -652,8 +579,21 @@ async function executeApprovedItemsHandler(
     return;
   }
 
+  // Check if there are any approved items to execute
+  const { count } = await supabase
+    .from('mason_pm_backlog_items')
+    .select('*', { count: 'exact', head: true })
+    .eq('repository_id', config.repository_id)
+    .eq('status', 'approved');
+
+  if (!count || count === 0) {
+    if (verbose) {
+      console.log('  No approved items to execute.');
+    }
+    return;
+  }
+
   // Calculate how many items we can execute this run
-  // Respect both: hard-coded per-execution limit AND remaining daily budget
   const itemsToExecute = Math.min(ITEMS_PER_EXECUTION, dailyStatus.remaining);
 
   console.log(`  Remaining today: ${dailyStatus.remaining} items`);

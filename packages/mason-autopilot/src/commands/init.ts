@@ -75,18 +75,17 @@ const DEFAULT_AUTOPILOT_CONFIG = {
   enabled: true,
   schedule_cron: '0 2 * * *', // Daily at 2 AM
   auto_approval_rules: {
-    maxComplexity: 2,
-    minImpact: 3,
-    excludedCategories: ['security', 'breaking-change'],
+    maxComplexity: 5,
+    minImpact: 1,
+    excludedCategories: [],
   },
   guardian_rails: {
     maxItemsPerDay: 5,
     pauseOnFailure: true,
-    requireHumanReviewComplexity: 4,
   },
   execution_window: {
     startHour: 0,
-    endHour: 6,
+    endHour: 23,
   },
 };
 
