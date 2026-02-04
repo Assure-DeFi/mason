@@ -21,6 +21,7 @@ import {
   addRateLimitHeaders,
   getRateLimitIdentifier,
 } from '@/lib/rate-limit/middleware';
+import { validateSupabaseUrl } from '@/lib/validation/supabase';
 import type { BacklogItem } from '@/types/backlog';
 
 interface RouteParams {
@@ -62,6 +63,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       return badRequest(
         'Database credentials required. Please complete setup.',
       );
+    }
+
+    // Validate Supabase URL to prevent SSRF attacks
+    const urlValidation = validateSupabaseUrl(supabaseUrl);
+    if (!urlValidation.valid) {
+      return badRequest(urlValidation.error || 'Invalid Supabase URL');
     }
 
     // Parse request body

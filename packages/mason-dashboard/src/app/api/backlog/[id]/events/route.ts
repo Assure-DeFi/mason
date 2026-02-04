@@ -9,6 +9,7 @@ import {
 } from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
+import { validateSupabaseUrl } from '@/lib/validation/supabase';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -57,6 +58,12 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
+    // Validate Supabase URL to prevent SSRF attacks
+    const urlValidation = validateSupabaseUrl(supabaseUrl);
+    if (!urlValidation.valid) {
+      return badRequest(urlValidation.error || 'Invalid Supabase URL');
+    }
+
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     const { data: events, error } = await supabase
@@ -100,6 +107,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       return badRequest(
         'Database credentials required. Please complete setup.',
       );
+    }
+
+    // Validate Supabase URL to prevent SSRF attacks
+    const urlValidation = validateSupabaseUrl(supabaseUrl);
+    if (!urlValidation.valid) {
+      return badRequest(urlValidation.error || 'Invalid Supabase URL');
     }
 
     const body = await request.json();
