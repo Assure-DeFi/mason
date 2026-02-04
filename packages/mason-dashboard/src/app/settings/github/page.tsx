@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, Plus, GitBranch, Terminal } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, GitBranch, Terminal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
@@ -86,14 +85,6 @@ export default function GitHubSettingsPage() {
     <div className="min-h-screen bg-navy">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-8">
-          <Link
-            href="/admin/backlog"
-            className="mb-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Backlog
-          </Link>
-
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-white">

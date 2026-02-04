@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ArrowLeft,
   Plus,
   Key,
   Copy,
@@ -251,14 +250,6 @@ export default function ApiKeysPage() {
       <div className="min-h-screen bg-navy">
         <div className="mx-auto max-w-4xl px-4 py-8">
           <div className="mb-8">
-            <Link
-              href="/admin/backlog"
-              className="mb-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Backlog
-            </Link>
-
             <h1 className="text-2xl font-bold text-white">API Keys</h1>
             <p className="mt-1 text-gray-400">
               Manage API keys for CLI authentication
@@ -291,14 +282,6 @@ export default function ApiKeysPage() {
     <div className="min-h-screen bg-navy">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-8">
-          <Link
-            href="/admin/backlog"
-            className="mb-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Backlog
-          </Link>
-
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-white">API Keys</h1>

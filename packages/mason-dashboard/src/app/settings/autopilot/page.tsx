@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Bot, Loader2 } from 'lucide-react';
+import { Bot, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -70,7 +70,6 @@ export default function AutopilotSettingsPage() {
               href="/admin/backlog"
               className="mt-8 inline-flex items-center gap-2 text-sm text-gold hover:underline"
             >
-              <ArrowLeft className="h-4 w-4" />
               Back to Dashboard
             </Link>
           </div>
@@ -111,13 +110,6 @@ export default function AutopilotSettingsPage() {
         <div className="mx-auto max-w-4xl">
           {/* Header */}
           <div className="mb-8">
-            <Link
-              href="/admin/backlog"
-              className="mb-4 inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-gold/20 p-2">
                 <Bot className="h-6 w-6 text-gold" />

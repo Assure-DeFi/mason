@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ArrowLeft,
   Database,
   RefreshCw,
   CheckCircle,
@@ -444,13 +443,6 @@ function DatabaseSettingsContent() {
         <div className="mx-auto max-w-2xl">
           {/* Header */}
           <div className="mb-8">
-            <Link
-              href="/admin/backlog"
-              className="mb-4 inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
             <h1 className="text-2xl font-bold text-white">Database Settings</h1>
             <p className="mt-1 text-gray-400">
               Manage your database connection and run schema updates
