@@ -8,6 +8,11 @@ import {
   serverError,
 } from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import { runMigrations } from '@/lib/supabase/pg-migrate';
 
 /**
@@ -803,6 +808,18 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return unauthorized();
+    }
+
+    // Apply strict rate limiting for database migrations
+    const identifier = getRateLimitIdentifier(
+      'migrations',
+      session.user.id,
+      request.headers.get('x-forwarded-for') ?? undefined,
+    );
+    const rateLimitResult = await checkRateLimit(identifier, 'strict');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     const body = await request.json();

@@ -8,6 +8,10 @@ import {
   serverError,
   ErrorCodes,
 } from '@/lib/api-response';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+} from '@/lib/rate-limit/middleware';
 import { validateProjectRef } from '@/lib/validation/supabase';
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
@@ -24,6 +28,15 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const { ref: projectRef } = await params;
+
+  // Apply standard rate limiting
+  const identifier = request.headers.get('x-forwarded-for') ?? 'unknown';
+  const rateLimitResult = await checkRateLimit(identifier, 'standard');
+
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult);
+  }
+
   const authHeader = request.headers.get('Authorization');
 
   // Validate projectRef format to prevent enumeration/misuse

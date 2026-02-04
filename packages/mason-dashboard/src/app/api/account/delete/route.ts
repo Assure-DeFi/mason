@@ -9,6 +9,11 @@ import {
 } from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import { accountDeleteSchema, validateRequest } from '@/lib/schemas';
 import { createServiceClient } from '@/lib/supabase/client';
 
@@ -30,6 +35,18 @@ export async function POST(request: Request) {
 
     if (!session?.user?.id) {
       return unauthorized();
+    }
+
+    // Apply strict rate limiting for destructive operations
+    const identifier = getRateLimitIdentifier(
+      'account-delete',
+      session.user.id,
+      request.headers.get('x-forwarded-for') ?? undefined,
+    );
+    const rateLimitResult = await checkRateLimit(identifier, 'strict');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     // Require explicit confirmation to proceed

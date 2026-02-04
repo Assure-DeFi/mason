@@ -10,6 +10,11 @@ import {
 } from '@/lib/api-response';
 import { deleteApiKey } from '@/lib/auth/api-key';
 import { authOptions } from '@/lib/auth/auth-options';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import { createServiceClient } from '@/lib/supabase/client';
 
 interface RouteParams {
@@ -25,6 +30,18 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     if (!session?.user?.id) {
       return unauthorized();
+    }
+
+    // Apply strict rate limiting for API key deletion
+    const identifier = getRateLimitIdentifier(
+      'keys-delete',
+      session.user.id,
+      request.headers.get('x-forwarded-for') ?? undefined,
+    );
+    const rateLimitResult = await checkRateLimit(identifier, 'strict');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     const { id } = await params;

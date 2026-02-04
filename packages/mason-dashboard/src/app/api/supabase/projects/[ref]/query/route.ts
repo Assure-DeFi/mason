@@ -8,6 +8,10 @@ import {
   serverError,
   ErrorCodes,
 } from '@/lib/api-response';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+} from '@/lib/rate-limit/middleware';
 import { validateProjectRef } from '@/lib/validation/supabase';
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
@@ -48,6 +52,15 @@ interface QueryRequestBody {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { ref: projectRef } = await params;
+
+  // Apply AI-heavy rate limiting for database queries
+  const identifier = request.headers.get('x-forwarded-for') ?? 'unknown';
+  const rateLimitResult = await checkRateLimit(identifier, 'aiHeavy');
+
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult);
+  }
+
   const authHeader = request.headers.get('Authorization');
 
   // Validate projectRef format to prevent enumeration/misuse

@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 
 import { serverError } from '@/lib/api-response';
 import {
+  checkRateLimit,
+  createRateLimitResponse,
+} from '@/lib/rate-limit/middleware';
+import {
   generateCodeVerifier,
   generateCodeChallenge,
   generateState,
@@ -71,6 +75,14 @@ function validateReturnTo(returnTo: string | null): string {
  *              Only internal paths are allowed to prevent open redirect attacks.
  */
 export async function GET(request: Request) {
+  // Apply rate limiting - use IP address for public endpoint
+  const identifier = request.headers.get('x-forwarded-for') ?? 'unknown';
+  const rateLimitResult = await checkRateLimit(identifier, 'publicEndpoint');
+
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult);
+  }
+
   const clientId = process.env.SUPABASE_OAUTH_CLIENT_ID;
   const redirectUri = process.env.NEXT_PUBLIC_SUPABASE_OAUTH_REDIRECT_URI;
 

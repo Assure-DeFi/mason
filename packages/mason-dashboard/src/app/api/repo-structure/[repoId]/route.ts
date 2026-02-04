@@ -11,6 +11,11 @@ import {
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import { createGitHubClient } from '@/lib/github/client';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import { createServiceClient } from '@/lib/supabase/client';
 
 interface AreaSuggestion {
@@ -81,6 +86,18 @@ export async function GET(
 
     if (!session?.user?.id) {
       return unauthorized();
+    }
+
+    // Apply standard rate limiting
+    const identifier = getRateLimitIdentifier(
+      'repo-structure',
+      session.user.id,
+      request.headers.get('x-forwarded-for') ?? undefined,
+    );
+    const rateLimitResult = await checkRateLimit(identifier, 'standard');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     const { repoId } = await params;

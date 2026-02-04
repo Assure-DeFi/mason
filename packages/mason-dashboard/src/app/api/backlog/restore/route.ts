@@ -10,6 +10,11 @@ import {
 } from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import { backlogRestoreSchema, validateRequest } from '@/lib/schemas';
 
 /**
@@ -28,6 +33,18 @@ export async function POST(request: Request) {
 
     if (!session?.user?.id) {
       return unauthorized();
+    }
+
+    // Apply standard rate limiting
+    const identifier = getRateLimitIdentifier(
+      'backlog-restore',
+      session.user.id,
+      request.headers.get('x-forwarded-for') ?? undefined,
+    );
+    const rateLimitResult = await checkRateLimit(identifier, 'standard');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     // Get user's database credentials from headers (client passes from localStorage)

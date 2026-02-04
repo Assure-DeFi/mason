@@ -2,6 +2,10 @@ import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+} from '@/lib/rate-limit/middleware';
 import { exchangeCodeForTokens, OAUTH_COOKIES } from '@/lib/supabase/oauth';
 
 /**
@@ -60,6 +64,14 @@ function validateReturnTo(returnTo: string | null | undefined): string {
  * Exchanges authorization code for tokens and redirects back to setup wizard.
  */
 export async function GET(request: NextRequest) {
+  // Apply rate limiting - use IP address for public endpoint
+  const identifier = request.headers.get('x-forwarded-for') ?? 'unknown';
+  const rateLimitResult = await checkRateLimit(identifier, 'publicEndpoint');
+
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult);
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   const state = searchParams.get('state');

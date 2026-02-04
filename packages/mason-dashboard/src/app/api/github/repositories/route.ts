@@ -27,6 +27,11 @@ import {
   getUserFriendlyDatabaseError,
 } from '@/lib/errors';
 import { createGitHubClient, getRepository } from '@/lib/github/client';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import { createServiceClient } from '@/lib/supabase/client';
 import type { GitHubRepository } from '@/types/auth';
 
@@ -37,6 +42,18 @@ export async function GET(request: NextRequest) {
 
     if (!session?.user?.id) {
       return unauthorized();
+    }
+
+    // Apply standard rate limiting
+    const identifier = getRateLimitIdentifier(
+      'repos-get',
+      session.user.id,
+      request.headers.get('x-forwarded-for') ?? undefined,
+    );
+    const rateLimitResult = await checkRateLimit(identifier, 'standard');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     const supabase = createServiceClient();
@@ -84,6 +101,18 @@ export async function POST(request: NextRequest) {
 
     if (!session?.user?.id) {
       return unauthorized();
+    }
+
+    // Apply standard rate limiting
+    const identifier = getRateLimitIdentifier(
+      'repos-post',
+      session.user.id,
+      request.headers.get('x-forwarded-for') ?? undefined,
+    );
+    const rateLimitResult = await checkRateLimit(identifier, 'standard');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     const body = await request.json();
@@ -157,6 +186,18 @@ export async function DELETE(request: NextRequest) {
 
     if (!session?.user?.id) {
       return unauthorized();
+    }
+
+    // Apply standard rate limiting
+    const identifier = getRateLimitIdentifier(
+      'repos-delete',
+      session.user.id,
+      request.headers.get('x-forwarded-for') ?? undefined,
+    );
+    const rateLimitResult = await checkRateLimit(identifier, 'standard');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     const { searchParams } = new URL(request.url);

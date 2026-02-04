@@ -6,6 +6,10 @@ import {
   badRequest,
   serverError,
 } from '@/lib/api-response';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+} from '@/lib/rate-limit/middleware';
 import { refreshAccessToken } from '@/lib/supabase/oauth';
 
 /**
@@ -15,6 +19,14 @@ import { refreshAccessToken } from '@/lib/supabase/oauth';
  * Called by client when access token is about to expire.
  */
 export async function POST(request: NextRequest) {
+  // Apply rate limiting - use IP address for standard rate limiting
+  const identifier = request.headers.get('x-forwarded-for') ?? 'unknown';
+  const rateLimitResult = await checkRateLimit(identifier, 'standard');
+
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult);
+  }
+
   try {
     const { refreshToken } = await request.json();
 

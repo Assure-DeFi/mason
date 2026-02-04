@@ -9,6 +9,11 @@ import {
 } from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -28,6 +33,18 @@ export async function GET(request: Request, { params }: RouteParams) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return unauthorized('Authentication required');
+    }
+
+    // Apply standard rate limiting
+    const identifier = getRateLimitIdentifier(
+      'prd-get',
+      session.user.id,
+      request.headers.get('x-forwarded-for') ?? undefined,
+    );
+    const rateLimitResult = await checkRateLimit(identifier, 'standard');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     // Get user's database credentials from headers (client passes from localStorage)
@@ -75,6 +92,18 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return unauthorized('Authentication required');
+    }
+
+    // Apply standard rate limiting
+    const identifier = getRateLimitIdentifier(
+      'prd-patch',
+      session.user.id,
+      request.headers.get('x-forwarded-for') ?? undefined,
+    );
+    const rateLimitResult = await checkRateLimit(identifier, 'standard');
+
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
     }
 
     // Get user's database credentials from headers (client passes from localStorage)
