@@ -1,7 +1,7 @@
 'use client';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 
 import { TABLES } from '@/lib/constants';
 
@@ -19,18 +19,23 @@ interface UseExecutionListenerOptions {
   onExecutionStart?: (progress: ExecutionProgress) => void;
 }
 
-// Polling interval in milliseconds
-const BASE_POLLING_INTERVAL_MS = 3000;
-const MAX_POLLING_INTERVAL_MS = 15000; // Cap backoff at 15 seconds
+// Polling intervals in milliseconds
+// When realtime is connected, we don't poll at all
+// When realtime is disconnected, we use the base interval with exponential backoff on errors
+const FALLBACK_POLLING_INTERVAL_MS = 10000; // 10 seconds when realtime fails
+const MAX_POLLING_INTERVAL_MS = 30000; // Cap backoff at 30 seconds
 // How far back to look on initial mount (in milliseconds)
 const INITIAL_LOOKBACK_MS = 30000;
+// Columns needed for ExecutionProgress (avoids fetching unnecessary data)
+const REQUIRED_COLUMNS = 'id,item_id,run_id,current_phase,started_at';
 
 /**
- * Global execution listener hook.
+ * Global execution listener hook with adaptive polling.
  *
- * BULLETPROOF DESIGN: Uses both realtime AND polling for reliability.
- * - Realtime: Fast path for instant detection (when it works)
- * - Polling: Guaranteed fallback every 3 seconds (always works)
+ * EFFICIENT DESIGN: Uses realtime as primary, with adaptive fallback polling.
+ * - Realtime: Primary path for instant detection
+ * - Polling: Only activates when realtime is disconnected
+ * - Tab visibility: Pauses polling when tab is hidden
  *
  * Subscribes to mason_execution_progress table for new executions.
  * When a new execution starts (INSERT), triggers the callback.
@@ -46,12 +51,26 @@ export function useExecutionListener({
   const lastCheckTimeRef = useRef<string>(
     new Date(Date.now() - INITIAL_LOOKBACK_MS).toISOString(),
   );
-  const realtimeConnectedRef = useRef(false);
+  // Track realtime connection state reactively
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [tabVisible, setTabVisible] = useState(true);
 
   // Keep callback ref updated
   useEffect(() => {
     callbackRef.current = onExecutionStart;
   }, [onExecutionStart]);
+
+  // Track tab visibility to pause polling when hidden
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setTabVisible(document.visibilityState === 'visible');
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Helper to process a detected execution (shared by realtime and polling)
   const processExecution = useCallback(
@@ -63,6 +82,7 @@ export function useExecutionListener({
 
       // Only trigger on fresh executions (site_review phase)
       if (progress.current_phase !== 'site_review') {
+        // eslint-disable-next-line no-console
         console.log(
           `[ExecutionListener] Skipping ${source} execution (phase: ${progress.current_phase}):`,
           progress.item_id,
@@ -72,6 +92,7 @@ export function useExecutionListener({
 
       // Mark as seen and trigger callback
       seenIdsRef.current.add(progress.id);
+      // eslint-disable-next-line no-console
       console.log(
         `[ExecutionListener] ✓ Detected via ${source.toUpperCase()} - item:`,
         progress.item_id,
@@ -86,6 +107,7 @@ export function useExecutionListener({
   // REALTIME: Subscribe to new execution progress records
   useEffect(() => {
     if (!client || !enabled) {
+      // eslint-disable-next-line no-console
       console.log(
         '[ExecutionListener] Realtime disabled (client:',
         !!client,
@@ -96,6 +118,7 @@ export function useExecutionListener({
       return;
     }
 
+    // eslint-disable-next-line no-console
     console.log('[ExecutionListener] Setting up realtime subscription...');
 
     const channel = client
@@ -108,6 +131,7 @@ export function useExecutionListener({
           table: TABLES.EXECUTION_PROGRESS,
         },
         (payload) => {
+          // eslint-disable-next-line no-console
           console.log(
             '[ExecutionListener] Realtime event received:',
             payload.eventType,
@@ -117,55 +141,61 @@ export function useExecutionListener({
         },
       )
       .subscribe((status) => {
+        // eslint-disable-next-line no-console
         console.log(
           '[ExecutionListener] Realtime subscription status:',
           status,
         );
-        realtimeConnectedRef.current = status === 'SUBSCRIBED';
 
         if (status === 'SUBSCRIBED') {
+          setRealtimeConnected(true);
+          // eslint-disable-next-line no-console
           console.log(
-            '[ExecutionListener] ✓ Realtime CONNECTED - listening on:',
-            TABLES.EXECUTION_PROGRESS,
+            '[ExecutionListener] ✓ Realtime CONNECTED - polling paused',
           );
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setRealtimeConnected(false);
+          // eslint-disable-next-line no-console
           console.warn(
-            '[ExecutionListener] ⚠ Realtime FAILED - falling back to polling only',
+            '[ExecutionListener] ⚠ Realtime FAILED - activating fallback polling',
           );
+        } else if (status === 'CLOSED') {
+          setRealtimeConnected(false);
         }
       });
 
     return () => {
+      // eslint-disable-next-line no-console
       console.log('[ExecutionListener] Cleaning up realtime subscription');
-      realtimeConnectedRef.current = false;
+      setRealtimeConnected(false);
       void client.removeChannel(channel);
     };
   }, [client, enabled, processExecution]);
 
-  // POLLING: Guaranteed fallback that runs regardless of realtime status
-  // Uses dynamic interval with backoff on errors to prevent resource exhaustion
+  // ADAPTIVE POLLING: Only runs when realtime is disconnected AND tab is visible
   useEffect(() => {
-    if (!client || !enabled) {
+    // Don't poll if client not ready, not enabled, realtime is working, or tab is hidden
+    if (!client || !enabled || realtimeConnected || !tabVisible) {
       return;
     }
 
-    let currentInterval = BASE_POLLING_INTERVAL_MS;
+    let currentInterval = FALLBACK_POLLING_INTERVAL_MS;
     let consecutiveErrors = 0;
     let intervalId: NodeJS.Timeout | null = null;
 
+    // eslint-disable-next-line no-console
     console.log(
-      '[ExecutionListener] Starting polling fallback (every',
+      '[ExecutionListener] Starting adaptive polling (every',
       currentInterval / 1000,
-      'seconds)',
+      'seconds) - realtime disconnected',
     );
 
     const poll = async () => {
       try {
-        // Use select('*') to avoid column-not-found errors on older schemas
-        // This is more resilient than specifying exact columns
+        // Select only required columns to minimize data transfer
         const { data, error } = await client
           .from(TABLES.EXECUTION_PROGRESS)
-          .select('*')
+          .select(REQUIRED_COLUMNS)
           .eq('current_phase', 'site_review')
           .is('completed_at', null)
           .gt('started_at', lastCheckTimeRef.current)
@@ -178,16 +208,18 @@ export function useExecutionListener({
             error.message?.includes('column') ||
             error.message?.includes('does not exist')
           ) {
+            // eslint-disable-next-line no-console
             console.error(
               '[ExecutionListener] Schema issue detected. User should update database schema in Settings.',
             );
           } else {
+            // eslint-disable-next-line no-console
             console.error('[ExecutionListener] Polling error:', error.message);
           }
           // Backoff on error
           consecutiveErrors++;
           const newInterval = Math.min(
-            BASE_POLLING_INTERVAL_MS * Math.pow(2, consecutiveErrors),
+            FALLBACK_POLLING_INTERVAL_MS * Math.pow(2, consecutiveErrors),
             MAX_POLLING_INTERVAL_MS,
           );
           if (newInterval !== currentInterval) {
@@ -203,7 +235,7 @@ export function useExecutionListener({
         // Reset backoff on success
         if (consecutiveErrors > 0) {
           consecutiveErrors = 0;
-          currentInterval = BASE_POLLING_INTERVAL_MS;
+          currentInterval = FALLBACK_POLLING_INTERVAL_MS;
           if (intervalId) {
             clearInterval(intervalId);
             intervalId = setInterval(() => void poll(), currentInterval);
@@ -211,6 +243,7 @@ export function useExecutionListener({
         }
 
         if (data && data.length > 0) {
+          // eslint-disable-next-line no-console
           console.log(
             '[ExecutionListener] Polling found',
             data.length,
@@ -232,11 +265,12 @@ export function useExecutionListener({
         // Update last check time for next poll
         lastCheckTimeRef.current = new Date().toISOString();
       } catch (err) {
+        // eslint-disable-next-line no-console
         console.error('[ExecutionListener] Polling exception:', err);
         // Backoff on exception
         consecutiveErrors++;
         const newInterval = Math.min(
-          BASE_POLLING_INTERVAL_MS * Math.pow(2, consecutiveErrors),
+          FALLBACK_POLLING_INTERVAL_MS * Math.pow(2, consecutiveErrors),
           MAX_POLLING_INTERVAL_MS,
         );
         if (newInterval !== currentInterval) {
@@ -258,12 +292,13 @@ export function useExecutionListener({
     }, currentInterval);
 
     return () => {
-      console.log('[ExecutionListener] Stopping polling fallback');
+      // eslint-disable-next-line no-console
+      console.log('[ExecutionListener] Stopping adaptive polling');
       if (intervalId) {
         clearInterval(intervalId);
       }
     };
-  }, [client, enabled, processExecution]);
+  }, [client, enabled, realtimeConnected, tabVisible, processExecution]);
 }
 
 /**
@@ -280,6 +315,7 @@ export async function fetchItemForExecution(
     .single();
 
   if (error || !data) {
+    // eslint-disable-next-line no-console
     console.error(
       '[ExecutionListener] Failed to fetch item for execution:',
       itemId,
