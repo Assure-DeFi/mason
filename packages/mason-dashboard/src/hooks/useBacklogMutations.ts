@@ -115,17 +115,37 @@ export function useBacklogMutations({
     [],
   );
 
-  // Single item status update
+  // Single item status update with optimistic updates
   const updateStatus = useCallback(
     async (id: string, status: BacklogStatus) => {
       if (!client) {
         throw new Error('Database not configured');
       }
 
-      // Get old status for event recording
+      // Get old item for rollback
       const oldItem = items.find((item) => item.id === id);
       const oldStatus = oldItem?.status;
 
+      if (!oldItem) {
+        throw new Error('Item not found');
+      }
+
+      // OPTIMISTIC UPDATE: Update local state immediately
+      const optimisticItem = {
+        ...oldItem,
+        status,
+        updated_at: new Date().toISOString(),
+      };
+
+      setItems((prev) =>
+        prev.map((item) => (item.id === id ? optimisticItem : item)),
+      );
+
+      if (selectedItem?.id === id) {
+        setSelectedItem(optimisticItem);
+      }
+
+      // Database update
       const { data: updated, error } = await client
         .from(TABLES.PM_BACKLOG_ITEMS)
         .update({ status, updated_at: new Date().toISOString() })
@@ -134,6 +154,14 @@ export function useBacklogMutations({
         .single();
 
       if (error) {
+        // ROLLBACK: Restore previous state on failure
+        setItems((prev) =>
+          prev.map((item) => (item.id === id ? oldItem : item)),
+        );
+        if (selectedItem?.id === id) {
+          setSelectedItem(oldItem);
+        }
+
         const errorMessage = error.message || 'Unknown database error';
         throw new Error(
           `Failed to update item status: ${errorMessage}. ` +
@@ -142,15 +170,18 @@ export function useBacklogMutations({
         );
       }
 
-      // Record status change event (fire-and-forget)
-      if (oldStatus && oldStatus !== status) {
-        void recordStatusEvent(id, oldStatus, status);
-      }
-
-      setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      // Reconcile with server response (in case of timestamp differences)
+      setItems((prev) =>
+        prev.map((item) => (item.id === id ? updated : item)),
+      );
 
       if (selectedItem?.id === id) {
         setSelectedItem(updated);
+      }
+
+      // Record status change event (fire-and-forget)
+      if (oldStatus && oldStatus !== status) {
+        void recordStatusEvent(id, oldStatus, status);
       }
     },
     [client, items, selectedItem, setItems, setSelectedItem, recordStatusEvent],
@@ -183,7 +214,7 @@ export function useBacklogMutations({
     [selectedItem, setItems, setSelectedItem],
   );
 
-  // Bulk update status helper
+  // Bulk update status helper with optimistic updates
   const bulkUpdateStatus = useCallback(
     async (
       ids: string[],
@@ -195,60 +226,102 @@ export function useBacklogMutations({
         return;
       }
 
-      // Store previous statuses for undo
+      // Store previous items for rollback
+      const previousItems = new Map<string, BacklogItem>();
       const previousStatuses = new Map<string, BacklogStatus>();
+      const updatedAt = new Date().toISOString();
+
       ids.forEach((id) => {
         const item = items.find((i) => i.id === id);
         if (item) {
+          previousItems.set(id, item);
           previousStatuses.set(id, item.status);
         }
       });
 
-      // Update all items
-      const updates = ids.map(async (id) => {
-        const oldStatus = previousStatuses.get(id);
-        const { data, error } = await client
-          .from(TABLES.PM_BACKLOG_ITEMS)
-          .update({ status: newStatus, updated_at: new Date().toISOString() })
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (error) {
-          return null;
-        }
-
-        // Record the status change event (fire-and-forget)
-        if (oldStatus && oldStatus !== newStatus) {
-          void recordStatusEvent(id, oldStatus, newStatus);
-        }
-
-        return data as BacklogItem;
-      });
-
-      const results = await Promise.all(updates);
-
-      // Update local state
+      // OPTIMISTIC UPDATE: Update local state immediately
       setItems((prev) =>
         prev.map((item) => {
-          const updated = results.find((r) => r?.id === item.id);
-          return updated || item;
+          if (ids.includes(item.id)) {
+            return { ...item, status: newStatus, updated_at: updatedAt };
+          }
+          return item;
         }),
       );
 
-      // Clear selection
+      // Clear selection immediately for snappy UX
       setSelectedIds([]);
 
-      // Set undo state
-      const successCount = results.filter((r) => r !== null).length;
+      // Set undo state immediately so user can undo during db operation
       setUndoState({
         action,
         itemIds: ids,
         previousStatuses,
-        message: `${actionMessage} ${successCount} item${successCount !== 1 ? 's' : ''}`,
+        message: `${actionMessage} ${ids.length} item${ids.length !== 1 ? 's' : ''}`,
       });
-
       scheduleUndoClear();
+
+      try {
+        // Single batched database update using .in() filter
+        const { data: updatedItems, error } = await client
+          .from(TABLES.PM_BACKLOG_ITEMS)
+          .update({ status: newStatus, updated_at: updatedAt })
+          .in('id', ids)
+          .select();
+
+        if (error) {
+          // ROLLBACK: Restore previous state on failure
+          setItems((prev) =>
+            prev.map((item) => {
+              const original = previousItems.get(item.id);
+              return original || item;
+            }),
+          );
+          setUndoState(null);
+          console.error('Bulk update failed:', error);
+          return;
+        }
+
+        const results = (updatedItems as BacklogItem[]) || [];
+
+        // Reconcile with server response
+        setItems((prev) =>
+          prev.map((item) => {
+            const updated = results.find((r) => r?.id === item.id);
+            return updated || item;
+          }),
+        );
+
+        // Update undo message with actual success count
+        setUndoState((prev) =>
+          prev
+            ? {
+                ...prev,
+                message: `${actionMessage} ${results.length} item${results.length !== 1 ? 's' : ''}`,
+              }
+            : null,
+        );
+
+        // Record status change events (fire-and-forget, in parallel)
+        const eventPromises = ids.map((id) => {
+          const oldStatus = previousStatuses.get(id);
+          if (oldStatus && oldStatus !== newStatus) {
+            return recordStatusEvent(id, oldStatus, newStatus);
+          }
+          return Promise.resolve();
+        });
+        void Promise.all(eventPromises);
+      } catch (err) {
+        // ROLLBACK on unexpected error
+        setItems((prev) =>
+          prev.map((item) => {
+            const original = previousItems.get(item.id);
+            return original || item;
+          }),
+        );
+        setUndoState(null);
+        console.error('Bulk update error:', err);
+      }
     },
     [
       client,
@@ -314,6 +387,7 @@ export function useBacklogMutations({
     [bulkUpdateStatus],
   );
 
+  // Bulk delete with optimistic updates
   const bulkDelete = useCallback(
     async (ids: string[]) => {
       if (!client || ids.length === 0) {
@@ -322,10 +396,29 @@ export function useBacklogMutations({
 
       setIsDeleting(true);
 
-      try {
-        // Store items for undo before deleting
-        const itemsToDelete = items.filter((i) => ids.includes(i.id));
+      // Store items for undo/rollback before deleting
+      const itemsToDelete = items.filter((i) => ids.includes(i.id));
 
+      // OPTIMISTIC UPDATE: Remove items from local state immediately
+      setItems((prev) => prev.filter((i) => !ids.includes(i.id)));
+      setSelectedIds([]);
+
+      // Close detail modal if viewing a deleted item
+      if (selectedItem && ids.includes(selectedItem.id)) {
+        setSelectedItem(null);
+      }
+
+      // Set undo state immediately so user can undo during db operation
+      setUndoState({
+        action: 'delete',
+        itemIds: ids,
+        previousStatuses: new Map(),
+        deletedItems: itemsToDelete,
+        message: `Deleted ${ids.length} item${ids.length !== 1 ? 's' : ''}`,
+      });
+      scheduleUndoClear();
+
+      try {
         // Delete from database
         const { error } = await client
           .from(TABLES.PM_BACKLOG_ITEMS)
@@ -333,28 +426,16 @@ export function useBacklogMutations({
           .in('id', ids);
 
         if (error) {
-          return;
+          // ROLLBACK: Restore items on failure
+          setItems((prev) => [...itemsToDelete, ...prev]);
+          setUndoState(null);
+          console.error('Bulk delete failed:', error);
         }
-
-        // Update local state
-        setItems((prev) => prev.filter((i) => !ids.includes(i.id)));
-        setSelectedIds([]);
-
-        // Close detail modal if viewing a deleted item
-        if (selectedItem && ids.includes(selectedItem.id)) {
-          setSelectedItem(null);
-        }
-
-        // Set undo state with deleted items
-        setUndoState({
-          action: 'delete',
-          itemIds: ids,
-          previousStatuses: new Map(),
-          deletedItems: itemsToDelete,
-          message: `Deleted ${ids.length} item${ids.length !== 1 ? 's' : ''}`,
-        });
-
-        scheduleUndoClear();
+      } catch (err) {
+        // ROLLBACK on unexpected error
+        setItems((prev) => [...itemsToDelete, ...prev]);
+        setUndoState(null);
+        console.error('Bulk delete error:', err);
       } finally {
         setIsDeleting(false);
       }
