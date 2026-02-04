@@ -137,6 +137,9 @@ export default function BacklogPage() {
   } | null>(null);
   const [modalViewMode, setModalViewMode] = useState<ViewMode>('details');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const pageSize = 20;
 
   // Bulk action loading states
   const [isApproving, setIsApproving] = useState(false);
@@ -365,15 +368,25 @@ export default function BacklogPage() {
         query = query.in('repository_id', repoIds);
       }
 
-      const { data, error: fetchError } = await query.order('priority_score', {
-        ascending: false,
-      });
+      // Server-side status filtering
+      if (activeStatus && activeStatus !== 'filtered') {
+        query = query.eq('status', activeStatus);
+      }
+
+      // Server-side pagination
+      const offset = (currentPage - 1) * pageSize;
+      const { data, error: fetchError, count } = await query
+        .range(offset, offset + pageSize - 1)
+        .order('priority_score', {
+          ascending: false,
+        });
 
       if (fetchError) {
         throw fetchError;
       }
 
       setItems((data as unknown as BacklogItem[]) || []);
+      setTotalItems(count || 0);
       // Reset error timestamp on success
       lastFetchErrorRef.current = 0;
     } catch (err) {
@@ -385,7 +398,7 @@ export default function BacklogPage() {
       setIsLoading(false);
       isFetchingRef.current = false;
     }
-  }, [client, session, selectedRepoId]);
+  }, [client, session, selectedRepoId, currentPage, activeStatus, pageSize]);
 
   useEffect(() => {
     if (isConfigured && !isDbLoading) {
@@ -394,6 +407,11 @@ export default function BacklogPage() {
       setIsLoading(false);
     }
   }, [fetchItems, isConfigured, isDbLoading]);
+
+  // Reset to page 1 when status or repo filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeStatus, selectedRepoId]);
 
   // Subscribe to real-time backlog changes
   // This enables automatic updates when CLI changes item status
@@ -498,14 +516,11 @@ export default function BacklogPage() {
     return result;
   }, [repoFilteredItems]);
 
-  // Filter items by active status, search query (on top of repo filter) and apply sorting
+  // Filter items by search query (status filtering now done server-side) and apply sorting
   const filteredItems = useMemo(() => {
     let result = repoFilteredItems;
 
-    // Filter by status
-    if (activeStatus) {
-      result = result.filter((item) => item.status === activeStatus);
-    }
+    // Status filtering now done server-side in fetchItems()
 
     // Filter by search query (searches title, problem, solution)
     if (searchQuery.trim()) {
@@ -1392,6 +1407,35 @@ export default function BacklogPage() {
                 onSortChange={handleSortChange}
                 activeStatus={activeStatus}
               />
+
+              {/* Pagination Controls */}
+              {totalItems > pageSize && (
+                <div className="flex items-center justify-between border-t border-gray-800 bg-navy px-6 py-4">
+                  <div className="text-sm text-gray-400">
+                    Showing {((currentPage - 1) * pageSize) + 1} to{' '}
+                    {Math.min(currentPage * pageSize, totalItems)} of {totalItems} items
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <div className="flex items-center gap-2 px-4 text-sm text-gray-400">
+                      Page {currentPage} of {Math.ceil(totalItems / pageSize)}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage((p) => p + 1)}
+                      disabled={currentPage >= Math.ceil(totalItems / pageSize)}
+                      className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </ErrorBoundary>
