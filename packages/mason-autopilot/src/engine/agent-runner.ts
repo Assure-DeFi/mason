@@ -13,6 +13,22 @@ import { join } from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/**
+ * Build a clean environment for the Claude subprocess.
+ * Strips ANTHROPIC_API_KEY so Claude Code uses OAuth (Pro Max subscription)
+ * instead of burning API credits.
+ */
+function buildCleanEnv(): Record<string, string | undefined> {
+  const env = { ...process.env };
+  if (env.ANTHROPIC_API_KEY) {
+    console.log(
+      '  Stripping ANTHROPIC_API_KEY from subprocess env to use OAuth instead of API credits.',
+    );
+    delete env.ANTHROPIC_API_KEY;
+  }
+  return env;
+}
+
 // Track consecutive failures for backoff logic
 let consecutiveFailures = 0;
 const MAX_CONSECUTIVE_FAILURES = 3;
@@ -235,6 +251,7 @@ ${commandContent}`;
         cwd: config.repositoryPath,
         permissionMode: 'bypassPermissions',
         pathToClaudeCodeExecutable: claudePath,
+        env: buildCleanEnv(),
         allowedTools: [
           'Bash',
           'Read',
@@ -379,6 +396,7 @@ Apply the arguments (${args}) as specified in the command.`;
         cwd: config.repositoryPath,
         permissionMode: 'bypassPermissions',
         pathToClaudeCodeExecutable: claudePath,
+        env: buildCleanEnv(),
         allowedTools: [
           'Bash',
           'Read',
