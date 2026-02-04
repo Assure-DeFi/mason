@@ -33,6 +33,7 @@ export const CACHE_KEYS = {
   REPOSITORIES: '/api/github/repositories',
   API_KEYS: '/api/keys',
   SUPABASE_PROJECTS: '/api/supabase/projects',
+  BACKLOG_ITEMS: '/api/backlog/items',
 } as const;
 
 /**
@@ -48,4 +49,7 @@ export const STALE_TIMES = {
 
   // Supabase projects rarely change - 10 minutes
   SUPABASE_PROJECTS: 10 * 60 * 1000,
+
+  // Backlog items change frequently - 30 seconds dedup, 2 minute stale
+  BACKLOG_ITEMS: 2 * 60 * 1000,
 } as const;
