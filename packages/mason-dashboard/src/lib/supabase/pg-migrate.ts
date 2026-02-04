@@ -1,9 +1,29 @@
-import { Client } from 'pg';
+import { Client, type ConnectionConfig } from 'pg';
 
 interface MigrationResult {
   success: boolean;
   error?: string;
   errorType?: 'connection' | 'auth' | 'unknown';
+}
+
+/**
+ * Get SSL configuration based on environment
+ *
+ * In production, SSL certificate verification is enabled to prevent MITM attacks.
+ * In development, verification is disabled to allow self-signed certificates.
+ *
+ * Can be overridden with DB_SSL_REJECT_UNAUTHORIZED environment variable.
+ */
+function getSslConfig(): ConnectionConfig['ssl'] {
+  // Allow explicit override via environment variable
+  const envOverride = process.env.DB_SSL_REJECT_UNAUTHORIZED;
+  if (envOverride !== undefined) {
+    return { rejectUnauthorized: envOverride === 'true' };
+  }
+
+  // Default: verify certificates in production, skip in development
+  const isProduction = process.env.NODE_ENV === 'production';
+  return { rejectUnauthorized: isProduction };
 }
 
 /**
@@ -74,7 +94,7 @@ export async function runMigrations(
 
   const client = new Client({
     connectionString: connStr,
-    ssl: { rejectUnauthorized: false },
+    ssl: getSslConfig(),
     connectionTimeoutMillis: 10000,
   });
 
@@ -131,7 +151,7 @@ export async function testDatabaseConnection(
 
   const client = new Client({
     connectionString,
-    ssl: { rejectUnauthorized: false },
+    ssl: getSslConfig(),
     connectionTimeoutMillis: 10000,
   });
 
