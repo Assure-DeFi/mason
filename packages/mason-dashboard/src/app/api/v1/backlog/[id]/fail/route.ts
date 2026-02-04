@@ -41,11 +41,11 @@ interface RouteParams {
  * - Item status is 'in_progress' (can only fail items that are in progress)
  *
  * Updates:
- * - status → 'rejected' (used as 'failed' status)
+ * - status → 'failed'
+ * - failure_reason → error_message (if provided)
  *
- * Note: The database uses 'rejected' status for failed items.
- * The error_message is stored in a separate field if available,
- * or we could add it to the item's metadata.
+ * Note: The 'failed' status is distinct from 'rejected'. Failed items
+ * can be retried, while rejected items are intentionally declined.
  */
 export async function POST(request: Request, { params }: RouteParams) {
   try {
@@ -97,19 +97,15 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const supabase = createServiceClient();
 
-    // Build update data
-    // Note: We use 'rejected' as the status since the schema doesn't have 'failed'
+    // Build update data - use proper 'failed' status
     const updateData: Record<string, unknown> = {
-      status: 'rejected', // Maps to 'failed' conceptually
+      status: 'failed',
       updated_at: new Date().toISOString(),
     };
 
-    // Store error message in solution field with prefix (hacky but works without migration)
-    // A better approach would be to add an error_message column
+    // Store error message in dedicated field, preserving original solution
     if (error_message) {
-      // We'll prepend the error to the solution for now
-      // TODO: Add proper error_message column in future migration
-      updateData.solution = `[EXECUTION FAILED: ${error_message}]`;
+      updateData.failure_reason = error_message;
     }
 
     // Atomic update: include status check in WHERE clause to prevent race conditions
@@ -147,7 +143,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       item: {
         id: updatedItem.id,
         title: updatedItem.title,
-        status: 'failed', // Return 'failed' to the client even though DB stores 'rejected'
+        status: 'failed',
         branch_name: updatedItem.branch_name,
         error_message: error_message || null,
       },

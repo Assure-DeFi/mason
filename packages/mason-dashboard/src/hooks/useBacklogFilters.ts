@@ -87,6 +87,7 @@ export function useBacklogFilters({
       completed: 0,
       deferred: 0,
       rejected: 0,
+      failed: 0,
     };
 
     repoFilteredItems.forEach((item) => {
