@@ -650,6 +650,41 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN
   NULL; -- Table already in publication
 END $$;
+
+-- ============================================================================
+-- RPC FUNCTIONS
+-- ============================================================================
+
+-- get_backlog_stats: Optimized stats aggregation using single-pass COUNT FILTER
+-- Replaces 8 separate database queries with a single aggregation query
+-- Returns all status counts, area counts, and total count in one round trip
+CREATE OR REPLACE FUNCTION get_backlog_stats()
+RETURNS TABLE (
+  total INTEGER,
+  status_new INTEGER,
+  status_approved INTEGER,
+  status_in_progress INTEGER,
+  status_completed INTEGER,
+  status_deferred INTEGER,
+  status_rejected INTEGER,
+  area_frontend INTEGER,
+  area_backend INTEGER
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    COUNT(*)::INTEGER as total,
+    COUNT(*) FILTER (WHERE status = 'new')::INTEGER as status_new,
+    COUNT(*) FILTER (WHERE status = 'approved')::INTEGER as status_approved,
+    COUNT(*) FILTER (WHERE status = 'in_progress')::INTEGER as status_in_progress,
+    COUNT(*) FILTER (WHERE status = 'completed')::INTEGER as status_completed,
+    COUNT(*) FILTER (WHERE status = 'deferred')::INTEGER as status_deferred,
+    COUNT(*) FILTER (WHERE status = 'rejected')::INTEGER as status_rejected,
+    COUNT(*) FILTER (WHERE area = 'frontend')::INTEGER as area_frontend,
+    COUNT(*) FILTER (WHERE area = 'backend')::INTEGER as area_backend
+  FROM mason_pm_backlog_items;
+END;
+$$ LANGUAGE plpgsql STABLE;
 `;
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';

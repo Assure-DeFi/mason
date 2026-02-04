@@ -26,6 +26,8 @@ export function getSupabase(): SupabaseClient {
 export const supabase = {
   from: (...args: Parameters<SupabaseClient['from']>) =>
     getSupabase().from(...args),
+  rpc: (...args: Parameters<SupabaseClient['rpc']>) =>
+    getSupabase().rpc(...args),
 };
 
 // Server-side client (for API routes - uses anon key)
