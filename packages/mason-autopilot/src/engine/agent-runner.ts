@@ -128,8 +128,17 @@ function loadCommandFile(commandName: string, repoPath: string): string | null {
 
 /**
  * Check if Claude credentials exist
+ * Supports both:
+ * - Credentials file (~/.claude/.credentials.json)
+ * - Environment variable (CLAUDE_CODE_OAUTH_TOKEN)
  */
 export function hasClaudeCredentials(): boolean {
+  // Check for OAuth token in environment
+  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+    return true;
+  }
+
+  // Check for credentials file
   const credentialsPath = join(homedir(), '.claude', '.credentials.json');
   return existsSync(credentialsPath);
 }
