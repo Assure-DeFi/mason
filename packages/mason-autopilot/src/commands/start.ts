@@ -4,8 +4,12 @@
  * Start the autopilot daemon that polls Supabase for config and runs
  * scheduled PM reviews and executions.
  *
- * Two-phase cycle:
- *   Phase 1 (schedule-triggered, once daily): archive stale → generate N items → auto-approve all
+ * Supports multi-repository orchestration: a single daemon process can
+ * manage multiple repositories via round-robin scheduling with per-repo
+ * isolation for failures, cooldowns, and schedule tracking.
+ *
+ * Two-phase cycle per repository:
+ *   Phase 1 (schedule-triggered, once daily): archive stale -> generate N items -> auto-approve all
  *   Phase 2 (every cycle, every 5 min): execute 2 approved items if any remain
  *
  * Uses Claude Agent SDK for direct API execution instead of subprocess spawning.
@@ -20,12 +24,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { parseExpression } from 'cron-parser';
 
-import {
-  getConsecutiveFailures,
-  hasClaudeCredentials,
-  resetFailureCounter,
-  shouldSkipDueToFailures,
-} from '../engine/agent-runner';
+import { hasClaudeCredentials, resetFailureCounter } from '../engine/agent-runner';
 import { executeApprovedItems } from '../engine/execute-approved';
 import { runPmReview } from '../engine/pm-review';
 
@@ -36,12 +35,44 @@ function hashApiKey(key: string): string {
   return createHash('sha256').update(key).digest('hex');
 }
 
-interface AutopilotConfig {
+// ============================================================================
+// Configuration Types
+// ============================================================================
+
+/**
+ * Legacy single-repo config format (v1.0)
+ * Kept for backward compatibility - auto-migrated to multi-repo format.
+ */
+interface AutopilotConfigV1 {
   version: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
   repositoryPath: string;
 }
+
+/**
+ * Multi-repo config format (v2.0)
+ * Each repository entry has its own path and optional overrides.
+ */
+interface AutopilotConfigV2 {
+  version: string;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  repositories: RepositoryEntry[];
+  /** @deprecated Use repositories[] instead. Kept for backward compatibility. */
+  repositoryPath?: string;
+}
+
+interface RepositoryEntry {
+  path: string;
+  /** Optional label for logging (defaults to directory name) */
+  label?: string;
+  /** Override the global polling interval for this repo (ms) */
+  pollIntervalMs?: number;
+}
+
+/** Union type for config file parsing */
+type AutopilotConfig = AutopilotConfigV1 | AutopilotConfigV2;
 
 interface AutopilotDbConfig {
   id: string;
@@ -49,7 +80,6 @@ interface AutopilotDbConfig {
   repository_id: string;
   enabled: boolean;
   schedule_cron: string | null;
-  // Kept for schema backward compat but unused in simplified flow
   auto_approval_rules: {
     maxComplexity: number;
     minImpact: number;
@@ -60,7 +90,6 @@ interface AutopilotDbConfig {
     pauseOnFailure: boolean;
     requireHumanReviewComplexity?: number;
   };
-  // Kept for schema backward compat but unused in simplified flow
   execution_window: {
     startHour: number;
     endHour: number;
@@ -73,10 +102,36 @@ interface StartOptions {
   verbose?: boolean;
 }
 
+// ============================================================================
+// Per-Repository Context (isolated state)
+// ============================================================================
+
+/**
+ * Encapsulates per-repository state to prevent cross-repo interference.
+ * Each repo has its own failure tracking, cooldown, and schedule state.
+ */
+interface RepoContext {
+  entry: RepositoryEntry;
+  label: string;
+  /** Per-repo consecutive failure count */
+  consecutiveFailures: number;
+  /** Per-repo cooldown expiry */
+  cooldownUntil: Date | null;
+  /** Per-repo last schedule check */
+  lastScheduleCheck: Date | null;
+  /** Per-repo poll interval (for adaptive backoff) */
+  currentPollInterval: number;
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
 const CONFIG_DIR = join(homedir(), '.mason');
 const CONFIG_FILE = join(CONFIG_DIR, 'autopilot.json');
 const BASE_POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_BACKOFF_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes max
+const MAX_CONSECUTIVE_FAILURES = 3;
 
 /**
  * Hard-coded limit per execution run for context window safety.
@@ -84,12 +139,66 @@ const MAX_BACKOFF_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes max
  */
 const ITEMS_PER_EXECUTION = 2;
 
+// ============================================================================
+// Global State (shared across repos)
+// ============================================================================
+
 let supabase: SupabaseClient;
-let localConfig: AutopilotConfig;
 let isRunning = false;
-let lastScheduleCheck: Date | null = null;
-let currentPollInterval = BASE_POLL_INTERVAL_MS;
-let cooldownUntil: Date | null = null;
+/** Per-repo contexts keyed by repository path */
+let repoContexts: RepoContext[] = [];
+
+// ============================================================================
+// Config Parsing & Migration
+// ============================================================================
+
+/**
+ * Parse the config file and normalize to multi-repo format.
+ * Handles backward compatibility with v1.0 single-repo configs.
+ */
+function parseConfig(raw: AutopilotConfig): {
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  repositories: RepositoryEntry[];
+} {
+  // Check for v2.0 format (has repositories array)
+  if ('repositories' in raw && Array.isArray(raw.repositories) && raw.repositories.length > 0) {
+    return {
+      supabaseUrl: raw.supabaseUrl,
+      supabaseAnonKey: raw.supabaseAnonKey,
+      repositories: raw.repositories,
+    };
+  }
+
+  // Fall back to v1.0 format (single repositoryPath)
+  if ('repositoryPath' in raw && raw.repositoryPath) {
+    return {
+      supabaseUrl: raw.supabaseUrl,
+      supabaseAnonKey: raw.supabaseAnonKey,
+      repositories: [{ path: raw.repositoryPath }],
+    };
+  }
+
+  throw new Error(
+    'Invalid autopilot config: must have either "repositories" array or "repositoryPath" field.',
+  );
+}
+
+/**
+ * Create a label for a repository (used in logging).
+ */
+function getRepoLabel(entry: RepositoryEntry): string {
+  if (entry.label) {
+    return entry.label;
+  }
+  // Use last path segment as label
+  const parts = entry.path.replace(/\/+$/, '').split('/');
+  return parts[parts.length - 1] || entry.path;
+}
+
+// ============================================================================
+// Daily Execution Tracking
+// ============================================================================
 
 interface DailyExecutionResult {
   dailyExecutedCount: number;
@@ -145,12 +254,17 @@ async function getDailyExecutedCount(
   };
 }
 
+// ============================================================================
+// Backlog Management
+// ============================================================================
+
 /**
  * Archive stale autopilot items from previous runs.
  * Sets status='archived' on items with source='autopilot' still in 'new' status.
  */
 async function archiveStaleAutopilotItems(
   repositoryId: string,
+  repoLabel: string,
   verbose: boolean,
 ): Promise<void> {
   const { data, error } = await supabase
@@ -162,17 +276,17 @@ async function archiveStaleAutopilotItems(
     .select('id');
 
   if (error) {
-    console.error('Failed to archive stale items:', error.message);
+    console.error(`[${repoLabel}] Failed to archive stale items:`, error.message);
     return;
   }
 
   const count = data?.length ?? 0;
   if (count > 0) {
     console.log(
-      `  Archived ${count} stale autopilot items from previous runs.`,
+      `  [${repoLabel}] Archived ${count} stale autopilot items from previous runs.`,
     );
   } else if (verbose) {
-    console.log('  No stale autopilot items to archive.');
+    console.log(`  [${repoLabel}] No stale autopilot items to archive.`);
   }
 }
 
@@ -182,6 +296,7 @@ async function archiveStaleAutopilotItems(
  */
 async function autoApproveAllAutopilotItems(
   config: AutopilotDbConfig,
+  repoLabel: string,
   verbose: boolean,
 ): Promise<number> {
   const { data, error } = await supabase
@@ -193,24 +308,28 @@ async function autoApproveAllAutopilotItems(
     .select('id, title');
 
   if (error) {
-    console.error('Failed to auto-approve items:', error.message);
+    console.error(`[${repoLabel}] Failed to auto-approve items:`, error.message);
     return 0;
   }
 
   const count = data?.length ?? 0;
   if (count > 0) {
-    console.log(`  Auto-approved ${count} autopilot items.`);
+    console.log(`  [${repoLabel}] Auto-approved ${count} autopilot items.`);
     if (verbose && data) {
       for (const item of data) {
         console.log(`    - ${item.title}`);
       }
     }
   } else if (verbose) {
-    console.log('  No new autopilot items to approve.');
+    console.log(`  [${repoLabel}] No new autopilot items to approve.`);
   }
 
   return count;
 }
+
+// ============================================================================
+// Main Entrypoint
+// ============================================================================
 
 export async function startCommand(options: StartOptions): Promise<void> {
   const verbose = options.verbose ?? false;
@@ -232,19 +351,40 @@ export async function startCommand(options: StartOptions): Promise<void> {
     process.exit(1);
   }
 
-  localConfig = JSON.parse(
+  const rawConfig = JSON.parse(
     readFileSync(CONFIG_FILE, 'utf-8'),
   ) as AutopilotConfig;
 
+  const { supabaseUrl, supabaseAnonKey, repositories } = parseConfig(rawConfig);
+
+  if (repositories.length === 0) {
+    console.error('No repositories configured in autopilot config.');
+    console.error('Add repositories to ~/.mason/autopilot.json or run: mason-autopilot init');
+    process.exit(1);
+  }
+
   console.log('\nMason Autopilot Daemon');
   console.log('='.repeat(40));
-  console.log('Repository:', localConfig.repositoryPath);
-  console.log('Supabase:', localConfig.supabaseUrl);
+  console.log(`Repositories: ${repositories.length}`);
+  for (const repo of repositories) {
+    console.log(`  - ${getRepoLabel(repo)} (${repo.path})`);
+  }
+  console.log('Supabase:', supabaseUrl);
   console.log('Auth: Claude Agent SDK');
   console.log('');
 
-  // Initialize Supabase client
-  supabase = createClient(localConfig.supabaseUrl, localConfig.supabaseAnonKey);
+  // Initialize Supabase client (shared across all repos)
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+  // Initialize per-repo contexts
+  repoContexts = repositories.map((entry) => ({
+    entry,
+    label: getRepoLabel(entry),
+    consecutiveFailures: 0,
+    cooldownUntil: null,
+    lastScheduleCheck: null,
+    currentPollInterval: entry.pollIntervalMs ?? BASE_POLL_INTERVAL_MS,
+  }));
 
   // Start the main loop
   isRunning = true;
@@ -263,9 +403,10 @@ export async function startCommand(options: StartOptions): Promise<void> {
   });
 
   console.log('Starting daemon loop (polling every 5 minutes)...');
+  console.log(`Managing ${repositories.length} repositor${repositories.length === 1 ? 'y' : 'ies'} in round-robin.`);
   console.log('Press Ctrl+C to stop.\n');
 
-  // Initial run
+  // Initial run: cycle through all repos
   await runDaemonCycle(verbose);
 
   // Schedule recurring runs with dynamic interval
@@ -274,6 +415,11 @@ export async function startCommand(options: StartOptions): Promise<void> {
       return;
     }
 
+    // Use the minimum poll interval across all repos
+    const nextInterval = Math.min(
+      ...repoContexts.map((ctx) => ctx.currentPollInterval),
+    );
+
     setTimeout(() => {
       void (async () => {
         if (isRunning) {
@@ -281,7 +427,7 @@ export async function startCommand(options: StartOptions): Promise<void> {
           scheduleNextRun();
         }
       })();
-    }, currentPollInterval);
+    }, nextInterval);
   };
 
   scheduleNextRun();
@@ -290,54 +436,80 @@ export async function startCommand(options: StartOptions): Promise<void> {
   await new Promise(() => {});
 }
 
+// ============================================================================
+// Daemon Cycle (iterates all repos)
+// ============================================================================
+
+/**
+ * Run a single daemon cycle across all registered repositories.
+ * Each repo is processed sequentially (round-robin) with isolated error handling.
+ */
 async function runDaemonCycle(verbose: boolean): Promise<void> {
   const now = new Date();
   if (verbose) {
-    console.log(`[${now.toISOString()}] Running daemon cycle...`);
+    console.log(`\n[${now.toISOString()}] Running daemon cycle across ${repoContexts.length} repo(s)...`);
   }
 
-  // Check if in cooldown period
-  if (cooldownUntil && now < cooldownUntil) {
-    const remainingMs = cooldownUntil.getTime() - now.getTime();
+  for (const ctx of repoContexts) {
+    if (!isRunning) {
+      break;
+    }
+
+    await runRepoPhase(ctx, verbose);
+  }
+}
+
+/**
+ * Run the two-phase cycle for a single repository.
+ * All state (failures, cooldowns, schedule checks) is isolated to the repo context.
+ */
+async function runRepoPhase(ctx: RepoContext, verbose: boolean): Promise<void> {
+  const now = new Date();
+  const prefix = `[${ctx.label}]`;
+
+  if (verbose) {
+    console.log(`\n${prefix} Processing repository: ${ctx.entry.path}`);
+  }
+
+  // Check if in cooldown period (per-repo)
+  if (ctx.cooldownUntil && now < ctx.cooldownUntil) {
+    const remainingMs = ctx.cooldownUntil.getTime() - now.getTime();
     const remainingMin = Math.ceil(remainingMs / 60000);
     console.log(
-      `  In cooldown (${remainingMin}min remaining). Failures: ${getConsecutiveFailures()}`,
+      `  ${prefix} In cooldown (${remainingMin}min remaining). Failures: ${ctx.consecutiveFailures}`,
     );
     return;
   }
 
-  // Check if too many consecutive failures
-  if (shouldSkipDueToFailures()) {
-    // Enter cooldown mode with exponential backoff
-    const backoffMultiplier = Math.pow(2, getConsecutiveFailures() - 2);
+  // Check if too many consecutive failures (per-repo)
+  if (ctx.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+    const backoffMultiplier = Math.pow(2, ctx.consecutiveFailures - 2);
     const cooldownDuration = Math.min(
       BASE_POLL_INTERVAL_MS * backoffMultiplier,
       MAX_BACKOFF_INTERVAL_MS,
     );
-    cooldownUntil = new Date(now.getTime() + cooldownDuration);
+    ctx.cooldownUntil = new Date(now.getTime() + cooldownDuration);
 
     console.log(
-      `  Too many failures (${getConsecutiveFailures()}). Entering cooldown for ${Math.ceil(cooldownDuration / 60000)} minutes.`,
+      `  ${prefix} Too many failures (${ctx.consecutiveFailures}). Entering cooldown for ${Math.ceil(cooldownDuration / 60000)} minutes.`,
     );
-    console.log('  Check credentials with: claude setup-token');
-    console.log('  Or check API status at: https://status.anthropic.com');
     return;
   }
 
   try {
-    // 1. Fetch config from Supabase
-    const config = await fetchAutopilotConfig();
+    // 1. Fetch config from Supabase for this repo
+    const config = await fetchAutopilotConfigForRepo(ctx.entry.path);
 
     if (!config) {
       if (verbose) {
-        console.log('  No autopilot config found for this repository.');
+        console.log(`  ${prefix} No autopilot config found.`);
       }
       return;
     }
 
     if (!config.enabled) {
       if (verbose) {
-        console.log('  Autopilot is disabled for this repository.');
+        console.log(`  ${prefix} Autopilot is disabled.`);
       }
       return;
     }
@@ -345,13 +517,13 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
     // 2. Update heartbeat
     await updateHeartbeat(config.id);
 
-    // === PHASE 1: Daily generation (schedule-triggered) ===
-    if (config.schedule_cron && shouldRunSchedule(config.schedule_cron)) {
+    // === PHASE 1: Daily generation (schedule-triggered, per-repo) ===
+    if (config.schedule_cron && shouldRunSchedule(config.schedule_cron, ctx)) {
       console.log(
-        `[${now.toISOString()}] Schedule triggered! Running daily review...`,
+        `${prefix} [${now.toISOString()}] Schedule triggered! Running daily review...`,
       );
 
-      // Check if there are already enough approved items to satisfy the daily limit
+      // Check if there are already enough approved items
       const maxItemsPerDay = config.guardian_rails.maxItemsPerDay;
       const { count: approvedCount } = await supabase
         .from('mason_pm_backlog_items')
@@ -361,36 +533,39 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
 
       if (approvedCount && approvedCount >= maxItemsPerDay) {
         console.log(
-          `  Skipping PM review: ${approvedCount} approved items already exist (daily max: ${maxItemsPerDay})`,
+          `  ${prefix} Skipping PM review: ${approvedCount} approved items already exist (daily max: ${maxItemsPerDay})`,
         );
       } else {
         // Archive stale autopilot items from previous runs
-        await archiveStaleAutopilotItems(config.repository_id, verbose);
+        await archiveStaleAutopilotItems(config.repository_id, ctx.label, verbose);
 
         // Run PM review with item limit
-        await runPmReviewHandler(config, verbose);
+        await runPmReviewHandler(config, ctx, verbose);
 
         // Auto-approve all generated items
-        await autoApproveAllAutopilotItems(config, verbose);
+        await autoApproveAllAutopilotItems(config, ctx.label, verbose);
       }
 
-      lastScheduleCheck = now;
+      ctx.lastScheduleCheck = now;
     } else if (verbose) {
-      console.log('  Schedule not triggered yet.');
+      console.log(`  ${prefix} Schedule not triggered yet.`);
     }
 
     // === PHASE 2: Continuous execution (every cycle) ===
-    await executeApprovedItemsHandler(config, verbose);
+    await executeApprovedItemsHandler(config, ctx, verbose);
 
-    // Success! Reset backoff
-    currentPollInterval = BASE_POLL_INTERVAL_MS;
-    cooldownUntil = null;
+    // Success! Reset per-repo backoff
+    ctx.currentPollInterval = ctx.entry.pollIntervalMs ?? BASE_POLL_INTERVAL_MS;
+    ctx.cooldownUntil = null;
+    ctx.consecutiveFailures = 0;
+    // Also reset the global failure counter used by agent-runner
     resetFailureCounter();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
 
-    console.error('Daemon cycle error:', errorMessage);
+    ctx.consecutiveFailures++;
+    console.error(`${prefix} Daemon cycle error (failure #${ctx.consecutiveFailures}):`, errorMessage);
     if (verbose && errorStack) {
       console.error('Stack trace:', errorStack.slice(0, 500));
     }
@@ -399,9 +574,9 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
     try {
       await supabase.from('mason_autopilot_errors').insert({
         error_type: 'daemon_cycle',
-        error_message: errorMessage,
+        error_message: `[${ctx.label}] ${errorMessage}`,
         error_details: errorStack?.slice(0, 2000),
-        consecutive_failures: getConsecutiveFailures(),
+        consecutive_failures: ctx.consecutiveFailures,
         occurred_at: new Date().toISOString(),
       });
     } catch {
@@ -410,9 +585,20 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
   }
 }
 
-async function fetchAutopilotConfig(): Promise<AutopilotDbConfig | null> {
+// ============================================================================
+// Autopilot Config Fetching
+// ============================================================================
+
+/**
+ * Fetch autopilot config from Supabase for a specific repository path.
+ * Reads mason.config.json from the repo, validates API key, and queries
+ * the autopilot_config table.
+ */
+async function fetchAutopilotConfigForRepo(
+  repositoryPath: string,
+): Promise<AutopilotDbConfig | null> {
   // Get repository info from mason.config.json in the repo
-  const masonConfigPath = join(localConfig.repositoryPath, 'mason.config.json');
+  const masonConfigPath = join(repositoryPath, 'mason.config.json');
   if (!existsSync(masonConfigPath)) {
     console.error('  mason.config.json not found at:', masonConfigPath);
     console.error('  Run mason-autopilot init from your repository directory.');
@@ -448,7 +634,7 @@ async function fetchAutopilotConfig(): Promise<AutopilotDbConfig | null> {
   try {
     const { execSync } = await import('node:child_process');
     const remoteUrl = execSync('git remote get-url origin', {
-      cwd: localConfig.repositoryPath,
+      cwd: repositoryPath,
       encoding: 'utf-8',
     }).trim();
     const match = remoteUrl.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?$/);
@@ -479,8 +665,6 @@ async function fetchAutopilotConfig(): Promise<AutopilotDbConfig | null> {
     return null;
   }
 
-  console.log('  Repository:', repoFullName);
-
   // Query autopilot config for this specific repository
   const { data, error } = await supabase
     .from('mason_autopilot_config')
@@ -504,6 +688,10 @@ async function fetchAutopilotConfig(): Promise<AutopilotDbConfig | null> {
   return data as AutopilotDbConfig;
 }
 
+// ============================================================================
+// Heartbeat & Schedule
+// ============================================================================
+
 async function updateHeartbeat(configId: string): Promise<void> {
   await supabase
     .from('mason_autopilot_config')
@@ -511,25 +699,34 @@ async function updateHeartbeat(configId: string): Promise<void> {
     .eq('id', configId);
 }
 
-function shouldRunSchedule(cronExpression: string): boolean {
+/**
+ * Check if a cron schedule should trigger for a specific repo context.
+ * Uses per-repo lastScheduleCheck for isolation.
+ */
+function shouldRunSchedule(cronExpression: string, ctx: RepoContext): boolean {
   try {
     const interval = parseExpression(cronExpression);
     const nextRun = interval.prev().toDate();
 
     // If we haven't run since the last scheduled time, run now
-    if (!lastScheduleCheck || nextRun > lastScheduleCheck) {
+    if (!ctx.lastScheduleCheck || nextRun > ctx.lastScheduleCheck) {
       return true;
     }
 
     return false;
   } catch {
-    console.error('Invalid cron expression:', cronExpression);
+    console.error(`[${ctx.label}] Invalid cron expression:`, cronExpression);
     return false;
   }
 }
 
+// ============================================================================
+// Phase Handlers
+// ============================================================================
+
 async function runPmReviewHandler(
   config: AutopilotDbConfig,
+  ctx: RepoContext,
   verbose: boolean,
 ): Promise<void> {
   const itemLimit = config.guardian_rails.maxItemsPerDay;
@@ -538,7 +735,7 @@ async function runPmReviewHandler(
   const result = await runPmReview(supabase, {
     userId: config.user_id,
     repositoryId: config.repository_id,
-    repositoryPath: localConfig.repositoryPath,
+    repositoryPath: ctx.entry.path,
     verbose,
     itemLimit,
   });
@@ -558,9 +755,11 @@ async function runPmReviewHandler(
 
 async function executeApprovedItemsHandler(
   config: AutopilotDbConfig,
+  ctx: RepoContext,
   verbose: boolean,
 ): Promise<void> {
   const maxItemsPerDay = config.guardian_rails.maxItemsPerDay;
+  const prefix = `[${ctx.label}]`;
 
   // Check daily execution limit across all cycles
   const dailyStatus = await getDailyExecutedCount(
@@ -570,13 +769,13 @@ async function executeApprovedItemsHandler(
 
   if (verbose) {
     console.log(
-      `  Daily execution progress: ${dailyStatus.dailyExecutedCount}/${dailyStatus.maxItemsPerDay} items (${dailyStatus.percentUsed}%)`,
+      `  ${prefix} Daily execution progress: ${dailyStatus.dailyExecutedCount}/${dailyStatus.maxItemsPerDay} items (${dailyStatus.percentUsed}%)`,
     );
   }
 
   if (dailyStatus.limitReached) {
     if (verbose) {
-      console.log('  Daily limit reached. Skipping execution until tomorrow.');
+      console.log(`  ${prefix} Daily limit reached. Skipping execution until tomorrow.`);
     }
 
     // Record skipped execution for visibility
@@ -602,7 +801,7 @@ async function executeApprovedItemsHandler(
 
   if (!count || count === 0) {
     if (verbose) {
-      console.log('  No approved items to execute.');
+      console.log(`  ${prefix} No approved items to execute.`);
     }
     return;
   }
@@ -610,14 +809,14 @@ async function executeApprovedItemsHandler(
   // Calculate how many items we can execute this run
   const itemsToExecute = Math.min(ITEMS_PER_EXECUTION, dailyStatus.remaining);
 
-  console.log(`  Remaining today: ${dailyStatus.remaining} items`);
-  console.log(`  Executing up to ${itemsToExecute} approved items...`);
+  console.log(`  ${prefix} Remaining today: ${dailyStatus.remaining} items`);
+  console.log(`  ${prefix} Executing up to ${itemsToExecute} approved items...`);
 
   // Use SDK-based execution
   const result = await executeApprovedItems(supabase, {
     userId: config.user_id,
     repositoryId: config.repository_id,
-    repositoryPath: localConfig.repositoryPath,
+    repositoryPath: ctx.entry.path,
     maxItems: itemsToExecute,
     verbose,
     pauseOnFailure: config.guardian_rails.pauseOnFailure,
