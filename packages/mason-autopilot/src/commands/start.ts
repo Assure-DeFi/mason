@@ -72,6 +72,12 @@ const CONFIG_FILE = join(CONFIG_DIR, 'autopilot.json');
 const BASE_POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_BACKOFF_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes max
 
+/**
+ * Hard-coded limit per execution run for context window safety.
+ * This is separate from maxItemsPerDay (user-configurable daily cap).
+ */
+const ITEMS_PER_EXECUTION = 2;
+
 let supabase: SupabaseClient;
 let localConfig: AutopilotConfig;
 let isRunning = false;
@@ -115,6 +121,61 @@ async function checkBacklogThreshold(
   const isFull = actualCount >= threshold;
 
   return { count: actualCount, threshold, isFull, percentFull };
+}
+
+interface DailyExecutionResult {
+  dailyExecutedCount: number;
+  maxItemsPerDay: number;
+  remaining: number;
+  percentUsed: number;
+  limitReached: boolean;
+}
+
+/**
+ * Get the count of items executed in the last 24 hours for a repository.
+ * Used to enforce the daily execution cap across all daemon cycles.
+ */
+async function getDailyExecutedCount(
+  repositoryId: string,
+  maxItemsPerDay: number,
+): Promise<DailyExecutionResult> {
+  const twentyFourHoursAgo = new Date(
+    Date.now() - 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { data, error } = await supabase
+    .from('mason_autopilot_runs')
+    .select('items_executed')
+    .eq('repository_id', repositoryId)
+    .eq('run_type', 'execution')
+    .eq('status', 'completed')
+    .gte('started_at', twentyFourHoursAgo);
+
+  if (error) {
+    console.error('Failed to check daily execution count:', error.message);
+    // On error, be conservative and assume we haven't executed anything
+    return {
+      dailyExecutedCount: 0,
+      maxItemsPerDay,
+      remaining: maxItemsPerDay,
+      percentUsed: 0,
+      limitReached: false,
+    };
+  }
+
+  const dailyExecutedCount =
+    data?.reduce((sum, run) => sum + (run.items_executed || 0), 0) ?? 0;
+  const remaining = Math.max(0, maxItemsPerDay - dailyExecutedCount);
+  const percentUsed = Math.round((dailyExecutedCount / maxItemsPerDay) * 100);
+  const limitReached = remaining <= 0;
+
+  return {
+    dailyExecutedCount,
+    maxItemsPerDay,
+    remaining,
+    percentUsed,
+    limitReached,
+  };
 }
 
 export async function startCommand(options: StartOptions): Promise<void> {
@@ -300,11 +361,7 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
       await autoApproveItems(config, verbose);
 
       // 8. Execute approved items (always run - drains the backlog)
-      await executeApprovedItemsHandler(
-        config,
-        verbose,
-        config.guardian_rails.maxItemsPerDay,
-      );
+      await executeApprovedItemsHandler(config, verbose);
 
       lastScheduleCheck = now;
 
@@ -565,14 +622,49 @@ async function autoApproveItems(
 async function executeApprovedItemsHandler(
   config: AutopilotDbConfig,
   verbose: boolean,
-  maxItems: number,
 ): Promise<void> {
+  const maxItemsPerDay = config.guardian_rails.maxItemsPerDay;
+
+  // Check daily execution limit across all cycles
+  const dailyStatus = await getDailyExecutedCount(
+    config.repository_id,
+    maxItemsPerDay,
+  );
+
+  console.log(
+    `  Daily execution progress: ${dailyStatus.dailyExecutedCount}/${dailyStatus.maxItemsPerDay} items (${dailyStatus.percentUsed}%)`,
+  );
+
+  if (dailyStatus.limitReached) {
+    console.log('  Daily limit reached. Skipping execution until tomorrow.');
+
+    // Record skipped execution for visibility
+    await supabase.from('mason_autopilot_runs').insert({
+      user_id: config.user_id,
+      repository_id: config.repository_id,
+      run_type: 'execution',
+      status: 'skipped',
+      items_executed: 0,
+      skip_reason: `Daily limit reached: ${dailyStatus.dailyExecutedCount}/${dailyStatus.maxItemsPerDay} items executed in last 24 hours`,
+      started_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    });
+    return;
+  }
+
+  // Calculate how many items we can execute this run
+  // Respect both: hard-coded per-execution limit AND remaining daily budget
+  const itemsToExecute = Math.min(ITEMS_PER_EXECUTION, dailyStatus.remaining);
+
+  console.log(`  Remaining today: ${dailyStatus.remaining} items`);
+  console.log(`  Executing up to ${itemsToExecute} approved items...`);
+
   // Use SDK-based execution
   const result = await executeApprovedItems(supabase, {
     userId: config.user_id,
     repositoryId: config.repository_id,
     repositoryPath: localConfig.repositoryPath,
-    maxItems,
+    maxItems: itemsToExecute,
     verbose,
     pauseOnFailure: config.guardian_rails.pauseOnFailure,
     autopilotConfigId: config.id,
