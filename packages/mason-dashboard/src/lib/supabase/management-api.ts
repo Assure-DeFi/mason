@@ -346,18 +346,33 @@ CREATE TABLE IF NOT EXISTS mason_pm_backlog_items (
   title TEXT NOT NULL,
   problem TEXT NOT NULL,
   solution TEXT NOT NULL,
-  area TEXT NOT NULL CHECK (area IN ('frontend', 'backend')),
-  type TEXT NOT NULL CHECK (type IN ('dashboard', 'discovery', 'auth', 'backend')),
+  area TEXT NOT NULL CHECK (area IN ('frontend', 'backend', 'frontend-ux', 'api-backend', 'reliability', 'security', 'code-quality')),
+  type TEXT NOT NULL CHECK (type IN ('feature', 'ui', 'ux', 'api', 'data', 'security', 'performance', 'code-quality', 'fix', 'refactor', 'optimization', 'dashboard', 'discovery', 'auth', 'backend')),
   complexity INTEGER NOT NULL CHECK (complexity BETWEEN 1 AND 5),
   impact_score INTEGER NOT NULL CHECK (impact_score BETWEEN 1 AND 10),
   effort_score INTEGER NOT NULL CHECK (effort_score BETWEEN 1 AND 10),
   priority_score INTEGER GENERATED ALWAYS AS (impact_score * 2 - effort_score) STORED,
   benefits JSONB DEFAULT '[]'::jsonb,
-  status TEXT DEFAULT 'new' CHECK (status IN ('new', 'approved', 'in_progress', 'completed', 'deferred', 'rejected')),
+  status TEXT DEFAULT 'new' CHECK (status IN ('new', 'approved', 'in_progress', 'completed', 'deferred', 'rejected', 'failed')),
   branch_name TEXT,
   pr_url TEXT,
   prd_content TEXT,
-  prd_generated_at TIMESTAMPTZ
+  prd_generated_at TIMESTAMPTZ,
+  -- Risk analysis
+  risk_score INTEGER,
+  risk_analyzed_at TIMESTAMPTZ,
+  files_affected_count INTEGER,
+  has_breaking_changes BOOLEAN,
+  test_coverage_gaps INTEGER,
+  -- Feature classification
+  is_new_feature BOOLEAN DEFAULT false,
+  is_banger_idea BOOLEAN DEFAULT false,
+  tags TEXT[] DEFAULT '{}',
+  -- Source tracking
+  source TEXT DEFAULT 'manual' CHECK (source IN ('manual', 'autopilot')),
+  autopilot_run_id UUID,
+  -- Failure tracking
+  failure_reason TEXT
 );
 
 -- Mason Remote Execution Runs table
@@ -409,6 +424,7 @@ CREATE INDEX IF NOT EXISTS idx_mason_github_repositories_user_id ON mason_github
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_user_id ON mason_pm_backlog_items(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_status ON mason_pm_backlog_items(status);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_repository_id ON mason_pm_backlog_items(repository_id);
+CREATE INDEX IF NOT EXISTS idx_mason_pm_backlog_items_source ON mason_pm_backlog_items(source);
 CREATE INDEX IF NOT EXISTS idx_mason_pm_analysis_runs_user_id ON mason_pm_analysis_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_remote_execution_runs_user_id ON mason_remote_execution_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_mason_execution_logs_execution_run_id ON mason_execution_logs(execution_run_id);
