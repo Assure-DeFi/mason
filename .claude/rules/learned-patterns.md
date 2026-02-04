@@ -437,3 +437,20 @@ IF MODE == "banger": Skip to Mode D section
 **Why**: Complex commands with multiple modes need explanation. A dropdown with "Mode A, Mode B, Mode C" requires users to read documentation. An educational wizard teaches as it guides.
 
 ---
+
+## Daemon Reliability: Exponential Backoff and Error Visibility
+
+**Discovered**: 2026-02-03
+**Context**: Mason autopilot daemon failed repeatedly for 2+ hours with "Claude Code process exited with code 1" - no visibility into actual cause, no backoff
+**Pattern**: Long-running daemons that call external services MUST implement:
+
+1. **Consecutive failure tracking** - Count failures, enter cooldown after 3+ consecutive
+2. **Exponential backoff** - Double the wait time after each failure (5min → 10min → 20min → 30min max)
+3. **Error detail extraction** - Parse error messages for known patterns (rate limit, auth, timeout)
+4. **Error logging to database** - Store error details for debugging (not just "exited with code 1")
+5. **Cooldown with helpful messages** - Tell user what to check (credentials, API status)
+6. **Success resets everything** - After success, reset failure counter and backoff interval
+
+**Why**: Without these, a daemon will spam failing requests indefinitely, wasting resources and making debugging impossible. The pattern of "worked for hours then broke" usually indicates rate limits or credential expiration.
+
+---

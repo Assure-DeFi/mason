@@ -86,12 +86,18 @@ export async function executeApprovedItems(
       agentConfig,
     );
 
+    // Build detailed error message
+    const errorMessage = result.errorCode
+      ? `[${result.errorCode}] ${result.error}`
+      : result.error;
+
     // Update run status
     await supabase
       .from('mason_autopilot_runs')
       .update({
         status: result.success ? 'completed' : 'failed',
-        error_message: result.error,
+        error_message: errorMessage,
+        error_details: result.errorDetails?.slice(0, 4000),
         items_executed: approvedItems.length,
         completed_at: new Date().toISOString(),
       })
@@ -102,6 +108,9 @@ export async function executeApprovedItems(
       return { success: true, itemsExecuted: approvedItems.length };
     } else {
       console.error('Execution failed:', result.error);
+      if (result.errorCode) {
+        console.error('  Error code:', result.errorCode);
+      }
 
       // Check guardian rail: pause on failure
       if (config.pauseOnFailure) {

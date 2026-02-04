@@ -16,7 +16,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { parseExpression } from 'cron-parser';
 
-import { hasClaudeCredentials } from '../engine/agent-runner';
+import {
+  getConsecutiveFailures,
+  hasClaudeCredentials,
+  resetFailureCounter,
+  shouldSkipDueToFailures,
+} from '../engine/agent-runner';
 import { executeApprovedItems } from '../engine/execute-approved';
 import { runPmReview } from '../engine/pm-review';
 
@@ -64,12 +69,15 @@ interface StartOptions {
 
 const CONFIG_DIR = join(homedir(), '.mason');
 const CONFIG_FILE = join(CONFIG_DIR, 'autopilot.json');
-const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const BASE_POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_BACKOFF_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes max
 
 let supabase: SupabaseClient;
 let localConfig: AutopilotConfig;
 let isRunning = false;
 let lastScheduleCheck: Date | null = null;
+let currentPollInterval = BASE_POLL_INTERVAL_MS;
+let cooldownUntil: Date | null = null;
 
 interface BacklogThresholdResult {
   count: number;
@@ -165,14 +173,19 @@ export async function startCommand(options: StartOptions): Promise<void> {
   // Initial run
   await runDaemonCycle(verbose);
 
-  // Schedule recurring runs
-  const interval = setInterval(async () => {
-    if (isRunning) {
-      await runDaemonCycle(verbose);
-    } else {
-      clearInterval(interval);
-    }
-  }, POLL_INTERVAL_MS);
+  // Schedule recurring runs with dynamic interval
+  const scheduleNextRun = () => {
+    if (!isRunning) return;
+
+    setTimeout(async () => {
+      if (isRunning) {
+        await runDaemonCycle(verbose);
+        scheduleNextRun();
+      }
+    }, currentPollInterval);
+  };
+
+  scheduleNextRun();
 
   // Keep process alive
   await new Promise(() => {});
@@ -182,6 +195,34 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
   const now = new Date();
   if (verbose) {
     console.log(`[${now.toISOString()}] Running daemon cycle...`);
+  }
+
+  // Check if in cooldown period
+  if (cooldownUntil && now < cooldownUntil) {
+    const remainingMs = cooldownUntil.getTime() - now.getTime();
+    const remainingMin = Math.ceil(remainingMs / 60000);
+    console.log(
+      `  In cooldown (${remainingMin}min remaining). Failures: ${getConsecutiveFailures()}`,
+    );
+    return;
+  }
+
+  // Check if too many consecutive failures
+  if (shouldSkipDueToFailures()) {
+    // Enter cooldown mode with exponential backoff
+    const backoffMultiplier = Math.pow(2, getConsecutiveFailures() - 2);
+    const cooldownDuration = Math.min(
+      BASE_POLL_INTERVAL_MS * backoffMultiplier,
+      MAX_BACKOFF_INTERVAL_MS,
+    );
+    cooldownUntil = new Date(now.getTime() + cooldownDuration);
+
+    console.log(
+      `  Too many failures (${getConsecutiveFailures()}). Entering cooldown for ${Math.ceil(cooldownDuration / 60000)} minutes.`,
+    );
+    console.log('  Check credentials with: claude setup-token');
+    console.log('  Or check API status at: https://status.anthropic.com');
+    return;
   }
 
   try {
@@ -262,11 +303,35 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
       );
 
       lastScheduleCheck = now;
+
+      // Success! Reset backoff
+      currentPollInterval = BASE_POLL_INTERVAL_MS;
+      cooldownUntil = null;
+      resetFailureCounter();
     } else if (verbose) {
       console.log('  Schedule not triggered yet.');
     }
   } catch (error) {
-    console.error('Daemon cycle error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    console.error('Daemon cycle error:', errorMessage);
+    if (verbose && errorStack) {
+      console.error('Stack trace:', errorStack.slice(0, 500));
+    }
+
+    // Log to Supabase for visibility
+    try {
+      await supabase.from('mason_autopilot_errors').insert({
+        error_type: 'daemon_cycle',
+        error_message: errorMessage,
+        error_details: errorStack?.slice(0, 2000),
+        consecutive_failures: getConsecutiveFailures(),
+        occurred_at: new Date().toISOString(),
+      });
+    } catch {
+      // Silently fail if we can't log to Supabase
+    }
   }
 }
 
@@ -416,7 +481,15 @@ async function runPmReviewHandler(
   });
 
   if (!result.success) {
-    throw new Error(result.error || 'PM review failed');
+    // Build detailed error message
+    let errorMsg = result.error || 'PM review failed';
+    if (result.errorCode) {
+      errorMsg = `[${result.errorCode}] ${errorMsg}`;
+    }
+    if (verbose && result.errorDetails) {
+      console.error('Error details:', result.errorDetails);
+    }
+    throw new Error(errorMsg);
   }
 }
 

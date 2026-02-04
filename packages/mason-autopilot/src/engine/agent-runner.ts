@@ -12,6 +12,10 @@ import { join } from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+// Track consecutive failures for backoff logic
+let consecutiveFailures = 0;
+const MAX_CONSECUTIVE_FAILURES = 3;
+
 export interface AgentConfig {
   repositoryPath: string;
   verbose: boolean;
@@ -21,9 +25,84 @@ export interface AgentConfig {
   runId?: string;
 }
 
+/**
+ * Get current failure count (for external backoff decisions)
+ */
+export function getConsecutiveFailures(): number {
+  return consecutiveFailures;
+}
+
+/**
+ * Reset failure counter (call after successful run)
+ */
+export function resetFailureCounter(): void {
+  consecutiveFailures = 0;
+}
+
+/**
+ * Check if we should skip due to too many failures
+ */
+export function shouldSkipDueToFailures(): boolean {
+  return consecutiveFailures >= MAX_CONSECUTIVE_FAILURES;
+}
+
+/**
+ * Extract detailed error information from SDK errors
+ */
+function extractErrorDetails(error: unknown): {
+  message: string;
+  code?: string;
+  details?: string;
+} {
+  if (error instanceof Error) {
+    const message = error.message;
+
+    // Check for specific error patterns
+    if (message.includes('rate limit') || message.includes('429')) {
+      return {
+        message: 'API rate limit exceeded',
+        code: 'RATE_LIMIT',
+        details: message,
+      };
+    }
+    if (message.includes('authentication') || message.includes('401')) {
+      return {
+        message: 'Authentication failed - credentials may have expired',
+        code: 'AUTH_FAILED',
+        details: message,
+      };
+    }
+    if (message.includes('timeout') || message.includes('ETIMEDOUT')) {
+      return {
+        message: 'Request timed out',
+        code: 'TIMEOUT',
+        details: message,
+      };
+    }
+    if (message.includes('exited with code')) {
+      // Extract more context from the error
+      const stack = error.stack || '';
+      return {
+        message: message,
+        code: 'PROCESS_EXIT',
+        details: `Error: ${message}\nStack: ${stack.slice(0, 500)}`,
+      };
+    }
+
+    return {
+      message: message,
+      details: error.stack?.slice(0, 500),
+    };
+  }
+
+  return { message: String(error) };
+}
+
 export interface AgentResult {
   success: boolean;
   error?: string;
+  errorCode?: string;
+  errorDetails?: string;
   messages?: unknown[];
 }
 
@@ -161,11 +240,23 @@ ${commandContent}`;
       }
     }
 
+    // Success - reset failure counter
+    resetFailureCounter();
     return { success: true, messages };
   } catch (error) {
+    // Track failure for backoff
+    consecutiveFailures++;
+    console.error(
+      `  SDK execution failed (failure #${consecutiveFailures}):`,
+      error,
+    );
+
+    const errorInfo = extractErrorDetails(error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorInfo.message,
+      errorCode: errorInfo.code,
+      errorDetails: errorInfo.details,
     };
   }
 }
@@ -275,11 +366,23 @@ Apply the arguments (${args}) as specified in the command.`;
       }
     }
 
+    // Success - reset failure counter
+    resetFailureCounter();
     return { success: true, messages };
   } catch (error) {
+    // Track failure for backoff
+    consecutiveFailures++;
+    console.error(
+      `  SDK execution failed (failure #${consecutiveFailures}):`,
+      error,
+    );
+
+    const errorInfo = extractErrorDetails(error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorInfo.message,
+      errorCode: errorInfo.code,
+      errorDetails: errorInfo.details,
     };
   }
 }

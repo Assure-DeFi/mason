@@ -399,6 +399,33 @@ ALTER TABLE mason_execution_progress ADD COLUMN IF NOT EXISTS validation_smoke_t
 -- Add skip_reason column to autopilot_runs (for existing databases)
 ALTER TABLE mason_autopilot_runs ADD COLUMN IF NOT EXISTS skip_reason TEXT;
 
+-- Add error_details and last_activity columns to autopilot_runs (for better error visibility)
+ALTER TABLE mason_autopilot_runs ADD COLUMN IF NOT EXISTS error_details TEXT;
+ALTER TABLE mason_autopilot_runs ADD COLUMN IF NOT EXISTS last_activity TIMESTAMPTZ;
+
+-- Create autopilot_errors table for tracking daemon errors (helps debug recurring failures)
+CREATE TABLE IF NOT EXISTS mason_autopilot_errors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  error_type TEXT NOT NULL,
+  error_message TEXT NOT NULL,
+  error_details TEXT,
+  consecutive_failures INTEGER DEFAULT 0,
+  occurred_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Add index for autopilot_errors
+CREATE INDEX IF NOT EXISTS idx_mason_autopilot_errors_occurred_at ON mason_autopilot_errors(occurred_at DESC);
+
+-- Enable RLS on autopilot_errors
+ALTER TABLE mason_autopilot_errors ENABLE ROW LEVEL SECURITY;
+
+-- Add RLS policy for autopilot_errors
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_autopilot_errors' AND policyname = 'Allow all on autopilot_errors') THEN
+    CREATE POLICY "Allow all on autopilot_errors" ON mason_autopilot_errors FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
 -- Update autopilot_runs status constraint to include 'skipped' (for existing databases)
 DO $$ BEGIN
   ALTER TABLE mason_autopilot_runs DROP CONSTRAINT IF EXISTS mason_autopilot_runs_status_check;

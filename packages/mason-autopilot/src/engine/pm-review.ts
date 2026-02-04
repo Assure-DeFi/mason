@@ -19,6 +19,8 @@ interface PmReviewResult {
   success: boolean;
   itemsCreated: number;
   error?: string;
+  errorCode?: string;
+  errorDetails?: string;
 }
 
 /**
@@ -98,19 +100,34 @@ export async function runPmReview(
 
       return { success: true, itemsCreated: itemCount };
     } else {
-      // Mark run as failed
+      // Build detailed error message for logging
+      const errorMessage = result.errorCode
+        ? `[${result.errorCode}] ${result.error}`
+        : result.error;
+
+      // Mark run as failed with full details
       await supabase
         .from('mason_autopilot_runs')
         .update({
           status: 'failed',
-          error_message: result.error,
+          error_message: errorMessage,
+          error_details: result.errorDetails?.slice(0, 4000),
           completed_at: new Date().toISOString(),
         })
         .eq('id', run?.id);
 
       console.error('PM review failed:', result.error);
+      if (result.errorCode) {
+        console.error('  Error code:', result.errorCode);
+      }
 
-      return { success: false, itemsCreated: 0, error: result.error };
+      return {
+        success: false,
+        itemsCreated: 0,
+        error: result.error,
+        errorCode: result.errorCode,
+        errorDetails: result.errorDetails,
+      };
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
