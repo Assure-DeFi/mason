@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 
 import {
   apiError,
+  apiSuccess,
   unauthorized,
   badRequest,
   serverError,
@@ -99,8 +99,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const data = await response.json();
-    // Return raw data for backward compatibility
-    return NextResponse.json(data);
+    // Wrap in standardized API response format
+    return apiSuccess({ result: data });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       return apiError(
