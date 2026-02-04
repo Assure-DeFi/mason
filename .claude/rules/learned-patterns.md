@@ -454,3 +454,48 @@ IF MODE == "banger": Skip to Mode D section
 **Why**: Without these, a daemon will spam failing requests indefinitely, wasting resources and making debugging impossible. The pattern of "worked for hours then broke" usually indicates rate limits or credential expiration.
 
 ---
+
+## API Response Parsing: Check for Wrapper Objects
+
+**Discovered**: 2026-02-04
+**Context**: pm-review reported "Repository Not Connected" despite repo being connected - jq was parsing wrong path
+**Pattern**: When parsing API responses with jq, verify the actual response structure. Many APIs wrap data:
+
+- Express/Next.js: `{ "success": true, "data": { ... } }`
+- GraphQL: `{ "data": { ... }, "errors": [...] }`
+
+Check the actual response before writing jq queries:
+
+```bash
+# Debug first
+curl -s "$API_URL" | jq '.'
+
+# Then use correct path
+USER_ID=$(echo "$RESPONSE" | jq -r '.data.user_id')  # NOT .user_id
+```
+
+**Why**: jq silently returns `null` for missing paths. This causes cascading failures (like "Repository Not Connected") with no error message explaining why.
+
+---
+
+## Environment Variables: Check for Overriding Auth
+
+**Discovered**: 2026-02-04
+**Context**: Claude Agent SDK used API credits instead of Pro Max subscription - ANTHROPIC_API_KEY env var was overriding OAuth
+**Pattern**: When authentication isn't working as expected, check for environment variable overrides:
+
+```bash
+env | grep -i anthropic
+env | grep -i openai
+env | grep -i api_key
+```
+
+Environment variables often take precedence over config file auth. Unset them if they're overriding desired auth:
+
+```bash
+unset ANTHROPIC_API_KEY
+```
+
+**Why**: Multiple auth methods can coexist (OAuth in config file, API key in env var), and the wrong one may take precedence. This causes silent billing issues - charges to the wrong account.
+
+---
