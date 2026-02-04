@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  X,
   BookOpen,
   Terminal,
   Settings,
@@ -10,8 +9,11 @@ import {
   FileText,
   PlayCircle,
   Keyboard,
+  X,
 } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 import {
   OverviewSection,
@@ -89,32 +91,39 @@ const sectionComponents: Record<Section, React.ComponentType> = {
 
 export function InstructionsModal({ isOpen, onClose }: InstructionsModalProps) {
   const [activeSection, setActiveSection] = useState<Section>('overview');
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
-  useEffect(() => {
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [isOpen, handleKeyDown]);
+  const focusTrapRef = useFocusTrap(isOpen);
 
   if (!isOpen) {
     return null;
   }
 
   const SectionComponent = sectionComponents[activeSection];
+  const currentSection = sections.find((s) => s.id === activeSection);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm backdrop-blur-fallback">
-      <div className="mx-4 flex h-[85vh] w-full max-w-5xl overflow-hidden rounded-lg border border-gray-800 bg-navy shadow-2xl">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm backdrop-blur-fallback"
+      onClick={onClose}
+    >
+      <div
+        ref={focusTrapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="instructions-modal-title"
+        aria-describedby="instructions-modal-description"
+        className="mx-4 flex h-[85vh] w-full max-w-5xl overflow-hidden rounded-lg border border-gray-800 bg-navy shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            onClose();
+          }
+        }}
+      >
+        {/* Screen reader description */}
+        <span id="instructions-modal-description" className="sr-only">
+          User guide documentation for Mason. Navigate sections using the sidebar.
+        </span>
+
         {/* Sidebar */}
         <div className="w-64 flex-shrink-0 border-r border-gray-800 bg-black/30">
           <div className="flex items-center gap-3 border-b border-gray-800 p-4">
@@ -122,15 +131,18 @@ export function InstructionsModal({ isOpen, onClose }: InstructionsModalProps) {
               <BookOpen className="h-5 w-5 text-gold" />
             </div>
             <div>
-              <h2 className="font-semibold text-white">User Guide</h2>
+              <h2 id="instructions-modal-title" className="font-semibold text-white">
+                User Guide
+              </h2>
               <p className="text-xs text-gray-400">How to use Mason</p>
             </div>
           </div>
-          <nav className="p-2">
+          <nav className="p-2" role="navigation" aria-label="Documentation sections">
             {sections.map((section) => (
               <button
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
+                aria-current={activeSection === section.id ? 'page' : undefined}
                 className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
                   activeSection === section.id
                     ? 'bg-gold/20 text-gold'
@@ -149,11 +161,12 @@ export function InstructionsModal({ isOpen, onClose }: InstructionsModalProps) {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-gray-800 px-6 py-4">
             <h3 className="text-lg font-semibold text-white">
-              {sections.find((s) => s.id === activeSection)?.label}
+              {currentSection?.label}
             </h3>
             <button
               onClick={onClose}
-              className="text-gray-400 transition-colors hover:text-white"
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+              aria-label="Close user guide"
             >
               <X className="h-5 w-5" />
             </button>

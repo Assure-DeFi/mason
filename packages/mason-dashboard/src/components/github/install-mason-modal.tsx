@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  X,
   Terminal,
   AlertTriangle,
   Check,
@@ -13,6 +12,7 @@ import {
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
+import { AccessibleModal } from '@/components/ui/AccessibleModal';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { TABLES } from '@/lib/constants';
 import { getMasonConfig } from '@/lib/supabase/user-client';
@@ -162,37 +162,27 @@ export function InstallMasonModal({
     onClose();
   };
 
-  if (!isOpen) {
-    return null;
-  }
+  const modalTitle = repoName
+    ? `Install Mason CLI - ${repoName}`
+    : 'Install Mason CLI';
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm backdrop-blur-fallback">
-      <div className="mx-4 w-full max-w-2xl overflow-hidden rounded-lg border border-gray-800 bg-navy shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-gold/20 p-2">
-              <Terminal className="h-5 w-5 text-gold" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">
-                Install Mason CLI
-              </h2>
-              {repoName && (
-                <p className="text-sm text-gray-400">
-                  For repository: <span className="text-gold">{repoName}</span>
-                </p>
-              )}
-            </div>
+    <AccessibleModal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={modalTitle}
+      description="Install Mason CLI to enable code improvement generation for your repository"
+      widthClass="max-w-2xl"
+      zIndex={60}
+      showHeader={true}
+      headerActions={
+        <div className="flex items-center gap-3 mr-2">
+          <div className="rounded-lg bg-gold/20 p-2">
+            <Terminal className="h-5 w-5 text-gold" />
           </div>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-white"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
+      }
+    >
 
         {/* Warning Banner */}
         <div className="border-b border-yellow-800/30 bg-yellow-900/20 px-4 py-3">
@@ -355,16 +345,15 @@ export function InstallMasonModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-3 border-t border-gray-800 p-4">
-          <button
-            onClick={handleClose}
-            className="rounded-md bg-gray-800 px-4 py-2 text-gray-300 transition-colors hover:bg-gray-700"
-          >
-            {apiKey ? 'Done' : 'Cancel'}
-          </button>
-        </div>
+      {/* Footer */}
+      <div className="flex justify-end gap-3 border-t border-gray-800 p-4">
+        <button
+          onClick={handleClose}
+          className="rounded-md bg-gray-800 px-4 py-2 text-gray-300 transition-colors hover:bg-gray-700"
+        >
+          {apiKey ? 'Done' : 'Cancel'}
+        </button>
       </div>
-    </div>
+    </AccessibleModal>
   );
 }
