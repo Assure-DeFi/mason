@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 
 import {
@@ -7,6 +8,12 @@ import {
   serverError,
   ErrorCodes,
 } from '@/lib/api-response';
+import { authOptions } from '@/lib/auth/auth-options';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
 
@@ -34,8 +41,24 @@ async function fetchWithTimeout(
  *
  * Proxies the Supabase Management API to avoid CORS issues.
  * Lists all projects the authenticated user has access to.
+ * Requires authenticated NextAuth session.
  */
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    return unauthorized('Authentication required');
+  }
+
+  const identifier = getRateLimitIdentifier(
+    'supabase-proxy-projects',
+    session.user.id,
+  );
+  const rateLimit = await checkRateLimit(identifier, 'standard');
+  if (!rateLimit.success) {
+    return createRateLimitResponse(rateLimit);
+  }
+
   const authHeader = request.headers.get('Authorization');
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

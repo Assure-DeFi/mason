@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 
 import {
@@ -8,6 +9,12 @@ import {
   serverError,
   ErrorCodes,
 } from '@/lib/api-response';
+import { authOptions } from '@/lib/auth/auth-options';
+import {
+  checkRateLimit,
+  createRateLimitResponse,
+  getRateLimitIdentifier,
+} from '@/lib/rate-limit/middleware';
 import { validateProjectRef } from '@/lib/validation/supabase';
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
@@ -45,8 +52,25 @@ interface QueryRequestBody {
  *
  * Proxies the Supabase Management API to avoid CORS issues.
  * Runs a SQL query against a project's database.
+ * Requires authenticated NextAuth session.
+ * Uses strict rate limiting due to database write capability.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    return unauthorized('Authentication required');
+  }
+
+  const identifier = getRateLimitIdentifier(
+    'supabase-proxy-query',
+    session.user.id,
+  );
+  const rateLimit = await checkRateLimit(identifier, 'standard');
+  if (!rateLimit.success) {
+    return createRateLimitResponse(rateLimit);
+  }
+
   const { ref: projectRef } = await params;
   const authHeader = request.headers.get('Authorization');
 
