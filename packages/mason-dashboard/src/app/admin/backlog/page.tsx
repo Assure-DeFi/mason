@@ -9,6 +9,7 @@ import {
   Check,
   X,
   Search,
+  Loader2,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -47,6 +48,7 @@ import {
 } from '@/hooks/useExecutionListener';
 import { useRealtimeBacklog } from '@/hooks/useRealtimeBacklog';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { PAGINATION_LIMITS } from '@/lib/api/pagination';
 import { TABLES } from '@/lib/constants';
 import { ensureExecutionProgress } from '@/lib/execution/progress';
 import { getRecommendedItems } from '@/lib/recommendations';
@@ -138,6 +140,13 @@ export default function BacklogPage() {
   const [modalViewMode, setModalViewMode] = useState<ViewMode>('details');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const pageSize = PAGINATION_LIMITS.BACKLOG_ITEMS; // 100 items per page
+
   // Bulk action loading states
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -225,7 +234,7 @@ export default function BacklogPage() {
     });
   }, []);
 
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (page = 1, append = false) => {
     if (!client || !session?.user) {
       setIsLoading(false);
       return;
@@ -246,7 +255,11 @@ export default function BacklogPage() {
     }
 
     isFetchingRef.current = true;
-    setIsLoading(true);
+    if (append) {
+      setIsLoadingMore(true);
+    } else {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
@@ -340,6 +353,7 @@ export default function BacklogPage() {
       // Excludes prd_content (large text) which is lazy loaded on demand
       // Benefits included - required for detail modal display
       // CRITICAL: Filter by repository at database level for data isolation
+      // Use { count: 'exact' } to get total count for pagination
       let query = client
         .from(TABLES.PM_BACKLOG_ITEMS)
         .select(
@@ -351,6 +365,7 @@ export default function BacklogPage() {
             'risk_score,has_breaking_changes,files_affected_count,test_coverage_gaps,' +
             'user_id,analysis_run_id,' +
             'benefits', // JSON array - required for detail modal
+          { count: 'exact' }
         )
         .eq('user_id', userData.id);
 
@@ -365,15 +380,32 @@ export default function BacklogPage() {
         query = query.in('repository_id', repoIds);
       }
 
-      const { data, error: fetchError } = await query.order('priority_score', {
-        ascending: false,
-      });
+      // Apply pagination with range
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error: fetchError, count } = await query
+        .order('priority_score', { ascending: false })
+        .range(from, to);
 
       if (fetchError) {
         throw fetchError;
       }
 
-      setItems((data as unknown as BacklogItem[]) || []);
+      const fetchedItems = (data as unknown as BacklogItem[]) || [];
+
+      // Update state based on whether we're appending or replacing
+      if (append) {
+        setItems(prev => [...prev, ...fetchedItems]);
+      } else {
+        setItems(fetchedItems);
+      }
+
+      // Update pagination state
+      setCurrentPage(page);
+      setTotalItems(count ?? 0);
+      setHasMore(count !== null && from + fetchedItems.length < count);
+
       // Reset error timestamp on success
       lastFetchErrorRef.current = 0;
     } catch (err) {
@@ -383,17 +415,29 @@ export default function BacklogPage() {
       lastFetchErrorRef.current = Date.now();
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
       isFetchingRef.current = false;
     }
-  }, [client, session, selectedRepoId]);
+  }, [client, session, selectedRepoId, pageSize]);
+
+  // Load more items handler
+  const handleLoadMore = useCallback(() => {
+    if (!isLoadingMore && hasMore) {
+      void fetchItems(currentPage + 1, true);
+    }
+  }, [fetchItems, currentPage, isLoadingMore, hasMore]);
 
   useEffect(() => {
     if (isConfigured && !isDbLoading) {
-      void fetchItems();
+      // Reset to page 1 when repo changes (fetchItems will be called due to dependency)
+      setCurrentPage(1);
+      void fetchItems(1, false);
     } else if (!isDbLoading && !isConfigured) {
       setIsLoading(false);
     }
-  }, [fetchItems, isConfigured, isDbLoading]);
+    // Note: fetchItems is intentionally excluded to prevent infinite loops
+    // We only want to fetch when isConfigured, isDbLoading, or selectedRepoId changes
+  }, [isConfigured, isDbLoading, selectedRepoId, fetchItems]);
 
   // Subscribe to real-time backlog changes
   // This enables automatic updates when CLI changes item status
@@ -431,10 +475,14 @@ export default function BacklogPage() {
     ),
     onItemInsert: useCallback((newItem: BacklogItem) => {
       setItems((prev) => [newItem, ...prev]);
+      // Increment total count when a new item is added
+      setTotalItems((prev) => prev + 1);
     }, []),
     onItemDelete: useCallback(
       (deletedItem: BacklogItem) => {
         setItems((prev) => prev.filter((item) => item.id !== deletedItem.id));
+        // Decrement total count when an item is deleted
+        setTotalItems((prev) => Math.max(0, prev - 1));
         // Close detail modal if viewing deleted item
         if (selectedItem?.id === deletedItem.id) {
           setSelectedItem(null);
@@ -1168,7 +1216,7 @@ export default function BacklogPage() {
         <div className="mx-auto max-w-7xl px-4 py-8 md:p-8">
           <ErrorBanner
             error={new Error(error)}
-            onRetry={fetchItems}
+            onRetry={() => void fetchItems(1, false)}
             onDismiss={() => setError(null)}
             dismissible={true}
             className="text-base"
@@ -1176,7 +1224,7 @@ export default function BacklogPage() {
           {/* Mobile-friendly retry button with proper touch target */}
           <div className="mt-6 flex justify-center md:hidden">
             <button
-              onClick={fetchItems}
+              onClick={() => void fetchItems(1, false)}
               className="flex items-center justify-center gap-2 px-6 py-3 min-h-[44px] bg-gold text-navy font-medium touch-feedback"
             >
               <RefreshCw className="w-5 h-5" />
@@ -1230,7 +1278,7 @@ export default function BacklogPage() {
               </button>
 
               <button
-                onClick={fetchItems}
+                onClick={() => void fetchItems(1, false)}
                 disabled={isLoading}
                 className="flex-shrink-0 flex items-center gap-2 px-3 py-2 min-h-[40px] border border-gray-700 text-gray-300 whitespace-nowrap hover:bg-white/5 disabled:opacity-50 touch-feedback"
                 title="Refresh"
@@ -1339,7 +1387,7 @@ export default function BacklogPage() {
             </div>
           ) : isEmpty ? (
             // Empty state onboarding
-            <EmptyStateOnboarding onRefresh={fetchItems} />
+            <EmptyStateOnboarding onRefresh={() => void fetchItems(1, false)} />
           ) : (
             <div className="space-y-6 p-6">
               {/* Search and Filter Controls */}
@@ -1371,10 +1419,11 @@ export default function BacklogPage() {
                   <option value="autopilot">Autopilot Only</option>
                 </select>
 
-                {/* Result count */}
+                {/* Result count with pagination info */}
                 <span className="text-sm text-gray-500">
-                  {filteredItems.length} item
-                  {filteredItems.length !== 1 ? 's' : ''}
+                  {filteredItems.length} of {totalItems} item
+                  {totalItems !== 1 ? 's' : ''}
+                  {hasMore && ' (more available)'}
                 </span>
               </div>
 
@@ -1392,6 +1441,38 @@ export default function BacklogPage() {
                 onSortChange={handleSortChange}
                 activeStatus={activeStatus}
               />
+
+              {/* Load More Button - shown when there are more items to fetch */}
+              {hasMore && (
+                <div className="flex justify-center pt-4 pb-2">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                    className="flex items-center gap-2 px-6 py-3 bg-gray-800 border border-gray-700 text-gray-300 font-medium hover:bg-gray-700 hover:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Loading more...
+                      </>
+                    ) : (
+                      <>
+                        Load More
+                        <span className="text-gray-500 text-sm">
+                          ({items.length} of {totalItems})
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Show total loaded when all items are loaded */}
+              {!hasMore && totalItems > pageSize && (
+                <div className="text-center text-sm text-gray-500 pt-4 pb-2">
+                  Showing all {totalItems} items
+                </div>
+              )}
             </div>
           )}
         </ErrorBoundary>
@@ -1425,13 +1506,13 @@ export default function BacklogPage() {
             setExecutionRunId(null);
             setExecutingItemId(null);
             setExecutingItemTitle(null);
-            void fetchItems(); // Refresh to show updated statuses
+            void fetchItems(1, false); // Refresh to show updated statuses
           }}
           onClose={() => {
             setExecutionRunId(null);
             setExecutingItemId(null);
             setExecutingItemTitle(null);
-            void fetchItems(); // Refresh to show updated statuses
+            void fetchItems(1, false); // Refresh to show updated statuses
           }}
         />
       )}
