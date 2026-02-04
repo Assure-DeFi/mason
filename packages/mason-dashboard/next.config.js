@@ -36,6 +36,25 @@ const nextConfig = {
             value:
               'camera=(), microphone=(), geolocation=(), interest-cohort=()',
           },
+          // Content Security Policy - Most effective XSS defense
+          // Currently in report-only mode to monitor violations before enforcement
+          // To enable enforcement: change key to 'Content-Security-Policy'
+          // Monitor browser console for CSP violations during testing period
+          {
+            key: 'Content-Security-Policy-Report-Only',
+            value: [
+              "default-src 'self'", // Only load resources from same origin by default
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-inline needed for Next.js inline scripts
+              "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for Tailwind CSS
+              "img-src 'self' data: blob:", // Allow images from same origin, data URIs, and blobs
+              "font-src 'self' data:", // Allow fonts from same origin and data URIs
+              "connect-src 'self' https://*.supabase.co", // Allow API calls to Supabase
+              "frame-ancestors 'none'", // Prevent embedding in iframes (reinforces X-Frame-Options)
+              "base-uri 'self'", // Restrict base tag to same origin
+              "form-action 'self'", // Only submit forms to same origin
+              "upgrade-insecure-requests", // Automatically upgrade HTTP to HTTPS
+            ].join('; '),
+          },
         ],
       },
     ];
