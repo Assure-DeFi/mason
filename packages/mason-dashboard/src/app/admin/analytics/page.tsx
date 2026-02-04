@@ -31,12 +31,54 @@ import {
 import { TABLES } from '@/lib/constants';
 import type { BacklogItem } from '@/types/backlog';
 
+type StatColor = 'green' | 'cyan' | 'gold' | 'purple';
+
+const STAT_COLOR_CLASSES: Record<
+  StatColor,
+  {
+    text: string;
+    bg: string;
+    hoverBorder: string;
+    gradient: string;
+    valueText: string;
+  }
+> = {
+  green: {
+    text: 'text-green-400',
+    bg: 'bg-green-400/10',
+    hoverBorder: 'hover:border-green-400/30',
+    gradient: 'from-green-500/5',
+    valueText: 'text-green-400',
+  },
+  cyan: {
+    text: 'text-cyan-400',
+    bg: 'bg-cyan-400/10',
+    hoverBorder: 'hover:border-cyan-400/30',
+    gradient: 'from-cyan-500/5',
+    valueText: 'text-cyan-400',
+  },
+  gold: {
+    text: 'text-gold',
+    bg: 'bg-gold/10',
+    hoverBorder: 'hover:border-gold/30',
+    gradient: 'from-gold/5',
+    valueText: 'text-gold',
+  },
+  purple: {
+    text: 'text-purple-400',
+    bg: 'bg-purple-400/10',
+    hoverBorder: 'hover:border-purple-400/30',
+    gradient: 'from-purple-500/5',
+    valueText: 'text-purple-400',
+  },
+};
+
 interface StatCardProps {
   label: string;
   value: string | number;
   sublabel?: string;
   icon: React.ReactNode;
-  color: string;
+  color: StatColor;
   trend?: 'up' | 'down' | 'neutral';
 }
 
@@ -48,20 +90,22 @@ function StatCard({
   color,
   trend,
 }: StatCardProps) {
+  const colors = STAT_COLOR_CLASSES[color];
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative bg-black border border-gray-800 p-6 overflow-hidden group hover:border-${color}-400/30 transition-colors`}
+      className={`relative bg-black border border-gray-800 p-6 overflow-hidden group ${colors.hoverBorder} transition-colors`}
     >
       {/* Background gradient effect */}
       <div
-        className={`absolute inset-0 bg-gradient-to-br from-${color}-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity`}
+        className={`absolute inset-0 bg-gradient-to-br ${colors.gradient} to-transparent opacity-0 group-hover:opacity-100 transition-opacity`}
       />
 
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-4">
-          <div className={`text-${color}-400 bg-${color}-400/10 p-3`}>
+          <div className={`${colors.text} ${colors.bg} p-3`}>
             {icon}
           </div>
           {trend && (
@@ -83,7 +127,7 @@ function StatCard({
 
         <div className="space-y-1">
           <div
-            className={`text-4xl font-bold text-${color}-400 font-mono tracking-tight`}
+            className={`text-4xl font-bold ${colors.valueText} font-mono tracking-tight`}
           >
             {value}
           </div>
