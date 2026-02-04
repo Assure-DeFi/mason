@@ -5,6 +5,7 @@
  * instead of spawning claude CLI subprocesses.
  */
 
+import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -134,6 +135,36 @@ export function hasClaudeCredentials(): boolean {
 }
 
 /**
+ * Find the Claude Code executable path
+ */
+function findClaudeExecutable(): string | undefined {
+  // Try common locations
+  const commonPaths = [
+    join(homedir(), '.local', 'bin', 'claude'),
+    '/usr/local/bin/claude',
+    '/usr/bin/claude',
+  ];
+
+  for (const path of commonPaths) {
+    if (existsSync(path)) {
+      return path;
+    }
+  }
+
+  // Fall back to which command
+  try {
+    const result = execSync('which claude', { encoding: 'utf-8' }).trim();
+    if (result && existsSync(result)) {
+      return result;
+    }
+  } catch {
+    // which command failed
+  }
+
+  return undefined;
+}
+
+/**
  * Run a Mason command using the Claude Agent SDK
  */
 export async function runCommand(
@@ -167,6 +198,20 @@ export async function runCommand(
   try {
     const messages: unknown[] = [];
 
+    // Find Claude executable
+    const claudePath = findClaudeExecutable();
+    if (!claudePath) {
+      return {
+        success: false,
+        error:
+          'Claude Code executable not found. Ensure claude is installed and in PATH.',
+      };
+    }
+
+    if (config.verbose) {
+      console.log(`  Claude executable: ${claudePath}`);
+    }
+
     // Build prompt with command content
     const prompt = `You are executing the /${commandName} command.
 
@@ -180,6 +225,7 @@ ${commandContent}`;
       options: {
         cwd: config.repositoryPath,
         permissionMode: 'bypassPermissions',
+        pathToClaudeCodeExecutable: claudePath,
         allowedTools: [
           'Bash',
           'Read',
@@ -295,6 +341,20 @@ export async function runCommandWithArgs(
   try {
     const messages: unknown[] = [];
 
+    // Find Claude executable
+    const claudePath = findClaudeExecutable();
+    if (!claudePath) {
+      return {
+        success: false,
+        error:
+          'Claude Code executable not found. Ensure claude is installed and in PATH.',
+      };
+    }
+
+    if (config.verbose) {
+      console.log(`  Claude executable: ${claudePath}`);
+    }
+
     // Build prompt with args
     const prompt = `You are executing the /${commandName} command with these arguments: ${args}
 
@@ -309,6 +369,7 @@ Apply the arguments (${args}) as specified in the command.`;
       options: {
         cwd: config.repositoryPath,
         permissionMode: 'bypassPermissions',
+        pathToClaudeCodeExecutable: claudePath,
         allowedTools: [
           'Bash',
           'Read',
