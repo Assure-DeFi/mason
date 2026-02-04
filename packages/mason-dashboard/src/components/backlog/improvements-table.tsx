@@ -8,7 +8,7 @@ import {
   Keyboard,
   X,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import {
   useColumnResize,
@@ -21,6 +21,10 @@ import { InfoTooltip } from '../ui/InfoTooltip';
 
 import { ItemRow } from './item-row';
 import { ResizeHandle } from './resize-handle';
+import {
+  VirtualizedTableBody,
+  VIRTUALIZATION_THRESHOLD,
+} from './virtualized-table';
 
 const KEYBOARD_HINTS_HIDDEN_KEY = 'mason_keyboard_hints_hidden';
 
@@ -235,6 +239,9 @@ function getEmptyStateContent(activeStatus: TabStatus) {
   }
 }
 
+// Default height for virtualized list (can be adjusted based on viewport)
+const DEFAULT_VIRTUAL_HEIGHT = 600;
+
 export function ImprovementsTable({
   items,
   selectedIds,
@@ -256,6 +263,37 @@ export function ImprovementsTable({
     hasCustomWidths,
   } = useColumnResize();
 
+  // Container ref for measuring available height
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState(DEFAULT_VIRTUAL_HEIGHT);
+
+  // Determine if we should use virtualization based on item count
+  const useVirtualization = items.length >= VIRTUALIZATION_THRESHOLD;
+
+  // Measure container height for virtualized list
+  useEffect(() => {
+    if (!useVirtualization || !containerRef.current) {
+      return;
+    }
+
+    const updateHeight = () => {
+      if (containerRef.current) {
+        // Calculate available height (viewport height minus header and padding)
+        const rect = containerRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const availableHeight = Math.max(
+          viewportHeight - rect.top - 100, // 100px for footer/padding
+          400 // Minimum height
+        );
+        setContainerHeight(availableHeight);
+      }
+    };
+
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, [useVirtualization]);
+
   const allSelected = items.length > 0 && selectedIds.length === items.length;
   const someSelected =
     selectedIds.length > 0 && selectedIds.length < items.length;
@@ -276,7 +314,7 @@ export function ImprovementsTable({
         </div>
       )}
 
-      <div className="overflow-x-auto scrollbar-hide">
+      <div ref={containerRef} className="overflow-x-auto scrollbar-hide">
         <table
           className="w-full text-sm min-w-[800px]"
           style={{ tableLayout: 'fixed' }}
@@ -389,22 +427,44 @@ export function ImprovementsTable({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800/30">
-            {items.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                selected={selectedIds.includes(item.id)}
-                onSelect={onSelectItem}
-                onClick={onItemClick}
-                onPrdClick={onPrdClick}
-                onApprove={onApprove}
-                onReject={onReject}
-                columnWidths={columnWidths}
-                activeStatus={activeStatus}
-              />
-            ))}
-          </tbody>
+          {/* Use virtualization for large lists (50+ items), regular rendering for smaller lists */}
+          {useVirtualization ? (
+            <tbody>
+              <tr>
+                <td colSpan={9} className="p-0">
+                  <VirtualizedTableBody
+                    items={items}
+                    selectedIds={selectedIds}
+                    onSelectItem={onSelectItem}
+                    onItemClick={onItemClick}
+                    onPrdClick={onPrdClick}
+                    onApprove={onApprove}
+                    onReject={onReject}
+                    columnWidths={columnWidths}
+                    activeStatus={activeStatus}
+                    containerHeight={containerHeight}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          ) : (
+            <tbody className="divide-y divide-gray-800/30">
+              {items.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  selected={selectedIds.includes(item.id)}
+                  onSelect={onSelectItem}
+                  onClick={onItemClick}
+                  onPrdClick={onPrdClick}
+                  onApprove={onApprove}
+                  onReject={onReject}
+                  columnWidths={columnWidths}
+                  activeStatus={activeStatus}
+                />
+              ))}
+            </tbody>
+          )}
         </table>
       </div>
 
