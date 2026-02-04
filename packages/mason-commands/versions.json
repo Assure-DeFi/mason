@@ -2,28 +2,28 @@
   "manifest_version": 3,
   "commands": {
     "pm-review": {
-      "version": "3.1.0",
+      "version": "3.1.1",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "3.1.0",
-      "breaking_reason": "Added bootstrap step to download missing sibling commands (pm-banger, pm-quick, pm-focus)"
+      "required_minimum": "3.1.1",
+      "breaking_reason": "Fix API response parsing - use .data.user_id instead of .user_id"
     },
     "pm-banger": {
-      "version": "3.0.0",
+      "version": "3.0.1",
       "file_path": "commands/pm-banger.md",
-      "required_minimum": "3.0.0",
-      "breaking_reason": "New command - generates 1 game-changing idea"
+      "required_minimum": "3.0.1",
+      "breaking_reason": "Fix API response parsing - use .data.user_id instead of .user_id"
     },
     "pm-quick": {
-      "version": "3.0.0",
+      "version": "3.0.1",
       "file_path": "commands/pm-quick.md",
-      "required_minimum": "3.0.0",
-      "breaking_reason": "New command - quick pulse check with 9 items"
+      "required_minimum": "3.0.1",
+      "breaking_reason": "Fix API response parsing - use .data.user_id instead of .user_id"
     },
     "pm-focus": {
-      "version": "3.0.0",
+      "version": "3.0.1",
       "file_path": "commands/pm-focus.md",
-      "required_minimum": "3.0.0",
-      "breaking_reason": "New command - 5 items for specific domain focus"
+      "required_minimum": "3.0.1",
+      "breaking_reason": "Fix API response parsing - use .data.user_id instead of .user_id"
     },
     "execute-approved": {
       "version": "2.10.0",

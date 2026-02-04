@@ -1,6 +1,6 @@
 ---
 name: pm-review
-version: 3.1.0
+version: 3.1.1
 description: Full comprehensive PM review - 25 items (24 regular + 1 banger)
 ---
 
@@ -111,8 +111,9 @@ VALIDATION=$(curl -s -X POST "${dashboardUrl}/api/v1/analysis" \
   -H "Authorization: Bearer ${apiKey}" \
   -H "Content-Type: application/json")
 
-USER_ID=$(echo "$VALIDATION" | jq -r '.user_id')
-REPOSITORIES=$(echo "$VALIDATION" | jq -r '.repositories')
+# API response is wrapped in .data object
+USER_ID=$(echo "$VALIDATION" | jq -r '.data.user_id')
+REPOSITORIES=$(echo "$VALIDATION" | jq -r '.data.repositories')
 
 # Match git remote to connected repository
 GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")

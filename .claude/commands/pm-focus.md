@@ -1,6 +1,6 @@
 ---
 name: pm-focus
-version: 3.0.0
+version: 3.0.1
 description: Deep dive into one specific domain - 5 focused items
 ---
 
@@ -55,8 +55,9 @@ VALIDATION=$(curl -s -X POST "${dashboardUrl}/api/v1/analysis" \
   -H "Authorization: Bearer ${apiKey}" \
   -H "Content-Type: application/json")
 
-USER_ID=$(echo "$VALIDATION" | jq -r '.user_id')
-REPOSITORIES=$(echo "$VALIDATION" | jq -r '.repositories')
+# API response is wrapped in .data object
+USER_ID=$(echo "$VALIDATION" | jq -r '.data.user_id')
+REPOSITORIES=$(echo "$VALIDATION" | jq -r '.data.repositories')
 
 # Match git remote to connected repository
 GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
