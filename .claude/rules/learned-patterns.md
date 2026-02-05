@@ -499,3 +499,125 @@ unset ANTHROPIC_API_KEY
 **Why**: Multiple auth methods can coexist (OAuth in config file, API key in env var), and the wrong one may take precedence. This causes silent billing issues - charges to the wrong account.
 
 ---
+
+## Tailwind: Never Use Dynamic Template Literal Classes
+
+**Discovered**: 2026-02-04
+**Context**: Analytics page stat cards had broken styling in production - `text-${color}-400` classes were purged during build
+**Pattern**: NEVER construct Tailwind classes dynamically with template literals. Tailwind's JIT compiler statically analyzes source files and cannot detect dynamically constructed class names.
+
+**Bad (classes get purged in production):**
+
+```typescript
+const colorClass = `text-${color}-400 bg-${color}-900/20`;
+```
+
+**Good (all classes statically analyzable):**
+
+```typescript
+const STAT_COLOR_CLASSES: Record<string, { text: string; bg: string }> = {
+  blue: { text: 'text-blue-400', bg: 'bg-blue-900/20' },
+  green: { text: 'text-green-400', bg: 'bg-green-900/20' },
+};
+```
+
+**Why**: Works perfectly in dev mode (JIT generates on demand) but breaks in production builds where tree-shaking removes classes it can't find as complete strings. This is a silent failure - no error, just missing styles.
+
+---
+
+## Daemon Limits: Track Across Cycles, Not Per-Cycle
+
+**Discovered**: 2026-02-04
+**Context**: Autopilot with maxItemsPerDay=2 executed 96 items/day because each 30-min daemon cycle reset the counter
+**Pattern**: When a daemon has a daily limit (maxItemsPerDay), the limit MUST be enforced by querying actual records from the database for the current 24h window, not by using an in-memory counter that resets each cycle.
+
+```typescript
+// BAD: In-memory counter resets each cycle
+let executedThisCycle = 0;
+while (executedThisCycle < maxItemsPerDay) { ... }
+
+// GOOD: Query actual daily count from database
+const dailyCount = await getDailyExecutedCount(supabase, userId);
+const remaining = maxItemsPerDay - dailyCount;
+```
+
+**Why**: Daemons restart, crash, and run multiple cycles per day. In-memory state is unreliable for enforcing daily limits. The database is the source of truth.
+
+---
+
+## Schema Drift: Audit Code References Against Migrations
+
+**Discovered**: 2026-02-04
+**Context**: 8 tables referenced in TypeScript code had no migration files - fresh deployments failed silently
+**Pattern**: Periodically audit for schema drift by searching for table references in code and comparing against migration files:
+
+```bash
+# Find all table references in code
+grep -roh "mason_[a-z_]*" packages/mason-dashboard/src --include="*.ts" --include="*.tsx" | sort -u
+
+# Compare against migration files
+ls packages/mason-dashboard/src/db/migrations/
+```
+
+Every table referenced in code MUST have a corresponding migration. Missing migrations = silent failures for new users (tables don't exist) while working fine for existing users (tables already exist from ad-hoc creation).
+
+**Why**: Schema drift is invisible during development because dev databases accumulate tables from ad-hoc testing. Only fresh deployments reveal the gap.
+
+---
+
+## Autopilot Guards: Default to Skip on Query Errors
+
+**Discovered**: 2026-02-04
+**Context**: Autopilot approved-items count query returned null on error, which passed the `>= maxItemsPerDay` check, causing unwanted pm-review runs
+**Pattern**: When a daemon guard checks database state to decide whether to proceed, query failures (null/undefined) MUST default to SKIP (safe fallback), not PROCEED:
+
+```typescript
+// BAD: null passes the >= check, daemon proceeds
+const count = await getApprovedCount(); // returns null on error
+if (count >= maxItemsPerDay) skip(); // null >= 5 is false, proceeds!
+
+// GOOD: null defaults to skip
+const count = await getApprovedCount();
+if (count === null || count > 0) skip(); // error = skip = safe
+```
+
+**Why**: Uncontrolled daemon actions (generating/executing items) are much more expensive to undo than a skipped cycle. When in doubt, don't act.
+
+---
+
+## Execute-Approved: Deduplicate Across Parallel Agent Waves
+
+**Discovered**: 2026-02-04
+**Context**: Multiple execute-approved waves implemented overlapping features - CSP headers added twice (941d412, 4628443), N+1 fix done twice (c1dc2dd, e8fe1bf), pagination done twice (6eeb545, 85362a1)
+**Pattern**: When running parallel agent waves from a backlog, check for semantic overlap between items BEFORE dispatching. Items like "Add CSP headers" and "Add security headers including CSP" are duplicates even if they have different IDs.
+
+**Mitigation:**
+
+1. Before each wave, compare remaining items for semantic similarity
+2. If two items touch the same files/features, merge or sequence them
+3. After each wave, verify no duplicate code was committed
+
+**Why**: Parallel agents don't coordinate - they'll both implement the same feature independently, leading to merge conflicts or duplicate code that needs manual cleanup.
+
+---
+
+## Claude Agent SDK: Explicit Executable Path Required
+
+**Discovered**: 2026-02-04
+**Context**: Autopilot Agent SDK calls failed with "Claude Code executable not found" despite `claude` being in PATH
+**Pattern**: The Claude Agent SDK (`@anthropic-ai/claude-code`) requires an explicit `pathToClaudeCodeExecutable` option - it does NOT search PATH automatically.
+
+```typescript
+// BAD: Relies on PATH (fails)
+const session = new ClaudeCodeSession({
+  /* no path */
+});
+
+// GOOD: Explicit path
+const claudePath = findClaudeExecutable(); // Check ~/.local/bin, /usr/local/bin, `which claude`
+const session = new ClaudeCodeSession({
+  pathToClaudeCodeExecutable: claudePath,
+});
+```
+
+**Why**: The SDK runs as a library, not a shell command, so it doesn't inherit shell PATH resolution. Always pass the explicit path.
