@@ -4,7 +4,7 @@
  * Implements delivery logic for each notification channel type:
  * - Slack: Sends rich Block Kit messages via incoming webhook
  * - Email: Sends formatted HTML emails (placeholder - requires SendGrid/SES)
- * - Webhook: Sends JSON payloads with optional HMAC signature
+ * - Webhook: Sends JSON payloads with mandatory HMAC-SHA256 signature
  */
 
 import { createHmac } from 'node:crypto';
@@ -234,12 +234,26 @@ function computeHmacSignature(payload: string, secret: string): string {
 
 /**
  * Send notification via generic HTTP webhook.
- * Includes HMAC signature header if secret is configured.
+ * Always includes HMAC-SHA256 signature header for payload verification.
+ * Rejects delivery if webhook secret is not configured.
  */
 export async function sendWebhookNotification(
   channel: WebhookChannelConfig,
   event: NotificationEvent,
 ): Promise<NotificationDeliveryResult> {
+  // Enforce webhook signature verification - reject if secret is missing
+  if (!channel.config.secret) {
+    return {
+      channelId: channel.id,
+      channelType: 'webhook',
+      success: false,
+      error:
+        'Webhook secret is required for signature verification. ' +
+        'Configure a secret for this webhook channel to enable delivery.',
+      retryable: false,
+    };
+  }
+
   try {
     const payload = JSON.stringify({
       event: event.type,
@@ -255,13 +269,11 @@ export async function sendWebhookNotification(
       ...channel.config.headers,
     };
 
-    // Add HMAC signature if secret is configured
-    if (channel.config.secret) {
-      headers['X-Mason-Signature'] = computeHmacSignature(
-        payload,
-        channel.config.secret,
-      );
-    }
+    // Always include HMAC signature for payload verification
+    headers['X-Mason-Signature'] = computeHmacSignature(
+      payload,
+      channel.config.secret,
+    );
 
     const response = await fetch(channel.config.url, {
       method: 'POST',

@@ -130,8 +130,8 @@ export interface WebhookChannelConfig extends NotificationChannelConfig {
   channelType: 'webhook';
   config: {
     url: string;
-    /** Optional secret for HMAC signature verification */
-    secret?: string;
+    /** Secret for HMAC-SHA256 signature verification (required for security) */
+    secret: string;
     /** Custom headers to include */
     headers?: Record<string, string>;
   };
