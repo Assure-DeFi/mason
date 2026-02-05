@@ -31,6 +31,36 @@ import {
 import { TABLES } from '@/lib/constants';
 import type { BacklogItem } from '@/types/backlog';
 
+const STAT_CARD_COLORS: Record<
+  string,
+  { hoverBorder: string; gradient: string; text: string; iconBg: string }
+> = {
+  green: {
+    hoverBorder: 'hover:border-green-400/30',
+    gradient: 'from-green-500/5',
+    text: 'text-green-400',
+    iconBg: 'bg-green-400/10',
+  },
+  cyan: {
+    hoverBorder: 'hover:border-cyan-400/30',
+    gradient: 'from-cyan-500/5',
+    text: 'text-cyan-400',
+    iconBg: 'bg-cyan-400/10',
+  },
+  gold: {
+    hoverBorder: 'hover:border-yellow-400/30',
+    gradient: 'from-yellow-500/5',
+    text: 'text-yellow-400',
+    iconBg: 'bg-yellow-400/10',
+  },
+  purple: {
+    hoverBorder: 'hover:border-purple-400/30',
+    gradient: 'from-purple-500/5',
+    text: 'text-purple-400',
+    iconBg: 'bg-purple-400/10',
+  },
+};
+
 interface StatCardProps {
   label: string;
   value: string | number;
@@ -48,22 +78,22 @@ function StatCard({
   color,
   trend,
 }: StatCardProps) {
+  const colors = STAT_CARD_COLORS[color] ?? STAT_CARD_COLORS.green;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative bg-black border border-gray-800 p-6 overflow-hidden group hover:border-${color}-400/30 transition-colors`}
+      className={`relative bg-black border border-gray-800 p-6 overflow-hidden group ${colors.hoverBorder} transition-colors`}
     >
       {/* Background gradient effect */}
       <div
-        className={`absolute inset-0 bg-gradient-to-br from-${color}-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity`}
+        className={`absolute inset-0 bg-gradient-to-br ${colors.gradient} to-transparent opacity-0 group-hover:opacity-100 transition-opacity`}
       />
 
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-4">
-          <div className={`text-${color}-400 bg-${color}-400/10 p-3`}>
-            {icon}
-          </div>
+          <div className={`${colors.text} ${colors.iconBg} p-3`}>{icon}</div>
           {trend && (
             <div
               className={`flex items-center gap-1 text-xs font-mono ${
@@ -83,7 +113,7 @@ function StatCard({
 
         <div className="space-y-1">
           <div
-            className={`text-4xl font-bold text-${color}-400 font-mono tracking-tight`}
+            className={`text-4xl font-bold ${colors.text} font-mono tracking-tight`}
           >
             {value}
           </div>

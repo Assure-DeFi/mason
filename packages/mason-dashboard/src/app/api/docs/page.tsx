@@ -8,8 +8,8 @@
  * Available at /api/docs
  */
 
-import { useEffect, useState } from 'react';
 import { FileCode, Lock, ExternalLink, Copy, Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface OpenAPISpec {
   openapi: string;
@@ -95,7 +95,7 @@ export default function ApiDocsPage() {
       }
     }
 
-    fetchSpec();
+    void fetchSpec();
   }, []);
 
   const togglePath = (path: string) => {
@@ -301,7 +301,7 @@ export default function ApiDocsPage() {
                       {requiresAuth && (
                         <Lock
                           className="h-4 w-4 text-gold"
-                          title="Requires authentication"
+                          aria-label="Requires authentication"
                         />
                       )}
                       <span className="ml-auto text-sm text-gray-400">
