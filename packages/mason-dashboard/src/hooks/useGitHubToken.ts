@@ -58,8 +58,8 @@ export function useGitHubToken(): UseGitHubTokenReturn {
       saveGitHubToken(tempToken);
       setToken(tempToken);
       setIsLoading(false);
-      // Note: The tempAccessToken will naturally disappear from subsequent
-      // session reads since it's not persisted in the JWT
+      // Note: The tempAccessToken is explicitly cleared from the JWT on subsequent
+      // refreshes (see auth-options.ts jwt callback else clause)
     } else {
       // Load existing token from localStorage
       loadToken();

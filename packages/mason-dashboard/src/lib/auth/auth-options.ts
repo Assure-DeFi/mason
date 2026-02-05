@@ -122,9 +122,14 @@ export const authOptions: NextAuthOptions = {
           token.github_email = dbUser.github_email;
           token.github_avatar_url = dbUser.github_avatar_url;
           // Pass token temporarily for client-side storage during initial sign-in
-          // This will be cleared from JWT after first session callback
+          // Cleared on subsequent JWT refreshes to prevent persistence in cookie
           token.tempAccessToken = account.access_token ?? '';
         }
+      } else {
+        // Subsequent JWT refreshes (not initial sign-in)
+        // Clear the GitHub access token from JWT to prevent full-repo-scope
+        // token from persisting in the session cookie beyond initial sign-in
+        delete token.tempAccessToken;
       }
 
       return token;
