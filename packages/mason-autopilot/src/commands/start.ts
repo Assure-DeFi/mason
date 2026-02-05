@@ -351,25 +351,25 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
         `[${now.toISOString()}] Schedule triggered! Running daily review...`,
       );
 
-      // HARD STOP: Do not generate new items if ANY approved items are waiting for execution
-      const { count: approvedCount, error: approvedError } = await supabase
+      // HARD STOP: Do not generate new items if backlog already has enough for 1 day's workload
+      const maxItemsPerDay = config.guardian_rails.maxItemsPerDay;
+      const { count: activeCount, error: activeError } = await supabase
         .from('mason_pm_backlog_items')
         .select('*', { count: 'exact', head: true })
         .eq('repository_id', config.repository_id)
-        .eq('source', 'autopilot')
-        .eq('status', 'approved');
+        .in('status', ['new', 'approved']);
 
-      if (approvedError) {
+      if (activeError) {
         console.error(
-          '  Failed to check approved items count:',
-          approvedError.message,
+          '  Failed to check active items count:',
+          activeError.message,
         );
         console.log(
           '  Skipping PM review due to query error (safety fallback).',
         );
-      } else if (approvedCount && approvedCount > 0) {
+      } else if (activeCount !== null && activeCount >= maxItemsPerDay) {
         console.log(
-          `  Skipping PM review: ${approvedCount} approved autopilot items still awaiting execution.`,
+          `  Skipping PM review: ${activeCount}/${maxItemsPerDay} active items already satisfy daily workload.`,
         );
       } else {
         // Archive stale autopilot items from previous runs

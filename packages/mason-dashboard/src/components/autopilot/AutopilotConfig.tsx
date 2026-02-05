@@ -8,6 +8,7 @@ import {
   Check,
   AlertCircle,
   Info,
+  Package,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -78,6 +79,7 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [scheduleHour, setScheduleHour] = useState(2);
+  const [activeItemCount, setActiveItemCount] = useState(0);
 
   // Load config from Supabase
   useEffect(() => {
@@ -97,6 +99,15 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
         setConfig(data as AutopilotConfigData);
         setScheduleHour(cronToHour(data.schedule_cron));
       }
+
+      // Fetch active backlog items count (new + approved)
+      const { count: activeCount } = await client
+        .from(TABLES.PM_BACKLOG_ITEMS)
+        .select('*', { count: 'exact', head: true })
+        .eq('repository_id', repositoryId)
+        .in('status', ['new', 'approved']);
+
+      setActiveItemCount(activeCount ?? 0);
 
       setLoading(false);
     }
@@ -221,6 +232,43 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
         </label>
       </div>
 
+      {/* Backlog Status */}
+      <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <Package className="h-5 w-5 text-gold" />
+          <h3 className="font-medium text-white">Backlog Status</h3>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-400">Active Items</span>
+            <span className="font-medium text-white">
+              {activeItemCount} / {config.guardian_rails.maxItemsPerDay}
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-800">
+            <div
+              className={`h-full rounded-full transition-all ${
+                activeItemCount >= config.guardian_rails.maxItemsPerDay
+                  ? 'bg-green-500'
+                  : 'bg-gold'
+              }`}
+              style={{
+                width: `${Math.min(100, (activeItemCount / config.guardian_rails.maxItemsPerDay) * 100)}%`,
+              }}
+            />
+          </div>
+
+          <p className="text-xs text-gray-500">
+            {activeItemCount >= config.guardian_rails.maxItemsPerDay
+              ? 'Backlog is full. /pm-review will not run until items are executed.'
+              : `${config.guardian_rails.maxItemsPerDay - activeItemCount} more items needed before backlog is full.`}
+          </p>
+        </div>
+      </div>
+
       {/* Daily Improvements + Schedule */}
       <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
         <div className="mb-4 flex items-center gap-3">
@@ -333,8 +381,12 @@ export function AutopilotConfig({ repositoryId, userId }: Props) {
             <p className="font-medium text-gray-300">How Autopilot Works</p>
             <ul className="mt-2 list-inside list-disc space-y-1">
               <li>
-                Generates exactly {config.guardian_rails.maxItemsPerDay} fresh
+                Generates up to {config.guardian_rails.maxItemsPerDay}{' '}
                 improvements daily based on current codebase
+              </li>
+              <li>
+                Skips /pm-review when backlog already has{' '}
+                {config.guardian_rails.maxItemsPerDay} active items
               </li>
               <li>Auto-approves and executes all items (2 at a time)</li>
               <li>Stale items from previous runs are automatically archived</li>
