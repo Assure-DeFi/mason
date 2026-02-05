@@ -15,10 +15,16 @@ import { backlogRestoreSchema, validateRequest } from '@/lib/schemas';
 /**
  * POST /api/backlog/restore - Restore a filtered item to the backlog
  *
- * This endpoint:
- * 1. Fetches the filtered item from mason_pm_filtered_items
- * 2. Creates a new backlog item from it
- * 3. Marks the filtered item as 'restored'
+ * This endpoint atomically:
+ * 1. Creates a new backlog item from the filtered item
+ * 2. Marks the filtered item as 'restored'
+ * 3. Tracks restore feedback for confidence decay
+ *
+ * If step 2 fails, step 1 is rolled back (the created item is deleted).
+ * Step 3 (feedback tracking) is non-critical and logged on failure.
+ *
+ * Note: priority_score is a GENERATED ALWAYS column computed by PostgreSQL
+ * as (impact_score * 2) - effort_score, so it must NOT be included in inserts.
  *
  * Requires user's Supabase credentials via headers (privacy model).
  */
@@ -68,6 +74,8 @@ export async function POST(request: Request) {
     }
 
     // Create backlog item from filtered item
+    // Note: priority_score is omitted because it is a GENERATED ALWAYS column
+    // that PostgreSQL computes automatically as (impact_score * 2) - effort_score
     const backlogItem = {
       title: filteredItem.title,
       problem: filteredItem.problem,
@@ -76,13 +84,13 @@ export async function POST(request: Request) {
       area: filteredItem.area,
       impact_score: filteredItem.impact_score,
       effort_score: filteredItem.effort_score,
-      priority_score: filteredItem.impact_score * 2 - filteredItem.effort_score,
       complexity: filteredItem.complexity || 2,
       benefits: filteredItem.benefits || [],
-      status: 'new',
+      status: 'new' as const,
       analysis_run_id: filteredItem.analysis_run_id,
     };
 
+    // Step 1: Create the backlog item
     const { data: newItem, error: insertError } = await supabase
       .from(TABLES.PM_BACKLOG_ITEMS)
       .insert(backlogItem)
@@ -94,7 +102,7 @@ export async function POST(request: Request) {
       return serverError('Failed to create backlog item');
     }
 
-    // Mark filtered item as restored
+    // Step 2: Mark filtered item as restored
     const { error: updateError } = await supabase
       .from(TABLES.PM_FILTERED_ITEMS)
       .update({ override_status: 'restored' })
@@ -102,11 +110,29 @@ export async function POST(request: Request) {
 
     if (updateError) {
       console.error('Failed to update filtered item status:', updateError);
-      // Don't fail the request - the item was already restored
+
+      // Rollback Step 1: Delete the created backlog item to maintain consistency
+      const { error: rollbackError } = await supabase
+        .from(TABLES.PM_BACKLOG_ITEMS)
+        .delete()
+        .eq('id', newItem.id);
+
+      if (rollbackError) {
+        console.error(
+          'Rollback failed - orphaned backlog item:',
+          newItem.id,
+          rollbackError,
+        );
+      }
+
+      return serverError(
+        'Failed to complete restore operation. Changes have been rolled back.',
+      );
     }
 
-    // Track restore feedback for confidence decay system
+    // Step 3: Track restore feedback for confidence decay system
     // This helps the pm-validator learn which filter patterns are too aggressive
+    // Non-critical: failure is logged but does not roll back the restore
     const { error: trackError } = await supabase
       .from(TABLES.PM_RESTORE_FEEDBACK)
       .insert({
@@ -117,7 +143,6 @@ export async function POST(request: Request) {
       });
 
     if (trackError) {
-      // Log but don't fail - feedback tracking is non-critical
       console.warn('Failed to track restore feedback:', trackError);
     }
 
