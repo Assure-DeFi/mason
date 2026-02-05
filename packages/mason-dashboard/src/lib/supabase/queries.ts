@@ -169,6 +169,10 @@ export async function getBacklogStats(): Promise<{
       .from(TABLES.PM_BACKLOG_ITEMS)
       .select('*', { count: 'exact', head: true })
       .eq('status', 'rejected'),
+    supabase
+      .from(TABLES.PM_BACKLOG_ITEMS)
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'archived'),
   ]);
 
   // Query 2: Get counts by area
@@ -200,6 +204,7 @@ export async function getBacklogStats(): Promise<{
     completed: statusCounts[3].count ?? 0,
     deferred: statusCounts[4].count ?? 0,
     rejected: statusCounts[5].count ?? 0,
+    archived: statusCounts[6].count ?? 0,
   };
 
   const byArea: Record<string, number> = {

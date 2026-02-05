@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS mason_pm_backlog_items (
   benefits JSONB DEFAULT '[]'::jsonb,
 
   -- Status workflow
-  status TEXT NOT NULL DEFAULT 'new',  -- 'new', 'approved', 'in_progress', 'completed', 'deferred', 'rejected'
+  status TEXT NOT NULL DEFAULT 'new',  -- 'new', 'approved', 'in_progress', 'completed', 'deferred', 'rejected', 'archived'
 
   -- Git integration
   branch_name TEXT,
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS mason_pm_backlog_items (
   -- Constraints
   CONSTRAINT valid_area CHECK (area IN ('frontend', 'backend')),
   CONSTRAINT valid_type CHECK (type IN ('dashboard', 'discovery', 'auth', 'backend')),
-  CONSTRAINT valid_status CHECK (status IN ('new', 'approved', 'in_progress', 'completed', 'deferred', 'rejected'))
+  CONSTRAINT valid_status CHECK (status IN ('new', 'approved', 'in_progress', 'completed', 'deferred', 'rejected', 'archived'))
 );
 
 --------------------------------------------------------------------------------

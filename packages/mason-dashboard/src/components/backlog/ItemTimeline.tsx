@@ -83,6 +83,11 @@ const STATUS_CONFIG: Record<
     color: 'text-red-400',
     bgColor: 'bg-red-500/20',
   },
+  archived: {
+    label: 'Archived',
+    color: 'text-gray-500',
+    bgColor: 'bg-gray-600/20',
+  },
 };
 
 const EVENT_TYPE_CONFIG: Record<

@@ -353,7 +353,7 @@ CREATE TABLE IF NOT EXISTS mason_pm_backlog_items (
   effort_score INTEGER NOT NULL CHECK (effort_score BETWEEN 1 AND 10),
   priority_score INTEGER GENERATED ALWAYS AS (impact_score * 2 - effort_score) STORED,
   benefits JSONB DEFAULT '[]'::jsonb,
-  status TEXT DEFAULT 'new' CHECK (status IN ('new', 'approved', 'in_progress', 'completed', 'deferred', 'rejected')),
+  status TEXT DEFAULT 'new' CHECK (status IN ('new', 'approved', 'in_progress', 'completed', 'deferred', 'rejected', 'archived')),
   branch_name TEXT,
   pr_url TEXT,
   prd_content TEXT,

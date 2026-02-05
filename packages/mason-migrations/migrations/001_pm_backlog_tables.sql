@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS mason_pm_backlog_items (
   CONSTRAINT valid_area CHECK (area IN ('frontend-ux', 'api-backend', 'reliability', 'security', 'code-quality')),
   CONSTRAINT valid_type CHECK (type IN ('feature', 'fix', 'refactor', 'optimization')),
   CONSTRAINT valid_complexity CHECK (complexity IN ('low', 'medium', 'high', 'very_high')),
-  CONSTRAINT valid_status CHECK (status IN ('new', 'approved', 'in_progress', 'completed', 'rejected'))
+  CONSTRAINT valid_status CHECK (status IN ('new', 'approved', 'in_progress', 'completed', 'rejected', 'archived'))
 );
 
 -- Indexes for common queries

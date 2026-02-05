@@ -87,6 +87,7 @@ export function useBacklogFilters({
       completed: 0,
       deferred: 0,
       rejected: 0,
+      archived: 0,
     };
 
     repoFilteredItems.forEach((item) => {
@@ -103,6 +104,9 @@ export function useBacklogFilters({
     // Filter by status
     if (activeStatus) {
       result = result.filter((item) => item.status === activeStatus);
+    } else {
+      // "All Items" view: exclude archived items by default
+      result = result.filter((item) => item.status !== 'archived');
     }
 
     // Filter by search query (searches title, problem, solution)

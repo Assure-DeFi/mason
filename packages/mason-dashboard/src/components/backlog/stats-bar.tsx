@@ -74,13 +74,21 @@ const STAT_CONFIG: Array<{
     bgColor: 'bg-red-500/10',
     activeRing: 'ring-red-400/50',
   },
+  {
+    key: 'archived',
+    tabStatus: 'archived',
+    label: 'Archived',
+    color: 'text-gray-500',
+    bgColor: 'bg-gray-600/10',
+    activeRing: 'ring-gray-500/50',
+  },
 ];
 
 export function StatsBar({ counts, activeStatus, onStatClick }: StatsBarProps) {
   return (
     <div className="border-b border-gray-800/50 bg-black/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6">
-        <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-4">
+        <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-2 lg:gap-4">
           {STAT_CONFIG.map(
             ({ key, tabStatus, label, color, bgColor, activeRing }) => {
               const isActive = activeStatus === tabStatus;

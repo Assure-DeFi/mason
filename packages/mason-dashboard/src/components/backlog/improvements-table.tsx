@@ -176,6 +176,7 @@ type TabStatus =
   | 'completed'
   | 'deferred'
   | 'rejected'
+  | 'archived'
   | 'filtered'
   | null;
 

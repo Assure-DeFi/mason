@@ -80,7 +80,8 @@ export type BacklogStatus =
   | 'in_progress'
   | 'completed'
   | 'deferred'
-  | 'rejected';
+  | 'rejected'
+  | 'archived';
 
 export interface Benefit {
   category:
@@ -255,6 +256,7 @@ export interface StatusCounts {
   completed: number;
   deferred: number;
   rejected: number;
+  archived: number;
 }
 
 /**

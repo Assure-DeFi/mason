@@ -12,6 +12,7 @@ const STATUS_COLORS: Record<BacklogStatus, { text: string; bg: string }> = {
   completed: { text: 'text-green-400', bg: 'bg-green-500/10' },
   deferred: { text: 'text-gray-400', bg: 'bg-gray-500/10' },
   rejected: { text: 'text-red-400', bg: 'bg-red-500/10' },
+  archived: { text: 'text-gray-500', bg: 'bg-gray-600/10' },
 };
 
 const STATUS_LABELS: Record<BacklogStatus, string> = {
@@ -21,6 +22,7 @@ const STATUS_LABELS: Record<BacklogStatus, string> = {
   completed: 'Completed',
   deferred: 'Deferred',
   rejected: 'Rejected',
+  archived: 'Archived',
 };
 
 const STATUS_DESCRIPTIONS: Record<BacklogStatus, string> = {
@@ -30,6 +32,7 @@ const STATUS_DESCRIPTIONS: Record<BacklogStatus, string> = {
   completed: 'Done! Check the PR.',
   deferred: 'Saved for later',
   rejected: "Won't implement",
+  archived: 'Archived by autopilot',
 };
 
 interface StatusBadgeProps {
