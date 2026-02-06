@@ -35,3 +35,40 @@ export function validateProjectRef(ref: string): string | null {
   }
   return null;
 }
+
+/**
+ * Validates that a URL is a legitimate Supabase instance URL.
+ * Prevents SSRF by ensuring the server only connects to *.supabase.co domains.
+ *
+ * @param url - The URL to validate
+ * @returns Validation result with reason if invalid
+ */
+export function validateSupabaseUrl(
+  url: string,
+): { valid: true } | { valid: false; reason: string } {
+  // 1. Try parsing URL - reject if invalid
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { valid: false, reason: 'Invalid URL format' };
+  }
+
+  // 2. Require HTTPS
+  if (parsed.protocol !== 'https:') {
+    return { valid: false, reason: 'URL must use HTTPS protocol' };
+  }
+
+  // 3. Reject non-standard ports
+  if (parsed.port) {
+    return { valid: false, reason: 'URL must not include a port number' };
+  }
+
+  // 4. Require *.supabase.co hostname
+  const SUPABASE_HOST_PATTERN = /^[a-z0-9-]+\.supabase\.co$/;
+  if (!SUPABASE_HOST_PATTERN.test(parsed.hostname)) {
+    return { valid: false, reason: 'URL must be a valid *.supabase.co domain' };
+  }
+
+  return { valid: true };
+}

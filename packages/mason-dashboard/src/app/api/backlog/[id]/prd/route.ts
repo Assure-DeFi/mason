@@ -9,6 +9,7 @@ import {
 } from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
+import { validateSupabaseUrl } from '@/lib/validation/supabase';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -38,6 +39,12 @@ export async function GET(request: Request, { params }: RouteParams) {
       return badRequest(
         'Database credentials required. Please complete setup.',
       );
+    }
+
+    // Validate URL to prevent SSRF
+    const urlValidation = validateSupabaseUrl(supabaseUrl);
+    if (!urlValidation.valid) {
+      return badRequest(urlValidation.reason);
     }
 
     // Connect to user's database
@@ -85,6 +92,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       return badRequest(
         'Database credentials required. Please complete setup.',
       );
+    }
+
+    // Validate URL to prevent SSRF
+    const urlValidation = validateSupabaseUrl(supabaseUrl);
+    if (!urlValidation.valid) {
+      return badRequest(urlValidation.reason);
     }
 
     // Parse request body

@@ -11,6 +11,7 @@ import {
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import { backlogRestoreSchema, validateRequest } from '@/lib/schemas';
+import { validateSupabaseUrl } from '@/lib/validation/supabase';
 
 /**
  * POST /api/backlog/restore - Restore a filtered item to the backlog
@@ -38,6 +39,12 @@ export async function POST(request: Request) {
       return badRequest(
         'Database credentials required. Please complete setup.',
       );
+    }
+
+    // Validate URL to prevent SSRF
+    const urlValidation = validateSupabaseUrl(supabaseUrl);
+    if (!urlValidation.valid) {
+      return badRequest(urlValidation.reason);
     }
 
     // Validate request body with Zod schema
