@@ -7,6 +7,7 @@ import {
   X,
   ExternalLink,
   RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -351,6 +352,31 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
         </p>
       </div>
 
+      {/* New Project Warning */}
+      <div className="rounded-lg border-2 border-gold bg-gold/10 p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-6 w-6 flex-shrink-0 text-gold" />
+          <div>
+            <h3 className="text-base font-bold text-gold">
+              Create a NEW Supabase Project for Mason
+            </h3>
+            <p className="mt-1 text-sm text-gray-300">
+              Mason needs its own dedicated database. Do NOT use an existing
+              project that has other data in it.{' '}
+              <a
+                href="https://supabase.com/dashboard/new/_"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-medium text-gold underline hover:opacity-80"
+              >
+                Create a free project now
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Privacy Notice */}
       <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
         <div className="flex items-start gap-3">
@@ -410,6 +436,19 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
       {connection.status === 'selecting' && connection.projects && (
         <div className="space-y-4">
           <h3 className="font-medium text-white">Select a Project</h3>
+          <p className="text-sm text-gray-400">
+            Pick the project you created for Mason. Don&apos;t see it?{' '}
+            <a
+              href="https://supabase.com/dashboard/new/_"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-gold hover:underline"
+            >
+              Create a new one
+              <ExternalLink className="h-3 w-3" />
+            </a>{' '}
+            and refresh.
+          </p>
           <div className="grid gap-3">
             {connection.projects.map((project) => (
               <button

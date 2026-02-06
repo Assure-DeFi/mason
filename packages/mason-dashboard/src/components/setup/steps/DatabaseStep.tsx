@@ -8,6 +8,7 @@ import {
   Database,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 
@@ -298,6 +299,31 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
         </p>
       </div>
 
+      {/* New Project Warning */}
+      <div className="rounded-lg border-2 border-gold bg-gold/10 p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-6 w-6 flex-shrink-0 text-gold" />
+          <div>
+            <h3 className="text-base font-bold text-gold">
+              Create a NEW Supabase Project for Mason
+            </h3>
+            <p className="mt-1 text-sm text-gray-300">
+              Mason needs its own dedicated database. Do NOT use an existing
+              project that has other data in it.{' '}
+              <a
+                href="https://supabase.com/dashboard/new/_"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-medium text-gold underline hover:opacity-80"
+              >
+                Create a free project now
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
+
       <button
         onClick={() => setShowInstructions(!showInstructions)}
         className="flex w-full items-center justify-between rounded-lg border border-gray-700 bg-gray-900/50 p-4 text-left"
@@ -318,7 +344,7 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
               <span>
                 Go to{' '}
                 <a
-                  href="https://supabase.com/dashboard"
+                  href="https://supabase.com/dashboard/new/_"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-gold hover:underline"
@@ -326,7 +352,8 @@ export function DatabaseStep({ onNext, onBack }: WizardStepProps) {
                   Supabase Dashboard
                   <ExternalLink className="h-3 w-3" />
                 </a>{' '}
-                and create a free project
+                and create a <strong>new</strong> free project dedicated to
+                Mason
               </span>
             </li>
             <li className="flex gap-2">
