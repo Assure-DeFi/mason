@@ -166,7 +166,12 @@ export function useAutoMigrations(): UseAutoMigrationsReturn {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Migration failed');
+        // API returns { error: { code, message } } - extract the message string
+        const errorMsg =
+          typeof data.error === 'string'
+            ? data.error
+            : data.error?.message || 'Migration failed';
+        throw new Error(errorMsg);
       }
 
       // Mark as run this session and update last migration time for reference

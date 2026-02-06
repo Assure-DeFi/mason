@@ -6,7 +6,7 @@
  * Manages the user's Supabase database connection state.
  * Provides connection status, configuration, and utility functions.
  *
- * Auto-loads credentials from central database on login if not in localStorage.
+ * Credentials are stored in localStorage only (privacy architecture).
  * Validates credentials on mount with 1-hour caching to detect stale/revoked keys.
  */
 
@@ -14,8 +14,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-import { TABLES } from '@/lib/constants';
-import { getSupabase } from '@/lib/supabase/client';
 import {
   type MasonConfig,
   getMasonConfig,
@@ -105,7 +103,7 @@ export interface UseUserDatabaseReturn {
 }
 
 export function useUserDatabase(): UseUserDatabaseReturn {
-  const { data: session, status: sessionStatus } = useSession();
+  const { status: sessionStatus } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [isValidating, setIsValidating] = useState(false);
   const [isValid, setIsValid] = useState(true); // Assume valid until proven otherwise
@@ -113,7 +111,6 @@ export function useUserDatabase(): UseUserDatabaseReturn {
   const [config, setConfig] = useState<MasonConfig | null>(null);
   const [isConfigured, setIsConfigured] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
-  const [hasFetchedFromCentral, setHasFetchedFromCentral] = useState(false);
   const validationInProgress = useRef(false);
 
   const loadConfig = useCallback(() => {
@@ -186,57 +183,14 @@ export function useUserDatabase(): UseUserDatabaseReturn {
     }
   }, [isConfigured, isLoading, validateConnection]);
 
-  // Auto-fetch credentials from central database if user is logged in
-  // but localStorage doesn't have credentials
+  // Credentials are stored in localStorage only (privacy architecture).
+  // Central DB never stores supabase_url or supabase_anon_key.
+  // Just mark loading complete once session status is known.
   useEffect(() => {
-    async function fetchCredentialsFromCentral() {
-      // Only run if:
-      // 1. Session is authenticated
-      // 2. localStorage doesn't have credentials
-      // 3. We haven't already tried fetching
-      if (
-        sessionStatus !== 'authenticated' ||
-        !session?.user?.github_id ||
-        hasUserDatabase() ||
-        hasFetchedFromCentral
-      ) {
-        setIsLoading(false);
-        return;
-      }
-
-      setHasFetchedFromCentral(true);
-
-      try {
-        const centralClient = getSupabase();
-        const { data: userData, error } = await centralClient
-          .from(TABLES.USERS)
-          .select('supabase_url, supabase_anon_key')
-          .eq('github_id', session.user.github_id)
-          .single();
-
-        if (error || !userData?.supabase_url || !userData?.supabase_anon_key) {
-          // No credentials in central DB - user needs to complete setup
-          setIsLoading(false);
-          return;
-        }
-
-        // Save to localStorage and reload config
-        saveMasonConfig({
-          supabaseUrl: userData.supabase_url,
-          supabaseAnonKey: userData.supabase_anon_key,
-          setupComplete: true,
-        });
-
-        loadConfig();
-      } catch (err) {
-        console.error('Failed to fetch credentials from central DB:', err);
-      } finally {
-        setIsLoading(false);
-      }
+    if (sessionStatus !== 'loading') {
+      setIsLoading(false);
     }
-
-    void fetchCredentialsFromCentral();
-  }, [session, sessionStatus, hasFetchedFromCentral, loadConfig]);
+  }, [sessionStatus]);
 
   const saveConfigHandler = useCallback(
     (newConfig: MasonConfig) => {
