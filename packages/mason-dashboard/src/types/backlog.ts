@@ -140,6 +140,7 @@ export interface BacklogItem {
   files_affected_count: number | null;
   has_breaking_changes: boolean | null;
   test_coverage_gaps: number | null;
+  risk_rationale: string | null;
 
   // Feature classification
   is_new_feature: boolean;

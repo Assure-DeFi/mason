@@ -2,28 +2,28 @@
   "manifest_version": 3,
   "commands": {
     "pm-review": {
-      "version": "3.1.1",
+      "version": "3.2.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "3.1.1",
-      "breaking_reason": "Fix API response parsing - use .data.user_id instead of .user_id"
+      "required_minimum": "3.2.0",
+      "breaking_reason": "Risk analysis now submits files_affected_count, has_breaking_changes, test_coverage_gaps, and risk_rationale"
     },
     "pm-banger": {
-      "version": "3.0.1",
+      "version": "3.1.0",
       "file_path": "commands/pm-banger.md",
-      "required_minimum": "3.0.1",
-      "breaking_reason": "Fix API response parsing - use .data.user_id instead of .user_id"
+      "required_minimum": "3.1.0",
+      "breaking_reason": "Risk analysis now submits files_affected_count, has_breaking_changes, test_coverage_gaps, and risk_rationale"
     },
     "pm-quick": {
-      "version": "3.0.1",
+      "version": "3.1.0",
       "file_path": "commands/pm-quick.md",
-      "required_minimum": "3.0.1",
-      "breaking_reason": "Fix API response parsing - use .data.user_id instead of .user_id"
+      "required_minimum": "3.1.0",
+      "breaking_reason": "Risk analysis now submits files_affected_count, has_breaking_changes, test_coverage_gaps, and risk_rationale"
     },
     "pm-focus": {
-      "version": "3.0.1",
+      "version": "3.1.0",
       "file_path": "commands/pm-focus.md",
-      "required_minimum": "3.0.1",
-      "breaking_reason": "Fix API response parsing - use .data.user_id instead of .user_id"
+      "required_minimum": "3.1.0",
+      "breaking_reason": "Risk analysis now submits files_affected_count, has_breaking_changes, test_coverage_gaps, and risk_rationale"
     },
     "execute-approved": {
       "version": "2.13.0",

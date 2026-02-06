@@ -27,6 +27,7 @@ interface RiskSummaryData {
   files_affected_count: number;
   has_breaking_changes: boolean;
   test_coverage_gaps: number;
+  risk_rationale: string | null;
 }
 
 interface RiskAnalysisViewProps {
@@ -105,32 +106,47 @@ export function RiskAnalysisView({
           )}
         </div>
 
+        {/* Risk Rationale */}
+        {summaryData.risk_rationale && (
+          <div className="p-4 bg-black/20 border border-gray-800">
+            <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wide mb-2">
+              Risk Assessment
+            </h4>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              {summaryData.risk_rationale}
+            </p>
+          </div>
+        )}
+
         {/* Summary Metrics */}
-        <div>
-          <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wide mb-3">
-            Risk Summary
-          </h4>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 bg-black/20 border border-gray-800">
-              <div className="flex items-center gap-2 mb-1">
-                <FileCode className="w-4 h-4 text-gray-400" />
-                <span className="text-xs text-gray-400">Files Affected</span>
+        {(summaryData.files_affected_count > 0 ||
+          summaryData.test_coverage_gaps > 0) && (
+          <div>
+            <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wide mb-3">
+              Risk Summary
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-black/20 border border-gray-800">
+                <div className="flex items-center gap-2 mb-1">
+                  <FileCode className="w-4 h-4 text-gray-400" />
+                  <span className="text-xs text-gray-400">Files Affected</span>
+                </div>
+                <span className="text-lg font-semibold text-white">
+                  {summaryData.files_affected_count}
+                </span>
               </div>
-              <span className="text-lg font-semibold text-white">
-                {summaryData.files_affected_count}
-              </span>
-            </div>
-            <div className="p-3 bg-black/20 border border-gray-800">
-              <div className="flex items-center gap-2 mb-1">
-                <TestTube className="w-4 h-4 text-gray-400" />
-                <span className="text-xs text-gray-400">Test Gaps</span>
+              <div className="p-3 bg-black/20 border border-gray-800">
+                <div className="flex items-center gap-2 mb-1">
+                  <TestTube className="w-4 h-4 text-gray-400" />
+                  <span className="text-xs text-gray-400">Test Gaps</span>
+                </div>
+                <span className="text-lg font-semibold text-white">
+                  {summaryData.test_coverage_gaps}
+                </span>
               </div>
-              <span className="text-lg font-semibold text-white">
-                {summaryData.test_coverage_gaps}
-              </span>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Breaking Changes Warning */}
         {summaryData.has_breaking_changes && (
@@ -150,17 +166,31 @@ export function RiskAnalysisView({
           </div>
         )}
 
-        {/* Note about detailed analysis */}
-        <div className="p-3 bg-gray-800/30 border border-gray-700 text-sm text-gray-400">
-          <p>
-            Detailed breakdown (file lists, dependency graph, component scores)
-            is available when running{' '}
-            <code className="px-1 py-0.5 bg-black rounded text-gold font-mono text-xs">
-              /execute-approved
-            </code>
-            .
-          </p>
-        </div>
+        {/* Hint for more details */}
+        {!summaryData.risk_rationale &&
+          summaryData.files_affected_count === 0 &&
+          summaryData.test_coverage_gaps === 0 && (
+            <div className="p-3 bg-gray-800/30 border border-gray-700 text-sm text-gray-400">
+              <p>
+                Re-run{' '}
+                <code className="px-1 py-0.5 bg-black rounded text-gold font-mono text-xs">
+                  /pm-review
+                </code>{' '}
+                to populate detailed risk data.
+              </p>
+            </div>
+          )}
+
+        {/* Note about dependency analysis */}
+        {(summaryData.risk_rationale ||
+          summaryData.files_affected_count > 0) && (
+          <div className="p-3 bg-gray-800/30 border border-gray-700 text-sm text-gray-400">
+            <p>
+              Run dependency analysis for detailed file lists and score
+              breakdown.
+            </p>
+          </div>
+        )}
       </div>
     );
   }

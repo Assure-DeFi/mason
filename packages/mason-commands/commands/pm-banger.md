@@ -1,6 +1,6 @@
 ---
 name: pm-banger
-version: 3.0.1
+version: 3.1.0
 description: Generate ONE game-changing feature idea with deep analysis
 ---
 
@@ -268,14 +268,17 @@ Store: `item.prd_content = prd`
 
 ## STEP 9: Risk Analysis
 
-Calculate `risk_score` (1-10) based on:
+Calculate ALL 5 risk fields:
 
-- Files affected (more = higher risk)
-- Breaking changes potential
-- Test coverage gaps
-- Integration complexity
+- `risk_score` (1-10) - overall risk rating
+- `files_affected_count` (integer) - estimated number of files this change touches
+- `has_breaking_changes` (boolean) - whether this changes public APIs, exports, or interfaces
+- `test_coverage_gaps` (integer) - estimated number of affected files lacking test coverage
+- `risk_rationale` (string) - 2-3 sentence explanation of the risk assessment covering files affected, breaking change potential, test gaps, and integration complexity
 
 Set `evidence_status` to `verified` (confirmed feature doesn't exist).
+
+**All 5 fields are MANDATORY.**
 
 ---
 
@@ -373,6 +376,11 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
     "prd_content": "[Full PRD markdown]",
     "prd_generated_at": "'${TIMESTAMP}'",
     "risk_score": [1-10],
+    "files_affected_count": [integer],
+    "has_breaking_changes": true/false,
+    "test_coverage_gaps": [integer],
+    "risk_rationale": "2-3 sentence explanation...",
+    "risk_analyzed_at": "'${TIMESTAMP}'",
     "evidence_status": "verified"
   }]'
 ```

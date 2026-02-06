@@ -382,6 +382,9 @@ ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS evidence_checked_at 
 -- Add skip reason for items that were skipped during execution (e.g., re-evaluation determined no benefit)
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS skip_reason TEXT;
 
+-- Add risk rationale for pm-review risk explanation
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS risk_rationale TEXT;
+
 -- Add source tracking for autopilot visibility
 -- Values: 'manual' (human ran /pm-review) or 'autopilot' (daemon ran it)
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';

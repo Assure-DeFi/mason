@@ -1,6 +1,6 @@
 ---
 name: pm-focus
-version: 3.0.1
+version: 3.1.0
 description: Deep dive into one specific domain - 5 focused items
 ---
 
@@ -312,12 +312,15 @@ For each item:
 
 ## STEP 8: Risk Analysis for EACH Item
 
-Calculate `risk_score` (1-10) for each based on:
+For each item, calculate ALL 5 risk fields:
 
-- Files affected
-- Breaking changes potential
-- Test coverage gaps
-- Integration complexity
+- `risk_score` (1-10) - overall risk rating
+- `files_affected_count` (integer) - estimated number of files this change touches
+- `has_breaking_changes` (boolean) - whether this changes public APIs, exports, or interfaces
+- `test_coverage_gaps` (integer) - estimated number of affected files lacking test coverage
+- `risk_rationale` (string) - 2-3 sentence explanation of the risk assessment covering files affected, breaking change potential, test gaps, and integration complexity
+
+**All 5 fields are MANDATORY for every item.**
 
 ---
 
@@ -403,6 +406,11 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
       "prd_content": "# PRD: ...",
       "prd_generated_at": "'${TIMESTAMP}'",
       "risk_score": X,
+      "files_affected_count": X,
+      "has_breaking_changes": true/false,
+      "test_coverage_gaps": X,
+      "risk_rationale": "2-3 sentence explanation...",
+      "risk_analyzed_at": "'${TIMESTAMP}'",
       "evidence_status": "verified"
     }
     // ... 5 items total

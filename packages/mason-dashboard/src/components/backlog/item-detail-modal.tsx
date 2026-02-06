@@ -644,6 +644,7 @@ export function ItemDetailModal({
                         has_breaking_changes:
                           item.has_breaking_changes ?? false,
                         test_coverage_gaps: item.test_coverage_gaps ?? 0,
+                        risk_rationale: item.risk_rationale ?? null,
                       }
                     : undefined
                 }
