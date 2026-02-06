@@ -298,52 +298,55 @@ export default function BacklogPage() {
         }
       }
 
-      // Claim orphaned items (items with null user_id or null repository_id)
-      // This handles items created before user_id/repository_id were properly set in pm-review
-
-      // Step 1: Claim items with null user_id
-      const { data: userOrphanedItems } = await client
-        .from(TABLES.PM_BACKLOG_ITEMS)
-        .select('id')
-        .is('user_id', null);
-
-      if (userOrphanedItems && userOrphanedItems.length > 0) {
-        console.log(
-          `Found ${userOrphanedItems.length} items with null user_id, claiming for user...`,
-        );
-        const orphanedIds = userOrphanedItems.map((item) => item.id);
-        await client
-          .from(TABLES.PM_BACKLOG_ITEMS)
-          .update({ user_id: userData.id })
-          .in('id', orphanedIds);
-      }
-
-      // Step 2: If user has exactly one repository, claim items with null repository_id
-      // (We can only auto-assign if there's no ambiguity about which repo)
-      const { data: repos } = await client
+      // Fetch repos in parallel - start early since it doesn't depend on orphan state
+      const reposPromise = client
         .from(TABLES.GITHUB_REPOSITORIES)
         .select('id')
         .eq('user_id', userData.id)
         .eq('is_active', true);
 
-      if (repos && repos.length === 1) {
-        const { data: repoOrphanedItems } = await client
+      // Orphan-claiming: only run once per session to avoid unnecessary queries on every page load
+      const orphanClaimKey = `mason_orphans_claimed_${userData.id}`;
+      if (typeof window !== 'undefined' && !sessionStorage.getItem(orphanClaimKey)) {
+        // Step 1: Claim items with null user_id
+        const { data: userOrphanedItems } = await client
           .from(TABLES.PM_BACKLOG_ITEMS)
           .select('id')
-          .eq('user_id', userData.id)
-          .is('repository_id', null);
+          .is('user_id', null);
 
-        if (repoOrphanedItems && repoOrphanedItems.length > 0) {
-          console.log(
-            `Found ${repoOrphanedItems.length} items with null repository_id, assigning to only repo...`,
-          );
-          const orphanedIds = repoOrphanedItems.map((item) => item.id);
+        if (userOrphanedItems && userOrphanedItems.length > 0) {
+          const orphanedIds = userOrphanedItems.map((item) => item.id);
           await client
             .from(TABLES.PM_BACKLOG_ITEMS)
-            .update({ repository_id: repos[0].id })
+            .update({ user_id: userData.id })
             .in('id', orphanedIds);
         }
+
+        // Wait for repos before checking repo orphans
+        const { data: reposForOrphans } = await reposPromise;
+
+        // Step 2: If user has exactly one repository, claim items with null repository_id
+        if (reposForOrphans && reposForOrphans.length === 1) {
+          const { data: repoOrphanedItems } = await client
+            .from(TABLES.PM_BACKLOG_ITEMS)
+            .select('id')
+            .eq('user_id', userData.id)
+            .is('repository_id', null);
+
+          if (repoOrphanedItems && repoOrphanedItems.length > 0) {
+            const orphanedIds = repoOrphanedItems.map((item) => item.id);
+            await client
+              .from(TABLES.PM_BACKLOG_ITEMS)
+              .update({ repository_id: reposForOrphans[0].id })
+              .in('id', orphanedIds);
+          }
+        }
+
+        sessionStorage.setItem(orphanClaimKey, '1');
       }
+
+      // Get repos result (may already be resolved from orphan-claiming path)
+      const { data: repos } = await reposPromise;
 
       // Fetch items with selective columns for performance
       // Excludes prd_content (large text) which is lazy loaded on demand
@@ -914,23 +917,18 @@ export default function BacklogPage() {
       }
     });
 
-    // Update all items
-    const updates = ids.map(async (id) => {
-      const { data, error } = await client
-        .from(TABLES.PM_BACKLOG_ITEMS)
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
+    // Batch update all items in a single query instead of N individual queries
+    const { data: updatedItems, error } = await client
+      .from(TABLES.PM_BACKLOG_ITEMS)
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .in('id', ids)
+      .select();
 
-      if (error) {
-        console.error(`Failed to update status for item ${id}:`, error);
-        return null;
-      }
-      return data as BacklogItem;
-    });
+    if (error) {
+      console.error('Failed to batch update status:', error);
+    }
 
-    const results = await Promise.all(updates);
+    const results = (updatedItems as BacklogItem[] | null) ?? [];
 
     // Update local state
     setItems((prev) =>
@@ -944,7 +942,7 @@ export default function BacklogPage() {
     setSelectedIds([]);
 
     // Set undo state
-    const successCount = results.filter((r) => r !== null).length;
+    const successCount = results.length;
     setUndoState({
       action,
       itemIds: ids,
