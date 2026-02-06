@@ -8,6 +8,7 @@ import {
   ExternalLink,
   RefreshCw,
   AlertTriangle,
+  Shield,
 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -378,18 +379,16 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
       </div>
 
       {/* Privacy Notice */}
-      <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
-        <div className="flex items-start gap-3">
-          <Database className="mt-0.5 h-5 w-5 flex-shrink-0 text-gold" />
-          <div>
-            <h3 className="font-medium text-white">Your Data, Your Database</h3>
-            <p className="mt-1 text-sm text-gray-400">
-              Mason stores all analysis data in YOUR Supabase project. We never
-              have access to your code or data.
-            </p>
-          </div>
-        </div>
-      </div>
+      <p className="flex items-center gap-2 text-xs text-gray-500">
+        <Shield className="h-3.5 w-3.5 flex-shrink-0" />
+        <span>
+          <span className="font-medium text-gray-400">
+            Your Data, Your Database
+          </span>{' '}
+          &mdash; Mason stores all analysis data in YOUR Supabase project. We
+          never have access to your code or data.
+        </span>
+      </p>
 
       {/* OAuth Connect Button - Always shown when idle */}
       {connection.status === 'idle' && (
