@@ -39,7 +39,18 @@ export function CompleteStep({ onBack }: WizardStepProps) {
   const [autoCopied, setAutoCopied] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
 
-  const installCommand = `curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash`;
+  const basicInstallCommand = `curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh | bash`;
+
+  const installCommand = (() => {
+    if (!apiKey) {
+      return basicInstallCommand;
+    }
+    const config = getMasonConfig();
+    if (!config?.supabaseUrl || !config?.supabaseAnonKey) {
+      return basicInstallCommand;
+    }
+    return `MASON_SUPABASE_URL="${config.supabaseUrl}" \\\nMASON_SUPABASE_ANON_KEY="${config.supabaseAnonKey}" \\\nMASON_API_KEY="${apiKey}" \\\nbash <(curl -fsSL https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh)`;
+  })();
 
   // Auto-copy install command when step mounts
   useEffect(() => {
@@ -96,14 +107,12 @@ export function CompleteStep({ onBack }: WizardStepProps) {
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
 
-      const { error: insertError } = await client
-        .from(TABLES.API_KEYS)
-        .insert({
-          user_id: userData.id,
-          name: 'Setup Wizard',
-          key_hash: keyHash,
-          key_prefix: keyPrefix,
-        });
+      const { error: insertError } = await client.from(TABLES.API_KEYS).insert({
+        user_id: userData.id,
+        name: 'Setup Wizard',
+        key_hash: keyHash,
+        key_prefix: keyPrefix,
+      });
 
       if (insertError) {
         throw insertError;
@@ -276,7 +285,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
 
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded-md bg-black p-3 font-mono text-sm text-gray-300">
+            <code className="flex-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-black p-3 font-mono text-sm text-gray-300">
               {installCommand}
             </code>
             <CopyButton
@@ -289,9 +298,9 @@ export function CompleteStep({ onBack }: WizardStepProps) {
           </div>
 
           <p className="text-sm text-gray-400">
-            The installer will prompt you for your API key and Supabase
-            credentials. All data is stored in YOUR database - the CLI connects
-            directly to your Supabase.
+            {apiKey
+              ? 'Your credentials are embedded in the command. Just paste and run - no prompts, no manual entry.'
+              : 'Generate an API key above to get a one-liner with your credentials embedded. All data is stored in YOUR database.'}
           </p>
 
           {/* Troubleshooting Section */}
