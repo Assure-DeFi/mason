@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.12.0
+version: 2.13.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -1167,22 +1167,13 @@ fi
 
 **This step runs if `E2E_TEST_ENABLED=true`. Autopilot (`--auto`) ALWAYS enables this.**
 
-This is a four-phase process covering UI, API, and Flow testing:
-
-1. **Phase A**: Run `scripts/screenshot.js --all` to capture full-page screenshots of all 8 dashboard pages (1920x1080 viewport, networkidle + 3s wait)
-2. **Phase B**: Launch a `webapp-testing` agent to visually evaluate each screenshot for issues
-3. **Phase C**: API endpoint testing - verify health, auth, and protected endpoints return correct responses
-4. **Phase D**: Flow testing - verify navigation flows, auth redirects, and protected route behavior
-
-Every process that delivers frontend data gets full E2E validation: screenshots, API responses, AND navigation flows.
-
-**Step 8.6a: Capture Screenshots via scripts/screenshot.js**
+Delegates to the global `/e2e-test` skill which runs 3 parallel agents (UI screenshots, API endpoints, navigation flows). This keeps E2E logic centralized and reusable across repos.
 
 ```bash
 # === E2E TEST SUITE (Step 8.6) ===
 if [ "$E2E_TEST_ENABLED" = "true" ]; then
   echo ""
-  echo "=== RUNNING E2E TEST SUITE WITH SCREENSHOT VALIDATION ==="
+  echo "=== RUNNING FULL E2E TEST SUITE ==="
 
   # Update progress
   curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
@@ -1190,287 +1181,54 @@ if [ "$E2E_TEST_ENABLED" = "true" ]; then
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
     -H "Content-Type: application/json" \
     -d '{"validation_e2e": "running"}'
-
-  # Phase A: Capture screenshots of ALL dashboard pages
-  # Uses: chromium headless, 1920x1080 viewport, networkidle + 3s wait, fullPage capture
-  SCREENSHOT_RESULT="pass"
-  mkdir -p .claude/battle-test/screenshots
-  if ! node scripts/screenshot.js --all --output-dir .claude/battle-test/screenshots 2>&1; then
-    SCREENSHOT_RESULT="fail"
-    echo "WARNING: Screenshot capture had failures"
-  fi
 fi
-# === END SCREENSHOT CAPTURE ===
 ```
 
-**Step 8.6b: Visual Evaluation via webapp-testing Agent**
-
-After screenshots are captured, launch a `webapp-testing` agent to evaluate each screenshot for visual issues. The agent reads the captured screenshots and evaluates them.
+**Invoke the `/e2e-test` skill** using the Skill tool:
 
 ```
 if [ "$E2E_TEST_ENABLED" = "true" ]; then
 ```
 
-Launch a Task with `subagent_type: "webapp-testing"` and this prompt:
+Use the Skill tool to invoke `e2e-test` with no arguments. It auto-detects pages and API routes from the Next.js app structure, defaults to localhost:3000.
 
-```
-You are the Frontend Screenshot Validator for Mason's execute-approved pipeline.
+The `/e2e-test` skill will:
 
-Screenshots have already been captured by scripts/screenshot.js to .claude/battle-test/screenshots/.
-Results JSON is at .claude/battle-test/screenshots/screenshot-results.json.
+1. Auto-detect all pages from `src/app/**/page.tsx`
+2. Auto-detect all API routes from `src/app/api/**/route.ts`
+3. Launch 3 parallel agents: UI Tester (screenshots + visual eval), API Tester (endpoint responses), Flow Tester (navigation)
+4. Write results to `.claude/e2e-test/results/` and `.claude/e2e-test/report.md`
 
-YOUR TASK:
-1. Read .claude/battle-test/screenshots/screenshot-results.json for the capture results
-2. View each screenshot PNG file using the Read tool (it supports image viewing)
-3. Evaluate each screenshot for visual issues
-4. Write your evaluation to .claude/battle-test/e2e-screenshots.json
+**After `/e2e-test` completes:**
 
-╔══════════════════════════════════════════════════════════════════════════╗
-║  MANDATORY: Evaluate EVERY screenshot. Do NOT skip any.                ║
-║  MANDATORY: Write results to .claude/battle-test/e2e-screenshots.json  ║
-╚══════════════════════════════════════════════════════════════════════════╝
-
-SCREENSHOTS TO EVALUATE (captured at 1920x1080 viewport):
-- .claude/battle-test/screenshots/home.png
-- .claude/battle-test/screenshots/signin.png
-- .claude/battle-test/screenshots/setup.png
-- .claude/battle-test/screenshots/backlog.png
-- .claude/battle-test/screenshots/settings-database.png
-- .claude/battle-test/screenshots/settings-github.png
-- .claude/battle-test/screenshots/settings-api-keys.png
-- .claude/battle-test/screenshots/settings-autopilot.png
-
-VISUAL EVALUATION CRITERIA (check each screenshot for):
-- Page renders without blank/white screen
-- No visible error messages or stack traces
-- Navigation elements are present and properly positioned
-- Content areas have data or appropriate empty states (not broken)
-- No horizontal scrollbar on desktop viewport (indicates overflow)
-- Text is readable (no overlapping, no truncation of critical info)
-- Dark mode is applied (Mason uses dark-mode-first, no light backgrounds)
-- No broken images or missing assets
-
-OUTPUT: Write results to .claude/battle-test/e2e-screenshots.json:
-
-{
-  "run_type": "execute-approved-e2e",
-  "timestamp": "<ISO timestamp>",
-  "verdict": "pass" or "fail",
-  "summary": {
-    "pages_tested": <number>,
-    "pages_passed": <number>,
-    "pages_failed": <number>,
-    "screenshots_captured": <number>,
-    "issues_found": <number>
-  },
-  "pages": [
-    {
-      "url": "<path>",
-      "name": "<page name>",
-      "status": "pass" or "fail",
-      "screenshot": ".claude/battle-test/screenshots/<name>.png",
-      "console_errors": [],
-      "issues": [
-        {
-          "type": "visual_regression" | "console_error" | "blank_page" | "broken_layout" | "stuck_loading" | "light_mode_leak",
-          "severity": "critical" | "high" | "medium" | "low",
-          "description": "What is wrong",
-          "element": "CSS selector or area if applicable"
-        }
-      ]
-    }
-  ]
-}
-
-IMPORTANT:
-- A page with ONLY low-severity issues is still "pass"
-- A page with ANY critical or high severity issue is "fail"
-- Overall verdict is "fail" if ANY page has critical issues
-- Report factual observations only - do not guess or speculate
-```
-
-**After the webapp-testing agent completes:**
-
-Read the results file and update progress:
+Read the results and update execution progress:
 
 ```bash
-  # Read E2E screenshot results
-  E2E_VERDICT=$(cat .claude/battle-test/e2e-screenshots.json 2>/dev/null | jq -r '.verdict // "unknown"')
-  E2E_ISSUES=$(cat .claude/battle-test/e2e-screenshots.json 2>/dev/null | jq -r '.summary.issues_found // 0')
-  E2E_PAGES_FAILED=$(cat .claude/battle-test/e2e-screenshots.json 2>/dev/null | jq -r '.summary.pages_failed // 0')
+if [ "$E2E_TEST_ENABLED" = "true" ]; then
+  # Read E2E results from the skill output
+  UI_FAILED=$(cat .claude/e2e-test/results/ui-test.json 2>/dev/null | jq -r '.summary.pages_failed // 0')
+  API_FAILED=$(cat .claude/e2e-test/results/api-test.json 2>/dev/null | jq -r '.summary.endpoints_failed // 0')
+  FLOW_FAILED=$(cat .claude/e2e-test/results/flow-test.json 2>/dev/null | jq -r '.summary.flows_failed // 0')
 
-  echo "E2E Screenshot Validation: ${E2E_VERDICT} (${E2E_ISSUES} issues, ${E2E_PAGES_FAILED} pages failed)"
+  TOTAL_FAILURES=$((UI_FAILED + API_FAILED + FLOW_FAILED))
 
-  # Update progress with combined result
-  COMBINED_E2E="pass"
-  if [ "$SCREENSHOT_RESULT" = "fail" ] || [ "$E2E_VERDICT" = "fail" ]; then
-    COMBINED_E2E="fail"
+  E2E_STATUS="pass"
+  if [ "$TOTAL_FAILURES" -gt 0 ]; then
+    E2E_STATUS="fail"
   fi
+
+  echo "E2E Results: UI=${UI_FAILED} failed, API=${API_FAILED} failed, Flow=${FLOW_FAILED} failed → ${E2E_STATUS}"
 
   curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
     -H "apikey: ${SUPABASE_KEY}" \
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
     -H "Content-Type: application/json" \
-    -d '{"validation_e2e": "'"$COMBINED_E2E"'", "e2e_issues_found": '"$E2E_ISSUES"', "e2e_pages_failed": '"$E2E_PAGES_FAILED"'}'
+    -d '{"validation_e2e": "'"$E2E_STATUS"'", "e2e_total_failures": '"$TOTAL_FAILURES"'}'
 
   echo "=== END E2E TEST SUITE ==="
 fi
 # === END E2E TEST SUITE ===
 ```
-
-**Step 8.6c: API Endpoint Testing**
-
-After screenshot validation, test API endpoints for correct responses. Run these curl commands:
-
-```bash
-if [ "$E2E_TEST_ENABLED" = "true" ]; then
-  echo ""
-  echo "=== RUNNING API ENDPOINT TESTS ==="
-
-  API_PASS=0
-  API_FAIL=0
-  API_RESULTS=""
-
-  # Test 1: GET /api/health - should return 200
-  HEALTH_CODE=$(curl -s -o /tmp/health_resp.json -w "%{http_code}" http://localhost:3000/api/health 2>/dev/null)
-  if [ "$HEALTH_CODE" = "200" ]; then
-    API_PASS=$((API_PASS + 1))
-    echo "  [PASS] GET /api/health → $HEALTH_CODE"
-  else
-    API_FAIL=$((API_FAIL + 1))
-    echo "  [FAIL] GET /api/health → $HEALTH_CODE (expected 200)"
-  fi
-
-  # Test 2: POST /api/setup/migrations - should return 401 without auth
-  MIGRATIONS_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:3000/api/setup/migrations 2>/dev/null)
-  if [ "$MIGRATIONS_CODE" = "401" ]; then
-    API_PASS=$((API_PASS + 1))
-    echo "  [PASS] POST /api/setup/migrations → $MIGRATIONS_CODE (auth required)"
-  else
-    API_FAIL=$((API_FAIL + 1))
-    echo "  [FAIL] POST /api/setup/migrations → $MIGRATIONS_CODE (expected 401)"
-  fi
-
-  # Test 3: GET /api/v1/backlog/next - should return 401 without auth
-  BACKLOG_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/v1/backlog/next 2>/dev/null)
-  if [ "$BACKLOG_CODE" = "401" ]; then
-    API_PASS=$((API_PASS + 1))
-    echo "  [PASS] GET /api/v1/backlog/next → $BACKLOG_CODE (auth required)"
-  else
-    API_FAIL=$((API_FAIL + 1))
-    echo "  [FAIL] GET /api/v1/backlog/next → $BACKLOG_CODE (expected 401)"
-  fi
-
-  # Test 4: GET /api/keys - should return 401 without auth
-  KEYS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/keys 2>/dev/null)
-  if [ "$KEYS_CODE" = "401" ]; then
-    API_PASS=$((API_PASS + 1))
-    echo "  [PASS] GET /api/keys → $KEYS_CODE (auth required)"
-  else
-    API_FAIL=$((API_FAIL + 1))
-    echo "  [FAIL] GET /api/keys → $KEYS_CODE (expected 401)"
-  fi
-
-  echo "API Tests: ${API_PASS} passed, ${API_FAIL} failed"
-
-  # Update progress
-  API_E2E_STATUS="pass"
-  if [ "$API_FAIL" -gt 0 ]; then
-    API_E2E_STATUS="fail"
-  fi
-
-  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
-    -H "apikey: ${SUPABASE_KEY}" \
-    -H "Authorization: Bearer ${SUPABASE_KEY}" \
-    -H "Content-Type: application/json" \
-    -d '{"validation_api_e2e": "'"$API_E2E_STATUS"'"}'
-
-  echo "=== END API ENDPOINT TESTS ==="
-fi
-```
-
-**Step 8.6d: Navigation Flow Testing via webapp-testing Agent**
-
-After API testing, launch a `webapp-testing` agent to verify navigation flows and auth behavior.
-
-```
-if [ "$E2E_TEST_ENABLED" = "true" ]; then
-```
-
-Launch a Task with `subagent_type: "webapp-testing"` and this prompt:
-
-```
-You are the Flow Validator for Mason's execute-approved pipeline.
-
-BASE URL: http://localhost:3000
-
-YOUR TASK: Test navigation flows and auth behavior.
-
-FLOWS TO TEST:
-
-1. Landing Page: Go to / - verify it shows landing content (not blank, not error)
-2. Auth Page: Go to /auth/signin - verify GitHub sign-in button is present
-3. Protected Route: Go to /admin/backlog - verify it shows appropriate state (setup prompt or content, not error)
-4. Settings Navigation: Visit /settings/database, /settings/github, /settings/api-keys - verify each loads
-
-FOR EACH FLOW:
-- Navigate to the page
-- Check that it loaded (no blank screen, no error page)
-- Verify expected elements are present
-- Record the result
-
-OUTPUT: Write results to .claude/battle-test/e2e-flows.json:
-
-{
-  "run_type": "execute-approved-flow-test",
-  "timestamp": "<ISO timestamp>",
-  "verdict": "pass" or "fail",
-  "summary": {
-    "flows_tested": <number>,
-    "flows_passed": <number>,
-    "flows_failed": <number>
-  },
-  "flows": [
-    {
-      "name": "<flow name>",
-      "status": "pass" or "fail",
-      "steps": [
-        { "action": "<what was done>", "result": "<what happened>", "status": "pass" or "fail" }
-      ]
-    }
-  ]
-}
-```
-
-**After the flow testing agent completes:**
-
-```bash
-  # Read flow test results
-  FLOW_VERDICT=$(cat .claude/battle-test/e2e-flows.json 2>/dev/null | jq -r '.verdict // "unknown"')
-  FLOW_FAILED=$(cat .claude/battle-test/e2e-flows.json 2>/dev/null | jq -r '.summary.flows_failed // 0')
-
-  echo "Flow Validation: ${FLOW_VERDICT} (${FLOW_FAILED} flows failed)"
-
-  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
-    -H "apikey: ${SUPABASE_KEY}" \
-    -H "Authorization: Bearer ${SUPABASE_KEY}" \
-    -H "Content-Type: application/json" \
-    -d '{"validation_flow_e2e": "'"$FLOW_VERDICT"'"}'
-fi
-# === END FLOW TESTS ===
-```
-
-**Screenshot Process (scripts/screenshot.js):**
-
-| Property | Value                                                   |
-| -------- | ------------------------------------------------------- |
-| Browser  | Chromium headless                                       |
-| Viewport | 1920x1080                                               |
-| Wait     | networkidle + 3 second delay                            |
-| Capture  | Full page (fullPage: true)                              |
-| Pages    | All 8 dashboard pages                                   |
-| Output   | .claude/battle-test/screenshots/<name>.png              |
-| Results  | .claude/battle-test/screenshots/screenshot-results.json |
 
 **E2E Test Behavior:**
 
@@ -1482,14 +1240,8 @@ fi
 | All E2E phases pass  | Status shows "Pass", proceed to commit                  |
 | Any E2E phase fails  | Status shows "Fail" as WARNING, still proceed to commit |
 
-**Full E2E includes ALL of:**
-
-1. Screenshot capture + visual evaluation (UI rendering, dark mode, brand compliance)
-2. API endpoint testing (health check, auth responses, error formats)
-3. Navigation flow testing (page loads, redirects, auth behavior)
-
 **Why full E2E is mandatory for autopilot:**
-Autopilot runs are fully automated with no human review. Full E2E (UI + API + Flow) ensures visual regressions, API breakage, and navigation issues are all caught before code is committed, making every autopilot update production-ready.
+Autopilot runs are fully automated with no human review. The `/e2e-test` skill runs UI screenshots, API endpoint checks, and navigation flow testing in parallel - ensuring visual regressions, API breakage, and navigation issues are all caught before code is committed.
 
 ---
 
