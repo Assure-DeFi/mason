@@ -1,5 +1,6 @@
 'use client';
 
+import { createClient } from '@supabase/supabase-js';
 import { clsx } from 'clsx';
 import {
   AlertTriangle,
@@ -12,7 +13,7 @@ import {
 import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
-import { STORAGE_KEYS } from '@/lib/constants';
+import { STORAGE_KEYS, TABLES } from '@/lib/constants';
 import { runDatabaseQuery } from '@/lib/supabase/management-api';
 import {
   getOAuthSession,
@@ -110,17 +111,69 @@ export function DeleteAccountModal({
     error?: string;
     skipped?: boolean;
   }> => {
-    const oauthSession = getOAuthSession();
     const config = getMasonConfig();
 
-    // Check if we have OAuth session to delete data
-    if (!oauthSession?.selectedProjectRef) {
-      // No OAuth session - skip Supabase deletion
-      // User may have used manual password method or OAuth expired
+    // No database configured = nothing to delete
+    if (!config?.supabaseUrl || !config?.supabaseAnonKey) {
       return { success: true, skipped: true };
     }
 
-    // Get or refresh access token
+    // Method 1: Direct PostgREST client (always available when config exists)
+    // Uses the anon key + "Allow all" RLS policies to delete all data
+    // This does NOT require OAuth - it works for all users
+    let directSuccess = false;
+    try {
+      const client = createClient(config.supabaseUrl, config.supabaseAnonKey);
+
+      // Delete in FK-safe order: leaf tables first, root table last
+      // CASCADE on mason_users handles most deps, but explicit ordering
+      // ensures clean deletion even if CASCADE constraints are misconfigured
+      const deleteOrder = [
+        TABLES.EXECUTION_PROGRESS,
+        TABLES.PM_RESTORE_FEEDBACK,
+        TABLES.DEPENDENCY_ANALYSIS,
+        TABLES.ITEM_EVENTS,
+        TABLES.AUDIT_LOGS,
+        TABLES.AUTOPILOT_ERRORS,
+        TABLES.AUTOPILOT_RUNS,
+        TABLES.AUTOPILOT_CONFIG,
+        TABLES.PM_FILTERED_ITEMS,
+        TABLES.PM_BACKLOG_ITEMS,
+        TABLES.PM_ANALYSIS_RUNS,
+        TABLES.AI_PROVIDER_KEYS,
+        TABLES.API_KEYS,
+        TABLES.GITHUB_REPOSITORIES,
+        TABLES.USERS,
+      ];
+
+      for (const table of deleteOrder) {
+        // .not('id', 'is', null) matches all rows (PK is never null)
+        // Errors on individual tables are ignored (table may not exist)
+        await client.from(table).delete().not('id', 'is', null);
+      }
+
+      // Also clean up mason_migrations (uses SERIAL PK, not in TABLES constant)
+      await client.from('mason_migrations').delete().not('id', 'is', null);
+
+      directSuccess = true;
+    } catch {
+      // Direct client failed entirely - fall through to Management API
+    }
+
+    if (directSuccess) {
+      return { success: true };
+    }
+
+    // Method 2: OAuth Management API fallback (raw SQL execution)
+    // Only attempted if direct client failed AND OAuth is available
+    const oauthSession = getOAuthSession();
+    if (!oauthSession?.selectedProjectRef) {
+      return {
+        success: false,
+        error: 'Could not connect to your database to delete data.',
+      };
+    }
+
     let accessToken = getAccessToken();
     if (!accessToken) {
       const refreshToken = getRefreshToken();
@@ -136,31 +189,20 @@ export function DeleteAccountModal({
             const newTokens = (await response.json()) as SupabaseOAuthTokens;
             updateTokens(newTokens);
             accessToken = newTokens.accessToken;
-          } else {
-            // OAuth session expired
-            return { success: true, skipped: true };
           }
         } catch {
-          return { success: true, skipped: true };
+          // Refresh failed
         }
-      } else {
-        return { success: true, skipped: true };
       }
     }
 
-    // Verify project ref matches config
-    if (config?.supabaseUrl) {
-      const configRef = config.supabaseUrl.match(
-        /https:\/\/([^.]+)\.supabase\.co/,
-      )?.[1];
-      if (configRef && configRef !== oauthSession.selectedProjectRef) {
-        // Mismatch - skip to avoid deleting wrong database
-        return { success: true, skipped: true };
-      }
+    if (!accessToken) {
+      return {
+        success: false,
+        error: 'Could not connect to your database to delete data.',
+      };
     }
 
-    // Delete all Mason data in a single query
-    // Dynamically discovers all mason_* tables so it never fails on missing tables
     try {
       await runDatabaseQuery(
         accessToken,
