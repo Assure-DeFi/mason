@@ -778,20 +778,20 @@ export default function BacklogPage() {
         return;
       }
 
-      // Cmd/Ctrl+Shift+A - Approve selected
+      // Cmd/Ctrl+Shift+A - Approve selected (with confirmation)
       if (isModKey && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         if (selectedIds.length > 0 && !isApproving) {
-          void handleBulkApprove(selectedIds);
+          showConfirmation('approve', selectedIds);
         }
         return;
       }
 
-      // Cmd/Ctrl+Shift+X - Reject selected
+      // Cmd/Ctrl+Shift+X - Reject selected (with confirmation)
       if (isModKey && e.shiftKey && e.key.toLowerCase() === 'x') {
         e.preventDefault();
         if (selectedIds.length > 0 && !isRejecting) {
-          void handleBulkReject(selectedIds);
+          showConfirmation('reject', selectedIds);
         }
         return;
       }
@@ -799,7 +799,7 @@ export default function BacklogPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedItem, selectedIds, filteredItems, isApproving, isRejecting]);
+  }, [selectedItem, selectedIds, filteredItems, isApproving, isRejecting, items]);
 
   // Handle undo action
   const handleUndo = async () => {
