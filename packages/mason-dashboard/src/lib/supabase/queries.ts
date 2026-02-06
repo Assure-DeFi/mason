@@ -7,6 +7,7 @@ import type {
 } from '@/types/backlog';
 
 import { supabase } from './client';
+import { sanitizePostgrestValue } from './filter-sanitizer';
 
 /**
  * Fetch backlog items with optional filters and sorting
@@ -32,9 +33,12 @@ export async function fetchBacklogItems(
     query = query.in('complexity', filters.complexity);
   }
   if (filters?.search) {
-    query = query.or(
-      `title.ilike.%${filters.search}%,problem.ilike.%${filters.search}%,solution.ilike.%${filters.search}%`,
-    );
+    const sanitized = sanitizePostgrestValue(filters.search);
+    if (sanitized) {
+      query = query.or(
+        `title.ilike.%${sanitized}%,problem.ilike.%${sanitized}%,solution.ilike.%${sanitized}%`,
+      );
+    }
   }
 
   // Apply sorting
