@@ -25,9 +25,10 @@ import { createServiceClient } from '@/lib/supabase/client';
  *   total_repos_ever  = SELECT count(*) FROM mason_github_repositories + stats.deleted_repos_count
  *
  * This deletes the user from the central Mason database.
- * Cascading deletes handle mason_api_keys and mason_github_repositories.
+ * Cascading deletes handle mason_github_repositories.
  *
- * Note: User's own Supabase data must be deleted separately by the client
+ * Note: API keys and all user data live in the user's own Supabase database
+ * (per privacy architecture) and must be deleted separately by the client
  * before calling this endpoint, as we don't store their credentials server-side.
  */
 export async function POST(request: Request) {
@@ -80,8 +81,8 @@ export async function POST(request: Request) {
 
     // Delete user from central database
     // Foreign key constraints with ON DELETE CASCADE will handle:
-    // - mason_api_keys
     // - mason_github_repositories
+    // Note: API keys live in user's own Supabase (not central DB)
     const { error } = await supabase
       .from(TABLES.USERS)
       .delete()

@@ -2,28 +2,28 @@
   "manifest_version": 3,
   "commands": {
     "pm-review": {
-      "version": "3.3.0",
+      "version": "3.4.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "3.3.0",
-      "breaking_reason": "Case-insensitive repo matching - fixes 'repository not connected' for users with mixed-case git remotes"
+      "required_minimum": "3.4.0",
+      "breaking_reason": "Privacy fix: validate API key against user's Supabase directly instead of central server"
     },
     "pm-banger": {
-      "version": "3.2.0",
+      "version": "3.3.0",
       "file_path": "commands/pm-banger.md",
-      "required_minimum": "3.2.0",
-      "breaking_reason": "Case-insensitive repo matching - fixes 'repository not connected' for users with mixed-case git remotes"
+      "required_minimum": "3.3.0",
+      "breaking_reason": "Privacy fix: validate API key against user's Supabase directly instead of central server"
     },
     "pm-quick": {
-      "version": "3.2.0",
+      "version": "3.3.0",
       "file_path": "commands/pm-quick.md",
-      "required_minimum": "3.2.0",
-      "breaking_reason": "Case-insensitive repo matching - fixes 'repository not connected' for users with mixed-case git remotes"
+      "required_minimum": "3.3.0",
+      "breaking_reason": "Privacy fix: validate API key against user's Supabase directly instead of central server"
     },
     "pm-focus": {
-      "version": "3.2.0",
+      "version": "3.3.0",
       "file_path": "commands/pm-focus.md",
-      "required_minimum": "3.2.0",
-      "breaking_reason": "Case-insensitive repo matching - fixes 'repository not connected' for users with mixed-case git remotes"
+      "required_minimum": "3.3.0",
+      "breaking_reason": "Privacy fix: validate API key against user's Supabase directly instead of central server"
     },
     "execute-approved": {
       "version": "2.13.0",
@@ -44,10 +44,10 @@
       "breaking_reason": "Mandatory full-page screenshots with visual evaluation for all pages"
     },
     "pm-autopilot": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "file_path": "commands/pm-autopilot.md",
-      "required_minimum": "1.1.0",
-      "breaking_reason": "Case-insensitive repo matching - fixes 'repository not connected' for users with mixed-case git remotes"
+      "required_minimum": "1.2.0",
+      "breaking_reason": "Privacy fix: validate API key against user's Supabase directly instead of central server"
     }
   }
 }

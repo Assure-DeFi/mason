@@ -1,6 +1,6 @@
 ---
 name: pm-banger
-version: 3.2.0
+version: 3.3.0
 description: Generate ONE game-changing feature idea with deep analysis
 ---
 
@@ -48,14 +48,29 @@ supabaseUrl=$(jq -r '.supabaseUrl' mason.config.json)
 supabaseAnonKey=$(jq -r '.supabaseAnonKey' mason.config.json)
 dashboardUrl=$(jq -r '.dashboardUrl // "https://mason.assuredefi.com"' mason.config.json)
 
-# Validate API key and get user context
-VALIDATION=$(curl -s -X POST "${dashboardUrl}/api/v1/analysis" \
-  -H "Authorization: Bearer ${apiKey}" \
-  -H "Content-Type: application/json")
+# Validate API key directly against user's Supabase (privacy: keys stay in user's DB)
+if command -v sha256sum &>/dev/null; then
+  KEY_HASH=$(echo -n "$apiKey" | sha256sum | cut -d' ' -f1)
+elif command -v shasum &>/dev/null; then
+  KEY_HASH=$(echo -n "$apiKey" | shasum -a 256 | cut -d' ' -f1)
+else
+  echo "ERROR: sha256sum or shasum required"; exit 1
+fi
 
-# API response is wrapped in .data object
-USER_ID=$(echo "$VALIDATION" | jq -r '.data.user_id')
-REPOSITORIES=$(echo "$VALIDATION" | jq -r '.data.repositories')
+KEY_DATA=$(curl -s "${supabaseUrl}/rest/v1/mason_api_keys?key_hash=eq.${KEY_HASH}&select=user_id" \
+  -H "apikey: ${supabaseAnonKey}" \
+  -H "Authorization: Bearer ${supabaseAnonKey}")
+USER_ID=$(echo "$KEY_DATA" | jq -r '.[0].user_id // empty')
+
+if [ -z "$USER_ID" ]; then
+  echo "ERROR: Invalid API key. Check mason.config.json apiKey value."
+  exit 1
+fi
+
+# Get connected repositories from user's Supabase
+REPOSITORIES=$(curl -s "${supabaseUrl}/rest/v1/mason_github_repositories?user_id=eq.${USER_ID}&is_active=eq.true&select=id,github_full_name,github_clone_url,github_html_url" \
+  -H "apikey: ${supabaseAnonKey}" \
+  -H "Authorization: Bearer ${supabaseAnonKey}")
 
 # Match git remote to connected repository
 GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")

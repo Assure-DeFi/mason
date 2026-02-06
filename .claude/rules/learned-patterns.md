@@ -697,3 +697,37 @@ This is BY DESIGN. The page is intentionally accessible to unauthenticated users
 **Context**: Refactored execute-approved from 300 lines of inline E2E to delegating to global /e2e-test skill
 **Pattern**: Execute-approved Step 8.6 invokes the global `/e2e-test` skill via the Skill tool. It does NOT contain inline E2E logic. The skill auto-detects pages from `src/app/**/page.tsx` and API routes from `src/app/api/**/route.ts`. Results are read from `.claude/e2e-test/results/` and progress is updated in Supabase.
 **Why**: Centralizing E2E in a global skill means improvements benefit all repos and execute-approved stays focused on execution logic.
+
+---
+
+## Privacy: API Keys Must ONLY Exist in User's DB, Never Central DB
+
+**Discovered**: 2026-02-06
+**Context**: User (Jonny Lock) got "REPOSITORY NOT CONNECTED" error despite completing setup. Root cause: Install Modal wrote API key to user's Supabase, but CLI validation checked central Supabase.
+**Pattern**: Per the privacy architecture, API keys (Mason CLI + AI provider keys) must ONLY be stored in and validated against the user's own Supabase database. The central DB should only contain user identity (mason_users) and connected repos (mason_github_repositories).
+
+**CLI validation must query user's Supabase directly:**
+
+```bash
+KEY_HASH=$(echo -n "$apiKey" | sha256sum | cut -d' ' -f1)
+KEY_DATA=$(curl -s "${supabaseUrl}/rest/v1/mason_api_keys?key_hash=eq.${KEY_HASH}&select=user_id" \
+  -H "apikey: ${supabaseAnonKey}" -H "Authorization: Bearer ${supabaseAnonKey}")
+```
+
+**The dual-DB gotcha:** When writing data that the CLI needs to read, ensure it goes to the USER's DB (not just central). Settings > GitHub must sync repos to BOTH databases.
+
+**Why**: The central server should never have access to user secrets. Split-brain between two databases causes silent auth failures that are extremely hard to debug.
+
+---
+
+## Dual-Write: Settings > GitHub Must Sync Repos to User's DB
+
+**Discovered**: 2026-02-06
+**Context**: Settings > GitHub page only wrote repos to central DB via POST /api/github/repositories. CLI commands queried user's Supabase for repos and found nothing.
+**Pattern**: When connecting repos from any UI path (setup wizard OR settings page), always write to BOTH:
+
+1. Central DB (for admin visibility via POST /api/github/repositories)
+2. User's own Supabase (for CLI validation via userClient.from(TABLES.GITHUB_REPOSITORIES).upsert(...))
+
+The setup wizard (RepoStep) already did dual-write. Settings > GitHub page was missing the user DB write.
+**Why**: CLI commands validate locally against user's Supabase. If repos only exist in central DB, CLI shows "REPOSITORY NOT CONNECTED".

@@ -10,12 +10,15 @@ import { ConnectRepoModal } from '@/components/github/connect-repo-modal';
 import { InstallMasonModal } from '@/components/github/install-mason-modal';
 import { RepositoryList } from '@/components/github/repository-list';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
+import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { TABLES } from '@/lib/constants';
 import { getGitHubToken } from '@/lib/supabase/user-client';
 import type { GitHubRepository } from '@/types/auth';
 
 export default function GitHubSettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { client: userClient } = useUserDatabase();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [connectedRepoIds, setConnectedRepoIds] = useState<number[]>([]);
@@ -52,6 +55,7 @@ export default function GitHubSettingsPage() {
       throw new Error('GitHub token not found. Please sign in again.');
     }
 
+    // Write to central DB (admin visibility of connected repos)
     const response = await fetch('/api/github/repositories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -60,6 +64,41 @@ export default function GitHubSettingsPage() {
 
     if (!response.ok) {
       throw new Error('Failed to connect repository');
+    }
+
+    // Also write to user's own Supabase (for CLI validation - privacy: repos queried from user's DB)
+    const data = await response.json();
+    const repo = data.data?.repository;
+    if (userClient && repo && session?.user) {
+      try {
+        const { data: userData } = await userClient
+          .from(TABLES.USERS)
+          .select('id')
+          .eq('github_id', session.user.github_id)
+          .single();
+
+        if (userData) {
+          await userClient.from(TABLES.GITHUB_REPOSITORIES).upsert(
+            {
+              user_id: userData.id,
+              github_repo_id: repo.github_repo_id,
+              github_owner: repo.github_owner,
+              github_name: repo.github_name,
+              github_full_name: repo.github_full_name,
+              github_default_branch: repo.github_default_branch,
+              github_private: repo.github_private,
+              github_clone_url: repo.github_clone_url,
+              github_html_url: repo.github_html_url,
+              is_active: true,
+              last_synced_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id,github_repo_id' },
+          );
+        }
+      } catch (err) {
+        // Non-fatal: central DB has the repo, user's DB sync can be retried
+        console.warn('Failed to sync repo to user DB:', err);
+      }
     }
 
     setRefreshKey((k) => k + 1);
