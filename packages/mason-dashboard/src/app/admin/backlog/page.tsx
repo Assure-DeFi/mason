@@ -19,11 +19,13 @@ import { UserMenu } from '@/components/auth/user-menu';
 import { BangerEmptyState } from '@/components/backlog/banger-empty-state';
 import { BangerIdeaCard } from '@/components/backlog/banger-idea-card';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
+import { CommandPalette } from '@/components/backlog/command-palette';
 import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
 import type { ViewMode } from '@/components/backlog/item-detail-modal';
+import { KeyboardShortcutBar } from '@/components/backlog/keyboard-shortcut-bar';
 import { MasonRecommends } from '@/components/backlog/mason-recommends';
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
@@ -153,6 +155,9 @@ export default function BacklogPage() {
   const isFetchingRef = useRef(false);
   const lastFetchErrorRef = useRef<number>(0);
   const FETCH_RETRY_DELAY = 5000; // Wait 5 seconds before retrying after an error
+
+  // Command palette state
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Confirmation dialog state
   const [confirmAction, setConfirmAction] = useState<{
@@ -745,10 +750,20 @@ export default function BacklogPage() {
     };
   }, []);
 
-  // Keyboard shortcuts for bulk actions
+  // Keyboard shortcuts for bulk actions and command palette
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger in input fields or when modal is open
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isModKey = isMac ? e.metaKey : e.ctrlKey;
+
+      // Cmd/Ctrl+K - Toggle command palette (works even in inputs)
+      if (isModKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((open) => !open);
+        return;
+      }
+
+      // Don't trigger other shortcuts in input fields or when modal is open
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -756,9 +771,6 @@ export default function BacklogPage() {
       ) {
         return;
       }
-
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-      const isModKey = isMac ? e.metaKey : e.ctrlKey;
 
       // Escape - Clear selection
       if (e.key === 'Escape') {
@@ -1557,6 +1569,37 @@ export default function BacklogPage() {
           </div>
         </div>
       )}
+
+      {/* Keyboard Shortcut Hints */}
+      <KeyboardShortcutBar
+        selectedCount={selectedIds.length}
+        hasItems={filteredItems.length > 0}
+      />
+
+      {/* Command Palette (Cmd+K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        selectedCount={selectedIds.length}
+        onApproveSelected={() => showConfirmation('approve', selectedIds)}
+        onRejectSelected={() => showConfirmation('reject', selectedIds)}
+        onDeleteSelected={() => showConfirmation('delete', selectedIds)}
+        onSelectAll={() => {
+          if (selectedIds.length === filteredItems.length) {
+            setSelectedIds([]);
+          } else {
+            setSelectedIds(filteredItems.map((item) => item.id));
+          }
+        }}
+        onClearSelection={() => setSelectedIds([])}
+        onFilterByStatus={(status) => {
+          if (status === 'all') {
+            setActiveStatus('new');
+          } else {
+            setActiveStatus(status as TabStatus);
+          }
+        }}
+      />
 
       {/* First Item Celebration Modal */}
       {showCelebration && items.length > 0 && (
