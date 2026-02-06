@@ -267,6 +267,38 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
         });
       }
 
+      // Also register in central DB so dashboard RepositorySelector can find it
+      try {
+        await fetch('/api/github/repositories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            owner: repo.owner.login,
+            name: repo.name,
+            githubToken: githubToken,
+          }),
+        });
+      } catch (centralErr) {
+        // Non-fatal: user's DB has the repo, central DB sync can be retried
+        console.warn('Failed to sync repo to central DB:', centralErr);
+      }
+
+      // Also register in central DB so dashboard RepositorySelector can find it
+      try {
+        await fetch('/api/github/repositories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            owner: repo.owner.login,
+            name: repo.name,
+            githubToken: githubToken,
+          }),
+        });
+      } catch (centralErr) {
+        // Non-fatal: user's DB has the repo, central DB sync can be retried
+        console.warn('Failed to sync repo to central DB:', centralErr);
+      }
+
       setConnectedRepos((prev) => [
         ...prev,
         {

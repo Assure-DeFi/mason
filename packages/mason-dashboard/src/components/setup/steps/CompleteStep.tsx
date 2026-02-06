@@ -175,7 +175,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
   }, [generateConfigContent]);
 
   const handleGoToDashboard = () => {
-    router.push('/admin/backlog');
+    router.push('/admin/backlog?refresh=repos');
   };
 
   return (
