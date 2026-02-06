@@ -755,16 +755,10 @@ CREATE TABLE IF NOT EXISTS mason_ai_provider_keys (
   UNIQUE(user_id, provider)
 );
 
-CREATE INDEX IF NOT EXISTS idx_mason_ai_provider_keys_user_id ON mason_ai_provider_keys(user_id);
-CREATE INDEX IF NOT EXISTS idx_mason_ai_provider_keys_active ON mason_ai_provider_keys(is_active) WHERE is_active = true;
-
-ALTER TABLE mason_ai_provider_keys ENABLE ROW LEVEL SECURITY;
-
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_ai_provider_keys' AND policyname = 'Allow all on ai_provider_keys') THEN
-    CREATE POLICY "Allow all on ai_provider_keys" ON mason_ai_provider_keys FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-END $$;
+-- Add columns for existing databases BEFORE creating indexes that reference them
+ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS model TEXT;
+ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS label TEXT;
+ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false;
 
 -- Expand provider CHECK constraint for existing databases (add 'google')
 DO $$ BEGIN
@@ -775,10 +769,16 @@ EXCEPTION WHEN duplicate_object THEN
   NULL;
 END $$;
 
--- Add model, label, is_active columns for existing databases
-ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS model TEXT;
-ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS label TEXT;
-ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_mason_ai_provider_keys_user_id ON mason_ai_provider_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_ai_provider_keys_active ON mason_ai_provider_keys(is_active) WHERE is_active = true;
+
+ALTER TABLE mason_ai_provider_keys ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_ai_provider_keys' AND policyname = 'Allow all on ai_provider_keys') THEN
+    CREATE POLICY "Allow all on ai_provider_keys" ON mason_ai_provider_keys FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Add active provider tracking to autopilot_config (daemon writes each cycle)
 ALTER TABLE mason_autopilot_config ADD COLUMN IF NOT EXISTS active_provider TEXT;
