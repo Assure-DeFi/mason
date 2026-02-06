@@ -28,6 +28,7 @@ import {
 } from '../engine/agent-runner';
 import { executeApprovedItems } from '../engine/execute-approved';
 import { runPmReview } from '../engine/pm-review';
+import { NotificationDispatcher } from '../notifications/dispatcher';
 
 /**
  * Generate a SHA-256 hash of an API key
@@ -324,9 +325,12 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
     return;
   }
 
+  let currentConfig: AutopilotDbConfig | null = null;
+
   try {
     // 1. Fetch config from Supabase
     const config = await fetchAutopilotConfig();
+    currentConfig = config;
 
     if (!config) {
       if (verbose) {
@@ -414,6 +418,27 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
       });
     } catch {
       // Silently fail if we can't log to Supabase
+    }
+
+    // Dispatch alert notification when consecutive failures exceed threshold
+    if (getConsecutiveFailures() >= 3 && currentConfig) {
+      try {
+        const dispatcher = new NotificationDispatcher(supabase);
+        await dispatcher.dispatch({
+          type: 'execution_failed',
+          userId: currentConfig.user_id,
+          repositoryId: currentConfig.repository_id,
+          timestamp: new Date().toISOString(),
+          data: {
+            runId: 'daemon-cycle',
+            error: errorMessage.slice(0, 200),
+            itemTitle: 'Autopilot daemon cycle',
+            consecutiveFailures: getConsecutiveFailures(),
+          },
+        });
+      } catch {
+        // Don't let notification failures break the daemon
+      }
     }
   }
 }
