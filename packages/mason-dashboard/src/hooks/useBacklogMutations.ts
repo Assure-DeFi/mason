@@ -183,7 +183,7 @@ export function useBacklogMutations({
     [selectedItem, setItems, setSelectedItem],
   );
 
-  // Bulk update status helper
+  // Bulk update status helper - uses single RPC call instead of N individual updates
   const bulkUpdateStatus = useCallback(
     async (
       ids: string[],
@@ -204,34 +204,75 @@ export function useBacklogMutations({
         }
       });
 
-      // Update all items
-      const updates = ids.map(async (id) => {
-        const oldStatus = previousStatuses.get(id);
-        const { data, error } = await client
-          .from(TABLES.PM_BACKLOG_ITEMS)
-          .update({ status: newStatus, updated_at: new Date().toISOString() })
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (error) {
-          return null;
-        }
-
-        // Record the status change event (fire-and-forget)
-        if (oldStatus && oldStatus !== newStatus) {
-          void recordStatusEvent(id, oldStatus, newStatus);
-        }
-
-        return data as BacklogItem;
+      // Single RPC call to update all items in one transaction
+      const { data, error } = await client.rpc('batch_update_backlog_status', {
+        item_ids: ids,
+        new_status: newStatus,
       });
 
-      const results = await Promise.all(updates);
+      if (error) {
+        // Fallback: if RPC not available (migration not yet applied), use legacy N-call pattern
+        if (error.message?.includes('function') || error.code === '42883') {
+          const updates = ids.map(async (id) => {
+            const { data: fallbackData, error: fallbackError } = await client
+              .from(TABLES.PM_BACKLOG_ITEMS)
+              .update({ status: newStatus, updated_at: new Date().toISOString() })
+              .eq('id', id)
+              .select()
+              .single();
+
+            if (fallbackError) {
+              return null;
+            }
+            return fallbackData as BacklogItem;
+          });
+
+          const fallbackResults = await Promise.all(updates);
+          const successItems = fallbackResults.filter(
+            (r): r is BacklogItem => r !== null,
+          );
+
+          // Record status events (fire-and-forget)
+          for (const item of successItems) {
+            const oldStatus = previousStatuses.get(item.id);
+            if (oldStatus && oldStatus !== newStatus) {
+              void recordStatusEvent(item.id, oldStatus, newStatus);
+            }
+          }
+
+          setItems((prev) =>
+            prev.map((item) => {
+              const updated = successItems.find((r) => r.id === item.id);
+              return updated || item;
+            }),
+          );
+          setSelectedIds([]);
+          setUndoState({
+            action,
+            itemIds: ids,
+            previousStatuses,
+            message: `${actionMessage} ${successItems.length} item${successItems.length !== 1 ? 's' : ''}`,
+          });
+          scheduleUndoClear();
+          return;
+        }
+        return;
+      }
+
+      const updatedItems = (data ?? []) as BacklogItem[];
+
+      // Record status events for each updated item (fire-and-forget)
+      for (const item of updatedItems) {
+        const oldStatus = previousStatuses.get(item.id);
+        if (oldStatus && oldStatus !== newStatus) {
+          void recordStatusEvent(item.id, oldStatus, newStatus);
+        }
+      }
 
       // Update local state
       setItems((prev) =>
         prev.map((item) => {
-          const updated = results.find((r) => r?.id === item.id);
+          const updated = updatedItems.find((r) => r.id === item.id);
           return updated || item;
         }),
       );
@@ -240,12 +281,11 @@ export function useBacklogMutations({
       setSelectedIds([]);
 
       // Set undo state
-      const successCount = results.filter((r) => r !== null).length;
       setUndoState({
         action,
         itemIds: ids,
         previousStatuses,
-        message: `${actionMessage} ${successCount} item${successCount !== 1 ? 's' : ''}`,
+        message: `${actionMessage} ${updatedItems.length} item${updatedItems.length !== 1 ? 's' : ''}`,
       });
 
       scheduleUndoClear();

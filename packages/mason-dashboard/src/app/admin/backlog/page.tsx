@@ -871,7 +871,7 @@ export default function BacklogPage() {
     setUndoState(null);
   };
 
-  // Bulk update status helper
+  // Bulk update status helper - uses single RPC call instead of N individual updates
   const bulkUpdateStatus = async (
     ids: string[],
     newStatus: BacklogStatus,
@@ -891,28 +891,48 @@ export default function BacklogPage() {
       }
     });
 
-    // Update all items
-    const updates = ids.map(async (id) => {
-      const { data, error } = await client
-        .from(TABLES.PM_BACKLOG_ITEMS)
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error(`Failed to update status for item ${id}:`, error);
-        return null;
-      }
-      return data as BacklogItem;
+    // Single RPC call to update all items in one transaction
+    const { data, error } = await client.rpc('batch_update_backlog_status', {
+      item_ids: ids,
+      new_status: newStatus,
     });
 
-    const results = await Promise.all(updates);
+    let updatedItems: BacklogItem[];
+
+    if (error) {
+      // Fallback: if RPC not available (migration not yet applied), use legacy N-call pattern
+      if (error.message?.includes('function') || error.code === '42883') {
+        const updates = ids.map(async (id) => {
+          const { data: fallbackData, error: fallbackError } = await client
+            .from(TABLES.PM_BACKLOG_ITEMS)
+            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .select()
+            .single();
+
+          if (fallbackError) {
+            console.error(`Failed to update status for item ${id}:`, fallbackError);
+            return null;
+          }
+          return fallbackData as BacklogItem;
+        });
+
+        const fallbackResults = await Promise.all(updates);
+        updatedItems = fallbackResults.filter(
+          (r): r is BacklogItem => r !== null,
+        );
+      } else {
+        console.error('Failed to batch update statuses:', error);
+        return;
+      }
+    } else {
+      updatedItems = (data ?? []) as BacklogItem[];
+    }
 
     // Update local state
     setItems((prev) =>
       prev.map((item) => {
-        const updated = results.find((r) => r?.id === item.id);
+        const updated = updatedItems.find((r) => r.id === item.id);
         return updated || item;
       }),
     );
@@ -921,12 +941,11 @@ export default function BacklogPage() {
     setSelectedIds([]);
 
     // Set undo state
-    const successCount = results.filter((r) => r !== null).length;
     setUndoState({
       action,
       itemIds: ids,
       previousStatuses,
-      message: `${actionMessage} ${successCount} item${successCount !== 1 ? 's' : ''}`,
+      message: `${actionMessage} ${updatedItems.length} item${updatedItems.length !== 1 ? 's' : ''}`,
     });
 
     // Clear undo state after 8 seconds
