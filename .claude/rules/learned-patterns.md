@@ -621,3 +621,56 @@ const session = new ClaudeCodeSession({
 ```
 
 **Why**: The SDK runs as a library, not a shell command, so it doesn't inherit shell PATH resolution. Always pass the explicit path.
+
+---
+
+## Command Complexity: Delegate to Shared Skills Instead of Inline Logic
+
+**Discovered**: 2026-02-05
+**Context**: execute-approved had ~300 lines of inline E2E testing logic (4 phases, hardcoded endpoints, Mason-specific prompts) that was replaced by a single `/e2e-test` skill invocation
+**Pattern**: When a command accumulates complex inline logic for a reusable capability (E2E testing, code review, deployment validation), extract it to a shared skill rather than growing the command file. Signs it's time to extract:
+
+1. Logic exceeds 50 lines within a command
+2. Hardcoded values specific to current repo (endpoint lists, page paths)
+3. The capability is useful across multiple commands or repos
+4. Multiple phases/agents are orchestrated inline
+
+Replace with a skill that auto-detects context (pages, endpoints, routes) rather than hardcoding them.
+**Why**: Inline logic in commands creates maintenance burden, breaks when repo structure changes, and can't be reused. A shared skill with auto-detection works across all repos without modification.
+
+---
+
+## Health Endpoints: Graceful Fallback for Unapplied Migrations
+
+**Discovered**: 2026-02-05
+**Context**: /api/health endpoint needed DLQ metrics from a new migration (015) that existing users might not have applied yet
+**Pattern**: When a health endpoint or status API depends on schema from a recent migration, always wrap the query in a try/catch and return `null` for that section rather than crashing the entire endpoint:
+
+```typescript
+// GOOD: Graceful degradation
+let dlqMetrics = null;
+try {
+  dlqMetrics = await getDlqMetrics(supabase);
+} catch {
+  // Migration not applied yet - return null, don't crash
+}
+return { status: 'ok', dlq: dlqMetrics };
+```
+
+**Why**: Health endpoints are critical for monitoring. If they crash because an optional migration isn't applied, you lose visibility into the entire system. Partial data is always better than a 500 error.
+
+---
+
+## Silent Failure Accumulation: Monitor Error Tables Proactively
+
+**Discovered**: 2026-02-05
+**Context**: Autopilot errors accumulated silently in mason_autopilot_errors table with no alerting or dashboard visibility - failures were invisible until manually querying the DB
+**Pattern**: Any system that logs errors to a database table MUST also have:
+
+1. **Metrics endpoint** - Count, age, error type breakdown (DLQ pattern)
+2. **Health classification** - healthy/warning/critical based on error depth and growth rate
+3. **Alerting threshold** - Dispatch notifications after N consecutive failures (e.g., 3+)
+4. **Retry mechanism** - Bulk retry capability with retry_count tracking
+
+Don't just log errors - monitor them.
+**Why**: Error tables without monitoring are write-only graveyards. Issues accumulate for days/weeks before anyone notices. Proactive alerting turns silent failures into actionable incidents.
