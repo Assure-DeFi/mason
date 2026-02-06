@@ -36,6 +36,8 @@ interface ConnectedRepo {
   id: string;
   github_repo_id: number;
   github_full_name: string;
+  github_owner: string;
+  github_name: string;
 }
 
 export function RepoStep({ onNext, onBack }: WizardStepProps) {
@@ -178,7 +180,9 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
 
         const { data: connected, error: repoError } = await client
           .from(TABLES.GITHUB_REPOSITORIES)
-          .select('id, github_repo_id, github_full_name')
+          .select(
+            'id, github_repo_id, github_full_name, github_owner, github_name',
+          )
           .eq('user_id', userData.id)
           .eq('is_active', true);
 
@@ -190,8 +194,30 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
           return;
         }
 
-        if (connected) {
+        if (connected && connected.length > 0) {
           setConnectedRepos(connected);
+
+          // Sync already-connected repos to central DB so the dashboard
+          // RepositorySelector can find them. This handles the case where
+          // a user deleted their account (clearing central DB) but their
+          // own Supabase still has repo records from before.
+          if (githubToken) {
+            for (const repo of connected) {
+              try {
+                await fetch('/api/github/repositories', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    owner: repo.github_owner,
+                    name: repo.github_name,
+                    githubToken,
+                  }),
+                });
+              } catch {
+                // Non-fatal: central DB sync is best-effort
+              }
+            }
+          }
         }
       } catch (err) {
         console.error('Error fetching connected repos:', err);
@@ -202,7 +228,7 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
     }
 
     void fetchConnectedRepos();
-  }, [client, isConfigured, session]);
+  }, [client, isConfigured, session, githubToken]);
 
   useEffect(() => {
     const query = searchQuery.toLowerCase();
@@ -283,28 +309,14 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
         console.warn('Failed to sync repo to central DB:', centralErr);
       }
 
-      // Also register in central DB so dashboard RepositorySelector can find it
-      try {
-        await fetch('/api/github/repositories', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            owner: repo.owner.login,
-            name: repo.name,
-            githubToken: githubToken,
-          }),
-        });
-      } catch (centralErr) {
-        // Non-fatal: user's DB has the repo, central DB sync can be retried
-        console.warn('Failed to sync repo to central DB:', centralErr);
-      }
-
       setConnectedRepos((prev) => [
         ...prev,
         {
           id: existingRepo?.id || crypto.randomUUID(),
           github_repo_id: repo.id,
           github_full_name: repo.full_name,
+          github_owner: repo.owner.login,
+          github_name: repo.name,
         },
       ]);
     } catch (err) {
