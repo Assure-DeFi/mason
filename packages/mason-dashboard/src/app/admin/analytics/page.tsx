@@ -28,8 +28,8 @@ import {
   getCompletionStreak,
   getVelocity,
 } from '@/lib/analytics';
+import type { AnalyticsItem } from '@/lib/analytics';
 import { TABLES } from '@/lib/constants';
-import type { BacklogItem } from '@/types/backlog';
 
 const STAT_CARD_COLORS: Record<
   string,
@@ -374,7 +374,7 @@ function RingChart({ data }: RingChartProps) {
 export default function AnalyticsPage() {
   const { data: session } = useSession();
   const { client, isConfigured, isLoading: isDbLoading } = useUserDatabase();
-  const [items, setItems] = useState<BacklogItem[]>([]);
+  const [items, setItems] = useState<AnalyticsItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [periodMode, setPeriodMode] = useState<'week' | 'month'>('week');
@@ -401,7 +401,7 @@ export default function AnalyticsPage() {
 
         let query = client
           .from(TABLES.PM_BACKLOG_ITEMS)
-          .select('*')
+          .select('id, status, created_at, updated_at, area, type')
           .eq('user_id', userData.id);
 
         if (selectedRepoId) {
@@ -414,7 +414,7 @@ export default function AnalyticsPage() {
           console.error('Error fetching items:', error);
           setItems([]);
         } else {
-          setItems(data || []);
+          setItems((data as AnalyticsItem[]) || []);
         }
       } catch (err) {
         console.error('Error:', err);

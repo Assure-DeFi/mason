@@ -18,6 +18,12 @@ import {
 
 import type { BacklogItem, BacklogArea, BacklogType } from '@/types/backlog';
 
+/** Minimal subset of BacklogItem fields needed for analytics calculations */
+export type AnalyticsItem = Pick<
+  BacklogItem,
+  'id' | 'status' | 'created_at' | 'updated_at' | 'area' | 'type'
+>;
+
 export interface TimePeriodCount {
   date: string;
   count: number;
@@ -37,7 +43,7 @@ export type TypeBreakdown = Record<BacklogType, number>;
  * Returns array sorted by date ascending
  */
 export function getCompletionsByTimePeriod(
-  items: BacklogItem[],
+  items: AnalyticsItem[],
   period: 'week' | 'month',
 ): TimePeriodCount[] {
   const completedItems = items.filter((item) => item.status === 'completed');
@@ -73,7 +79,7 @@ export function getCompletionsByTimePeriod(
  * Returns array sorted by date ascending
  */
 export function getTechnicalDebtBurndown(
-  items: BacklogItem[],
+  items: AnalyticsItem[],
 ): BurndownPoint[] {
   const completedItems = items
     .filter((item) => item.status === 'completed')
@@ -120,7 +126,7 @@ export function getTechnicalDebtBurndown(
 /**
  * Get breakdown of items by area (frontend/backend)
  */
-export function getCategoryBreakdown(items: BacklogItem[]): CategoryBreakdown {
+export function getCategoryBreakdown(items: AnalyticsItem[]): CategoryBreakdown {
   const breakdown: CategoryBreakdown = {
     frontend: 0,
     backend: 0,
@@ -139,7 +145,7 @@ export function getCategoryBreakdown(items: BacklogItem[]): CategoryBreakdown {
  * Get breakdown of items by type/category
  * Includes all 8 new categories plus legacy values for backwards compatibility
  */
-export function getTypeBreakdown(items: BacklogItem[]): TypeBreakdown {
+export function getTypeBreakdown(items: AnalyticsItem[]): TypeBreakdown {
   const breakdown: TypeBreakdown = {
     // New 8-category system (v2.0)
     feature: 0,
@@ -171,7 +177,7 @@ export function getTypeBreakdown(items: BacklogItem[]): TypeBreakdown {
  * Measures time from created_at to updated_at for completed items
  * Returns null if no completed items exist
  */
-export function getAverageCompletionTime(items: BacklogItem[]): number | null {
+export function getAverageCompletionTime(items: AnalyticsItem[]): number | null {
   const completedItems = items.filter((item) => item.status === 'completed');
 
   if (completedItems.length === 0) {
@@ -195,7 +201,7 @@ export function getAverageCompletionTime(items: BacklogItem[]): number | null {
  * Counts backwards from the most recent completion date
  * Returns 0 if no completed items exist
  */
-export function getCompletionStreak(items: BacklogItem[]): number {
+export function getCompletionStreak(items: AnalyticsItem[]): number {
   const completedItems = items.filter((item) => item.status === 'completed');
 
   if (completedItems.length === 0) {
@@ -240,7 +246,7 @@ export function getCompletionStreak(items: BacklogItem[]): number {
  * Returns null if insufficient data
  */
 export function getVelocity(
-  items: BacklogItem[],
+  items: AnalyticsItem[],
   weeks: number = 4,
 ): number | null {
   const completedItems = items.filter((item) => item.status === 'completed');
@@ -267,10 +273,10 @@ export function getVelocity(
  * Get items completed within a date range
  */
 export function getCompletionsInRange(
-  items: BacklogItem[],
+  items: AnalyticsItem[],
   startDate: Date,
   endDate: Date,
-): BacklogItem[] {
+): AnalyticsItem[] {
   return items.filter((item) => {
     if (item.status !== 'completed') {
       return false;
