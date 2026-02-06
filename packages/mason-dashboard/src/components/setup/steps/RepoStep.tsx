@@ -293,9 +293,9 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
         });
       }
 
-      // Also register in central DB so dashboard RepositorySelector can find it
+      // Also register in central DB so CLI commands can find it via API key validation
       try {
-        await fetch('/api/github/repositories', {
+        const centralResponse = await fetch('/api/github/repositories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -304,6 +304,13 @@ export function RepoStep({ onNext, onBack }: WizardStepProps) {
             githubToken: githubToken,
           }),
         });
+        if (!centralResponse.ok) {
+          console.warn(
+            'Failed to sync repo to central DB:',
+            centralResponse.status,
+            await centralResponse.text().catch(() => ''),
+          );
+        }
       } catch (centralErr) {
         // Non-fatal: user's DB has the repo, central DB sync can be retried
         console.warn('Failed to sync repo to central DB:', centralErr);

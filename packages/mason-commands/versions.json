@@ -2,28 +2,28 @@
   "manifest_version": 3,
   "commands": {
     "pm-review": {
-      "version": "3.2.0",
+      "version": "3.3.0",
       "file_path": "commands/pm-review.md",
-      "required_minimum": "3.2.0",
-      "breaking_reason": "Risk analysis now submits files_affected_count, has_breaking_changes, test_coverage_gaps, and risk_rationale"
+      "required_minimum": "3.3.0",
+      "breaking_reason": "Case-insensitive repo matching - fixes 'repository not connected' for users with mixed-case git remotes"
     },
     "pm-banger": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "file_path": "commands/pm-banger.md",
-      "required_minimum": "3.1.0",
-      "breaking_reason": "Risk analysis now submits files_affected_count, has_breaking_changes, test_coverage_gaps, and risk_rationale"
+      "required_minimum": "3.2.0",
+      "breaking_reason": "Case-insensitive repo matching - fixes 'repository not connected' for users with mixed-case git remotes"
     },
     "pm-quick": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "file_path": "commands/pm-quick.md",
-      "required_minimum": "3.1.0",
-      "breaking_reason": "Risk analysis now submits files_affected_count, has_breaking_changes, test_coverage_gaps, and risk_rationale"
+      "required_minimum": "3.2.0",
+      "breaking_reason": "Case-insensitive repo matching - fixes 'repository not connected' for users with mixed-case git remotes"
     },
     "pm-focus": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "file_path": "commands/pm-focus.md",
-      "required_minimum": "3.1.0",
-      "breaking_reason": "Risk analysis now submits files_affected_count, has_breaking_changes, test_coverage_gaps, and risk_rationale"
+      "required_minimum": "3.2.0",
+      "breaking_reason": "Case-insensitive repo matching - fixes 'repository not connected' for users with mixed-case git remotes"
     },
     "execute-approved": {
       "version": "2.13.0",
@@ -44,10 +44,10 @@
       "breaking_reason": "Mandatory full-page screenshots with visual evaluation for all pages"
     },
     "pm-autopilot": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "file_path": "commands/pm-autopilot.md",
-      "required_minimum": "1.0.0",
-      "breaking_reason": "Initial release - daily autopilot review with --limit N"
+      "required_minimum": "1.1.0",
+      "breaking_reason": "Case-insensitive repo matching - fixes 'repository not connected' for users with mixed-case git remotes"
     }
   }
 }

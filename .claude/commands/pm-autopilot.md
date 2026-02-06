@@ -1,6 +1,6 @@
 ---
 name: pm-autopilot
-version: 1.0.0
+version: 1.1.0
 description: Autopilot daily review - generates exactly N actionable items
 ---
 
@@ -80,7 +80,7 @@ REPOSITORIES=$(echo "$VALIDATION" | jq -r '.data.repositories')
 
 GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
 REPO_FULL_NAME=$(echo "$GIT_REMOTE" | sed -E 's/\.git$//' | sed -E 's|.*github\.com[:/]||')
-REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select(.github_full_name == $name) | .id // empty')
+REPOSITORY_ID=$(echo "$REPOSITORIES" | jq -r --arg name "$REPO_FULL_NAME" '.[] | select((.github_full_name | ascii_downcase) == ($name | ascii_downcase)) | .id // empty')
 
 echo "=== REPOSITORY VALIDATION ==="
 echo "Git remote: $GIT_REMOTE"
