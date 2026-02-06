@@ -10,6 +10,7 @@ import { Command } from 'commander';
 
 import { initCommand } from './commands/init.js';
 import { installCommand } from './commands/install.js';
+import { opsCommand } from './commands/ops.js';
 import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
 
@@ -47,5 +48,12 @@ program
   .command('status')
   .description('Show autopilot daemon status')
   .action(statusCommand);
+
+program
+  .command('ops')
+  .description('Unified operations status dashboard')
+  .option('--json', 'Output as JSON')
+  .option('-v, --verbose', 'Show verbose output (more runs, error breakdown)')
+  .action(opsCommand);
 
 program.parse();
