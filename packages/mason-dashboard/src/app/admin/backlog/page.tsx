@@ -1362,7 +1362,13 @@ export default function BacklogPage() {
             </div>
           ) : isEmpty ? (
             // Empty state onboarding
-            <EmptyStateOnboarding onRefresh={fetchItems} />
+            <EmptyStateOnboarding
+              onRefresh={fetchItems}
+              onGenerateIdeas={() => {
+                setGenerateModalMode('full');
+                setShowGenerateIdeasModal(true);
+              }}
+            />
           ) : (
             <div className="space-y-6 p-6">
               {/* Search and Filter Controls */}

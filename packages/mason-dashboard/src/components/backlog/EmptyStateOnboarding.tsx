@@ -1,17 +1,16 @@
 'use client';
 
 import {
-  HelpCircle,
-  ChevronDown,
   ChevronUp,
-  Terminal,
   Loader2,
+  Sparkles,
+  Lightbulb,
+  Zap,
+  Target,
+  Search,
 } from 'lucide-react';
-import { useState } from 'react';
 
 import { MasonAvatar, MasonTagline } from '@/components/brand';
-import { ClaudeCodeExplainer } from '@/components/ui/ClaudeCodeExplainer';
-import { CopyCommand } from '@/components/ui/CopyCommand';
 
 interface AnalysisRunInfo {
   id: string;
@@ -28,6 +27,8 @@ interface EmptyStateOnboardingProps {
   noRepoSelected?: boolean;
   /** Name of selected repository */
   repositoryName?: string;
+  /** Callback to open the Generate Ideas wizard */
+  onGenerateIdeas?: () => void;
 }
 
 export function EmptyStateOnboarding({
@@ -35,10 +36,8 @@ export function EmptyStateOnboarding({
   runningAnalysis,
   noRepoSelected,
   repositoryName,
+  onGenerateIdeas,
 }: EmptyStateOnboardingProps) {
-  const [showClaudeCodeExplainer, setShowClaudeCodeExplainer] = useState(false);
-  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
-
   // Show "analysis running" state
   if (runningAnalysis) {
     return (
@@ -140,138 +139,92 @@ export function EmptyStateOnboarding({
   }
 
   // Default: Show onboarding state (no items yet)
+  const modes = [
+    {
+      icon: Zap,
+      label: 'Banger Mode',
+      desc: 'One game-changing idea with deep analysis',
+    },
+    {
+      icon: Search,
+      label: 'Full Review',
+      desc: 'Comprehensive scan across all categories',
+    },
+    {
+      icon: Target,
+      label: 'Focused Review',
+      desc: 'Deep dive into a specific area',
+    },
+    {
+      icon: Lightbulb,
+      label: 'Quick Wins',
+      desc: 'Fast improvements you can ship today',
+    },
+  ];
+
   return (
-    <div className="mason-entrance flex flex-col items-center justify-center py-16 px-4">
+    <div className="mason-entrance flex flex-col items-center justify-center py-20 px-4">
       {/* Mason Avatar */}
-      <div className="mb-8">
+      <div className="mb-6">
         <MasonAvatar size="lg" variant="minimal" />
       </div>
 
       {/* Heading */}
       <h2 className="mb-2 text-2xl font-bold text-white text-center">
-        Ready to find improvements?
-      </h2>
-      <MasonTagline size="sm" variant="muted" className="mb-4 text-center" />
-      <p className="mb-8 text-gray-400 text-center max-w-md">
         {repositoryName ? (
           <>
-            No items found for{' '}
-            <span className="text-gold">{repositoryName}</span>. Run a PM review
-            to discover improvement opportunities.
+            Ready to improve <span className="text-gold">{repositoryName}</span>
+            ?
           </>
         ) : (
-          'Copy and paste this command into Claude Code to analyze your codebase.'
+          'Ready to find improvements?'
         )}
-      </p>
+      </h2>
+      <MasonTagline size="sm" variant="muted" className="mb-8 text-center" />
 
-      {/* Main Command */}
-      <div className="w-full max-w-md mb-6">
-        <CopyCommand
-          command="/pm-review"
-          size="lg"
-          showPersistentToast={true}
-        />
-      </div>
-
-      {/* What's Claude Code? Link */}
+      {/* Big Generate Button */}
       <button
-        onClick={() => setShowClaudeCodeExplainer(true)}
-        className="flex items-center gap-2 text-sm text-gray-400 hover:text-gold transition-colors mb-8"
+        onClick={onGenerateIdeas}
+        className="group flex items-center gap-3 px-8 py-4 bg-gold text-navy font-bold text-lg hover:bg-gold/90 transition-all hover:scale-[1.02] active:scale-[0.98]"
       >
-        <HelpCircle className="w-4 h-4" />
-        What&apos;s Claude Code?
+        <Sparkles className="w-6 h-6 transition-transform group-hover:rotate-12" />
+        GENERATE NEW IDEAS
       </button>
 
-      {/* Troubleshooting Panel */}
-      <div className="w-full max-w-md">
-        <button
-          onClick={() => setShowTroubleshooting(!showTroubleshooting)}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-300 transition-colors w-full justify-center"
-        >
-          {showTroubleshooting ? (
-            <ChevronUp className="w-4 h-4" />
-          ) : (
-            <ChevronDown className="w-4 h-4" />
-          )}
-          Command not working?
-        </button>
+      {/* Supporting text */}
+      <p className="mt-4 text-gray-500 text-sm text-center max-w-sm">
+        Explore different review modes to discover improvements for your
+        codebase
+      </p>
 
-        {showTroubleshooting && (
-          <div className="mt-4 p-4 bg-black/30 border border-gray-800 rounded-lg text-sm text-gray-400 space-y-2">
-            <div className="flex items-start gap-2">
-              <Terminal className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
-              <span>
-                Make sure Claude Code is running in your project directory
+      {/* Mode previews */}
+      <div className="mt-10 grid grid-cols-2 gap-3 w-full max-w-lg">
+        {modes.map((mode) => (
+          <button
+            key={mode.label}
+            onClick={onGenerateIdeas}
+            className="flex items-start gap-3 p-3 bg-black/30 border border-gray-800 hover:border-gold/40 transition-colors text-left"
+          >
+            <mode.icon className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
+            <div>
+              <span className="text-sm font-medium text-white block">
+                {mode.label}
               </span>
+              <span className="text-xs text-gray-500">{mode.desc}</span>
             </div>
-            <div className="flex items-start gap-2">
-              <Terminal className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
-              <span>
-                Check that{' '}
-                <code className="px-1 bg-black rounded text-gold">
-                  mason.config.json
-                </code>{' '}
-                exists in your project root
-              </span>
-            </div>
-            <div className="flex items-start gap-2">
-              <Terminal className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
-              <span>
-                Try running{' '}
-                <code className="px-1 bg-black rounded text-gold">
-                  ls .claude/commands/
-                </code>{' '}
-                to verify Mason is installed
-              </span>
-            </div>
-            <a href="/faq" className="block mt-3 text-gold hover:underline">
-              See full troubleshooting guide &rarr;
-            </a>
-          </div>
-        )}
+          </button>
+        ))}
       </div>
 
       {/* Refresh Button */}
       {onRefresh && (
         <button
           onClick={onRefresh}
-          className="mt-8 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+          className="mt-10 text-sm text-gray-500 hover:text-gray-300 transition-colors"
         >
           Already ran a review? Click to refresh
         </button>
       )}
-
-      {/* Brand Attribution */}
-      <div className="mt-12 pt-8 border-t border-gray-800 text-center">
-        <p className="text-sm text-gray-500">
-          Built by{' '}
-          <a
-            href="https://assuredefi.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gold hover:underline"
-          >
-            Assure DeFi
-          </a>
-        </p>
-        <p className="mt-1 text-xs text-gray-600">
-          2,000+ projects &amp; $2B+ secured since 2021.
-        </p>
-        <a
-          href="https://assuredefi.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 inline-block text-sm text-gray-400 transition-colors hover:text-gold"
-        >
-          Visit assuredefi.com &rarr;
-        </a>
-      </div>
-
-      {/* Claude Code Explainer Modal */}
-      <ClaudeCodeExplainer
-        isOpen={showClaudeCodeExplainer}
-        onClose={() => setShowClaudeCodeExplainer(false)}
-      />
     </div>
   );
 }
