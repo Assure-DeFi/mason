@@ -355,43 +355,6 @@ export function CompleteStep({ onBack }: WizardStepProps) {
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-700 bg-gray-900/30 p-4">
-        <h3 className="mb-2 font-medium text-white">How it Works</h3>
-        <ol className="space-y-2 text-sm text-gray-400">
-          <li className="flex items-start gap-2">
-            <span className="font-medium text-gold">1.</span>
-            <span>
-              Run <code className="rounded bg-black px-1">/pm-review</code> in
-              Claude Code to analyze your codebase
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="font-medium text-gold">2.</span>
-            <span>Improvements are saved to YOUR Supabase database</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="font-medium text-gold">3.</span>
-            <span>
-              View and approve items in the{' '}
-              <button
-                onClick={handleGoToDashboard}
-                className="text-gold hover:underline"
-              >
-                Dashboard
-              </button>
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="font-medium text-gold">4.</span>
-            <span>
-              Run{' '}
-              <code className="rounded bg-black px-1">/execute-approved</code>{' '}
-              to implement changes
-            </span>
-          </li>
-        </ol>
-      </div>
-
       <div className="flex gap-3 pt-4">
         {onBack && (
           <button
