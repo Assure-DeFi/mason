@@ -1167,9 +1167,14 @@ fi
 
 **This step runs if `E2E_TEST_ENABLED=true`. Autopilot (`--auto`) ALWAYS enables this.**
 
-This step uses the `webapp-testing` subagent to capture live screenshots of every dashboard page, evaluate them for visual issues, and produce a pass/fail verdict. Every process that delivers frontend data gets screenshot-validated.
+This is a two-phase process:
 
-**Step 8.6a: Run Playwright Smoke Tests**
+1. **Phase A**: Run `scripts/screenshot.js --all` to capture full-page screenshots of all 8 dashboard pages (1920x1080 viewport, networkidle + 3s wait)
+2. **Phase B**: Launch a `webapp-testing` agent to visually evaluate each screenshot for issues
+
+Every process that delivers frontend data gets screenshot-validated.
+
+**Step 8.6a: Capture Screenshots via scripts/screenshot.js**
 
 ```bash
 # === E2E TEST SUITE (Step 8.6) ===
@@ -1184,21 +1189,21 @@ if [ "$E2E_TEST_ENABLED" = "true" ]; then
     -H "Content-Type: application/json" \
     -d '{"validation_e2e": "running"}'
 
-  # Run Playwright smoke tests first
-  cd packages/mason-dashboard
-  PLAYWRIGHT_RESULT="pass"
-  if ! npx playwright test e2e/smoke.spec.ts --reporter=line 2>&1; then
-    PLAYWRIGHT_RESULT="fail"
-    echo "WARNING: Playwright smoke tests failed"
+  # Phase A: Capture screenshots of ALL dashboard pages
+  # Uses: chromium headless, 1920x1080 viewport, networkidle + 3s wait, fullPage capture
+  SCREENSHOT_RESULT="pass"
+  mkdir -p .claude/battle-test/screenshots
+  if ! node scripts/screenshot.js --all --output-dir .claude/battle-test/screenshots 2>&1; then
+    SCREENSHOT_RESULT="fail"
+    echo "WARNING: Screenshot capture had failures"
   fi
-  cd ../..
 fi
-# === END PLAYWRIGHT SMOKE ===
+# === END SCREENSHOT CAPTURE ===
 ```
 
-**Step 8.6b: Frontend Screenshot Validation via webapp-testing Agent**
+**Step 8.6b: Visual Evaluation via webapp-testing Agent**
 
-After Playwright tests, launch a `webapp-testing` agent to capture and evaluate screenshots of ALL dashboard pages. This catches visual regressions, layout breaks, and rendering issues that automated tests miss.
+After screenshots are captured, launch a `webapp-testing` agent to evaluate each screenshot for visual issues. The agent reads the captured screenshots and evaluates them.
 
 ```
 if [ "$E2E_TEST_ENABLED" = "true" ]; then
@@ -1209,37 +1214,31 @@ Launch a Task with `subagent_type: "webapp-testing"` and this prompt:
 ```
 You are the Frontend Screenshot Validator for Mason's execute-approved pipeline.
 
-BASE URL: http://localhost:3000
+Screenshots have already been captured by scripts/screenshot.js to .claude/battle-test/screenshots/.
+Results JSON is at .claude/battle-test/screenshots/screenshot-results.json.
 
-YOUR TASK: Capture screenshots of every dashboard page, evaluate each for visual issues,
-and produce a structured pass/fail report.
+YOUR TASK:
+1. Read .claude/battle-test/screenshots/screenshot-results.json for the capture results
+2. View each screenshot PNG file using the Read tool (it supports image viewing)
+3. Evaluate each screenshot for visual issues
+4. Write your evaluation to .claude/battle-test/e2e-screenshots.json
 
 ╔══════════════════════════════════════════════════════════════════════════╗
-║  MANDATORY: Screenshot EVERY page. Do NOT skip any page.               ║
+║  MANDATORY: Evaluate EVERY screenshot. Do NOT skip any.                ║
 ║  MANDATORY: Write results to .claude/battle-test/e2e-screenshots.json  ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
-PAGES TO SCREENSHOT AND EVALUATE:
-1. / (landing/home page)
-2. /auth/signin (login page)
-3. /setup (setup wizard)
-4. /admin/backlog (main backlog dashboard)
-5. /settings/database (Supabase settings)
-6. /settings/github (GitHub settings)
-7. /settings/api-keys (API key management)
-8. /settings/autopilot (Autopilot configuration)
+SCREENSHOTS TO EVALUATE (captured at 1920x1080 viewport):
+- .claude/battle-test/screenshots/home.png
+- .claude/battle-test/screenshots/signin.png
+- .claude/battle-test/screenshots/setup.png
+- .claude/battle-test/screenshots/backlog.png
+- .claude/battle-test/screenshots/settings-database.png
+- .claude/battle-test/screenshots/settings-github.png
+- .claude/battle-test/screenshots/settings-api-keys.png
+- .claude/battle-test/screenshots/settings-autopilot.png
 
-FOR EACH PAGE:
-1. Navigate: page.goto(url, { timeout: 15000 })
-2. Wait: page.waitForLoadState('networkidle', { timeout: 15000 })
-3. Screenshot: page.screenshot({ path: '.claude/battle-test/screenshots/e2e-<pagename>.png', fullPage: true })
-4. Capture console errors: page.on('console') with type 'error'
-5. Check for error states: Look for text like "Error", "Something went wrong", "Unexpected", "Cannot read"
-6. Check for blank pages: Verify body has visible content
-7. Check for broken layouts: Look for overlapping elements, content overflow, missing sections
-8. Check for loading stuck states: Spinners that never resolve after 10 seconds
-
-VISUAL EVALUATION CRITERIA (check each):
+VISUAL EVALUATION CRITERIA (check each screenshot for):
 - Page renders without blank/white screen
 - No visible error messages or stack traces
 - Navigation elements are present and properly positioned
@@ -1267,8 +1266,7 @@ OUTPUT: Write results to .claude/battle-test/e2e-screenshots.json:
       "url": "<path>",
       "name": "<page name>",
       "status": "pass" or "fail",
-      "screenshot": ".claude/battle-test/screenshots/e2e-<pagename>.png",
-      "load_time_ms": <number>,
+      "screenshot": ".claude/battle-test/screenshots/<name>.png",
       "console_errors": [],
       "issues": [
         {
@@ -1303,7 +1301,7 @@ Read the results file and update progress:
 
   # Update progress with combined result
   COMBINED_E2E="pass"
-  if [ "$PLAYWRIGHT_RESULT" = "fail" ] || [ "$E2E_VERDICT" = "fail" ]; then
+  if [ "$SCREENSHOT_RESULT" = "fail" ] || [ "$E2E_VERDICT" = "fail" ]; then
     COMBINED_E2E="fail"
   fi
 
@@ -1318,6 +1316,18 @@ fi
 # === END E2E TEST SUITE ===
 ```
 
+**Screenshot Process (scripts/screenshot.js):**
+
+| Property | Value                                                   |
+| -------- | ------------------------------------------------------- |
+| Browser  | Chromium headless                                       |
+| Viewport | 1920x1080                                               |
+| Wait     | networkidle + 3 second delay                            |
+| Capture  | Full page (fullPage: true)                              |
+| Pages    | All 8 dashboard pages                                   |
+| Output   | .claude/battle-test/screenshots/<name>.png              |
+| Results  | .claude/battle-test/screenshots/screenshot-results.json |
+
 **E2E Test Behavior:**
 
 | Scenario                      | Action                                                  |
@@ -1330,16 +1340,6 @@ fi
 
 **Why E2E is mandatory for autopilot:**
 Autopilot runs are fully automated with no human review. Screenshot validation ensures visual regressions are caught before code is committed, making every autopilot update production-ready.
-
-**E2E vs Smoke Test:**
-
-| Aspect      | Smoke Test (`--smoke-test`) | Full E2E (`--e2e` / `--auto`)                 |
-| ----------- | --------------------------- | --------------------------------------------- |
-| Time        | ~30 seconds                 | ~2-3 minutes                                  |
-| Coverage    | App boots, no crashes       | All routes, screenshots, visual evaluation    |
-| Screenshots | None                        | Full-page screenshots of every dashboard page |
-| Use case    | Quick sanity check          | Production readiness validation               |
-| When to use | Quick manual checks         | Always for autopilot, UI changes              |
 
 ---
 

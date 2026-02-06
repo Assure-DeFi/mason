@@ -97,41 +97,38 @@ Update `index.json`: set `"status": "testing"`, `"wave": 1`
 
 Use Task tool with `subagent_type: "webapp-testing"` and this prompt:
 
-```
+````
 You are the UI Tester (agent ID: UI-1) for Mason dashboard battle testing.
 
 BASE URL: http://localhost:3000
 
 YOUR TASK: Test each page for rendering, console errors, and basic functionality.
 
-PAGES TO TEST:
-1. / (landing page)
-2. /auth/signin (login page)
-3. /setup (setup wizard)
-4. /admin/backlog (main dashboard)
-5. /settings/database (Supabase settings)
-6. /settings/github (GitHub settings)
-7. /settings/api-keys (API key management)
+STEP 1: Run the screenshot script to capture all pages at once:
+```bash
+node scripts/screenshot.js --all --output-dir .claude/battle-test/screenshots
+````
 
-FOR EACH PAGE:
-1. Navigate to the page using Playwright
-2. Wait up to 15 seconds for page to load (waitForLoadState)
-3. Capture any console errors (page.on('console') with type 'error')
-4. Check for visible error text like "Error", "Something went wrong", "Unexpected"
-5. ALWAYS take a full-page screenshot (not just on failure)
-6. Check that the page is not blank (has some visible content)
-7. Check for broken layouts: overlapping elements, content overflow, horizontal scrollbar
-8. Check dark mode is applied (no light/white backgrounds on main containers)
-9. Check for stuck loading states (spinners visible after 10 seconds)
+This uses: chromium headless, 1920x1080 viewport, networkidle + 3s wait, fullPage capture.
+Results are written to .claude/battle-test/screenshots/screenshot-results.json.
 
-PLAYWRIGHT COMMANDS TO USE:
-- page.goto(url, { timeout: 15000 })
-- page.waitForLoadState('networkidle', { timeout: 15000 })
-- page.locator('body').textContent() to check not empty
-- page.screenshot({ path: '.claude/battle-test/screenshots/UI-{page}.png', fullPage: true })
+STEP 2: Read each captured screenshot PNG using the Read tool (it supports images).
+
+STEP 3: Evaluate each screenshot for:
+
+PAGES CAPTURED:
+
+1. / (landing page) → .claude/battle-test/screenshots/home.png
+2. /auth/signin (login page) → .claude/battle-test/screenshots/signin.png
+3. /setup (setup wizard) → .claude/battle-test/screenshots/setup.png
+4. /admin/backlog (main dashboard) → .claude/battle-test/screenshots/backlog.png
+5. /settings/database → .claude/battle-test/screenshots/settings-database.png
+6. /settings/github → .claude/battle-test/screenshots/settings-github.png
+7. /settings/api-keys → .claude/battle-test/screenshots/settings-api-keys.png
+8. /settings/autopilot → .claude/battle-test/screenshots/settings-autopilot.png
 
 SCREENSHOT EVALUATION (for each screenshot):
-After capturing, visually evaluate the screenshot for:
+
 - Blank/white screen (critical)
 - Error messages or stack traces visible (critical)
 - Missing navigation or broken layout (high)
@@ -139,36 +136,42 @@ After capturing, visually evaluate the screenshot for:
 - Light mode leak - white backgrounds where dark expected (medium)
 - Missing or broken images/icons (low)
 
+ALSO CHECK (read screenshot-results.json for these):
+
+- Console errors captured during page load
+- Pages that failed to load or timed out
+
 OUTPUT: After testing all pages, use the Write tool to create .claude/battle-test/results/UI-1.json with this structure:
 
 {
-  "agent_id": "UI-1",
-  "completed_at": "<ISO timestamp>",
-  "summary": {
-    "pages_tested": <number>,
-    "pages_passed": <number>,
-    "pages_failed": <number>,
-    "issues_found": <number>
-  },
-  "pages": [
-    {
-      "url": "/admin/backlog",
-      "status": "pass" or "fail",
-      "load_time_ms": <number>,
-      "console_errors": ["error message 1", ...],
-      "issues": [
-        {
-          "type": "console_error" | "render_fail" | "blank_page" | "timeout",
-          "severity": "critical" | "high" | "medium" | "low",
-          "description": "What went wrong",
-          "screenshot": "path/to/screenshot.png"
-        }
-      ]
-    }
-  ]
+"agent_id": "UI-1",
+"completed_at": "<ISO timestamp>",
+"summary": {
+"pages_tested": <number>,
+"pages_passed": <number>,
+"pages_failed": <number>,
+"issues_found": <number>
+},
+"pages": [
+{
+"url": "/admin/backlog",
+"status": "pass" or "fail",
+"load_time_ms": <number>,
+"console_errors": ["error message 1", ...],
+"issues": [
+{
+"type": "console_error" | "render_fail" | "blank_page" | "timeout",
+"severity": "critical" | "high" | "medium" | "low",
+"description": "What went wrong",
+"screenshot": "path/to/screenshot.png"
+}
+]
+}
+]
 }
 
 Report ONLY actual failures. If a page loads correctly with no console errors, mark it as "pass" with empty issues array.
+
 ```
 
 ### Agent 2: API Tester (webapp-testing)
@@ -176,6 +179,7 @@ Report ONLY actual failures. If a page loads correctly with no console errors, m
 Use Task tool with `subagent_type: "webapp-testing"` and this prompt:
 
 ```
+
 You are the API Tester (agent ID: API-1) for Mason dashboard battle testing.
 
 BASE URL: http://localhost:3000
@@ -183,23 +187,27 @@ BASE URL: http://localhost:3000
 YOUR TASK: Test API endpoints for correct responses and error handling.
 
 ENDPOINTS TO TEST:
+
 1. GET /api/health - Should return 200 (or may not exist, note as "not implemented")
 2. POST /api/setup/migrations - Test without auth, should return 401 or require setup
 3. GET /api/v1/backlog/next - Test without auth, check response
 4. GET /api/keys - Test without auth, check response
 
 FOR EACH ENDPOINT:
+
 1. Make the HTTP request using Playwright's request context or fetch
 2. Record the status code
 3. Record the response body (truncated if > 1000 chars)
 4. Note if response matches expected behavior
 
 TESTING APPROACH:
+
 - Use page.request.get() or page.request.post() for API calls
 - Or use evaluate with fetch()
 - Check status codes: 200, 201, 400, 401, 403, 404, 500
 
 EXPECTED BEHAVIORS:
+
 - Unauthenticated requests to protected routes: 401
 - Missing required fields: 400 with error message
 - Valid requests: 200 with JSON response
@@ -207,35 +215,36 @@ EXPECTED BEHAVIORS:
 OUTPUT: After testing all endpoints, use the Write tool to create .claude/battle-test/results/API-1.json with this structure:
 
 {
-  "agent_id": "API-1",
-  "completed_at": "<ISO timestamp>",
-  "summary": {
-    "endpoints_tested": <number>,
-    "endpoints_passed": <number>,
-    "endpoints_failed": <number>,
-    "issues_found": <number>
-  },
-  "endpoints": [
-    {
-      "path": "/api/health",
-      "method": "GET",
-      "status": "pass" or "fail",
-      "response_code": 200,
-      "response_body_preview": "first 200 chars...",
-      "issues": [
-        {
-          "type": "unexpected_status" | "invalid_response" | "timeout" | "error",
-          "severity": "critical" | "high" | "medium" | "low",
-          "description": "What went wrong",
-          "expected": "what should have happened",
-          "actual": "what actually happened"
-        }
-      ]
-    }
-  ]
+"agent_id": "API-1",
+"completed_at": "<ISO timestamp>",
+"summary": {
+"endpoints_tested": <number>,
+"endpoints_passed": <number>,
+"endpoints_failed": <number>,
+"issues_found": <number>
+},
+"endpoints": [
+{
+"path": "/api/health",
+"method": "GET",
+"status": "pass" or "fail",
+"response_code": 200,
+"response_body_preview": "first 200 chars...",
+"issues": [
+{
+"type": "unexpected_status" | "invalid_response" | "timeout" | "error",
+"severity": "critical" | "high" | "medium" | "low",
+"description": "What went wrong",
+"expected": "what should have happened",
+"actual": "what actually happened"
+}
+]
+}
+]
 }
 
 Note: Some endpoints may require authentication - document this as expected behavior, not a failure.
+
 ```
 
 ### Agent 3: Flow Tester (webapp-testing)
@@ -243,6 +252,7 @@ Note: Some endpoints may require authentication - document this as expected beha
 Use Task tool with `subagent_type: "webapp-testing"` and this prompt:
 
 ```
+
 You are the Flow Tester (agent ID: FLOW-1) for Mason dashboard battle testing.
 
 BASE URL: http://localhost:3000
@@ -252,21 +262,25 @@ YOUR TASK: Test user journeys and navigation flows.
 FLOWS TO TEST:
 
 FLOW 1: Landing to Auth
+
 1. Go to /
 2. Check if redirected to /auth/signin OR shows landing content
 3. Document the behavior
 
 FLOW 2: Auth Page State
+
 1. Go to /auth/signin
 2. Check for GitHub sign-in button
 3. Check page loads without errors
 
 FLOW 3: Protected Route Redirect
+
 1. Go to /admin/backlog (protected route)
 2. Without auth, should redirect to /auth/signin OR show auth prompt
 3. Document the redirect behavior
 
 FLOW 4: Settings Navigation
+
 1. Go to /settings/database
 2. Check if page loads (may show setup prompt or redirect)
 3. Navigate to /settings/github
@@ -275,6 +289,7 @@ FLOW 4: Settings Navigation
 6. Check if page loads
 
 FOR EACH FLOW:
+
 1. Execute the steps
 2. Record what happens at each step
 3. Note any unexpected behavior
@@ -283,34 +298,35 @@ FOR EACH FLOW:
 OUTPUT: After testing all flows, use the Write tool to create .claude/battle-test/results/FLOW-1.json with this structure:
 
 {
-  "agent_id": "FLOW-1",
-  "completed_at": "<ISO timestamp>",
-  "summary": {
-    "flows_tested": <number>,
-    "flows_passed": <number>,
-    "flows_failed": <number>,
-    "issues_found": <number>
-  },
-  "flows": [
-    {
-      "name": "Landing to Auth",
-      "status": "pass" or "fail",
-      "steps": [
-        { "action": "goto /", "result": "redirected to /auth/signin", "status": "pass" }
-      ],
-      "issues": [
-        {
-          "type": "unexpected_redirect" | "broken_navigation" | "missing_element" | "crash",
-          "severity": "critical" | "high" | "medium" | "low",
-          "description": "What went wrong",
-          "step": "which step failed",
-          "screenshot": "path if captured"
-        }
-      ]
-    }
-  ]
+"agent_id": "FLOW-1",
+"completed_at": "<ISO timestamp>",
+"summary": {
+"flows_tested": <number>,
+"flows_passed": <number>,
+"flows_failed": <number>,
+"issues_found": <number>
+},
+"flows": [
+{
+"name": "Landing to Auth",
+"status": "pass" or "fail",
+"steps": [
+{ "action": "goto /", "result": "redirected to /auth/signin", "status": "pass" }
+],
+"issues": [
+{
+"type": "unexpected_redirect" | "broken_navigation" | "missing_element" | "crash",
+"severity": "critical" | "high" | "medium" | "low",
+"description": "What went wrong",
+"step": "which step failed",
+"screenshot": "path if captured"
 }
-```
+]
+}
+]
+}
+
+````
 
 ## Step 4: Wait for Results and Aggregate
 
@@ -322,7 +338,7 @@ Then read the result files:
 cat .claude/battle-test/results/UI-1.json
 cat .claude/battle-test/results/API-1.json
 cat .claude/battle-test/results/FLOW-1.json
-```
+````
 
 **Aggregate into index.json:**
 
