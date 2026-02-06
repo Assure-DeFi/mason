@@ -109,8 +109,12 @@ export default function BacklogPage() {
   const { client, isConfigured, isLoading: isDbLoading } = useUserDatabase();
 
   // Auto-run database migrations when user has OAuth configured
-  // Runs silently in background, once per 24h
-  useAutoMigrations();
+  // Runs silently in background, once per session
+  const { state: migrationState } = useAutoMigrations();
+  const isMigrationReady =
+    migrationState.status === 'success' ||
+    migrationState.status === 'skipped' ||
+    migrationState.status === 'error';
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -217,7 +221,7 @@ export default function BacklogPage() {
   // This allows detecting new executions (which will replace the current one)
   useExecutionListener({
     client,
-    enabled: isConfigured,
+    enabled: isConfigured && isMigrationReady,
     onExecutionStart: handleExecutionDetected,
   });
 
@@ -393,12 +397,12 @@ export default function BacklogPage() {
   }, [client, session, selectedRepoId]);
 
   useEffect(() => {
-    if (isConfigured && !isDbLoading) {
+    if (isConfigured && !isDbLoading && isMigrationReady) {
       void fetchItems();
     } else if (!isDbLoading && !isConfigured) {
       setIsLoading(false);
     }
-  }, [fetchItems, isConfigured, isDbLoading]);
+  }, [fetchItems, isConfigured, isDbLoading, isMigrationReady]);
 
   // Subscribe to real-time backlog changes
   // This enables automatic updates when CLI changes item status
@@ -811,7 +815,14 @@ export default function BacklogPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedItem, selectedIds, filteredItems, isApproving, isRejecting, items]);
+  }, [
+    selectedItem,
+    selectedIds,
+    filteredItems,
+    isApproving,
+    isRejecting,
+    items,
+  ]);
 
   // Handle undo action
   const handleUndo = async () => {
