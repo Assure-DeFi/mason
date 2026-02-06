@@ -26,10 +26,10 @@
       "breaking_reason": "Fix API response parsing - use .data.user_id instead of .user_id"
     },
     "execute-approved": {
-      "version": "2.10.0",
+      "version": "2.11.0",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "2.10.0",
-      "breaking_reason": "Version check moved to MANDATORY FIRST STEP for consistent enforcement"
+      "required_minimum": "2.11.0",
+      "breaking_reason": "Mandatory E2E screenshot validation for autopilot - --auto always implies --e2e with webapp-testing screenshots"
     },
     "mason-update": {
       "version": "2.1.0",
@@ -38,10 +38,10 @@
       "breaking_reason": "Added self-bootstrap - updates itself first before other commands"
     },
     "battle-test": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "file_path": "commands/battle-test.md",
-      "required_minimum": "1.0.0",
-      "breaking_reason": "Initial release - template agent architecture for E2E testing"
+      "required_minimum": "1.1.0",
+      "breaking_reason": "Mandatory full-page screenshots with visual evaluation for all pages"
     },
     "pm-autopilot": {
       "version": "1.0.0",

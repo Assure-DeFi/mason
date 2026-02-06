@@ -1,6 +1,6 @@
 ---
 name: battle-test
-version: 2.0.0
+version: 2.1.0
 description: Executable E2E testing with parallel agents and automatic fix cycles
 ---
 
@@ -118,14 +118,26 @@ FOR EACH PAGE:
 2. Wait up to 15 seconds for page to load (waitForLoadState)
 3. Capture any console errors (page.on('console') with type 'error')
 4. Check for visible error text like "Error", "Something went wrong", "Unexpected"
-5. Take a screenshot if any issue is found
+5. ALWAYS take a full-page screenshot (not just on failure)
 6. Check that the page is not blank (has some visible content)
+7. Check for broken layouts: overlapping elements, content overflow, horizontal scrollbar
+8. Check dark mode is applied (no light/white backgrounds on main containers)
+9. Check for stuck loading states (spinners visible after 10 seconds)
 
 PLAYWRIGHT COMMANDS TO USE:
 - page.goto(url, { timeout: 15000 })
 - page.waitForLoadState('networkidle', { timeout: 15000 })
 - page.locator('body').textContent() to check not empty
-- page.screenshot({ path: '.claude/battle-test/screenshots/UI-{page}.png' })
+- page.screenshot({ path: '.claude/battle-test/screenshots/UI-{page}.png', fullPage: true })
+
+SCREENSHOT EVALUATION (for each screenshot):
+After capturing, visually evaluate the screenshot for:
+- Blank/white screen (critical)
+- Error messages or stack traces visible (critical)
+- Missing navigation or broken layout (high)
+- Content overflow causing horizontal scroll (medium)
+- Light mode leak - white backgrounds where dark expected (medium)
+- Missing or broken images/icons (low)
 
 OUTPUT: After testing all pages, use the Write tool to create .claude/battle-test/results/UI-1.json with this structure:
 

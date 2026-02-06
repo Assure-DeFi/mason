@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.10.0
+version: 2.11.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -135,6 +135,13 @@ if echo "$*" | grep -q '\-\-e2e'; then
   E2E_TEST_ENABLED=true
   SMOKE_TEST_ENABLED=false  # E2E includes smoke test functionality
   echo "E2E_TEST: Enabled - will run full E2E test suite after all validations"
+fi
+
+# MANDATORY: Auto mode ALWAYS implies E2E testing - no opt-out for autopilot
+if [ "$AUTO_MODE" = "true" ]; then
+  E2E_TEST_ENABLED=true
+  SMOKE_TEST_ENABLED=false
+  echo "E2E_TEST: Force-enabled for autopilot (mandatory for production readiness)"
 fi
 ```
 
@@ -1156,69 +1163,183 @@ fi
 
 ---
 
-#### 8.6: Optional Full E2E Test (When --e2e flag is used)
+#### 8.6: E2E Frontend Screenshot Validation (MANDATORY for --auto, optional via --e2e)
 
-**This step only runs if `E2E_TEST_ENABLED=true`.**
+**This step runs if `E2E_TEST_ENABLED=true`. Autopilot (`--auto`) ALWAYS enables this.**
 
-When the user invokes `/execute-approved --e2e`, run the comprehensive E2E test suite after all standard validations pass. This provides higher confidence for UI changes but takes longer.
+This step uses the `webapp-testing` subagent to capture live screenshots of every dashboard page, evaluate them for visual issues, and produce a pass/fail verdict. Every process that delivers frontend data gets screenshot-validated.
+
+**Step 8.6a: Run Playwright Smoke Tests**
 
 ```bash
-# === OPTIONAL FULL E2E TEST (Step 8.6) ===
+# === E2E TEST SUITE (Step 8.6) ===
 if [ "$E2E_TEST_ENABLED" = "true" ]; then
   echo ""
-  echo "=== RUNNING FULL E2E TEST SUITE ==="
-  echo "Starting comprehensive E2E tests (this may take 2-3 minutes)..."
+  echo "=== RUNNING E2E TEST SUITE WITH SCREENSHOT VALIDATION ==="
 
-  # Update progress to show E2E test running
+  # Update progress
   curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
     -H "apikey: ${SUPABASE_KEY}" \
     -H "Authorization: Bearer ${SUPABASE_KEY}" \
     -H "Content-Type: application/json" \
-    -d '{"validation_smoke_test": "running"}'
+    -d '{"validation_e2e": "running"}'
 
-
-  # Run the full E2E test suite
+  # Run Playwright smoke tests first
   cd packages/mason-dashboard
-  if npx playwright test --reporter=line 2>&1; then
-    echo "E2E tests PASSED"
-    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
-      -H "apikey: ${SUPABASE_KEY}" \
-      -H "Authorization: Bearer ${SUPABASE_KEY}" \
-      -H "Content-Type: application/json" \
-      -d '{"validation_smoke_test": "pass"}'
-  else
-    echo "E2E tests FAILED - check test output for details"
-    curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
-      -H "apikey: ${SUPABASE_KEY}" \
-      -H "Authorization: Bearer ${SUPABASE_KEY}" \
-      -H "Content-Type: application/json" \
-      -d '{"validation_smoke_test": "fail"}'
-    # NOTE: E2E failure is a WARNING, not a blocking failure
-    # The item still proceeds to commit since all mandatory validations passed
+  PLAYWRIGHT_RESULT="pass"
+  if ! npx playwright test e2e/smoke.spec.ts --reporter=line 2>&1; then
+    PLAYWRIGHT_RESULT="fail"
+    echo "WARNING: Playwright smoke tests failed"
   fi
   cd ../..
+fi
+# === END PLAYWRIGHT SMOKE ===
+```
+
+**Step 8.6b: Frontend Screenshot Validation via webapp-testing Agent**
+
+After Playwright tests, launch a `webapp-testing` agent to capture and evaluate screenshots of ALL dashboard pages. This catches visual regressions, layout breaks, and rendering issues that automated tests miss.
+
+```
+if [ "$E2E_TEST_ENABLED" = "true" ]; then
+```
+
+Launch a Task with `subagent_type: "webapp-testing"` and this prompt:
+
+```
+You are the Frontend Screenshot Validator for Mason's execute-approved pipeline.
+
+BASE URL: http://localhost:3000
+
+YOUR TASK: Capture screenshots of every dashboard page, evaluate each for visual issues,
+and produce a structured pass/fail report.
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  MANDATORY: Screenshot EVERY page. Do NOT skip any page.               ║
+║  MANDATORY: Write results to .claude/battle-test/e2e-screenshots.json  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+PAGES TO SCREENSHOT AND EVALUATE:
+1. / (landing/home page)
+2. /auth/signin (login page)
+3. /setup (setup wizard)
+4. /admin/backlog (main backlog dashboard)
+5. /settings/database (Supabase settings)
+6. /settings/github (GitHub settings)
+7. /settings/api-keys (API key management)
+8. /settings/autopilot (Autopilot configuration)
+
+FOR EACH PAGE:
+1. Navigate: page.goto(url, { timeout: 15000 })
+2. Wait: page.waitForLoadState('networkidle', { timeout: 15000 })
+3. Screenshot: page.screenshot({ path: '.claude/battle-test/screenshots/e2e-<pagename>.png', fullPage: true })
+4. Capture console errors: page.on('console') with type 'error'
+5. Check for error states: Look for text like "Error", "Something went wrong", "Unexpected", "Cannot read"
+6. Check for blank pages: Verify body has visible content
+7. Check for broken layouts: Look for overlapping elements, content overflow, missing sections
+8. Check for loading stuck states: Spinners that never resolve after 10 seconds
+
+VISUAL EVALUATION CRITERIA (check each):
+- Page renders without blank/white screen
+- No visible error messages or stack traces
+- Navigation elements are present and properly positioned
+- Content areas have data or appropriate empty states (not broken)
+- No horizontal scrollbar on desktop viewport (indicates overflow)
+- Text is readable (no overlapping, no truncation of critical info)
+- Dark mode is applied (Mason uses dark-mode-first, no light backgrounds)
+- No broken images or missing assets
+
+OUTPUT: Write results to .claude/battle-test/e2e-screenshots.json:
+
+{
+  "run_type": "execute-approved-e2e",
+  "timestamp": "<ISO timestamp>",
+  "verdict": "pass" or "fail",
+  "summary": {
+    "pages_tested": <number>,
+    "pages_passed": <number>,
+    "pages_failed": <number>,
+    "screenshots_captured": <number>,
+    "issues_found": <number>
+  },
+  "pages": [
+    {
+      "url": "<path>",
+      "name": "<page name>",
+      "status": "pass" or "fail",
+      "screenshot": ".claude/battle-test/screenshots/e2e-<pagename>.png",
+      "load_time_ms": <number>,
+      "console_errors": [],
+      "issues": [
+        {
+          "type": "visual_regression" | "console_error" | "blank_page" | "broken_layout" | "stuck_loading" | "light_mode_leak",
+          "severity": "critical" | "high" | "medium" | "low",
+          "description": "What is wrong",
+          "element": "CSS selector or area if applicable"
+        }
+      ]
+    }
+  ]
+}
+
+IMPORTANT:
+- A page with ONLY low-severity issues is still "pass"
+- A page with ANY critical or high severity issue is "fail"
+- Overall verdict is "fail" if ANY page has critical issues
+- Report factual observations only - do not guess or speculate
+```
+
+**After the webapp-testing agent completes:**
+
+Read the results file and update progress:
+
+```bash
+  # Read E2E screenshot results
+  E2E_VERDICT=$(cat .claude/battle-test/e2e-screenshots.json 2>/dev/null | jq -r '.verdict // "unknown"')
+  E2E_ISSUES=$(cat .claude/battle-test/e2e-screenshots.json 2>/dev/null | jq -r '.summary.issues_found // 0')
+  E2E_PAGES_FAILED=$(cat .claude/battle-test/e2e-screenshots.json 2>/dev/null | jq -r '.summary.pages_failed // 0')
+
+  echo "E2E Screenshot Validation: ${E2E_VERDICT} (${E2E_ISSUES} issues, ${E2E_PAGES_FAILED} pages failed)"
+
+  # Update progress with combined result
+  COMBINED_E2E="pass"
+  if [ "$PLAYWRIGHT_RESULT" = "fail" ] || [ "$E2E_VERDICT" = "fail" ]; then
+    COMBINED_E2E="fail"
+  fi
+
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_e2e": "'"$COMBINED_E2E"'", "e2e_issues_found": '"$E2E_ISSUES"', "e2e_pages_failed": '"$E2E_PAGES_FAILED"'}'
 
   echo "=== END E2E TEST SUITE ==="
 fi
-# === END OPTIONAL FULL E2E TEST ===
+# === END E2E TEST SUITE ===
 ```
 
 **E2E Test Behavior:**
 
-| Scenario             | Action                                                  |
-| -------------------- | ------------------------------------------------------- |
-| `--e2e` not provided | E2E not run (smoke test runs if `--smoke-test` was set) |
-| E2E tests pass       | Status shows "Pass", proceed to commit                  |
-| E2E tests fail       | Status shows "Fail" as WARNING, still proceed to commit |
+| Scenario                      | Action                                                  |
+| ----------------------------- | ------------------------------------------------------- |
+| `--auto` (autopilot)          | E2E ALWAYS runs - mandatory for production readiness    |
+| `--e2e` (manual)              | E2E runs with screenshot validation                     |
+| Neither flag                  | E2E not run (smoke test runs if `--smoke-test` was set) |
+| E2E tests + screenshots pass  | Status shows "Pass", proceed to commit                  |
+| E2E tests or screenshots fail | Status shows "Fail" as WARNING, still proceed to commit |
+
+**Why E2E is mandatory for autopilot:**
+Autopilot runs are fully automated with no human review. Screenshot validation ensures visual regressions are caught before code is committed, making every autopilot update production-ready.
 
 **E2E vs Smoke Test:**
 
-| Aspect      | Smoke Test (`--smoke-test`) | Full E2E (`--e2e`)                 |
-| ----------- | --------------------------- | ---------------------------------- |
-| Time        | ~30 seconds                 | ~2-3 minutes                       |
-| Coverage    | App boots, no crashes       | All routes, interactions, UI       |
-| Use case    | Quick sanity check          | Comprehensive UI change validation |
-| When to use | Most executions             | UI-heavy changes, before release   |
+| Aspect      | Smoke Test (`--smoke-test`) | Full E2E (`--e2e` / `--auto`)                 |
+| ----------- | --------------------------- | --------------------------------------------- |
+| Time        | ~30 seconds                 | ~2-3 minutes                                  |
+| Coverage    | App boots, no crashes       | All routes, screenshots, visual evaluation    |
+| Screenshots | None                        | Full-page screenshots of every dashboard page |
+| Use case    | Quick sanity check          | Production readiness validation               |
+| When to use | Quick manual checks         | Always for autopilot, UI changes              |
 
 ---
 

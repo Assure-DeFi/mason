@@ -1,6 +1,6 @@
 ---
 name: battle-test
-version: 1.0.0
+version: 1.1.0
 description: Template-based E2E testing with central index and parallel agent execution
 ---
 
@@ -128,6 +128,9 @@ Test categories:
 3. Loading state completeness
 4. Console error detection
 5. Responsive check (desktop, tablet, mobile)
+6. MANDATORY: Capture full-page screenshot of EVERY page (fullPage: true)
+7. Screenshot evaluation: blank screens, error messages, broken layouts, light mode leaks, missing content
+8. Save all screenshots to .claude/battle-test/screenshots/
 ```
 
 ### API/Data Tester (webapp-testing)

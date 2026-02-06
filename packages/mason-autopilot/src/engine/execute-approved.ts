@@ -78,8 +78,9 @@ export async function executeApprovedItems(
   };
 
   try {
-    // Run execute-approved with limit and auto flags
-    const args = `--limit ${config.maxItems} --auto`;
+    // Run execute-approved with limit, auto, and mandatory E2E flags
+    // Autopilot ALWAYS includes E2E testing - no opt-out
+    const args = `--limit ${config.maxItems} --auto --e2e`;
     const result = await runCommandWithArgs(
       'execute-approved',
       args,

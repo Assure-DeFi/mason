@@ -8,6 +8,7 @@
  * - Key routes load without crashing
  * - No console errors
  * - Basic page structure renders
+ * - Captures screenshots of every page for visual validation
  *
  * What it does NOT test:
  * - Full UI functionality
@@ -19,11 +20,16 @@ import { test, expect } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
-// Routes to smoke test
+// Routes to smoke test (covers all frontend-delivering pages)
 const SMOKE_TEST_ROUTES = [
   { path: '/', name: 'Home' },
   { path: '/setup', name: 'Setup Wizard' },
   { path: '/admin/backlog', name: 'Backlog' },
+  { path: '/auth/signin', name: 'Sign In' },
+  { path: '/settings/database', name: 'Settings Database' },
+  { path: '/settings/github', name: 'Settings GitHub' },
+  { path: '/settings/api-keys', name: 'Settings API Keys' },
+  { path: '/settings/autopilot', name: 'Settings Autopilot' },
 ];
 
 test.describe('Smoke Test', () => {
@@ -67,6 +73,13 @@ test.describe('Smoke Test', () => {
 
       // Check that body renders
       await expect(page.locator('body')).toBeVisible();
+
+      // Capture screenshot for visual validation
+      const screenshotName = route.name.toLowerCase().replace(/\s+/g, '-');
+      await page.screenshot({
+        path: `.claude/battle-test/screenshots/smoke-${screenshotName}.png`,
+        fullPage: true,
+      });
 
       // Verify no console errors occurred
       if (consoleErrors.length > 0) {
