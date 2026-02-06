@@ -674,3 +674,26 @@ return { status: 'ok', dlq: dlqMetrics };
 
 Don't just log errors - monitor them.
 **Why**: Error tables without monitoring are write-only graveyards. Issues accumulate for days/weeks before anyone notices. Proactive alerting turns silent failures into actionable incidents.
+
+---
+
+## Auth Architecture: /admin/backlog Uses Client-Side Auth
+
+**Discovered**: 2026-02-05
+**Context**: Flow tester flagged /admin/backlog as "accessible without auth" - false positive
+**Pattern**: The `/admin/backlog` page is NOT a server-side protected route. It uses `useSession()` client-side and renders different states:
+
+- **Authenticated**: Full backlog UI with items, actions, filters
+- **Unauthenticated**: "Let's get you set up" empty state with "Complete Setup" CTA
+
+This is BY DESIGN. The page is intentionally accessible to unauthenticated users but shows limited content. Do not flag this as a security issue in E2E testing.
+**Why**: E2E flow testers will consistently flag this as a "protected route accessible without auth" false positive unless they understand the client-side auth pattern.
+
+---
+
+## E2E Testing: Execute-Approved Delegates to /e2e-test Skill
+
+**Discovered**: 2026-02-05
+**Context**: Refactored execute-approved from 300 lines of inline E2E to delegating to global /e2e-test skill
+**Pattern**: Execute-approved Step 8.6 invokes the global `/e2e-test` skill via the Skill tool. It does NOT contain inline E2E logic. The skill auto-detects pages from `src/app/**/page.tsx` and API routes from `src/app/api/**/route.ts`. Results are read from `.claude/e2e-test/results/` and progress is updated in Supabase.
+**Why**: Centralizing E2E in a global skill means improvements benefit all repos and execute-approved stays focused on execution logic.
