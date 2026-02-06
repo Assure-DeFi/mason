@@ -218,3 +218,21 @@ export const CommonSchemas = {
       ] as const,
     }) as const,
 } as const;
+
+/**
+ * Supabase URL validation pattern
+ * Matches: https://<project-ref>.supabase.co with optional trailing slash
+ * Prevents SSRF by ensuring only legitimate Supabase URLs are accepted
+ */
+const SUPABASE_URL_PATTERN = /^https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/?$/;
+
+/**
+ * Validates that a Supabase URL matches the expected *.supabase.co pattern.
+ * Prevents SSRF attacks by rejecting arbitrary URLs passed via headers.
+ *
+ * @param url - The URL to validate
+ * @returns true if the URL is a valid Supabase URL
+ */
+export function isValidSupabaseUrl(url: string): boolean {
+  return SUPABASE_URL_PATTERN.test(url);
+}
