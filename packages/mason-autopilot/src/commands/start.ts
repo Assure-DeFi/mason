@@ -29,7 +29,11 @@ import {
 import { executeApprovedItems } from '../engine/execute-approved';
 import { runPmReview } from '../engine/pm-review';
 import type { ProviderConfig, ProviderName } from '../engine/providers';
-import { ENV_VAR_NAMES, getProviderConfig } from '../engine/providers';
+import {
+  ENV_VAR_ALIASES,
+  ENV_VAR_NAMES,
+  getProviderConfig,
+} from '../engine/providers';
 import { NotificationDispatcher } from '../notifications/dispatcher';
 
 /**
@@ -233,13 +237,21 @@ async function resolveProvider(
     return undefined;
   }
 
-  // 2. Environment variables
+  // 2. Environment variables (check primary + alias names)
   const envProviders: ProviderName[] = ['anthropic', 'openai', 'google'];
   for (const provider of envProviders) {
     const envVar = ENV_VAR_NAMES[provider];
     const key = process.env[envVar];
     if (key) {
       return getProviderConfig(provider, key, 'env_var');
+    }
+    // Check alias (e.g., GOOGLE_GENERATIVE_AI_API_KEY)
+    const alias = ENV_VAR_ALIASES[provider];
+    if (alias) {
+      const aliasKey = process.env[alias];
+      if (aliasKey) {
+        return getProviderConfig(provider, aliasKey, 'env_var');
+      }
     }
   }
 
@@ -250,15 +262,16 @@ async function resolveProvider(
       .select('provider, api_key, model, is_active')
       .eq('user_id', userId)
       .eq('is_active', true)
-      .limit(1)
-      .single();
+      .order('updated_at', { ascending: false })
+      .limit(1);
 
-    if (data?.api_key) {
+    const activeKey = data?.[0];
+    if (activeKey?.api_key) {
       return getProviderConfig(
-        data.provider as ProviderName,
-        data.api_key,
+        activeKey.provider as ProviderName,
+        activeKey.api_key,
         'database',
-        data.model || undefined,
+        activeKey.model || undefined,
       );
     }
   } catch {
@@ -299,8 +312,12 @@ export async function startCommand(options: StartOptions): Promise<void> {
     let foundEnv = false;
     for (const provider of envProviders) {
       const envVar = ENV_VAR_NAMES[provider];
-      if (process.env[envVar]) {
-        console.log(`Runtime: Multi-Provider (${provider} via env var ${envVar})`);
+      const alias = ENV_VAR_ALIASES[provider];
+      if (process.env[envVar] || (alias && process.env[alias])) {
+        const detectedVar = process.env[envVar] ? envVar : alias;
+        console.log(
+          `Runtime: Multi-Provider (${provider} via env var ${detectedVar})`,
+        );
         foundEnv = true;
         break;
       }

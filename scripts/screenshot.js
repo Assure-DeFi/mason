@@ -38,6 +38,7 @@ const ALL_PAGES = [
   { path: '/settings/database', name: 'settings-database' },
   { path: '/settings/github', name: 'settings-github' },
   { path: '/settings/api-keys', name: 'settings-api-keys' },
+  { path: '/settings/ai-providers', name: 'settings-ai-providers' },
   { path: '/settings/autopilot', name: 'settings-autopilot' },
 ];
 

@@ -71,6 +71,7 @@ export async function runWithMultiProvider(
       model,
       tools,
       maxSteps,
+      maxTokens: 16384,
       system: `You are Mason, an AI-powered codebase improvement agent. You have access to tools for reading, writing, editing files, running bash commands, searching code, and launching subtasks. Follow the instructions in the prompt exactly. Work autonomously and complete the full task.
 
 Working directory: ${options.cwd}
@@ -101,7 +102,9 @@ Important:
     });
 
     if (options.verbose) {
-      console.log(`  Multi-provider execution completed in ${stepCount} steps.`);
+      console.log(
+        `  Multi-provider execution completed in ${stepCount} steps.`,
+      );
       if (result.text) {
         console.log(
           `  Final response: ${result.text.slice(0, 200)}${result.text.length > 200 ? '...' : ''}`,
@@ -117,14 +120,18 @@ Important:
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     if (options.verbose) {
-      console.error(`  Multi-provider execution failed at step ${stepCount}:`, errorMessage);
+      console.error(
+        `  Multi-provider execution failed at step ${stepCount}:`,
+        errorMessage,
+      );
     }
 
     return {
       success: false,
       error: errorMessage,
       errorCode: categorizeError(errorMessage),
-      errorDetails: error instanceof Error ? error.stack?.slice(0, 500) : undefined,
+      errorDetails:
+        error instanceof Error ? error.stack?.slice(0, 500) : undefined,
     };
   }
 }
@@ -144,11 +151,22 @@ function categorizeError(message: string): string | undefined {
   ) {
     return 'AUTH_FAILED';
   }
+  if (message.includes('403') || message.includes('Forbidden')) {
+    return 'FORBIDDEN';
+  }
   if (message.includes('timeout') || message.includes('ETIMEDOUT')) {
     return 'TIMEOUT';
   }
   if (message.includes('insufficient_quota') || message.includes('billing')) {
     return 'QUOTA_EXCEEDED';
+  }
+  if (
+    message.includes('500') ||
+    message.includes('503') ||
+    message.includes('Service Unavailable') ||
+    message.includes('Internal Server Error')
+  ) {
+    return 'PROVIDER_ERROR';
   }
   return undefined;
 }

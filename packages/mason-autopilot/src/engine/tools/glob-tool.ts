@@ -2,7 +2,7 @@
  * Glob Tool - File pattern matching.
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 import { z } from 'zod';
 
@@ -18,9 +18,9 @@ export function executeGlob(
   const searchPath = params.path || cwd;
 
   try {
-    // Use find with glob-style matching via -name or rg --files with glob
-    const output = execSync(
-      `rg --files --glob '${params.pattern}' '${searchPath}' 2>/dev/null | sort | head -200`,
+    const output = execFileSync(
+      'rg',
+      ['--files', `--glob=${params.pattern}`, searchPath],
       {
         encoding: 'utf-8',
         timeout: 15_000,
@@ -28,7 +28,10 @@ export function executeGlob(
         cwd,
       },
     );
-    return output.trim() || 'No files matched the pattern.';
+
+    // Sort and limit results
+    const lines = output.trim().split('\n').filter(Boolean).sort();
+    return lines.slice(0, 200).join('\n') || 'No files matched the pattern.';
   } catch {
     return 'No files matched the pattern.';
   }

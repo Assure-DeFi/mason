@@ -2,7 +2,7 @@
  * Grep Tool - Search file contents using ripgrep.
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 import { z } from 'zod';
 
@@ -24,7 +24,7 @@ export function executeGrep(
   const searchPath = params.path || cwd;
   const mode = params.output_mode || 'files_with_matches';
 
-  const args: string[] = ['rg', '--no-heading'];
+  const args: string[] = ['--no-heading'];
 
   if (mode === 'files_with_matches') {
     args.push('-l');
@@ -45,7 +45,7 @@ export function executeGrep(
   args.push('--', params.pattern, searchPath);
 
   try {
-    const output = execSync(args.join(' '), {
+    const output = execFileSync('rg', args, {
       encoding: 'utf-8',
       timeout: 30_000,
       maxBuffer: 5 * 1024 * 1024,

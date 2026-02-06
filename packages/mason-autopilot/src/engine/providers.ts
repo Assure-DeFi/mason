@@ -36,11 +36,19 @@ export const AVAILABLE_MODELS: Record<ProviderName, string[]> = {
 
 /**
  * Environment variable names for each provider.
+ * Google supports both GOOGLE_API_KEY and the AI SDK default GOOGLE_GENERATIVE_AI_API_KEY.
  */
 export const ENV_VAR_NAMES: Record<ProviderName, string> = {
   anthropic: 'ANTHROPIC_API_KEY',
   openai: 'OPENAI_API_KEY',
   google: 'GOOGLE_API_KEY',
+};
+
+/**
+ * Alternate env var names (checked as fallback).
+ */
+export const ENV_VAR_ALIASES: Partial<Record<ProviderName, string>> = {
+  google: 'GOOGLE_GENERATIVE_AI_API_KEY',
 };
 
 /**

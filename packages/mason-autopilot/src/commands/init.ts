@@ -103,7 +103,8 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     const hasEnvKey =
       process.env.ANTHROPIC_API_KEY ||
       process.env.OPENAI_API_KEY ||
-      process.env.GOOGLE_API_KEY;
+      process.env.GOOGLE_API_KEY ||
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
     if (hasEnvKey) {
       console.log('Detected API key in environment. Mason will use it automatically.');

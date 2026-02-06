@@ -211,15 +211,6 @@ export async function runCommand(
     };
   }
 
-  // Check for credentials
-  if (!hasClaudeCredentials()) {
-    return {
-      success: false,
-      error:
-        'Claude credentials not found. Run "claude setup-token" to authenticate.',
-    };
-  }
-
   if (config.verbose) {
     console.log(`  Running command: /${commandName}`);
     console.log(`  Repository: ${config.repositoryPath}`);
@@ -236,7 +227,9 @@ ${commandContent}`;
   // Path B: Multi-Provider Runtime (Vercel AI SDK)
   if (config.providerConfig) {
     if (config.verbose) {
-      console.log(`  Runtime: Multi-Provider (${config.providerConfig.provider}/${config.providerConfig.model})`);
+      console.log(
+        `  Runtime: Multi-Provider (${config.providerConfig.provider}/${config.providerConfig.model})`,
+      );
     }
 
     try {
@@ -273,6 +266,15 @@ ${commandContent}`;
   }
 
   // === Path A: Claude Agent SDK (existing) ===
+  // Credential check only needed for Claude SDK path
+  if (!hasClaudeCredentials()) {
+    return {
+      success: false,
+      error:
+        'No AI provider configured. Either run "claude setup-token" for Claude OAuth, set an API key environment variable (ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY), or add a key in Settings > AI Providers.',
+    };
+  }
+
   try {
     const messages: unknown[] = [];
 
@@ -397,14 +399,6 @@ export async function runCommandWithArgs(
     };
   }
 
-  if (!hasClaudeCredentials()) {
-    return {
-      success: false,
-      error:
-        'Claude credentials not found. Run "claude setup-token" to authenticate.',
-    };
-  }
-
   if (config.verbose) {
     console.log(`  Running command: /${commandName} ${args}`);
     console.log(`  Repository: ${config.repositoryPath}`);
@@ -423,7 +417,9 @@ Apply the arguments (${args}) as specified in the command.`;
   // Path B: Multi-Provider Runtime (Vercel AI SDK)
   if (config.providerConfig) {
     if (config.verbose) {
-      console.log(`  Runtime: Multi-Provider (${config.providerConfig.provider}/${config.providerConfig.model})`);
+      console.log(
+        `  Runtime: Multi-Provider (${config.providerConfig.provider}/${config.providerConfig.model})`,
+      );
     }
 
     try {
@@ -460,6 +456,15 @@ Apply the arguments (${args}) as specified in the command.`;
   }
 
   // === Path A: Claude Agent SDK (existing) ===
+  // Credential check only needed for Claude SDK path
+  if (!hasClaudeCredentials()) {
+    return {
+      success: false,
+      error:
+        'No AI provider configured. Either run "claude setup-token" for Claude OAuth, set an API key environment variable (ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY), or add a key in Settings > AI Providers.',
+    };
+  }
+
   try {
     const messages: unknown[] = [];
 
