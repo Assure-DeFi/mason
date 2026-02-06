@@ -359,6 +359,15 @@ ALTER TABLE mason_github_repositories ADD COLUMN IF NOT EXISTS user_id UUID REFE
 ALTER TABLE mason_pm_analysis_runs ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES mason_users(id) ON DELETE CASCADE;
 
+-- Add benefits column for existing databases (was in CREATE TABLE but not ALTER TABLE)
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS benefits JSONB DEFAULT '[]'::jsonb;
+
+-- Add PRD columns for existing databases
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS prd_content TEXT;
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS prd_generated_at TIMESTAMPTZ;
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS branch_name TEXT;
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS pr_url TEXT;
+
 -- Add risk analysis summary columns to backlog items (for quick access without joins)
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS risk_score INTEGER CHECK (risk_score IS NULL OR risk_score BETWEEN 1 AND 10);
 ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS risk_analyzed_at TIMESTAMPTZ;
