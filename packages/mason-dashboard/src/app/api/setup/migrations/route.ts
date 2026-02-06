@@ -736,6 +736,54 @@ GRANT EXECUTE ON FUNCTION bulk_retry_dlq(UUID[], INTEGER) TO anon;
 -- Add indexes for DLQ queries
 CREATE INDEX IF NOT EXISTS idx_autopilot_errors_retried ON mason_autopilot_errors(retried_at);
 CREATE INDEX IF NOT EXISTS idx_autopilot_errors_type ON mason_autopilot_errors(error_type);
+
+--------------------------------------------------------------------------------
+-- AI PROVIDER KEYS (BYOAK - Bring Your Own API Key)
+-- Stored in user's OWN Supabase database. Never touches Mason's servers.
+--------------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS mason_ai_provider_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES mason_users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL CHECK (provider IN ('anthropic', 'openai', 'google')),
+  api_key TEXT NOT NULL,
+  model TEXT,
+  label TEXT,
+  is_active BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, provider)
+);
+
+CREATE INDEX IF NOT EXISTS idx_mason_ai_provider_keys_user_id ON mason_ai_provider_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_mason_ai_provider_keys_active ON mason_ai_provider_keys(is_active) WHERE is_active = true;
+
+ALTER TABLE mason_ai_provider_keys ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_ai_provider_keys' AND policyname = 'Allow all on ai_provider_keys') THEN
+    CREATE POLICY "Allow all on ai_provider_keys" ON mason_ai_provider_keys FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Expand provider CHECK constraint for existing databases (add 'google')
+DO $$ BEGIN
+  ALTER TABLE mason_ai_provider_keys DROP CONSTRAINT IF EXISTS mason_ai_provider_keys_provider_check;
+  ALTER TABLE mason_ai_provider_keys ADD CONSTRAINT mason_ai_provider_keys_provider_check
+    CHECK (provider IN ('anthropic', 'openai', 'google'));
+EXCEPTION WHEN duplicate_object THEN
+  NULL;
+END $$;
+
+-- Add model, label, is_active columns for existing databases
+ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS model TEXT;
+ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS label TEXT;
+ALTER TABLE mason_ai_provider_keys ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false;
+
+-- Add active provider tracking to autopilot_config (daemon writes each cycle)
+ALTER TABLE mason_autopilot_config ADD COLUMN IF NOT EXISTS active_provider TEXT;
+ALTER TABLE mason_autopilot_config ADD COLUMN IF NOT EXISTS active_model TEXT;
+ALTER TABLE mason_autopilot_config ADD COLUMN IF NOT EXISTS provider_source TEXT;
 `;
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';

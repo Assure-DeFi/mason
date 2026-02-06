@@ -10,16 +10,18 @@ import { STORAGE_KEYS } from '@/lib/constants';
 import { CompleteStep } from './steps/CompleteStep';
 import { DatabaseStep } from './steps/DatabaseStep';
 import { GitHubStep } from './steps/GitHubStep';
+import { ProviderStep } from './steps/ProviderStep';
 import { RepoStep } from './steps/RepoStep';
 import { SupabaseConnectStep } from './steps/SupabaseConnectStep';
 import { WizardProgress } from './WizardProgress';
 
-// Streamlined setup flow: GitHub -> Supabase -> Repo -> Done
+// Streamlined setup flow: GitHub -> Supabase -> Repo -> AI Provider -> Done
 const WIZARD_STEPS = [
   { id: 1, name: 'GitHub', description: 'Connect your account' },
   { id: 2, name: 'Supabase', description: 'Connect your database' },
   { id: 3, name: 'Repository', description: 'Select a repo' },
-  { id: 4, name: 'Complete', description: 'Install the CLI' },
+  { id: 4, name: 'AI Provider', description: 'Choose your AI engine' },
+  { id: 5, name: 'Complete', description: 'Install the CLI' },
 ];
 
 // Legacy steps for manual setup flow (fallback when OAuth not available)
@@ -27,7 +29,8 @@ const LEGACY_WIZARD_STEPS = [
   { id: 1, name: 'GitHub', description: 'Connect your account' },
   { id: 2, name: 'Database', description: 'Enter credentials' },
   { id: 3, name: 'Repository', description: 'Select a repo' },
-  { id: 4, name: 'Complete', description: 'Install the CLI' },
+  { id: 4, name: 'AI Provider', description: 'Choose your AI engine' },
+  { id: 5, name: 'Complete', description: 'Install the CLI' },
 ];
 
 export interface WizardStepProps {
@@ -90,7 +93,7 @@ export function SetupWizard() {
 
   const renderStep = () => {
     if (useLegacyFlow) {
-      // Legacy flow: GitHub -> Manual DB -> Repo -> Complete
+      // Legacy flow: GitHub -> Manual DB -> Repo -> AI Provider -> Complete
       switch (currentStep) {
         case 1:
           return <GitHubStep onNext={handleNext} />;
@@ -99,13 +102,15 @@ export function SetupWizard() {
         case 3:
           return <RepoStep onNext={handleNext} onBack={handleBack} />;
         case 4:
+          return <ProviderStep onNext={handleNext} onBack={handleBack} />;
+        case 5:
           return <CompleteStep onNext={handleNext} onBack={handleBack} />;
         default:
           return null;
       }
     }
 
-    // Streamlined OAuth flow: GitHub -> Supabase (OAuth + auto-setup) -> Repo -> Complete
+    // Streamlined OAuth flow: GitHub -> Supabase -> Repo -> AI Provider -> Complete
     switch (currentStep) {
       case 1:
         return <GitHubStep onNext={handleNext} />;
@@ -114,6 +119,8 @@ export function SetupWizard() {
       case 3:
         return <RepoStep onNext={handleNext} onBack={handleBack} />;
       case 4:
+        return <ProviderStep onNext={handleNext} onBack={handleBack} />;
+      case 5:
         return <CompleteStep onNext={handleNext} onBack={handleBack} />;
       default:
         return null;

@@ -268,14 +268,17 @@ Real-time progress for dashboard (has Supabase realtime enabled).
 
 User's AI API keys (stored in user's own database).
 
-| Column     | Type        | Constraints                      | Description            |
-| ---------- | ----------- | -------------------------------- | ---------------------- |
-| id         | UUID        | PK                               |                        |
-| user_id    | UUID        | FK -> mason_users                |                        |
-| provider   | TEXT        | CHECK IN ('anthropic', 'openai') |                        |
-| api_key    | TEXT        | NOT NULL                         | Encrypted in user's DB |
-| created_at | TIMESTAMPTZ | DEFAULT NOW()                    |                        |
-| updated_at | TIMESTAMPTZ | DEFAULT NOW()                    |                        |
+| Column     | Type        | Constraints                                   | Description            |
+| ---------- | ----------- | --------------------------------------------- | ---------------------- |
+| id         | UUID        | PK                                            |                        |
+| user_id    | UUID        | FK -> mason_users                             |                        |
+| provider   | TEXT        | CHECK IN ('anthropic', 'openai', 'google')    |                        |
+| api_key    | TEXT        | NOT NULL                                      | Encrypted in user's DB |
+| model      | TEXT        |                                               | Model override         |
+| label      | TEXT        |                                               | Display label          |
+| is_active  | BOOLEAN     | DEFAULT false                                 | Active provider flag   |
+| created_at | TIMESTAMPTZ | DEFAULT NOW()                                 |                        |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW()                                 |                        |
 
 **Unique constraint**: (user_id, provider)
 

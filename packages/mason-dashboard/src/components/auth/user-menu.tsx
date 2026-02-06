@@ -9,6 +9,7 @@ import {
   BookOpen,
   HelpCircle,
   Bot,
+  Cpu,
 } from 'lucide-react';
 import Link from 'next/link';
 import { signOut, useSession } from 'next-auth/react';
@@ -118,6 +119,15 @@ export function UserMenu() {
             >
               <Key className="h-4 w-4" />
               API Keys
+            </Link>
+
+            <Link
+              href="/settings/ai-providers"
+              className="flex items-center gap-2 px-4 py-3 text-sm text-gray-300 hover:bg-gray-900"
+              onClick={() => setIsOpen(false)}
+            >
+              <Cpu className="h-4 w-4" />
+              AI Providers
             </Link>
 
             <Link

@@ -56,6 +56,9 @@ export const TABLES = {
 
   // Item event history tracking
   ITEM_EVENTS: 'mason_item_events',
+
+  // AI Provider keys (user's own DB - NEVER on central server)
+  AI_PROVIDER_KEYS: 'mason_ai_provider_keys',
 } as const;
 
 /**

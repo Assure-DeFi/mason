@@ -98,13 +98,22 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
 
   console.log('\nMason Autopilot - Quick Setup\n');
 
-  // Check for Claude credentials early
+  // Check for AI provider credentials early
   if (!hasClaudeCredentials()) {
-    console.log('Note: Claude credentials not found.');
-    console.log('Before running "mason-autopilot start", authenticate with:');
-    console.log('  claude setup-token');
-    console.log('');
-    console.log('This uses your Claude Pro Max subscription for API access.');
+    const hasEnvKey =
+      process.env.ANTHROPIC_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.GOOGLE_API_KEY;
+
+    if (hasEnvKey) {
+      console.log('Detected API key in environment. Mason will use it automatically.');
+    } else {
+      console.log('Note: No AI provider detected.');
+      console.log('Mason supports multiple providers:');
+      console.log('  Option A: Claude Max subscription - run "claude setup-token"');
+      console.log('  Option B: Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY in your environment');
+      console.log('  Option C: Add a key in the Mason Dashboard (Settings > AI Providers)');
+    }
     console.log('');
   }
 

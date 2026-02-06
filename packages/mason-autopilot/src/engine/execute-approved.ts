@@ -7,6 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { runCommandWithArgs, type AgentConfig } from './agent-runner';
+import type { ProviderConfig } from './providers';
 
 interface ExecuteConfig {
   userId: string;
@@ -16,6 +17,7 @@ interface ExecuteConfig {
   verbose: boolean;
   pauseOnFailure: boolean;
   autopilotConfigId: string;
+  providerConfig?: ProviderConfig;
 }
 
 interface ExecuteResult {
@@ -75,6 +77,7 @@ export async function executeApprovedItems(
     userId: config.userId,
     repositoryId: config.repositoryId,
     runId: run?.id,
+    providerConfig: config.providerConfig,
   };
 
   try {

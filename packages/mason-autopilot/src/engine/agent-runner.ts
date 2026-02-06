@@ -13,6 +13,9 @@ import { join } from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { runWithMultiProvider } from './multi-provider-agent.js';
+import type { ProviderConfig } from './providers.js';
+
 /**
  * Build a clean environment for the Claude subprocess.
  * Strips ANTHROPIC_API_KEY so Claude Code uses OAuth (Pro Max subscription)
@@ -40,6 +43,8 @@ export interface AgentConfig {
   userId: string;
   repositoryId: string;
   runId?: string;
+  /** If set, use multi-provider runtime instead of Claude Agent SDK */
+  providerConfig?: ProviderConfig;
 }
 
 /**
@@ -220,6 +225,54 @@ export async function runCommand(
     console.log(`  Repository: ${config.repositoryPath}`);
   }
 
+  // Build prompt with command content
+  const prompt = `You are executing the /${commandName} command.
+
+Follow these instructions exactly:
+
+${commandContent}`;
+
+  // === RUNTIME SELECTION ===
+  // Path B: Multi-Provider Runtime (Vercel AI SDK)
+  if (config.providerConfig) {
+    if (config.verbose) {
+      console.log(`  Runtime: Multi-Provider (${config.providerConfig.provider}/${config.providerConfig.model})`);
+    }
+
+    try {
+      const result = await runWithMultiProvider(prompt, config.providerConfig, {
+        cwd: config.repositoryPath,
+        verbose: config.verbose,
+        maxSteps: commandName === 'execute-approved' ? 500 : 200,
+        onHeartbeat: config.runId
+          ? async () => {
+              await config.supabase
+                .from('mason_autopilot_runs')
+                .update({ last_activity: new Date().toISOString() })
+                .eq('id', config.runId);
+            }
+          : undefined,
+      });
+
+      if (result.success) {
+        resetFailureCounter();
+      } else {
+        consecutiveFailures++;
+      }
+      return result;
+    } catch (error) {
+      consecutiveFailures++;
+      const errorInfo = extractErrorDetails(error);
+      return {
+        success: false,
+        error: errorInfo.message,
+        errorCode: errorInfo.code,
+        errorDetails: errorInfo.details,
+      };
+    }
+  }
+
+  // === Path A: Claude Agent SDK (existing) ===
   try {
     const messages: unknown[] = [];
 
@@ -236,13 +289,6 @@ export async function runCommand(
     if (config.verbose) {
       console.log(`  Claude executable: ${claudePath}`);
     }
-
-    // Build prompt with command content
-    const prompt = `You are executing the /${commandName} command.
-
-Follow these instructions exactly:
-
-${commandContent}`;
 
     // Execute via SDK with bypassPermissions for automation
     const result = query({
@@ -364,6 +410,56 @@ export async function runCommandWithArgs(
     console.log(`  Repository: ${config.repositoryPath}`);
   }
 
+  // Build prompt with args
+  const prompt = `You are executing the /${commandName} command with these arguments: ${args}
+
+Follow these instructions exactly:
+
+${commandContent}
+
+Apply the arguments (${args}) as specified in the command.`;
+
+  // === RUNTIME SELECTION ===
+  // Path B: Multi-Provider Runtime (Vercel AI SDK)
+  if (config.providerConfig) {
+    if (config.verbose) {
+      console.log(`  Runtime: Multi-Provider (${config.providerConfig.provider}/${config.providerConfig.model})`);
+    }
+
+    try {
+      const result = await runWithMultiProvider(prompt, config.providerConfig, {
+        cwd: config.repositoryPath,
+        verbose: config.verbose,
+        maxSteps: 500,
+        onHeartbeat: config.runId
+          ? async () => {
+              await config.supabase
+                .from('mason_autopilot_runs')
+                .update({ last_activity: new Date().toISOString() })
+                .eq('id', config.runId);
+            }
+          : undefined,
+      });
+
+      if (result.success) {
+        resetFailureCounter();
+      } else {
+        consecutiveFailures++;
+      }
+      return result;
+    } catch (error) {
+      consecutiveFailures++;
+      const errorInfo = extractErrorDetails(error);
+      return {
+        success: false,
+        error: errorInfo.message,
+        errorCode: errorInfo.code,
+        errorDetails: errorInfo.details,
+      };
+    }
+  }
+
+  // === Path A: Claude Agent SDK (existing) ===
   try {
     const messages: unknown[] = [];
 
@@ -380,15 +476,6 @@ export async function runCommandWithArgs(
     if (config.verbose) {
       console.log(`  Claude executable: ${claudePath}`);
     }
-
-    // Build prompt with args
-    const prompt = `You are executing the /${commandName} command with these arguments: ${args}
-
-Follow these instructions exactly:
-
-${commandContent}
-
-Apply the arguments (${args}) as specified in the command.`;
 
     const result = query({
       prompt,

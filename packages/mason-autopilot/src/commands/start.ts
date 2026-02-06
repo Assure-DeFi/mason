@@ -28,6 +28,8 @@ import {
 } from '../engine/agent-runner';
 import { executeApprovedItems } from '../engine/execute-approved';
 import { runPmReview } from '../engine/pm-review';
+import type { ProviderConfig, ProviderName } from '../engine/providers';
+import { ENV_VAR_NAMES, getProviderConfig } from '../engine/providers';
 import { NotificationDispatcher } from '../notifications/dispatcher';
 
 /**
@@ -213,19 +215,61 @@ async function autoApproveAllAutopilotItems(
   return count;
 }
 
+/** Active provider config, resolved at startup */
+let activeProviderConfig: ProviderConfig | undefined;
+
+/**
+ * Resolve which AI provider to use. Priority:
+ *   1. Claude Code OAuth (Agent SDK path)
+ *   2. Environment variable API keys
+ *   3. Keys stored in user's Supabase DB
+ */
+async function resolveProvider(
+  supabaseClient: SupabaseClient,
+  userId: string,
+): Promise<ProviderConfig | undefined> {
+  // 1. Claude Code OAuth - use Agent SDK path (returns undefined = use SDK)
+  if (hasClaudeCredentials()) {
+    return undefined;
+  }
+
+  // 2. Environment variables
+  const envProviders: ProviderName[] = ['anthropic', 'openai', 'google'];
+  for (const provider of envProviders) {
+    const envVar = ENV_VAR_NAMES[provider];
+    const key = process.env[envVar];
+    if (key) {
+      return getProviderConfig(provider, key, 'env_var');
+    }
+  }
+
+  // 3. Database-stored keys (from user's own Supabase)
+  try {
+    const { data } = await supabaseClient
+      .from('mason_ai_provider_keys')
+      .select('provider, api_key, model, is_active')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .limit(1)
+      .single();
+
+    if (data?.api_key) {
+      return getProviderConfig(
+        data.provider as ProviderName,
+        data.api_key,
+        'database',
+        data.model || undefined,
+      );
+    }
+  } catch {
+    // Table might not exist yet, or no active keys - continue
+  }
+
+  return undefined;
+}
+
 export async function startCommand(options: StartOptions): Promise<void> {
   const verbose = options.verbose ?? false;
-
-  // Check for Claude credentials (required for SDK)
-  if (!hasClaudeCredentials()) {
-    console.error('Claude credentials not found.');
-    console.error('');
-    console.error('Run this command to authenticate:');
-    console.error('  claude setup-token');
-    console.error('');
-    console.error('This uses your Claude Pro Max subscription for API access.');
-    process.exit(1);
-  }
 
   // Load local configuration
   if (!existsSync(CONFIG_FILE)) {
@@ -241,11 +285,31 @@ export async function startCommand(options: StartOptions): Promise<void> {
   console.log('='.repeat(40));
   console.log('Repository:', localConfig.repositoryPath);
   console.log('Supabase:', localConfig.supabaseUrl);
-  console.log('Auth: Claude Agent SDK');
-  console.log('');
 
   // Initialize Supabase client
   supabase = createClient(localConfig.supabaseUrl, localConfig.supabaseAnonKey);
+
+  // Resolve AI provider - we need userId first, so do a preliminary check
+  // Full resolution happens in the daemon cycle after we have userId from config
+  if (hasClaudeCredentials()) {
+    console.log('Runtime: Claude Agent SDK (OAuth)');
+  } else {
+    // Check environment variables for early display
+    const envProviders: ProviderName[] = ['anthropic', 'openai', 'google'];
+    let foundEnv = false;
+    for (const provider of envProviders) {
+      const envVar = ENV_VAR_NAMES[provider];
+      if (process.env[envVar]) {
+        console.log(`Runtime: Multi-Provider (${provider} via env var ${envVar})`);
+        foundEnv = true;
+        break;
+      }
+    }
+    if (!foundEnv) {
+      console.log('Runtime: Will resolve from database keys...');
+    }
+  }
+  console.log('');
 
   // Start the main loop
   isRunning = true;
@@ -348,6 +412,27 @@ async function runDaemonCycle(verbose: boolean): Promise<void> {
 
     // 2. Update heartbeat
     await updateHeartbeat(config.id);
+
+    // Resolve AI provider for this cycle
+    activeProviderConfig = await resolveProvider(supabase, config.user_id);
+
+    // Write active provider info to autopilot_config for dashboard visibility
+    const providerInfo = activeProviderConfig
+      ? {
+          active_provider: activeProviderConfig.provider,
+          active_model: activeProviderConfig.model,
+          provider_source: activeProviderConfig.source,
+        }
+      : {
+          active_provider: 'claude',
+          active_model: 'claude-agent-sdk',
+          provider_source: 'claude_oauth',
+        };
+
+    await supabase
+      .from('mason_autopilot_config')
+      .update(providerInfo)
+      .eq('id', config.id);
 
     // === PHASE 1: Daily generation (schedule-triggered) ===
     if (config.schedule_cron && shouldRunSchedule(config.schedule_cron)) {
@@ -574,6 +659,7 @@ async function runPmReviewHandler(
     repositoryPath: localConfig.repositoryPath,
     verbose,
     itemLimit,
+    providerConfig: activeProviderConfig,
   });
 
   if (!result.success) {
@@ -655,6 +741,7 @@ async function executeApprovedItemsHandler(
     verbose,
     pauseOnFailure: config.guardian_rails.pauseOnFailure,
     autopilotConfigId: config.id,
+    providerConfig: activeProviderConfig,
   });
 
   if (!result.success && result.error) {

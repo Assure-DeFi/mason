@@ -11,6 +11,7 @@ import {
   runCommandWithArgs,
   type AgentConfig,
 } from './agent-runner';
+import type { ProviderConfig } from './providers';
 
 interface PmReviewConfig {
   userId: string;
@@ -18,6 +19,7 @@ interface PmReviewConfig {
   repositoryPath: string;
   verbose: boolean;
   itemLimit?: number;
+  providerConfig?: ProviderConfig;
 }
 
 interface PmReviewResult {
@@ -59,6 +61,7 @@ export async function runPmReview(
     userId: config.userId,
     repositoryId: config.repositoryId,
     runId: run?.id,
+    providerConfig: config.providerConfig,
   };
 
   try {

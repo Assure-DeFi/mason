@@ -32,12 +32,17 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^1.0.0",
+    "@ai-sdk/google": "^1.0.0",
+    "@ai-sdk/openai": "^1.0.0",
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
     "@supabase/supabase-js": "^2.39.0",
+    "ai": "^4.0.0",
     "commander": "^12.0.0",
     "cron-parser": "^4.9.0",
     "enquirer": "^2.4.1",
-    "ora": "^8.0.1"
+    "ora": "^8.0.1",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
