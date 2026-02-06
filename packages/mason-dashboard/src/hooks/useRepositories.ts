@@ -27,8 +27,6 @@ export function useRepositories(): UseRepositoriesResult {
   const { data, error, isLoading, mutate, isValidating } = useSWR<{
     repositories: GitHubRepository[];
   }>(CACHE_KEYS.REPOSITORIES, fetcher, {
-    // Repositories don't change often - cache for 5 minutes before revalidating
-    dedupingInterval: 5 * 60 * 1000,
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
   });

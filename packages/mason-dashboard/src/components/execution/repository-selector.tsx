@@ -10,7 +10,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { useRepositories } from '@/hooks/useRepositories';
@@ -56,17 +56,14 @@ export function RepositorySelector({
   onChange,
   compact = false,
 }: RepositorySelectorProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const {
-    repositories,
-    isLoading,
-    error,
-    mutate,
-    isValidating,
-  } = useRepositories();
+  const { repositories, isLoading, error, mutate, isValidating } =
+    useRepositories();
   const [isOpen, setIsOpen] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const hasRefreshedRef = useRef(false);
 
   // Refresh trigger from URL param (e.g., after setup wizard completion)
   const refreshTrigger = searchParams.get('refresh');
@@ -111,11 +108,20 @@ export function RepositorySelector({
   );
 
   // Re-fetch when refreshTrigger changes (e.g., after setup wizard completion)
+  // Delay slightly to avoid racing with the initial SWR fetch on mount,
+  // then clean the URL param so it doesn't re-trigger on future renders
   useEffect(() => {
-    if (refreshTrigger) {
-      void mutate();
+    if (refreshTrigger && !hasRefreshedRef.current) {
+      hasRefreshedRef.current = true;
+      const timer = setTimeout(() => {
+        void mutate().then(() => {
+          // Clean the URL param after successful refresh
+          router.replace('/admin/backlog', { scroll: false });
+        });
+      }, 300);
+      return () => clearTimeout(timer);
     }
-  }, [refreshTrigger, mutate]);
+  }, [refreshTrigger, mutate, router]);
 
   // Auto-select repository when data loads
   useEffect(() => {

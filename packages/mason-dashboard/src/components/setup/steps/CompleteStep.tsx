@@ -17,6 +17,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 import { MasonTagline } from '@/components/brand';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { invalidateRepositories } from '@/hooks/useRepositories';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
 import { TABLES } from '@/lib/constants';
 import { saveMasonConfig, getMasonConfig } from '@/lib/supabase/user-client';
@@ -174,7 +175,9 @@ export function CompleteStep({ onBack }: WizardStepProps) {
     URL.revokeObjectURL(url);
   }, [generateConfigContent]);
 
-  const handleGoToDashboard = () => {
+  const handleGoToDashboard = async () => {
+    // Clear stale SWR cache so the backlog page fetches fresh repo data
+    await invalidateRepositories();
     router.push('/admin/backlog?refresh=repos');
   };
 
