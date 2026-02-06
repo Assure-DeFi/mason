@@ -18,6 +18,12 @@ import { createServiceClient } from '@/lib/supabase/client';
  * Requires explicit confirmation to prevent accidental deletion.
  * Body must contain: { confirmation: "DELETE MY ACCOUNT" }
  *
+ * Before deleting, increments lifetime counters on mason_stats so the admin
+ * can always answer "how many users/repos have ever used Mason" even after
+ * all PII is wiped. Formula:
+ *   total_users_ever  = SELECT count(*) FROM mason_users + stats.deleted_users_count
+ *   total_repos_ever  = SELECT count(*) FROM mason_github_repositories + stats.deleted_repos_count
+ *
  * This deletes the user from the central Mason database.
  * Cascading deletes handle mason_api_keys and mason_github_repositories.
  *
@@ -44,6 +50,33 @@ export async function POST(request: Request) {
     console.log(
       `Account deletion initiated for user ${session.user.id} at ${new Date().toISOString()}`,
     );
+
+    // Increment lifetime stats BEFORE cascade delete wipes the repos
+    // Best-effort: don't block deletion if stats table doesn't exist yet
+    try {
+      const { count: repoCount } = await supabase
+        .from(TABLES.GITHUB_REPOSITORIES)
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', session.user.id);
+
+      const { data: currentStats } = await supabase
+        .from(TABLES.STATS)
+        .select('deleted_users_count, deleted_repos_count')
+        .eq('id', 'global')
+        .single();
+
+      await supabase.from(TABLES.STATS).upsert({
+        id: 'global',
+        deleted_users_count: (currentStats?.deleted_users_count ?? 0) + 1,
+        deleted_repos_count:
+          (currentStats?.deleted_repos_count ?? 0) + (repoCount ?? 0),
+        last_deletion_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    } catch (statsError) {
+      // Stats tracking is best-effort - never block account deletion
+      console.warn('Failed to update lifetime stats:', statsError);
+    }
 
     // Delete user from central database
     // Foreign key constraints with ON DELETE CASCADE will handle:

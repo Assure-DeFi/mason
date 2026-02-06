@@ -59,6 +59,9 @@ export const TABLES = {
 
   // AI Provider keys (user's own DB - NEVER on central server)
   AI_PROVIDER_KEYS: 'mason_ai_provider_keys',
+
+  // Aggregate stats (central DB only - tracks lifetime counters after account deletions)
+  STATS: 'mason_stats',
 } as const;
 
 /**

@@ -13,6 +13,11 @@ export const FEATURE_FLAGS = {
    * Add email addresses here to grant access.
    */
   AUTOPILOT_BETA_USERS: ['chapo@assuredefi.com'],
+
+  /**
+   * Users who can see admin-only sections (lifetime stats, etc.)
+   */
+  ADMIN_USERS: ['chapo@assuredefi.com'],
 } as const;
 
 /**
@@ -30,6 +35,16 @@ export function canAccessAutopilot(
   return (FEATURE_FLAGS.AUTOPILOT_BETA_USERS as readonly string[]).includes(
     userEmail,
   );
+}
+
+/**
+ * Check if a user is an admin.
+ */
+export function isAdmin(userEmail: string | null | undefined): boolean {
+  if (!userEmail) {
+    return false;
+  }
+  return (FEATURE_FLAGS.ADMIN_USERS as readonly string[]).includes(userEmail);
 }
 
 /**

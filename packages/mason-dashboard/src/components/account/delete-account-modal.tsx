@@ -12,7 +12,7 @@ import {
 import { signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 
-import { STORAGE_KEYS, TABLES } from '@/lib/constants';
+import { STORAGE_KEYS } from '@/lib/constants';
 import { runDatabaseQuery } from '@/lib/supabase/management-api';
 import {
   getOAuthSession,
@@ -39,16 +39,21 @@ interface DeleteAccountModalProps {
 
 const CONFIRMATION_PHRASE = 'DELETE MY ACCOUNT';
 
-// Tables to delete in correct order (respecting foreign key constraints)
-const DELETE_ORDER = [
-  TABLES.EXECUTION_PROGRESS,
-  TABLES.PM_FILTERED_ITEMS,
-  TABLES.PM_BACKLOG_ITEMS,
-  TABLES.PM_ANALYSIS_RUNS,
-  TABLES.API_KEYS,
-  TABLES.GITHUB_REPOSITORIES,
-  TABLES.USERS,
-];
+// SQL to delete all Mason data - dynamically discovers tables so it never
+// fails on missing tables, and CASCADE handles FK constraints automatically
+const DELETE_ALL_MASON_SQL = `
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOR t IN
+    SELECT table_name FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name LIKE 'mason_%'
+  LOOP
+    EXECUTE format('TRUNCATE TABLE %I CASCADE', t);
+  END LOOP;
+END $$;
+`;
 
 export function DeleteAccountModal({
   isOpen,
@@ -154,16 +159,15 @@ export function DeleteAccountModal({
       }
     }
 
-    // Delete all Mason tables in order
+    // Delete all Mason data in a single query
+    // Dynamically discovers all mason_* tables so it never fails on missing tables
     try {
-      for (const table of DELETE_ORDER) {
-        await runDatabaseQuery(
-          accessToken,
-          oauthSession.selectedProjectRef,
-          `DELETE FROM ${table};`,
-          false,
-        );
-      }
+      await runDatabaseQuery(
+        accessToken,
+        oauthSession.selectedProjectRef,
+        DELETE_ALL_MASON_SQL,
+        false,
+      );
       return { success: true };
     } catch (error) {
       return {

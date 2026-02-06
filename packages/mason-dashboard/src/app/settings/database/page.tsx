@@ -19,8 +19,10 @@ import { useSession } from 'next-auth/react';
 import { useState, useEffect, Suspense } from 'react';
 
 import { DeleteAccountModal } from '@/components/account/delete-account-modal';
+import { AdminStatsPanel } from '@/components/admin/admin-stats-panel';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
+import { isAdmin } from '@/lib/feature-flags';
 import {
   listProjects,
   type SupabaseProject,
@@ -815,6 +817,9 @@ function DatabaseSettingsContent() {
               </Link>
             </div>
           </div>
+
+          {/* Admin Stats - owner only */}
+          {isAdmin(session?.user?.github_email) && <AdminStatsPanel />}
 
           {/* Danger Zone */}
           <div className="mt-8 rounded-lg border border-red-900/50 bg-red-950/20 p-6">
