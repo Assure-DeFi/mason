@@ -26,10 +26,10 @@
       "breaking_reason": "Fix API response parsing - use .data.user_id instead of .user_id"
     },
     "execute-approved": {
-      "version": "2.11.0",
+      "version": "2.12.0",
       "file_path": "commands/execute-approved.md",
-      "required_minimum": "2.11.0",
-      "breaking_reason": "Mandatory E2E screenshot validation for autopilot - --auto always implies --e2e with webapp-testing screenshots"
+      "required_minimum": "2.12.0",
+      "breaking_reason": "Full E2E: UI screenshots + API endpoint testing + navigation flow testing (was screenshots-only)"
     },
     "mason-update": {
       "version": "2.1.0",

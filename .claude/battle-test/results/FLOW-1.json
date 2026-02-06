@@ -1,11 +1,11 @@
 {
   "agent_id": "FLOW-1",
-  "completed_at": "2026-02-02T16:32:02.764Z",
+  "completed_at": "2026-02-06T03:17:15.996Z",
   "summary": {
     "flows_tested": 4,
-    "flows_passed": 4,
-    "flows_failed": 0,
-    "issues_found": 0
+    "flows_passed": 3,
+    "flows_failed": 1,
+    "issues_found": 1
   },
   "flows": [
     {
@@ -14,9 +14,8 @@
       "steps": [
         {
           "action": "goto /",
-          "result": "Loaded, current URL: http://localhost:3000/login?redirect=%2F",
-          "status": "pass",
-          "screenshot": "/tmp/flow1_landing.png"
+          "result": "shows landing page",
+          "status": "pass"
         }
       ],
       "issues": []
@@ -27,35 +26,36 @@
       "steps": [
         {
           "action": "goto /auth/signin",
-          "result": "Page loaded",
+          "result": "page loaded",
           "status": "pass"
         },
         {
-          "action": "Check for GitHub sign-in button",
+          "action": "check for GitHub button",
           "result": "GitHub sign-in button found",
           "status": "pass"
-        },
-        {
-          "action": "Check page loads without errors",
-          "result": "No console errors",
-          "status": "pass",
-          "screenshot": "/tmp/flow2_auth.png"
         }
       ],
       "issues": []
     },
     {
       "name": "Protected Route Redirect",
-      "status": "pass",
+      "status": "fail",
       "steps": [
         {
-          "action": "goto /admin/backlog (without auth)",
-          "result": "Shows auth prompt (correct behavior)",
-          "status": "pass",
-          "screenshot": "/tmp/flow3_protected.png"
+          "action": "goto /admin/backlog without auth",
+          "result": "no redirect and no auth prompt",
+          "status": "fail"
         }
       ],
-      "issues": []
+      "issues": [
+        {
+          "type": "broken_navigation",
+          "severity": "critical",
+          "description": "Protected route accessible without auth or prompt",
+          "step": "goto /admin/backlog without auth",
+          "screenshot": "/tmp/flow3_protected.png"
+        }
+      ]
     },
     {
       "name": "Settings Navigation",
@@ -63,19 +63,18 @@
       "steps": [
         {
           "action": "goto /settings/database",
-          "result": "Loaded, URL: http://localhost:3000/login?redirect=%2Fsettings%2Fdatabase",
+          "result": "page loaded successfully",
           "status": "pass"
         },
         {
           "action": "goto /settings/github",
-          "result": "Loaded, URL: http://localhost:3000/login?redirect=%2Fsettings%2Fgithub",
+          "result": "page loaded successfully",
           "status": "pass"
         },
         {
           "action": "goto /settings/api-keys",
-          "result": "Loaded, URL: http://localhost:3000/login?redirect=%2Fsettings%2Fapi-keys",
-          "status": "pass",
-          "screenshot": "/tmp/flow4_settings.png"
+          "result": "page loaded successfully",
+          "status": "pass"
         }
       ],
       "issues": []

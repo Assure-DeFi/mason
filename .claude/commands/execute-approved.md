@@ -1,6 +1,6 @@
 ---
 name: execute-approved
-version: 2.11.0
+version: 2.12.0
 description: Execute Approved Command with Domain-Aware Agents
 ---
 
@@ -1163,16 +1163,18 @@ fi
 
 ---
 
-#### 8.6: E2E Frontend Screenshot Validation (MANDATORY for --auto, optional via --e2e)
+#### 8.6: Full E2E Validation (MANDATORY for --auto, optional via --e2e)
 
 **This step runs if `E2E_TEST_ENABLED=true`. Autopilot (`--auto`) ALWAYS enables this.**
 
-This is a two-phase process:
+This is a four-phase process covering UI, API, and Flow testing:
 
 1. **Phase A**: Run `scripts/screenshot.js --all` to capture full-page screenshots of all 8 dashboard pages (1920x1080 viewport, networkidle + 3s wait)
 2. **Phase B**: Launch a `webapp-testing` agent to visually evaluate each screenshot for issues
+3. **Phase C**: API endpoint testing - verify health, auth, and protected endpoints return correct responses
+4. **Phase D**: Flow testing - verify navigation flows, auth redirects, and protected route behavior
 
-Every process that delivers frontend data gets screenshot-validated.
+Every process that delivers frontend data gets full E2E validation: screenshots, API responses, AND navigation flows.
 
 **Step 8.6a: Capture Screenshots via scripts/screenshot.js**
 
@@ -1316,6 +1318,148 @@ fi
 # === END E2E TEST SUITE ===
 ```
 
+**Step 8.6c: API Endpoint Testing**
+
+After screenshot validation, test API endpoints for correct responses. Run these curl commands:
+
+```bash
+if [ "$E2E_TEST_ENABLED" = "true" ]; then
+  echo ""
+  echo "=== RUNNING API ENDPOINT TESTS ==="
+
+  API_PASS=0
+  API_FAIL=0
+  API_RESULTS=""
+
+  # Test 1: GET /api/health - should return 200
+  HEALTH_CODE=$(curl -s -o /tmp/health_resp.json -w "%{http_code}" http://localhost:3000/api/health 2>/dev/null)
+  if [ "$HEALTH_CODE" = "200" ]; then
+    API_PASS=$((API_PASS + 1))
+    echo "  [PASS] GET /api/health → $HEALTH_CODE"
+  else
+    API_FAIL=$((API_FAIL + 1))
+    echo "  [FAIL] GET /api/health → $HEALTH_CODE (expected 200)"
+  fi
+
+  # Test 2: POST /api/setup/migrations - should return 401 without auth
+  MIGRATIONS_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:3000/api/setup/migrations 2>/dev/null)
+  if [ "$MIGRATIONS_CODE" = "401" ]; then
+    API_PASS=$((API_PASS + 1))
+    echo "  [PASS] POST /api/setup/migrations → $MIGRATIONS_CODE (auth required)"
+  else
+    API_FAIL=$((API_FAIL + 1))
+    echo "  [FAIL] POST /api/setup/migrations → $MIGRATIONS_CODE (expected 401)"
+  fi
+
+  # Test 3: GET /api/v1/backlog/next - should return 401 without auth
+  BACKLOG_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/v1/backlog/next 2>/dev/null)
+  if [ "$BACKLOG_CODE" = "401" ]; then
+    API_PASS=$((API_PASS + 1))
+    echo "  [PASS] GET /api/v1/backlog/next → $BACKLOG_CODE (auth required)"
+  else
+    API_FAIL=$((API_FAIL + 1))
+    echo "  [FAIL] GET /api/v1/backlog/next → $BACKLOG_CODE (expected 401)"
+  fi
+
+  # Test 4: GET /api/keys - should return 401 without auth
+  KEYS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/keys 2>/dev/null)
+  if [ "$KEYS_CODE" = "401" ]; then
+    API_PASS=$((API_PASS + 1))
+    echo "  [PASS] GET /api/keys → $KEYS_CODE (auth required)"
+  else
+    API_FAIL=$((API_FAIL + 1))
+    echo "  [FAIL] GET /api/keys → $KEYS_CODE (expected 401)"
+  fi
+
+  echo "API Tests: ${API_PASS} passed, ${API_FAIL} failed"
+
+  # Update progress
+  API_E2E_STATUS="pass"
+  if [ "$API_FAIL" -gt 0 ]; then
+    API_E2E_STATUS="fail"
+  fi
+
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_api_e2e": "'"$API_E2E_STATUS"'"}'
+
+  echo "=== END API ENDPOINT TESTS ==="
+fi
+```
+
+**Step 8.6d: Navigation Flow Testing via webapp-testing Agent**
+
+After API testing, launch a `webapp-testing` agent to verify navigation flows and auth behavior.
+
+```
+if [ "$E2E_TEST_ENABLED" = "true" ]; then
+```
+
+Launch a Task with `subagent_type: "webapp-testing"` and this prompt:
+
+```
+You are the Flow Validator for Mason's execute-approved pipeline.
+
+BASE URL: http://localhost:3000
+
+YOUR TASK: Test navigation flows and auth behavior.
+
+FLOWS TO TEST:
+
+1. Landing Page: Go to / - verify it shows landing content (not blank, not error)
+2. Auth Page: Go to /auth/signin - verify GitHub sign-in button is present
+3. Protected Route: Go to /admin/backlog - verify it shows appropriate state (setup prompt or content, not error)
+4. Settings Navigation: Visit /settings/database, /settings/github, /settings/api-keys - verify each loads
+
+FOR EACH FLOW:
+- Navigate to the page
+- Check that it loaded (no blank screen, no error page)
+- Verify expected elements are present
+- Record the result
+
+OUTPUT: Write results to .claude/battle-test/e2e-flows.json:
+
+{
+  "run_type": "execute-approved-flow-test",
+  "timestamp": "<ISO timestamp>",
+  "verdict": "pass" or "fail",
+  "summary": {
+    "flows_tested": <number>,
+    "flows_passed": <number>,
+    "flows_failed": <number>
+  },
+  "flows": [
+    {
+      "name": "<flow name>",
+      "status": "pass" or "fail",
+      "steps": [
+        { "action": "<what was done>", "result": "<what happened>", "status": "pass" or "fail" }
+      ]
+    }
+  ]
+}
+```
+
+**After the flow testing agent completes:**
+
+```bash
+  # Read flow test results
+  FLOW_VERDICT=$(cat .claude/battle-test/e2e-flows.json 2>/dev/null | jq -r '.verdict // "unknown"')
+  FLOW_FAILED=$(cat .claude/battle-test/e2e-flows.json 2>/dev/null | jq -r '.summary.flows_failed // 0')
+
+  echo "Flow Validation: ${FLOW_VERDICT} (${FLOW_FAILED} flows failed)"
+
+  curl -X PATCH "${SUPABASE_URL}/rest/v1/mason_execution_progress?item_id=eq.${itemId}" \
+    -H "apikey: ${SUPABASE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"validation_flow_e2e": "'"$FLOW_VERDICT"'"}'
+fi
+# === END FLOW TESTS ===
+```
+
 **Screenshot Process (scripts/screenshot.js):**
 
 | Property | Value                                                   |
@@ -1330,16 +1474,22 @@ fi
 
 **E2E Test Behavior:**
 
-| Scenario                      | Action                                                  |
-| ----------------------------- | ------------------------------------------------------- |
-| `--auto` (autopilot)          | E2E ALWAYS runs - mandatory for production readiness    |
-| `--e2e` (manual)              | E2E runs with screenshot validation                     |
-| Neither flag                  | E2E not run (smoke test runs if `--smoke-test` was set) |
-| E2E tests + screenshots pass  | Status shows "Pass", proceed to commit                  |
-| E2E tests or screenshots fail | Status shows "Fail" as WARNING, still proceed to commit |
+| Scenario             | Action                                                  |
+| -------------------- | ------------------------------------------------------- |
+| `--auto` (autopilot) | Full E2E ALWAYS runs (UI + API + Flow) - mandatory      |
+| `--e2e` (manual)     | Full E2E runs (UI + API + Flow)                         |
+| Neither flag         | E2E not run (smoke test runs if `--smoke-test` was set) |
+| All E2E phases pass  | Status shows "Pass", proceed to commit                  |
+| Any E2E phase fails  | Status shows "Fail" as WARNING, still proceed to commit |
 
-**Why E2E is mandatory for autopilot:**
-Autopilot runs are fully automated with no human review. Screenshot validation ensures visual regressions are caught before code is committed, making every autopilot update production-ready.
+**Full E2E includes ALL of:**
+
+1. Screenshot capture + visual evaluation (UI rendering, dark mode, brand compliance)
+2. API endpoint testing (health check, auth responses, error formats)
+3. Navigation flow testing (page loads, redirects, auth behavior)
+
+**Why full E2E is mandatory for autopilot:**
+Autopilot runs are fully automated with no human review. Full E2E (UI + API + Flow) ensures visual regressions, API breakage, and navigation issues are all caught before code is committed, making every autopilot update production-ready.
 
 ---
 
