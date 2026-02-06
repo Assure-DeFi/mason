@@ -123,9 +123,9 @@ Example: `startHour: 22, endHour: 6` = Only run between 10 PM and 6 AM.
 │                                                             │
 │  mason-autopilot (this package)                             │
 │  ├── Polls Supabase for config every 5 min                  │
-│  ├── Runs `claude -p "/pm-review --auto"` on schedule       │
+│  ├── Runs `claude --dangerously-skip-permissions -p "/pm-review --auto"` │
 │  ├── Auto-approves items matching rules                     │
-│  ├── Runs `claude -p "/execute-approved --auto"`            │
+│  ├── Runs `claude --dangerously-skip-permissions -p "/execute-approved --auto"` │
 │  └── Reports status back to Supabase                        │
 │                           │                                 │
 │                           ▼                                 │

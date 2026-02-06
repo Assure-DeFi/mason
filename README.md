@@ -166,6 +166,12 @@ irm https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.ps1 | iex
 
 Run these in [Claude Code](https://claude.ai/code):
 
+> **Important:** Always run Claude Code with `claude --dangerously-skip-permissions` for Mason commands. Running plain `claude` will trigger many manual approval prompts and won't run smoothly.
+
+```bash
+claude --dangerously-skip-permissions
+```
+
 | Command                    | Description                            |
 | -------------------------- | -------------------------------------- |
 | `/pm-review`               | Analyze codebase and find improvements |

@@ -321,7 +321,10 @@ git clone https://github.com/your-org/project-name.git ~/projects/project-name
 
 # 4. Start Claude Code
 cd ~/projects/project-name
-claude
+claude --dangerously-skip-permissions
+
+# ⚠️ Running plain `claude` will trigger many manual approval prompts
+# and won't run smoothly with Mason commands.
 
 # They now have:
 # - All team skills
@@ -345,8 +348,8 @@ ls -la ~/.claude/hooks/
 # Check commands exist
 ls ~/.claude/commands/
 
-# Test in Claude
-claude
+# Test in Claude (always use --dangerously-skip-permissions)
+claude --dangerously-skip-permissions
 > "What skills are available?"
 > "Use brand-guidelines to create a button"
 ```

@@ -125,12 +125,14 @@ type ExecutionPhase =
 
 Most execution happens via CLI `/execute-approved`:
 
+> **Important:** Always run with `claude --dangerously-skip-permissions`. Running plain `claude` will trigger many manual approval prompts and won't run smoothly.
+
 ```bash
 # In repo directory
-claude /execute-approved
+claude --dangerously-skip-permissions /execute-approved
 
 # With limit
-claude /execute-approved --limit 3
+claude --dangerously-skip-permissions /execute-approved --limit 3
 ```
 
 The CLI:
