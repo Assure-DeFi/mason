@@ -1,6 +1,6 @@
 ---
 name: pm-banger
-version: 3.3.0
+version: 3.4.0
 description: Generate ONE game-changing feature idea with deep analysis
 ---
 
@@ -367,11 +367,20 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
 
 ### Insert Banger Item
 
+**CRITICAL FIELD CONSTRAINTS (violating these causes silent insert failure):**
+
+- `area`: MUST be exactly `"frontend"` or `"backend"` (no other values)
+- `type`: MUST be one of: `"feature"`, `"ui"`, `"ux"`, `"api"`, `"data"`, `"security"`, `"performance"`, `"code-quality"`
+- `complexity`: integer 1-5
+- `impact_score`: integer 1-10
+- `effort_score`: integer 1-10
+
 ```bash
-curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
   -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
   -d '[{
     "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
     "repository_id": "'${REPOSITORY_ID}'",
@@ -380,7 +389,7 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
     "problem": "[Problem statement]",
     "solution": "[Solution description]",
     "type": "feature",
-    "area": "[Affected area]",
+    "area": "frontend or backend ONLY",
     "impact_score": [8-10],
     "effort_score": [effort],
     "complexity": [1-5],
@@ -397,7 +406,19 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
     "risk_rationale": "2-3 sentence explanation...",
     "risk_analyzed_at": "'${TIMESTAMP}'",
     "evidence_status": "verified"
-  }]'
+  }]')
+
+HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+
+if [ "$HTTP_CODE" != "201" ]; then
+  echo "ERROR: Insert failed with HTTP $HTTP_CODE"
+  echo "Response: $BODY"
+  echo "HARD STOP: Item was NOT saved to database. Check field constraints above."
+  exit 1
+fi
+
+echo "SUCCESS: Banger item inserted (HTTP $HTTP_CODE)"
 ```
 
 ---

@@ -1,6 +1,6 @@
 ---
 name: pm-quick
-version: 3.3.0
+version: 3.4.0
 description: Quick pulse check - 9 items (8 regular + 1 banger)
 ---
 
@@ -344,11 +344,20 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_analysis_runs" \
 
 ### Insert Items
 
+**CRITICAL FIELD CONSTRAINTS (violating these causes silent insert failure for ALL items):**
+
+- `area`: MUST be exactly `"frontend"` or `"backend"` (no other values)
+- `type`: MUST be one of: `"feature"`, `"ui"`, `"ux"`, `"api"`, `"data"`, `"security"`, `"performance"`, `"code-quality"`
+- `complexity`: integer 1-5
+- `impact_score`: integer 1-10
+- `effort_score`: integer 1-10
+
 ```bash
-curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
   -H "apikey: ${supabaseAnonKey}" \
   -H "Authorization: Bearer ${supabaseAnonKey}" \
   -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
   -d '[
     {
       "analysis_run_id": "'${ANALYSIS_RUN_ID}'",
@@ -358,7 +367,7 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
       "problem": "...",
       "solution": "...",
       "type": "...",
-      "area": "...",
+      "area": "frontend or backend ONLY",
       "impact_score": X,
       "effort_score": X,
       "complexity": X,
@@ -377,7 +386,19 @@ curl -s -X POST "${supabaseUrl}/rest/v1/mason_pm_backlog_items" \
       "evidence_status": "verified"
     }
     // ... 9 items total
-  ]'
+  ]')
+
+HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+
+if [ "$HTTP_CODE" != "201" ]; then
+  echo "ERROR: Insert failed with HTTP $HTTP_CODE"
+  echo "Response: $BODY"
+  echo "HARD STOP: Items were NOT saved to database. Check field constraints above."
+  exit 1
+fi
+
+echo "SUCCESS: All items inserted (HTTP $HTTP_CODE)"
 ```
 
 ---

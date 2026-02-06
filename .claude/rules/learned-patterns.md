@@ -731,3 +731,29 @@ KEY_DATA=$(curl -s "${supabaseUrl}/rest/v1/mason_api_keys?key_hash=eq.${KEY_HASH
 
 The setup wizard (RepoStep) already did dual-write. Settings > GitHub page was missing the user DB write.
 **Why**: CLI commands validate locally against user's Supabase. If repos only exist in central DB, CLI shows "REPOSITORY NOT CONNECTED".
+
+---
+
+## Supabase REST API: Always Validate Insert Response
+
+**Discovered**: 2026-02-06
+**Context**: pm-banger reported success but item never appeared in dashboard. `curl -s` silently swallowed the Supabase error response.
+**Pattern**: When inserting via Supabase REST API, ALWAYS capture and validate the HTTP response:
+
+```bash
+# BAD: Silent failure - no response check
+curl -s -X POST "${url}/rest/v1/table" -d '[{...}]'
+
+# GOOD: Capture HTTP code and body, exit on failure
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${url}/rest/v1/table" \
+  -H "Prefer: return=representation" -d '[{...}]')
+HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+[ "$HTTP_CODE" != "201" ] && echo "ERROR: HTTP $HTTP_CODE" && exit 1
+```
+
+Also document CHECK constraints inline in the command template so agents know valid values:
+
+- `area`: MUST be `"frontend"` or `"backend"` (DB CHECK constraint)
+- `type`: MUST be one of the 8 category values (DB CHECK constraint)
+
+**Why**: PostgREST returns 400 on constraint violations (invalid area, type, score ranges). Without response validation, commands report false success while the insert silently fails.
