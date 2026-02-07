@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ArrowLeft,
   Eye,
   EyeOff,
   Loader2,
@@ -290,7 +289,7 @@ export default function AiProvidersPage() {
   // Loading / auth guards
   if (status === 'loading' || isLoading || isDbLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-navy">
+      <div className="flex items-center justify-center py-20">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
       </div>
     );
@@ -302,36 +301,27 @@ export default function AiProvidersPage() {
 
   if (!isConfigured) {
     return (
-      <div className="min-h-screen bg-navy">
-        <div className="mx-auto max-w-4xl px-4 py-8">
-          <div className="mb-8">
-            <Link
-              href="/admin/backlog"
-              className="mb-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Backlog
-            </Link>
-            <h1 className="text-2xl font-bold text-white">AI Providers</h1>
-          </div>
-          <div className="rounded-lg border border-gray-800 bg-black/50 p-8 text-center">
-            <Database className="mx-auto mb-4 h-16 w-16 text-gray-600" />
-            <h2 className="mb-2 text-xl font-semibold text-white">
-              Database Not Configured
-            </h2>
-            <p className="mb-6 text-gray-400">
-              Complete the setup wizard to connect your database first.
-            </p>
-            <Link
-              href="/setup"
-              className="inline-flex items-center gap-2 rounded-md bg-gold px-6 py-3 font-medium text-navy transition-opacity hover:opacity-90"
-            >
-              Complete Setup
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+      <>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-white">AI Providers</h1>
         </div>
-      </div>
+        <div className="rounded-lg border border-gray-800 bg-black/50 p-8 text-center">
+          <Database className="mx-auto mb-4 h-16 w-16 text-gray-600" />
+          <h2 className="mb-2 text-xl font-semibold text-white">
+            Database Not Configured
+          </h2>
+          <p className="mb-6 text-gray-400">
+            Complete the setup wizard to connect your database first.
+          </p>
+          <Link
+            href="/setup"
+            className="inline-flex items-center gap-2 rounded-md bg-gold px-6 py-3 font-medium text-navy transition-opacity hover:opacity-90"
+          >
+            Complete Setup
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </>
     );
   }
 
@@ -341,21 +331,13 @@ export default function AiProvidersPage() {
       15 * 60 * 1000; // 15 min
 
   return (
-    <div className="min-h-screen bg-navy">
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <div className="mb-8">
-          <Link
-            href="/admin/backlog"
-            className="mb-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Backlog
-          </Link>
-          <h1 className="text-2xl font-bold text-white">AI Providers</h1>
-          <p className="mt-1 text-gray-400">
-            Manage AI provider keys for the autopilot daemon
-          </p>
-        </div>
+    <>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-white">AI Providers</h1>
+        <p className="mt-1 text-gray-400">
+          Manage AI provider keys for the autopilot daemon
+        </p>
+      </div>
 
         {/* Section 1: Current Configuration Status */}
         <div className="mb-6 rounded-lg border border-gray-800 bg-black/50 p-6">
@@ -639,7 +621,6 @@ export default function AiProvidersPage() {
         </div>
 
         <PoweredByFooter />
-      </div>
 
       {/* Delete confirmation dialog */}
       <ConfirmationDialog
@@ -660,6 +641,6 @@ export default function AiProvidersPage() {
         confirmVariant="danger"
         isLoading={isDeletingId === keyToDelete?.id}
       />
-    </div>
+    </>
   );
 }

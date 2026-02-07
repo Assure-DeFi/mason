@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ArrowLeft,
   Plus,
   Key,
   Copy,
@@ -236,7 +235,7 @@ export default function ApiKeysPage() {
 
   if (status === 'loading' || isLoading || isDbLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-navy">
+      <div className="flex items-center justify-center py-20">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
       </div>
     );
@@ -248,167 +247,147 @@ export default function ApiKeysPage() {
 
   if (!isConfigured) {
     return (
-      <div className="min-h-screen bg-navy">
-        <div className="mx-auto max-w-4xl px-4 py-8">
-          <div className="mb-8">
-            <Link
-              href="/admin/backlog"
-              className="mb-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Backlog
-            </Link>
+      <>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-white">API Keys</h1>
+          <p className="mt-1 text-gray-400">
+            Manage API keys for CLI authentication
+          </p>
+        </div>
 
+        <div className="rounded-lg border border-gray-800 bg-black/50 p-8 text-center">
+          <Database className="mx-auto mb-4 h-16 w-16 text-gray-600" />
+          <h2 className="mb-2 text-xl font-semibold text-white">
+            Database Not Configured
+          </h2>
+          <p className="mb-6 text-gray-400">
+            Complete the setup wizard to connect your database and manage API
+            keys.
+          </p>
+          <Link
+            href="/setup"
+            className="inline-flex items-center gap-2 rounded-md bg-gold px-6 py-3 font-medium text-navy transition-opacity hover:opacity-90"
+          >
+            Complete Setup
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
             <h1 className="text-2xl font-bold text-white">API Keys</h1>
             <p className="mt-1 text-gray-400">
               Manage API keys for CLI authentication
             </p>
           </div>
 
-          <div className="rounded-lg border border-gray-800 bg-black/50 p-8 text-center">
-            <Database className="mx-auto mb-4 h-16 w-16 text-gray-600" />
-            <h2 className="mb-2 text-xl font-semibold text-white">
-              Database Not Configured
-            </h2>
-            <p className="mb-6 text-gray-400">
-              Complete the setup wizard to connect your database and manage API
-              keys.
-            </p>
-            <Link
-              href="/setup"
-              className="inline-flex items-center gap-2 rounded-md bg-gold px-6 py-3 font-medium text-navy transition-opacity hover:opacity-90"
-            >
-              Complete Setup
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <button
+            onClick={handleCreateKey}
+            disabled={isCreating}
+            className="flex items-center gap-2 rounded-md bg-gold px-4 py-2 font-medium text-navy transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {isCreating ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-navy border-t-transparent" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            Generate API Key
+          </button>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-navy">
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <div className="mb-8">
-          <Link
-            href="/admin/backlog"
-            className="mb-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Backlog
-          </Link>
+      {error && (
+        <div className="mb-6 flex items-center gap-2 rounded-lg border border-red-800 bg-red-900/20 p-4 text-red-400">
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          {error}
+        </div>
+      )}
 
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white">API Keys</h1>
-              <p className="mt-1 text-gray-400">
-                Manage API keys for CLI authentication
-              </p>
-            </div>
-
-            <button
-              onClick={handleCreateKey}
-              disabled={isCreating}
-              className="flex items-center gap-2 rounded-md bg-gold px-4 py-2 font-medium text-navy transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {isCreating ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-navy border-t-transparent" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              Generate API Key
-            </button>
-          </div>
+      <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Key className="h-5 w-5 text-gold" />
+          <h2 className="text-lg font-medium text-white">Your API Keys</h2>
         </div>
 
-        {error && (
-          <div className="mb-6 flex items-center gap-2 rounded-lg border border-red-800 bg-red-900/20 p-4 text-red-400">
-            <AlertCircle className="h-5 w-5 flex-shrink-0" />
-            {error}
+        {keys.length === 0 ? (
+          <div className="py-8 text-center text-gray-400">
+            <Key className="mx-auto mb-4 h-12 w-12 opacity-50" />
+            <p>No API keys yet</p>
+            <p className="mt-1 text-sm">
+              Generate a key to start using Mason from the CLI
+            </p>
           </div>
-        )}
-
-        <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <Key className="h-5 w-5 text-gold" />
-            <h2 className="text-lg font-medium text-white">Your API Keys</h2>
-          </div>
-
-          {keys.length === 0 ? (
-            <div className="py-8 text-center text-gray-400">
-              <Key className="mx-auto mb-4 h-12 w-12 opacity-50" />
-              <p>No API keys yet</p>
-              <p className="mt-1 text-sm">
-                Generate a key to start using Mason from the CLI
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {keys.map((key) => (
-                <div
-                  key={key.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900/50 p-4"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="rounded-lg bg-gray-800 p-2">
-                      <Key className="h-5 w-5 text-gold" />
+        ) : (
+          <div className="space-y-3">
+            {keys.map((key) => (
+              <div
+                key={key.id}
+                className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900/50 p-4"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="rounded-lg bg-gray-800 p-2">
+                    <Key className="h-5 w-5 text-gold" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-white">
+                        {key.key_prefix}...
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {key.name}
+                      </span>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-white">
-                          {key.key_prefix}...
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          {key.name}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-4 text-sm text-gray-400">
-                        <span>Created: {formatDate(key.created_at)}</span>
-                        <span>
-                          Last used: {formatRelativeTime(key.last_used_at)}
-                        </span>
-                      </div>
+                    <div className="mt-1 flex items-center gap-4 text-sm text-gray-400">
+                      <span>Created: {formatDate(key.created_at)}</span>
+                      <span>
+                        Last used: {formatRelativeTime(key.last_used_at)}
+                      </span>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => setKeyToDelete(key)}
-                    disabled={deletingId === key.id}
-                    className="rounded-md p-2 text-gray-400 transition-colors hover:bg-red-900/20 hover:text-red-400 disabled:opacity-50"
-                    title="Revoke key"
-                  >
-                    {deletingId === key.id ? (
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-red-400 border-t-transparent" />
-                    ) : (
-                      <Trash2 className="h-5 w-5" />
-                    )}
-                  </button>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
 
-        <div className="mt-8 rounded-lg border border-gray-700 bg-gray-900/50 p-4">
-          <h3 className="font-medium text-white">Usage</h3>
-          <p className="mt-1 text-sm text-gray-400">
-            Use your API key with the Mason CLI:
-          </p>
-          <div className="mt-3 rounded-md bg-black p-3 font-mono text-sm text-gray-300">
-            <code>
-              curl -fsSL
-              https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh
-              | bash
-            </code>
+                <button
+                  onClick={() => setKeyToDelete(key)}
+                  disabled={deletingId === key.id}
+                  className="rounded-md p-2 text-gray-400 transition-colors hover:bg-red-900/20 hover:text-red-400 disabled:opacity-50"
+                  title="Revoke key"
+                >
+                  {deletingId === key.id ? (
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-red-400 border-t-transparent" />
+                  ) : (
+                    <Trash2 className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
+            ))}
           </div>
-          <p className="mt-2 text-sm text-gray-400">
-            Then paste your API key when prompted during installation.
-          </p>
-        </div>
-
-        <PoweredByFooter />
+        )}
       </div>
+
+      <div className="mt-8 rounded-lg border border-gray-700 bg-gray-900/50 p-4">
+        <h3 className="font-medium text-white">Usage</h3>
+        <p className="mt-1 text-sm text-gray-400">
+          Use your API key with the Mason CLI:
+        </p>
+        <div className="mt-3 rounded-md bg-black p-3 font-mono text-sm text-gray-300">
+          <code>
+            curl -fsSL
+            https://raw.githubusercontent.com/Assure-DeFi/mason/main/install.sh
+            | bash
+          </code>
+        </div>
+        <p className="mt-2 text-sm text-gray-400">
+          Then paste your API key when prompted during installation.
+        </p>
+      </div>
+
+      <PoweredByFooter />
 
       {newKey && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
@@ -478,6 +457,6 @@ export default function ApiKeysPage() {
         confirmVariant="danger"
         isLoading={deletingId === keyToDelete?.id}
       />
-    </div>
+    </>
   );
 }

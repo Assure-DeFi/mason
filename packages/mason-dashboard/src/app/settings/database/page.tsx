@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ArrowLeft,
   Database,
   RefreshCw,
   CheckCircle,
@@ -49,7 +48,7 @@ interface MigrationState {
 // Loading fallback for Suspense
 function DatabaseSettingsLoading() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-navy">
+    <div className="flex items-center justify-center py-20">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
     </div>
   );
@@ -430,7 +429,7 @@ function DatabaseSettingsContent() {
 
   if (status === 'loading' || isDbLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-navy">
+      <div className="flex items-center justify-center py-20">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
       </div>
     );
@@ -441,23 +440,14 @@ function DatabaseSettingsContent() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-navy">
-      <div className="flex-1 p-6">
-        <div className="mx-auto max-w-2xl">
-          {/* Header */}
-          <div className="mb-8">
-            <Link
-              href="/admin/backlog"
-              className="mb-4 inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
-            <h1 className="text-2xl font-bold text-white">Database Settings</h1>
-            <p className="mt-1 text-gray-400">
-              Manage your database connection and run schema updates
-            </p>
-          </div>
+    <>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-white">Database Settings</h1>
+        <p className="mt-1 text-gray-400">
+          Manage your database connection and run schema updates
+        </p>
+      </div>
 
           {/* Connection Status */}
           <div className="mb-6 rounded-lg border border-gray-800 bg-black/50 p-6">
@@ -797,27 +787,6 @@ function DatabaseSettingsContent() {
             </div>
           )}
 
-          {/* Other Settings Links */}
-          <div className="mt-6 rounded-lg border border-gray-800 bg-black/50 p-4">
-            <h3 className="text-sm font-medium text-gray-400 mb-3">
-              Other Settings
-            </h3>
-            <div className="space-y-2">
-              <Link
-                href="/settings/api-keys"
-                className="block rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-              >
-                API Keys
-              </Link>
-              <Link
-                href="/settings/github"
-                className="block rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-              >
-                GitHub Repositories
-              </Link>
-            </div>
-          </div>
-
           {/* Admin Stats - owner only */}
           {isAdmin(session?.user?.github_email) && <AdminStatsPanel />}
 
@@ -845,8 +814,6 @@ function DatabaseSettingsContent() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
       <PoweredByFooter />
 
@@ -855,6 +822,6 @@ function DatabaseSettingsContent() {
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
       />
-    </div>
+    </>
   );
 }

@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, Plus, GitBranch, Terminal } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, GitBranch, Terminal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
@@ -111,7 +110,7 @@ export default function GitHubSettingsPage() {
 
   if (status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-navy">
+      <div className="flex items-center justify-center py-20">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
       </div>
     );
@@ -122,81 +121,71 @@ export default function GitHubSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-navy">
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <div className="mb-8">
-          <Link
-            href="/admin/backlog"
-            className="mb-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Backlog
-          </Link>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white">
-                GitHub Repositories
-              </h1>
-              <p className="mt-1 text-gray-400">
-                Manage repositories for executing approved improvements
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsInstallModalOpen(true)}
-                className="flex items-center gap-2 rounded-md border border-gray-700 bg-gray-900 px-4 py-2 font-medium text-white transition-colors hover:bg-gray-800"
-              >
-                <Terminal className="h-4 w-4" />
-                Install Mason
-              </button>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-2 rounded-md bg-gold px-4 py-2 font-medium text-navy transition-opacity hover:opacity-90"
-              >
-                <Plus className="h-4 w-4" />
-                Connect Repository
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <GitBranch className="h-5 w-5 text-gold" />
-            <h2 className="text-lg font-medium text-white">
-              Connected Repositories
-            </h2>
+    <>
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">
+              GitHub Repositories
+            </h1>
+            <p className="mt-1 text-gray-400">
+              Manage repositories for executing approved improvements
+            </p>
           </div>
 
-          <RepositoryList key={refreshKey} onDisconnect={handleDisconnect} />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsInstallModalOpen(true)}
+              className="flex items-center gap-2 rounded-md border border-gray-700 bg-gray-900 px-4 py-2 font-medium text-white transition-colors hover:bg-gray-800"
+            >
+              <Terminal className="h-4 w-4" />
+              Install Mason
+            </button>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 rounded-md bg-gold px-4 py-2 font-medium text-navy transition-opacity hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" />
+              Connect Repository
+            </button>
+          </div>
         </div>
-
-        <div className="mt-8 rounded-lg border border-gray-700 bg-gray-900/50 p-4">
-          <h3 className="font-medium text-white">Required Permissions</h3>
-          <p className="mt-1 text-sm text-gray-400">
-            Mason requires the following GitHub permissions to execute
-            improvements:
-          </p>
-          <ul className="mt-2 space-y-1 text-sm text-gray-400">
-            <li>
-              <span className="text-gray-300">Contents:</span> Read and write
-              repository files
-            </li>
-            <li>
-              <span className="text-gray-300">Pull Requests:</span> Create pull
-              requests with changes
-            </li>
-            <li>
-              <span className="text-gray-300">Metadata:</span> Read repository
-              information
-            </li>
-          </ul>
-        </div>
-
-        <PoweredByFooter />
       </div>
+
+      <div className="rounded-lg border border-gray-800 bg-black/50 p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <GitBranch className="h-5 w-5 text-gold" />
+          <h2 className="text-lg font-medium text-white">
+            Connected Repositories
+          </h2>
+        </div>
+
+        <RepositoryList key={refreshKey} onDisconnect={handleDisconnect} />
+      </div>
+
+      <div className="mt-8 rounded-lg border border-gray-700 bg-gray-900/50 p-4">
+        <h3 className="font-medium text-white">Required Permissions</h3>
+        <p className="mt-1 text-sm text-gray-400">
+          Mason requires the following GitHub permissions to execute
+          improvements:
+        </p>
+        <ul className="mt-2 space-y-1 text-sm text-gray-400">
+          <li>
+            <span className="text-gray-300">Contents:</span> Read and write
+            repository files
+          </li>
+          <li>
+            <span className="text-gray-300">Pull Requests:</span> Create pull
+            requests with changes
+          </li>
+          <li>
+            <span className="text-gray-300">Metadata:</span> Read repository
+            information
+          </li>
+        </ul>
+      </div>
+
+      <PoweredByFooter />
 
       <ConnectRepoModal
         isOpen={isModalOpen}
@@ -209,6 +198,6 @@ export default function GitHubSettingsPage() {
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}
       />
-    </div>
+    </>
   );
 }
