@@ -36,6 +36,22 @@ const nextConfig = {
             value:
               'camera=(), microphone=(), geolocation=(), interest-cohort=()',
           },
+          // Content Security Policy - primary defense against XSS
+          // Critical for BYOD architecture where credentials are in localStorage
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https://*.supabase.co https://api.supabase.com https://api.github.com",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
         ],
       },
     ];

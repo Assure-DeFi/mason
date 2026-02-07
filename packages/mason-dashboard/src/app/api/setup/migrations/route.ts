@@ -705,7 +705,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION get_dlq_metrics() TO authenticated;
-GRANT EXECUTE ON FUNCTION get_dlq_metrics() TO anon;
+REVOKE EXECUTE ON FUNCTION get_dlq_metrics() FROM anon;
 
 -- Function to bulk retry failed items (mark errors as retried)
 CREATE OR REPLACE FUNCTION bulk_retry_dlq(
@@ -740,7 +740,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION bulk_retry_dlq(UUID[], INTEGER) TO authenticated;
-GRANT EXECUTE ON FUNCTION bulk_retry_dlq(UUID[], INTEGER) TO anon;
+REVOKE EXECUTE ON FUNCTION bulk_retry_dlq(UUID[], INTEGER) FROM anon;
 
 -- Add indexes for DLQ queries
 CREATE INDEX IF NOT EXISTS idx_autopilot_errors_retried ON mason_autopilot_errors(retried_at);
