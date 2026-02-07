@@ -44,8 +44,8 @@ interface RouteParams {
  * - status → 'rejected' (used as 'failed' status)
  *
  * Note: The database uses 'rejected' status for failed items.
- * The error_message is stored in a separate field if available,
- * or we could add it to the item's metadata.
+ * The error_message is stored in the dedicated error_message column,
+ * preserving the original solution text.
  */
 export async function POST(request: Request, { params }: RouteParams) {
   try {
@@ -104,12 +104,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       updated_at: new Date().toISOString(),
     };
 
-    // Store error message in solution field with prefix (hacky but works without migration)
-    // A better approach would be to add an error_message column
+    // Store error message in dedicated column (preserves original solution text)
     if (error_message) {
-      // We'll prepend the error to the solution for now
-      // TODO: Add proper error_message column in future migration
-      updateData.solution = `[EXECUTION FAILED: ${error_message}]`;
+      updateData.error_message = error_message;
     }
 
     // Atomic update: include status check in WHERE clause to prevent race conditions

@@ -697,6 +697,20 @@ export function ItemDetailModal({
                   </div>
                 </div>
 
+                {/* Error Message (shown for failed/rejected items) */}
+                {item.error_message && (
+                  <div>
+                    <h3 className="text-xs font-medium text-red-400 uppercase tracking-wide mb-2">
+                      Execution Error
+                    </h3>
+                    <div className="p-4 bg-red-950/30 border border-red-800/50 rounded">
+                      <p className="text-red-200 whitespace-pre-wrap leading-relaxed text-sm">
+                        {item.error_message}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Benefits */}
                 {item.benefits && item.benefits.length > 0 && (
                   <div>

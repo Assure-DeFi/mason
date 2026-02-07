@@ -152,6 +152,9 @@ export interface BacklogItem {
   // Source tracking for autopilot visibility
   source?: 'manual' | 'autopilot';
   autopilot_run_id?: string | null;
+
+  // Error message from failed execution (stored separately to preserve solution text)
+  error_message?: string | null;
 }
 
 export interface AnalysisRun {
