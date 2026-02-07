@@ -572,6 +572,12 @@ export default function BacklogPage() {
       .map((item) => item.id);
   }, [repoFilteredItems]);
 
+  // Intersection of selected items and approved items
+  const selectedApprovedIds = useMemo(() => {
+    const approvedSet = new Set(approvedItemIds);
+    return selectedIds.filter((id) => approvedSet.has(id));
+  }, [selectedIds, approvedItemIds]);
+
   // Count stale approved items (approved > 2 days ago without execution)
   const staleApprovedCount = useMemo(() => {
     const twoDaysAgo = new Date();
@@ -1295,7 +1301,10 @@ export default function BacklogPage() {
 
               {session && counts.approved > 0 && (
                 <div className="px-6 py-3">
-                  <UnifiedExecuteButton itemIds={approvedItemIds} />
+                  <UnifiedExecuteButton
+                    itemIds={approvedItemIds}
+                    selectedApprovedIds={selectedApprovedIds}
+                  />
                 </div>
               )}
             </div>

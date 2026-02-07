@@ -21,12 +21,15 @@ import { ClaudeCodeExplainer } from '@/components/ui/ClaudeCodeExplainer';
 interface UnifiedExecuteButtonProps {
   /** IDs of approved items to execute */
   itemIds: string[];
+  /** IDs of approved items currently selected by the user */
+  selectedApprovedIds?: string[];
   /** Optional className */
   className?: string;
 }
 
 export function UnifiedExecuteButton({
   itemIds,
+  selectedApprovedIds = [],
   className,
 }: UnifiedExecuteButtonProps) {
   const [showModal, setShowModal] = useState(false);
@@ -40,9 +43,13 @@ export function UnifiedExecuteButton({
   const [smokeTestEnabled, setSmokeTestEnabled] = useState(false);
   const [e2eTestEnabled, setE2eTestEnabled] = useState(false);
 
+  // Use selected approved items if any, otherwise all approved items
+  const hasSelection = selectedApprovedIds.length > 0;
+  const effectiveIds = hasSelection ? selectedApprovedIds : itemIds;
+
   // Build command based on options
   const command = useMemo(() => {
-    let cmd = `/execute-approved --ids ${itemIds.join(',')}`;
+    let cmd = `/execute-approved --ids ${effectiveIds.join(',')}`;
     // E2E includes smoke test, so only add one flag
     if (e2eTestEnabled) {
       cmd += ' --e2e';
@@ -50,7 +57,7 @@ export function UnifiedExecuteButton({
       cmd += ' --smoke-test';
     }
     return cmd;
-  }, [itemIds, smokeTestEnabled, e2eTestEnabled]);
+  }, [effectiveIds, smokeTestEnabled, e2eTestEnabled]);
 
   // When E2E is enabled, smoke test is automatically disabled
   const handleE2eToggle = useCallback((enabled: boolean) => {
@@ -82,6 +89,10 @@ export function UnifiedExecuteButton({
     return null;
   }
 
+  const buttonLabel = hasSelection
+    ? `Execute Selected (${effectiveIds.length})`
+    : `Execute All Approved (${effectiveIds.length})`;
+
   return (
     <>
       <button
@@ -92,7 +103,7 @@ export function UnifiedExecuteButton({
         )}
       >
         <Play className="w-4 h-4" />
-        Execute Approved ({itemIds.length})
+        {buttonLabel}
       </button>
 
       {/* Execute Modal - CLI Only */}
@@ -102,8 +113,9 @@ export function UnifiedExecuteButton({
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-800">
               <h3 className="text-lg font-semibold text-white">
-                Execute {itemIds.length} Approved Item
-                {itemIds.length !== 1 ? 's' : ''}
+                Execute {effectiveIds.length}{' '}
+                {hasSelection ? 'Selected' : 'Approved'} Item
+                {effectiveIds.length !== 1 ? 's' : ''}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
