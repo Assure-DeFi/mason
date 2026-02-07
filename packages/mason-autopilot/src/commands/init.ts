@@ -107,13 +107,21 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
     if (hasEnvKey) {
-      console.log('Detected API key in environment. Mason will use it automatically.');
+      console.log(
+        'Detected API key in environment. Mason will use it automatically.',
+      );
     } else {
       console.log('Note: No AI provider detected.');
       console.log('Mason supports multiple providers:');
-      console.log('  Option A: Claude Max subscription - run "claude setup-token"');
-      console.log('  Option B: Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY in your environment');
-      console.log('  Option C: Add a key in the Mason Dashboard (Settings > AI Providers)');
+      console.log(
+        '  Option A: Claude Max subscription - run "claude setup-token"',
+      );
+      console.log(
+        '  Option B: Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY in your environment',
+      );
+      console.log(
+        '  Option C: Add a key in the Mason Dashboard (Settings > AI Providers)',
+      );
     }
     console.log('');
   }
@@ -349,6 +357,27 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
 
       writeFileSync(masonConfigPath, JSON.stringify(newMasonConfig, null, 2));
       console.log('Created mason.config.json');
+
+      // Ensure mason.config.json is in .gitignore to prevent credential exposure
+      const gitignorePath = join(process.cwd(), '.gitignore');
+      const gitignoreEntries = [
+        'mason.config.json',
+        '.claude/.mason-state.json',
+      ];
+      let gitignoreContent = existsSync(gitignorePath)
+        ? readFileSync(gitignorePath, 'utf-8')
+        : '';
+      const linesToAdd: string[] = [];
+      for (const entry of gitignoreEntries) {
+        if (!gitignoreContent.split('\n').includes(entry)) {
+          linesToAdd.push(entry);
+        }
+      }
+      if (linesToAdd.length > 0) {
+        const block = `\n# Mason (contains credentials - NEVER commit)\n${linesToAdd.join('\n')}\n`;
+        writeFileSync(gitignorePath, gitignoreContent + block);
+        console.log('Updated .gitignore with Mason entries');
+      }
     }
 
     // Create local autopilot config

@@ -259,21 +259,30 @@ EOF
     echo "  [OK] mason.config.json"
 fi
 
-# Add mason.config.json to .gitignore if not already present
-if [ -f ".gitignore" ]; then
-    if ! grep -qxF "mason.config.json" .gitignore; then
-        echo "" >> .gitignore
-        echo "# Mason config (contains credentials - NEVER commit)" >> .gitignore
-        echo "mason.config.json" >> .gitignore
-        echo "  [OK] Added mason.config.json to .gitignore"
-    else
-        echo "  [OK] mason.config.json already in .gitignore"
-    fi
-else
-    echo "# Mason config (contains credentials - NEVER commit)" > .gitignore
-    echo "mason.config.json" >> .gitignore
-    echo "  [OK] Created .gitignore with mason.config.json"
+# Ensure sensitive Mason files are in .gitignore
+GITIGNORE_ENTRIES=(
+    "mason.config.json"
+    ".claude/.mason-state.json"
+)
+GITIGNORE_ADDED=false
+
+if [ ! -f ".gitignore" ]; then
+    touch .gitignore
 fi
+
+for entry in "${GITIGNORE_ENTRIES[@]}"; do
+    if ! grep -qxF "$entry" .gitignore; then
+        if [ "$GITIGNORE_ADDED" = false ]; then
+            echo "" >> .gitignore
+            echo "# Mason (contains credentials - NEVER commit)" >> .gitignore
+            GITIGNORE_ADDED=true
+        fi
+        echo "$entry" >> .gitignore
+        echo "  [OK] Added $entry to .gitignore"
+    else
+        echo "  [OK] $entry already in .gitignore"
+    fi
+done
 
 # Verify all files exist
 echo ""

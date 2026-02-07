@@ -346,9 +346,9 @@ export function InstallMasonModal({
               {/* Security Note */}
               <div className="rounded-lg border border-yellow-800/30 bg-yellow-900/10 p-3">
                 <p className="text-xs text-yellow-200/80">
-                  <span className="font-medium">Security:</span> The install
-                  command contains your API key. Do not share it or commit it to
-                  version control.
+                  <span className="font-medium">Security:</span> The installer
+                  automatically adds mason.config.json to your .gitignore so
+                  credentials are never committed.
                 </p>
               </div>
             </div>
