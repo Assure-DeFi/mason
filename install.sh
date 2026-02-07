@@ -259,6 +259,22 @@ EOF
     echo "  [OK] mason.config.json"
 fi
 
+# Add mason.config.json to .gitignore if not already present
+if [ -f ".gitignore" ]; then
+    if ! grep -qxF "mason.config.json" .gitignore; then
+        echo "" >> .gitignore
+        echo "# Mason config (contains credentials - NEVER commit)" >> .gitignore
+        echo "mason.config.json" >> .gitignore
+        echo "  [OK] Added mason.config.json to .gitignore"
+    else
+        echo "  [OK] mason.config.json already in .gitignore"
+    fi
+else
+    echo "# Mason config (contains credentials - NEVER commit)" > .gitignore
+    echo "mason.config.json" >> .gitignore
+    echo "  [OK] Created .gitignore with mason.config.json"
+fi
+
 # Verify all files exist
 echo ""
 echo "Verifying installation..."

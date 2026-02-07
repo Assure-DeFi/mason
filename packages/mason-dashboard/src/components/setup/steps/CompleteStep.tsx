@@ -257,7 +257,7 @@ export function CompleteStep({ onBack }: WizardStepProps) {
             </button>
             <p className="text-xs text-gray-500 text-center">
               Place this file in your project root to skip manual credential
-              entry
+              entry. The installer automatically adds it to .gitignore.
             </p>
           </div>
         )}
@@ -347,6 +347,16 @@ export function CompleteStep({ onBack }: WizardStepProps) {
                       mason.config.json
                     </code>{' '}
                     exists in your project root
+                  </span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                  <span>
+                    Verify{' '}
+                    <code className="px-1 bg-black rounded text-gold">
+                      mason.config.json
+                    </code>{' '}
+                    is in your .gitignore to avoid exposing credentials
                   </span>
                 </div>
                 <a href="/faq" className="block mt-2 text-gold hover:underline">
