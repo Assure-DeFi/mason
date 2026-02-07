@@ -357,7 +357,7 @@ export default function BacklogPage() {
             'is_new_feature,is_banger_idea,tags,source,' +
             'updated_at,created_at,repository_id,' +
             'prd_generated_at,branch_name,pr_url,' + // prd_content lazy loaded on demand
-            'risk_score,has_breaking_changes,files_affected_count,test_coverage_gaps,' +
+            'risk_score,has_breaking_changes,files_affected_count,test_coverage_gaps,risk_rationale,' +
             'user_id,analysis_run_id,' +
             'benefits', // JSON array - required for detail modal
         )

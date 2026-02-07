@@ -225,7 +225,9 @@ function ItemRowComponent({
           </span>
           <div className="flex items-center gap-1.5">
             {item.risk_score !== null && (
-              <RiskBadge score={item.risk_score} size="sm" />
+              <span title={item.risk_rationale ?? undefined}>
+                <RiskBadge score={item.risk_score} size="sm" />
+              </span>
             )}
             {item.files_affected_count !== null &&
               item.files_affected_count > 0 && (

@@ -138,6 +138,43 @@ export async function POST(request: Request, { params }: RouteParams) {
       return serverError('Failed to save analysis');
     }
 
+    // Generate human-readable risk rationale
+    const rationaleParts: string[] = [];
+    const fileCount = analysisResult.affected_files.length;
+    const breakingCount = analysisResult.breaking_changes.length;
+    const testGaps = analysisResult.files_without_tests.length;
+
+    if (overallRiskScore >= 70) {
+      rationaleParts.push('High risk implementation');
+    } else if (overallRiskScore >= 40) {
+      rationaleParts.push('Moderate risk implementation');
+    } else {
+      rationaleParts.push('Low risk implementation');
+    }
+
+    if (fileCount > 0) {
+      rationaleParts.push(
+        `touches ${fileCount} file${fileCount !== 1 ? 's' : ''}`,
+      );
+    }
+
+    if (breakingCount > 0) {
+      rationaleParts.push(
+        `${breakingCount} potential breaking change${breakingCount !== 1 ? 's' : ''} detected`,
+      );
+    }
+
+    if (testGaps > 0) {
+      rationaleParts.push(
+        `${testGaps} file${testGaps !== 1 ? 's' : ''} lacking test coverage`,
+      );
+    }
+
+    const riskRationale =
+      rationaleParts.length > 1
+        ? `${rationaleParts[0]}: ${rationaleParts.slice(1).join(', ')}.`
+        : `${rationaleParts[0]}.`;
+
     // Update backlog item with summary fields
     const { error: updateError } = await supabase
       .from(TABLES.PM_BACKLOG_ITEMS)
@@ -147,6 +184,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         files_affected_count: analysisResult.affected_files.length,
         has_breaking_changes: analysisResult.breaking_changes.length > 0,
         test_coverage_gaps: analysisResult.files_without_tests.length,
+        risk_rationale: riskRationale,
       })
       .eq('id', id);
 
