@@ -1,22 +1,8 @@
-import { apiSuccess, unauthorized, serverError } from '@/lib/api-response';
-import { extractApiKeyFromHeader, validateApiKey } from '@/lib/auth/api-key';
+import { withApiKeyAuth } from '@/lib/api/middleware';
+import { apiSuccess, serverError } from '@/lib/api-response';
 import { TABLES } from '@/lib/constants';
-import {
-  checkRateLimit,
-  createRateLimitResponse,
-  addRateLimitHeaders,
-  getRateLimitIdentifier,
-} from '@/lib/rate-limit/middleware';
+import { addRateLimitHeaders } from '@/lib/rate-limit/middleware';
 import { createServiceClient } from '@/lib/supabase/client';
-
-// Helper to extract client IP from request
-function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-  return request.headers.get('x-real-ip') || 'unknown';
-}
 
 /**
  * GET /api/v1/backlog/next - Get the highest-priority approved backlog items
@@ -28,34 +14,9 @@ function getClientIp(request: Request): string {
  *
  * Returns the approved item(s) with highest priority score, ready for execution.
  */
-export async function GET(request: Request) {
-  try {
-    // Extract and validate API key
-    const authHeader = request.headers.get('Authorization');
-    const apiKey = extractApiKeyFromHeader(authHeader);
-
-    if (!apiKey) {
-      return unauthorized('Missing or invalid Authorization header');
-    }
-
-    const user = await validateApiKey(apiKey);
-
-    if (!user) {
-      return unauthorized('Invalid API key');
-    }
-
-    // Rate limit check using validated user ID
-    const rateLimitId = getRateLimitIdentifier(
-      'backlog-next',
-      user.github_id,
-      getClientIp(request),
-    );
-    const rateLimitResult = await checkRateLimit(rateLimitId, 'standard');
-
-    if (!rateLimitResult.success) {
-      return createRateLimitResponse(rateLimitResult);
-    }
-
+export const GET = withApiKeyAuth(
+  'backlog-next',
+  async ({ user, rateLimitResult, request }) => {
     // Parse query parameters
     const url = new URL(request.url);
     const repositoryId = url.searchParams.get('repository_id');
@@ -143,8 +104,5 @@ export async function GET(request: Request) {
       count: items.length,
     });
     return addRateLimitHeaders(response, rateLimitResult);
-  } catch (error) {
-    console.error('Error fetching next backlog item:', error);
-    return serverError();
-  }
-}
+  },
+);

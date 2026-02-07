@@ -1,18 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
-import { getServerSession } from 'next-auth';
-
-import {
-  apiSuccess,
-  unauthorized,
-  badRequest,
-  serverError,
-} from '@/lib/api-response';
-import { authOptions } from '@/lib/auth/auth-options';
+import { withSessionAndSupabase, type RouteParams } from '@/lib/api/middleware';
+import { apiSuccess, badRequest, serverError } from '@/lib/api-response';
 import { TABLES } from '@/lib/constants';
-
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
 
 type ItemEventType =
   | 'status_changed'
@@ -39,27 +27,10 @@ interface ItemEvent {
  * Requires user's Supabase credentials via headers (privacy model).
  */
 export async function GET(request: Request, { params }: RouteParams) {
-  try {
+  const handler = withSessionAndSupabase(async ({ userSupabase }) => {
     const { id } = await params;
 
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return unauthorized('Authentication required');
-    }
-
-    // Get user's database credentials from headers (client passes from localStorage)
-    const supabaseUrl = request.headers.get('x-supabase-url');
-    const supabaseAnonKey = request.headers.get('x-supabase-anon-key');
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return badRequest(
-        'Database credentials required. Please complete setup.',
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    const { data: events, error } = await supabase
+    const { data: events, error } = await userSupabase
       .from(TABLES.ITEM_EVENTS)
       .select('*')
       .eq('item_id', id)
@@ -71,10 +42,9 @@ export async function GET(request: Request, { params }: RouteParams) {
     }
 
     return apiSuccess({ events: events as ItemEvent[] });
-  } catch (err) {
-    console.error('Events fetch error:', err);
-    return serverError(err instanceof Error ? err.message : 'Fetch failed');
-  }
+  });
+
+  return handler(request);
 }
 
 /**
@@ -84,23 +54,8 @@ export async function GET(request: Request, { params }: RouteParams) {
  * Requires user's Supabase credentials via headers (privacy model).
  */
 export async function POST(request: Request, { params }: RouteParams) {
-  try {
+  const handler = withSessionAndSupabase(async ({ userSupabase }) => {
     const { id } = await params;
-
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return unauthorized('Authentication required');
-    }
-
-    // Get user's database credentials from headers (client passes from localStorage)
-    const supabaseUrl = request.headers.get('x-supabase-url');
-    const supabaseAnonKey = request.headers.get('x-supabase-anon-key');
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return badRequest(
-        'Database credentials required. Please complete setup.',
-      );
-    }
 
     const body = await request.json();
     const { event_type, old_value, new_value, notes, dbUserId } = body;
@@ -119,9 +74,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    const { data: event, error } = await supabase
+    const { data: event, error } = await userSupabase
       .from(TABLES.ITEM_EVENTS)
       .insert({
         item_id: id,
@@ -140,8 +93,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     return apiSuccess({ event: event as ItemEvent });
-  } catch (err) {
-    console.error('Event creation error:', err);
-    return serverError(err instanceof Error ? err.message : 'Creation failed');
-  }
+  });
+
+  return handler(request);
 }
