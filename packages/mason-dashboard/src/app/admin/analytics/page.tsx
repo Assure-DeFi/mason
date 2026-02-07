@@ -23,13 +23,14 @@ import { useUserDatabase } from '@/hooks/useUserDatabase';
 import {
   getCompletionsByTimePeriod,
   getTechnicalDebtBurndown,
-  getCategoryBreakdown,
+  getTypeBreakdown,
   getAverageCompletionTime,
   getCompletionStreak,
   getVelocity,
 } from '@/lib/analytics';
 import { TABLES } from '@/lib/constants';
-import type { BacklogItem } from '@/types/backlog';
+import type { BacklogCategory, BacklogItem } from '@/types/backlog';
+import { mapLegacyTypeToCategory } from '@/types/backlog';
 
 const STAT_CARD_COLORS: Record<
   string,
@@ -435,8 +436,8 @@ export default function AnalyticsPage() {
 
   const burndownData = useMemo(() => getTechnicalDebtBurndown(items), [items]);
 
-  const categoryBreakdown = useMemo(
-    () => getCategoryBreakdown(items.filter((i) => i.status === 'completed')),
+  const typeBreakdown = useMemo(
+    () => getTypeBreakdown(items.filter((i) => i.status === 'completed')),
     [items],
   );
 
@@ -456,18 +457,39 @@ export default function AnalyticsPage() {
 
   const maxCompletions = Math.max(...completionData.map((d) => d.count), 1);
 
-  // Ring chart data
-  const categoryRingData = useMemo(
-    () => [
-      {
-        label: 'Frontend',
-        value: categoryBreakdown.frontend,
-        color: '#06B6D4',
-      },
-      { label: 'Backend', value: categoryBreakdown.backend, color: '#8B5CF6' },
-    ],
-    [categoryBreakdown],
-  );
+  // Ring chart data - 8-category type breakdown matching CategoryBadge colors
+  const TYPE_COLORS: Record<BacklogCategory, { label: string; color: string }> = {
+    feature: { label: 'Feature', color: '#A855F7' },
+    ui: { label: 'UI', color: '#E2D243' },
+    ux: { label: 'UX', color: '#06B6D4' },
+    api: { label: 'API', color: '#22C55E' },
+    data: { label: 'Data', color: '#3B82F6' },
+    security: { label: 'Security', color: '#EF4444' },
+    performance: { label: 'Performance', color: '#F97316' },
+    'code-quality': { label: 'Code Quality', color: '#6B7280' },
+  };
+
+  const categoryRingData = useMemo(() => {
+    // Aggregate legacy types into their mapped categories
+    const aggregated: Record<BacklogCategory, number> = {
+      feature: 0, ui: 0, ux: 0, api: 0,
+      data: 0, security: 0, performance: 0, 'code-quality': 0,
+    };
+
+    for (const [type, count] of Object.entries(typeBreakdown)) {
+      const category = mapLegacyTypeToCategory(type as BacklogItem['type']);
+      aggregated[category] += count;
+    }
+
+    // Build ring data, filtering out zero-count categories
+    return (Object.entries(aggregated) as [BacklogCategory, number][])
+      .filter(([, value]) => value > 0)
+      .map(([category, value]) => ({
+        label: TYPE_COLORS[category].label,
+        value,
+        color: TYPE_COLORS[category].color,
+      }));
+  }, [typeBreakdown]);
 
   if (!isConfigured && !isDbLoading) {
     return (
@@ -660,10 +682,10 @@ export default function AnalyticsPage() {
               >
                 <div className="mb-6">
                   <h2 className="text-lg font-bold text-white">
-                    Category Breakdown
+                    Type Breakdown
                   </h2>
                   <p className="text-xs text-gray-500 mt-1">
-                    Completed items by area
+                    Completed items by category
                   </p>
                 </div>
                 <RingChart data={categoryRingData} />
