@@ -30,6 +30,7 @@ function createMockItem(overrides: Partial<BacklogItem> = {}): BacklogItem {
     files_affected_count: null,
     has_breaking_changes: null,
     test_coverage_gaps: null,
+    risk_rationale: null,
     is_new_feature: false,
     is_banger_idea: false,
     ...overrides,

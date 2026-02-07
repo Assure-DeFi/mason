@@ -1218,13 +1218,13 @@ export default function BacklogPage() {
     <main className="min-h-screen bg-navy">
       {/* Header */}
       <div className="border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 py-4 md:px-6 md:py-6">
+          <div className="flex flex-col gap-y-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3 md:gap-4">
               <MasonMark size="lg" />
-              <div className="h-10 w-px bg-gray-700" />
+              <div className="hidden md:block h-10 w-px bg-gray-700" />
               <div>
-                <h1 className="text-2xl font-bold text-white">
+                <h1 className="text-xl md:text-2xl font-bold text-white">
                   Your Build Queue
                 </h1>
                 <p className="text-gray-400 text-sm mt-1">
@@ -1233,7 +1233,7 @@ export default function BacklogPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
               {session && (
                 <RepositorySelector
                   value={selectedRepoId}
