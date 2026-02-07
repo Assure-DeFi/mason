@@ -57,7 +57,7 @@ export interface SessionWithSupabaseContext extends SessionContext {
 /**
  * Validates that a URL is a legitimate Supabase URL (SSRF prevention)
  */
-function isValidSupabaseUrl(url: string): boolean {
+export function isValidSupabaseUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     return (

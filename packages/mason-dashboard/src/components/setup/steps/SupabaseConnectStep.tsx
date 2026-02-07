@@ -82,33 +82,34 @@ export function SupabaseConnectStep({ onNext, onBack }: WizardStepProps) {
       }
 
       if (oauthSuccess === 'true') {
-        // Read tokens from cookie (set by callback)
-        const tokenCookie = document.cookie
-          .split('; ')
-          .find((row) => row.startsWith('supabase_oauth_tokens='));
-
-        if (tokenCookie) {
-          try {
-            const tokenData = JSON.parse(
-              decodeURIComponent(tokenCookie.split('=')[1]),
-            ) as SupabaseOAuthTokens;
-
-            // Save to localStorage
-            saveOAuthSession({ tokens: tokenData });
-
-            // Clear the cookie
-            document.cookie =
-              'supabase_oauth_tokens=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
-
-            // Fetch projects
-            await fetchProjects(tokenData.accessToken);
-          } catch (err) {
-            console.error('Failed to parse OAuth tokens:', err);
+        // Fetch tokens from httpOnly cookie via server endpoint
+        try {
+          const res = await fetch('/api/auth/supabase/session');
+          if (!res.ok) {
             setConnection({
               status: 'error',
-              message: 'Failed to process OAuth response',
+              message: 'Failed to retrieve OAuth session',
             });
+            return;
           }
+          const json = await res.json();
+          const tokenData = json.data.tokens as SupabaseOAuthTokens;
+
+          // Save to localStorage
+          saveOAuthSession({ tokens: tokenData });
+
+          // Clear the flag cookie
+          document.cookie =
+            'supabase_oauth_ready=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+
+          // Fetch projects
+          await fetchProjects(tokenData.accessToken);
+        } catch (err) {
+          console.error('Failed to parse OAuth tokens:', err);
+          setConnection({
+            status: 'error',
+            message: 'Failed to process OAuth response',
+          });
         }
       }
     };

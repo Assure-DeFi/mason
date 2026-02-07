@@ -7,6 +7,32 @@ interface MigrationResult {
 }
 
 /**
+ * Validates that a PostgreSQL connection target is a legitimate Supabase host.
+ * Blocks private IP ranges and non-Supabase hostnames to prevent SSRF.
+ */
+function isValidConnectionTarget(connStr: string): boolean {
+  try {
+    // PostgreSQL connection strings use postgresql:// scheme
+    const url = new URL(connStr);
+    const hostname = url.hostname;
+
+    // Block private/internal IP ranges
+    if (
+      /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.0\.0\.0|localhost$|::1$)/.test(
+        hostname,
+      )
+    ) {
+      return false;
+    }
+
+    // Must be a Supabase host
+    return hostname.endsWith('.supabase.co');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Build PostgreSQL connection string from Supabase credentials
  *
  * Supabase connection format:
@@ -72,6 +98,15 @@ export async function runMigrations(
   const connStr =
     connectionString || buildConnectionString(supabaseUrl, databasePassword);
 
+  if (!isValidConnectionTarget(connStr)) {
+    return {
+      success: false,
+      error:
+        'Invalid connection target. Only Supabase database hosts are allowed.',
+      errorType: 'connection' as const,
+    };
+  }
+
   const client = new Client({
     connectionString: connStr,
     ssl: { rejectUnauthorized: false },
@@ -128,6 +163,14 @@ export async function testDatabaseConnection(
   databasePassword: string,
 ): Promise<MigrationResult> {
   const connectionString = buildConnectionString(supabaseUrl, databasePassword);
+
+  if (!isValidConnectionTarget(connectionString)) {
+    return {
+      success: false,
+      error:
+        'Invalid connection target. Only Supabase database hosts are allowed.',
+    };
+  }
 
   const client = new Client({
     connectionString,

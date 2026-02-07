@@ -133,24 +133,20 @@ function DatabaseSettingsContent() {
         return;
       }
 
-      // Read tokens from cookie
-      const tokenCookie = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('supabase_oauth_tokens='));
-
-      if (!tokenCookie) {
-        router.replace('/settings/database');
-        return;
-      }
-
+      // Fetch tokens from httpOnly cookie via server endpoint
+      let tokenData: SupabaseOAuthTokens;
       try {
-        const tokenData = JSON.parse(
-          decodeURIComponent(tokenCookie.split('=')[1]),
-        ) as SupabaseOAuthTokens;
+        const res = await fetch('/api/auth/supabase/session');
+        if (!res.ok) {
+          router.replace('/settings/database');
+          return;
+        }
+        const json = await res.json();
+        tokenData = json.data.tokens as SupabaseOAuthTokens;
 
-        // Clear the cookie immediately
+        // Clear the flag cookie
         document.cookie =
-          'supabase_oauth_tokens=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+          'supabase_oauth_ready=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
 
         // Save OAuth tokens
         saveOAuthSession({ tokens: tokenData });

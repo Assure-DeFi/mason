@@ -5,6 +5,7 @@ import {
   analyzeDependencies,
   calculateOverallRiskScore,
 } from '@/lib/analysis/dependency-analyzer';
+import { isValidSupabaseUrl } from '@/lib/api/middleware';
 import {
   apiSuccess,
   unauthorized,
@@ -62,6 +63,10 @@ export async function POST(request: Request, { params }: RouteParams) {
       return badRequest(
         'Database credentials required. Please complete setup.',
       );
+    }
+
+    if (!isValidSupabaseUrl(supabaseUrl)) {
+      return badRequest('Invalid Supabase URL');
     }
 
     // Parse request body

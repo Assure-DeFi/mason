@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { getServerSession } from 'next-auth';
 
+import { isValidSupabaseUrl } from '@/lib/api/middleware';
 import {
   apiSuccess,
   unauthorized,
@@ -38,6 +39,10 @@ export async function POST(request: Request) {
       return badRequest(
         'Database credentials required. Please complete setup.',
       );
+    }
+
+    if (!isValidSupabaseUrl(supabaseUrl)) {
+      return badRequest('Invalid Supabase URL');
     }
 
     // Validate request body with Zod schema

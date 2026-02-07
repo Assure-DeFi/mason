@@ -159,12 +159,21 @@ export async function GET(request: NextRequest) {
       expiresAt: tokens.expiresAt,
     });
 
-    // Set a short-lived cookie with the tokens for the client to read
+    // Set httpOnly cookie with tokens - client reads via /api/auth/supabase/session
     cookieStore.set('supabase_oauth_tokens', tokenData, {
-      httpOnly: false, // Client needs to read this - CSP mitigates XSS token theft
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 10, // 10 seconds - minimal window for client to grab it
+      maxAge: 60, // 1 minute - just enough for session endpoint to read it
+      path: '/',
+    });
+
+    // Set a non-sensitive flag cookie so client JS knows auth completed
+    cookieStore.set('supabase_oauth_ready', 'true', {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60,
       path: '/',
     });
 
