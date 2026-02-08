@@ -72,4 +72,32 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 - **Auth: /admin/backlog uses client-side auth** - This is BY DESIGN. Shows different states for auth/unauth. Not a security bug. Don't flag in E2E testing.
 - **Health endpoints: Graceful fallback** - Wrap queries depending on recent migrations in try/catch. Return `null` for that section, don't crash the entire endpoint.
 
+## Security: httpOnly + Signal Cookie Pattern
+
+**Discovered**: 2026-02-07
+**Context**: OAuth callback was storing tokens in a client-readable cookie, exposing them to XSS
+**Pattern**: Store sensitive tokens in httpOnly cookie, set a separate non-sensitive flag cookie (`supabase_oauth_ready=true`) so client JS knows the flow completed, then read tokens via a server-side API endpoint (`/api/auth/supabase/session`)
+**Why**: httpOnly cookies can't be read by JavaScript (XSS-safe), but client code still needs to know when auth completed. The flag cookie signals readiness without exposing secrets.
+
+## Security: SSRF Covers ALL Protocols
+
+**Discovered**: 2026-02-07
+**Context**: SSRF validation existed for HTTP URLs but PostgreSQL connection strings bypassed it
+**Pattern**: Validate hostnames for EVERY protocol that accepts user-supplied connection targets - HTTP, PostgreSQL, WebSocket, etc. Block private IP ranges (`10.x`, `172.16-31.x`, `192.168.x`, `127.x`, `localhost`, `::1`) and require `.supabase.co` suffix for all connection types.
+**Why**: Attackers can SSRF through any network-capable library, not just HTTP fetchers. Each protocol needs its own validation function.
+
+## Security: Credential Files Need .gitignore on ALL Install Paths
+
+**Discovered**: 2026-02-07
+**Context**: Users with public repos exposed Supabase credentials because no install path added mason.config.json to .gitignore
+**Pattern**: When writing credential files from ANY code path (install scripts, CLI init commands, dashboard setup), also add those files to the user's `.gitignore`. Make it idempotent (check before adding). Cover ALL paths that create the file, not just one.
+**Why**: First fix covered install.sh but missed the autopilot init path. Users who installed via a different path were still exposed. Every path that creates a secret file must protect it.
+
+## Performance: Keep Pattern Files Under 40k Characters
+
+**Discovered**: 2026-02-07
+**Context**: Both user-patterns.md and learned-patterns.md grew past 1480 lines, triggering context performance warnings
+**Pattern**: Consolidate pattern files periodically. Remove verbose formatting, deduplicate cross-file patterns, cut one-time fixes that are already implemented. Target ~150 lines max per file.
+**Why**: These files are loaded into every Claude session's context. Oversized pattern files degrade response quality and speed.
+
 <!-- New patterns will be added below this line -->
