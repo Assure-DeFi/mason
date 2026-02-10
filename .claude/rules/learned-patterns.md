@@ -100,4 +100,25 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Pattern**: Consolidate pattern files periodically. Remove verbose formatting, deduplicate cross-file patterns, cut one-time fixes that are already implemented. Target ~150 lines max per file.
 **Why**: These files are loaded into every Claude session's context. Oversized pattern files degrade response quality and speed.
 
+## Bash: Sanitize Config File Values Same as Env Vars
+
+**Discovered**: 2026-02-09
+**Context**: `jq -r '.supabaseUrl' mason.config.json` returned a URL with invisible characters, causing `curl` to fail with "No host part in URL"
+**Pattern**: Values from JSON config files need the same sanitization as environment variables. Always strip whitespace AND non-printable characters: `jq -r '.field' file.json | tr -d '[:space:]' | sed 's/[^[:print:]]//g'`
+**Why**: Config files edited by multiple tools (dashboards, editors, copy-paste) accumulate invisible characters. `jq -r` does not strip them.
+
+## Bash: Write curl Output to Temp File Before Complex jq
+
+**Discovered**: 2026-02-09
+**Context**: Piping `curl | jq` with complex expressions silently returned empty results due to shell escaping issues
+**Pattern**: For anything beyond simple `jq '.field'`, write curl output to a temp file first, then process: `curl -s "$URL" > /tmp/response.json && jq '.complex.expression' /tmp/response.json`
+**Why**: Shell escaping mangles complex jq expressions (especially with `!=`, quotes, nested paths). Two-step approach eliminates this class of bugs entirely.
+
+## Automation: Verify Clean Git State Before Execution
+
+**Discovered**: 2026-02-09
+**Context**: `/execute-approved` started with merge conflicts (`UU` status) from a prior stash, requiring multi-step conflict resolution before any implementation work
+**Pattern**: At the start of any automated execution command, check for unmerged files (`git status --porcelain | grep '^UU'`). If found, abort with a clear message rather than attempting recovery mid-execution.
+**Why**: Merge conflicts mid-automation waste cycles on git surgery instead of implementation. Clean state should be a hard precondition.
+
 <!-- New patterns will be added below this line -->
