@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import type { RefRouteParams } from '@/lib/api/middleware';
 import {
   apiError,
   unauthorized,
@@ -12,17 +13,13 @@ import { validateProjectRef } from '@/lib/validation/supabase';
 
 const MANAGEMENT_API_BASE = 'https://api.supabase.com/v1';
 
-interface RouteParams {
-  params: Promise<{ ref: string }>;
-}
-
 /**
  * GET /api/supabase/projects/[ref]
  *
  * Proxies the Supabase Management API to avoid CORS issues.
  * Gets a specific project by reference.
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RefRouteParams) {
   const { ref: projectRef } = await params;
   const authHeader = request.headers.get('Authorization');
 

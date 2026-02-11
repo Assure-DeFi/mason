@@ -31,6 +31,13 @@ export interface RouteParams {
 }
 
 /**
+ * Shared route params type for Supabase project routes with [ref] segment.
+ */
+export interface RefRouteParams {
+  params: Promise<{ ref: string }>;
+}
+
+/**
  * Context provided to API key-authenticated route handlers
  */
 export interface ApiKeyContext {

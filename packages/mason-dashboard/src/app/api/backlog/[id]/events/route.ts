@@ -1,24 +1,7 @@
 import { withSessionAndSupabase, type RouteParams } from '@/lib/api/middleware';
 import { apiSuccess, badRequest, serverError } from '@/lib/api-response';
 import { TABLES } from '@/lib/constants';
-
-type ItemEventType =
-  | 'status_changed'
-  | 'prd_generated'
-  | 'branch_created'
-  | 'pr_created'
-  | 'note_added';
-
-interface ItemEvent {
-  id: string;
-  created_at: string;
-  item_id: string;
-  event_type: ItemEventType;
-  old_value: string | null;
-  new_value: string | null;
-  user_id: string | null;
-  notes: string | null;
-}
+import type { ItemEvent, ItemEventType } from '@/types/backlog';
 
 /**
  * GET /api/backlog/[id]/events

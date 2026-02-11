@@ -1,19 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
-import { getServerSession } from 'next-auth';
-
 import {
   analyzeDependencies,
   calculateOverallRiskScore,
 } from '@/lib/analysis/dependency-analyzer';
-import { isValidSupabaseUrl } from '@/lib/api/middleware';
+import { withSessionAndSupabase, type RouteParams } from '@/lib/api/middleware';
 import {
   apiSuccess,
-  unauthorized,
   badRequest,
   notFound,
   serverError,
 } from '@/lib/api-response';
-import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import { createGitHubClient } from '@/lib/github/client';
 import {
@@ -24,10 +19,6 @@ import {
 } from '@/lib/rate-limit/middleware';
 import type { BacklogItem } from '@/types/backlog';
 
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
-
 /**
  * POST /api/backlog/[id]/analyze-risk
  *
@@ -35,38 +26,15 @@ interface RouteParams {
  * Requires GitHub token in request body to access repository files.
  */
 export async function POST(request: Request, { params }: RouteParams) {
-  try {
+  const handler = withSessionAndSupabase(async ({ userId, userSupabase }) => {
     const { id } = await params;
 
-    // Get user session
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return unauthorized('Authentication required');
-    }
-
     // Rate limit check - AI-heavy operation
-    const rateLimitId = getRateLimitIdentifier(
-      'risk-analysis',
-      session.user.id,
-    );
+    const rateLimitId = getRateLimitIdentifier('risk-analysis', userId);
     const rateLimitResult = await checkRateLimit(rateLimitId, 'aiHeavy');
 
     if (!rateLimitResult.success) {
       return createRateLimitResponse(rateLimitResult);
-    }
-
-    // Get user's database credentials from headers (client passes from localStorage)
-    const supabaseUrl = request.headers.get('x-supabase-url');
-    const supabaseAnonKey = request.headers.get('x-supabase-anon-key');
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return badRequest(
-        'Database credentials required. Please complete setup.',
-      );
-    }
-
-    if (!isValidSupabaseUrl(supabaseUrl)) {
-      return badRequest('Invalid Supabase URL');
     }
 
     // Parse request body
@@ -77,11 +45,8 @@ export async function POST(request: Request, { params }: RouteParams) {
       return badRequest('GitHub token required for repository analysis');
     }
 
-    // Connect to user's database
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
     // Fetch the backlog item
-    const { data: item, error: fetchError } = await supabase
+    const { data: item, error: fetchError } = await userSupabase
       .from(TABLES.PM_BACKLOG_ITEMS)
       .select('*')
       .eq('id', id)
@@ -92,7 +57,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Get repository info
-    const { data: repo, error: repoError } = await supabase
+    const { data: repo, error: repoError } = await userSupabase
       .from(TABLES.GITHUB_REPOSITORIES)
       .select('github_owner, github_name')
       .eq('id', item.repository_id)
@@ -123,7 +88,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
 
     // Upsert analysis into dependency_analysis table
-    const { data: analysis, error: analysisError } = await supabase
+    const { data: analysis, error: analysisError } = await userSupabase
       .from(TABLES.DEPENDENCY_ANALYSIS)
       .upsert(
         {
@@ -144,7 +109,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Update backlog item with summary fields
-    const { error: updateError } = await supabase
+    const { error: updateError } = await userSupabase
       .from(TABLES.PM_BACKLOG_ITEMS)
       .update({
         risk_score: overallRiskScore,
@@ -157,7 +122,6 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (updateError) {
       console.error('Failed to update item with risk summary:', updateError);
-      // Continue anyway - analysis is saved
     }
 
     const response = apiSuccess({
@@ -168,8 +132,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       },
     });
     return addRateLimitHeaders(response, rateLimitResult);
-  } catch (err) {
-    console.error('Risk analysis error:', err);
-    return serverError(err instanceof Error ? err.message : 'Analysis failed');
-  }
+  });
+
+  return handler(request);
 }

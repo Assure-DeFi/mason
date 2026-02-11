@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import type { RefRouteParams } from '@/lib/api/middleware';
 import {
   apiError,
   unauthorized,
@@ -31,10 +32,6 @@ async function fetchWithTimeout(
   }
 }
 
-interface RouteParams {
-  params: Promise<{ ref: string }>;
-}
-
 interface QueryRequestBody {
   query: string;
   read_only?: boolean;
@@ -46,7 +43,7 @@ interface QueryRequestBody {
  * Proxies the Supabase Management API to avoid CORS issues.
  * Runs a SQL query against a project's database.
  */
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: NextRequest, { params }: RefRouteParams) {
   const { ref: projectRef } = await params;
   const authHeader = request.headers.get('Authorization');
 

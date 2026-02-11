@@ -1,15 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
-import { getServerSession } from 'next-auth';
-
-import { isValidSupabaseUrl } from '@/lib/api/middleware';
+import { withSessionAndSupabase } from '@/lib/api/middleware';
 import {
   apiSuccess,
-  unauthorized,
   badRequest,
   notFound,
   serverError,
 } from '@/lib/api-response';
-import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
 import { backlogRestoreSchema, validateRequest } from '@/lib/schemas';
 
@@ -24,27 +19,7 @@ import { backlogRestoreSchema, validateRequest } from '@/lib/schemas';
  * Requires user's Supabase credentials via headers (privacy model).
  */
 export async function POST(request: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return unauthorized();
-    }
-
-    // Get user's database credentials from headers (client passes from localStorage)
-    const supabaseUrl = request.headers.get('x-supabase-url');
-    const supabaseAnonKey = request.headers.get('x-supabase-anon-key');
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return badRequest(
-        'Database credentials required. Please complete setup.',
-      );
-    }
-
-    if (!isValidSupabaseUrl(supabaseUrl)) {
-      return badRequest('Invalid Supabase URL');
-    }
-
+  const handler = withSessionAndSupabase(async ({ userSupabase }) => {
     // Validate request body with Zod schema
     const validation = await validateRequest(request, backlogRestoreSchema);
     if (!validation.success) {
@@ -53,11 +28,8 @@ export async function POST(request: Request) {
 
     const { filteredItemId } = validation.data;
 
-    // Create client for user's database
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
     // Fetch the filtered item
-    const { data: filteredItem, error: fetchError } = await supabase
+    const { data: filteredItem, error: fetchError } = await userSupabase
       .from(TABLES.PM_FILTERED_ITEMS)
       .select('*')
       .eq('id', filteredItemId)
@@ -88,7 +60,7 @@ export async function POST(request: Request) {
       analysis_run_id: filteredItem.analysis_run_id,
     };
 
-    const { data: newItem, error: insertError } = await supabase
+    const { data: newItem, error: insertError } = await userSupabase
       .from(TABLES.PM_BACKLOG_ITEMS)
       .insert(backlogItem)
       .select()
@@ -100,19 +72,17 @@ export async function POST(request: Request) {
     }
 
     // Mark filtered item as restored
-    const { error: updateError } = await supabase
+    const { error: updateError } = await userSupabase
       .from(TABLES.PM_FILTERED_ITEMS)
       .update({ override_status: 'restored' })
       .eq('id', filteredItemId);
 
     if (updateError) {
       console.error('Failed to update filtered item status:', updateError);
-      // Don't fail the request - the item was already restored
     }
 
     // Track restore feedback for confidence decay system
-    // This helps the pm-validator learn which filter patterns are too aggressive
-    const { error: trackError } = await supabase
+    const { error: trackError } = await userSupabase
       .from(TABLES.PM_RESTORE_FEEDBACK)
       .insert({
         filtered_item_id: filteredItemId,
@@ -122,7 +92,6 @@ export async function POST(request: Request) {
       });
 
     if (trackError) {
-      // Log but don't fail - feedback tracking is non-critical
       console.warn('Failed to track restore feedback:', trackError);
     }
 
@@ -130,8 +99,7 @@ export async function POST(request: Request) {
       message: 'Item restored successfully',
       backlogItem: newItem,
     });
-  } catch (error) {
-    console.error('Restore error:', error);
-    return serverError();
-  }
+  });
+
+  return handler(request);
 }

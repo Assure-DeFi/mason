@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import type { RefRouteParams } from '@/lib/api/middleware';
 import {
   apiError,
   unauthorized,
@@ -31,17 +32,13 @@ async function fetchWithTimeout(
   }
 }
 
-interface RouteParams {
-  params: Promise<{ ref: string }>;
-}
-
 /**
  * GET /api/supabase/projects/[ref]/api-keys
  *
  * Proxies the Supabase Management API to avoid CORS issues.
  * Gets API keys for a specific project.
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RefRouteParams) {
   const { ref: projectRef } = await params;
   const authHeader = request.headers.get('Authorization');
 
