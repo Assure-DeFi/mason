@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 
 import { SessionProvider } from '@/components/auth/session-provider';
+import { TopNav } from '@/components/nav/TopNav';
 import { AutoMigrationProvider } from '@/components/providers/AutoMigrationProvider';
 import { NetworkStatusProvider } from '@/components/ui/NetworkStatusProvider';
 import { SWRProvider } from '@/lib/swr/provider';
@@ -48,7 +49,10 @@ export default function RootLayout({
         <SessionProvider>
           <SWRProvider>
             <AutoMigrationProvider>
-              <NetworkStatusProvider>{children}</NetworkStatusProvider>
+              <NetworkStatusProvider>
+                <TopNav />
+                {children}
+              </NetworkStatusProvider>
             </AutoMigrationProvider>
           </SWRProvider>
         </SessionProvider>
