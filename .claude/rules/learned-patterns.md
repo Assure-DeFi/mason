@@ -121,4 +121,18 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Pattern**: At the start of any automated execution command, check for unmerged files (`git status --porcelain | grep '^UU'`). If found, abort with a clear message rather than attempting recovery mid-execution.
 **Why**: Merge conflicts mid-automation waste cycles on git surgery instead of implementation. Clean state should be a hard precondition.
 
+## Git: Stash Pop Theirs/Ours Semantics Are Inverted
+
+**Discovered**: 2026-02-11
+**Context**: `/execute-approved` session tried `git checkout --theirs` to accept HEAD during stash pop conflict resolution, but `--theirs` means the stashed version during stash pop (opposite of merge/rebase)
+**Pattern**: During `git stash pop` conflicts, `--ours` = current HEAD, `--theirs` = stashed changes. This is the OPPOSITE of what you'd expect from merge semantics. Prefer `git checkout HEAD -- <file>` to unambiguously accept the current branch version.
+**Why**: The session wasted multiple iterations trying theirs/ours before realizing the inversion. Using explicit `HEAD` reference avoids the confusion entirely.
+
+## Schema: execution_runs Table Missing from TABLES Constant
+
+**Discovered**: 2026-02-11
+**Context**: `/execute-approved` tried to insert into `mason_execution_runs` via TABLES constant but it doesn't exist, despite the table existing in migrations and being referenced in 16 files
+**Pattern**: `mason_execution_runs` exists in the database but has no `TABLES.EXECUTION_RUNS` entry in `lib/constants.ts`. Any code path needing to insert execution runs must either add the constant first or use the table name directly (violating the hardcoded table name rule). This should be fixed.
+**Why**: The execution progress tracking silently skipped run creation, meaning the dashboard has no parent record linking execution tasks to their run context.
+
 <!-- New patterns will be added below this line -->
