@@ -25,6 +25,7 @@ const TABS: Array<{ status: TabStatus; label: string }> = [
   { status: 'in_progress', label: 'In Progress' },
   { status: 'completed', label: 'Completed' },
   { status: 'deferred', label: 'Deferred' },
+  { status: 'failed', label: 'Failed' },
   { status: 'rejected', label: 'Rejected' },
   { status: 'filtered', label: 'Filtered' },
 ];

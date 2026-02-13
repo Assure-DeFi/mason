@@ -129,7 +129,8 @@ CREATE TABLE IF NOT EXISTS mason_pm_backlog_items (
   effort_score INTEGER NOT NULL CHECK (effort_score BETWEEN 1 AND 10),
   priority_score INTEGER GENERATED ALWAYS AS (impact_score * 2 - effort_score) STORED,
   benefits JSONB DEFAULT '[]'::jsonb,
-  status TEXT DEFAULT 'new' CHECK (status IN ('new', 'approved', 'in_progress', 'completed', 'deferred', 'rejected')),
+  status TEXT DEFAULT 'new' CHECK (status IN ('new', 'approved', 'in_progress', 'completed', 'deferred', 'rejected', 'failed')),
+  error_message TEXT,
   branch_name TEXT,
   pr_url TEXT,
   prd_content TEXT,
@@ -625,6 +626,18 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mason_migrations' AND policyname = 'Allow all on migrations') THEN
     CREATE POLICY "Allow all on migrations" ON mason_migrations FOR ALL USING (true) WITH CHECK (true);
   END IF;
+END $$;
+
+-- Add error_message column for proper error tracking (instead of overwriting solution field)
+ALTER TABLE mason_pm_backlog_items ADD COLUMN IF NOT EXISTS error_message TEXT;
+
+-- Update status CHECK constraint to include 'failed' status
+DO $$ BEGIN
+  ALTER TABLE mason_pm_backlog_items DROP CONSTRAINT IF EXISTS mason_pm_backlog_items_status_check;
+  ALTER TABLE mason_pm_backlog_items ADD CONSTRAINT mason_pm_backlog_items_status_check
+    CHECK (status IN ('new', 'approved', 'in_progress', 'completed', 'deferred', 'rejected', 'failed'));
+EXCEPTION WHEN duplicate_object THEN
+  NULL; -- Constraint already exists
 END $$;
 
 -- Enable REPLICA IDENTITY FULL for realtime tables (REQUIRED for postgres_changes)

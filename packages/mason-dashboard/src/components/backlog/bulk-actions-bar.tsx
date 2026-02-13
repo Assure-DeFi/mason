@@ -50,7 +50,7 @@ export function BulkActionsBar({
     (item) => item.status === 'new',
   );
   const itemsNeedingRestore = selectedItems.filter(
-    (item) => item.status === 'rejected',
+    (item) => item.status === 'rejected' || item.status === 'failed',
   );
   // Items that can be marked as completed (anything not already completed)
   const itemsCanComplete = selectedItems.filter(

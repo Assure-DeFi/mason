@@ -16,11 +16,8 @@ import { createServiceClient } from '@/lib/supabase/client';
  * - Item status is 'in_progress' (can only fail items that are in progress)
  *
  * Updates:
- * - status -> 'rejected' (used as 'failed' status)
- *
- * Note: The database uses 'rejected' status for failed items.
- * The error_message is stored in a separate field if available,
- * or we could add it to the item's metadata.
+ * - status -> 'failed'
+ * - error_message -> provided error description (if any)
  */
 export async function POST(request: Request, { params }: RouteParams) {
   const handler = withApiKeyAuth(
@@ -49,15 +46,14 @@ export async function POST(request: Request, { params }: RouteParams) {
       const supabase = createServiceClient();
 
       // Build update data
-      // Note: We use 'rejected' as the status since the schema doesn't have 'failed'
       const updateData: Record<string, unknown> = {
-        status: 'rejected',
+        status: 'failed',
         updated_at: new Date().toISOString(),
       };
 
-      // Store error message in solution field with prefix (hacky but works without migration)
+      // Store error message in dedicated column
       if (error_message) {
-        updateData.solution = `[EXECUTION FAILED: ${error_message}]`;
+        updateData.error_message = error_message;
       }
 
       // Atomic update: include status check in WHERE clause to prevent race conditions

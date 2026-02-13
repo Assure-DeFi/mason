@@ -351,6 +351,7 @@ describe('Backlog State Mutations', () => {
         completed: 0,
         deferred: 0,
         rejected: 0,
+        failed: 0,
       };
 
       items.forEach((item) => {

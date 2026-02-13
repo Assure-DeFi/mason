@@ -80,7 +80,8 @@ export type BacklogStatus =
   | 'in_progress'
   | 'completed'
   | 'deferred'
-  | 'rejected';
+  | 'rejected'
+  | 'failed';
 
 export interface Benefit {
   category:
@@ -152,6 +153,9 @@ export interface BacklogItem {
   // Source tracking for autopilot visibility
   source?: 'manual' | 'autopilot';
   autopilot_run_id?: string | null;
+
+  // Error tracking for failed executions
+  error_message?: string | null;
 }
 
 export interface AnalysisRun {
@@ -256,6 +260,7 @@ export interface StatusCounts {
   completed: number;
   deferred: number;
   rejected: number;
+  failed: number;
 }
 
 /**

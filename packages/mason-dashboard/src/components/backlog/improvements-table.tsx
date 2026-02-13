@@ -176,6 +176,7 @@ type TabStatus =
   | 'completed'
   | 'deferred'
   | 'rejected'
+  | 'failed'
   | 'filtered'
   | null;
 
@@ -226,6 +227,11 @@ function getEmptyStateContent(activeStatus: TabStatus) {
       return {
         title: 'No rejected items',
         description: 'Items you reject will appear here for reference',
+      };
+    case 'failed':
+      return {
+        title: 'No failed items',
+        description: 'Items that fail during execution will appear here',
       };
     default:
       return {

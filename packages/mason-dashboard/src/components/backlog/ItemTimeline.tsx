@@ -83,6 +83,11 @@ const STATUS_CONFIG: Record<
     color: 'text-red-400',
     bgColor: 'bg-red-500/20',
   },
+  failed: {
+    label: 'Failed',
+    color: 'text-red-400',
+    bgColor: 'bg-red-500/20',
+  },
 };
 
 const EVENT_TYPE_CONFIG: Record<
@@ -145,9 +150,14 @@ function getInferredEvents(
   if (
     currentIndex > 0 ||
     currentStatus === 'deferred' ||
-    currentStatus === 'rejected'
+    currentStatus === 'rejected' ||
+    currentStatus === 'failed'
   ) {
-    if (currentStatus === 'deferred' || currentStatus === 'rejected') {
+    if (
+      currentStatus === 'deferred' ||
+      currentStatus === 'rejected' ||
+      currentStatus === 'failed'
+    ) {
       events.push({
         status: currentStatus,
         timestamp: updatedAt,

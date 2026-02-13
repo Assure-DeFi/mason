@@ -67,6 +67,14 @@ const STAT_CONFIG: Array<{
     activeRing: 'ring-gray-400/50',
   },
   {
+    key: 'failed',
+    tabStatus: 'failed',
+    label: 'Failed',
+    color: 'text-red-400',
+    bgColor: 'bg-red-500/10',
+    activeRing: 'ring-red-400/50',
+  },
+  {
     key: 'rejected',
     tabStatus: 'rejected',
     label: 'Rejected',

@@ -304,8 +304,8 @@ registry.registerPath({
       content: {
         'application/json': {
           schema: z.object({
-            failure_reason: z.string().optional().openapi({
-              description: 'Reason for failure',
+            error_message: z.string().optional().openapi({
+              description: 'Error message describing the failure',
               example: 'Build failed after 5 fix iterations',
             }),
           }),
@@ -322,7 +322,7 @@ registry.registerPath({
             success: z.literal(true),
             data: z.object({
               id: z.string().uuid(),
-              status: z.literal('rejected'),
+              status: z.literal('failed'),
             }),
           }),
         },
