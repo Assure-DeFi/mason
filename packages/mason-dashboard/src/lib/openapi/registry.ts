@@ -164,6 +164,12 @@ registry.registerPath({
                   status: z.literal('approved'),
                 }),
               ),
+              count: z.number().openapi({
+                description: 'Number of items returned in this response',
+              }),
+              total_approved: z.number().openapi({
+                description: 'Total number of approved items available',
+              }),
             }),
           }),
         },

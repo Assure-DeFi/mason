@@ -32,18 +32,22 @@ export default function APIBacklogPage() {
       <pre>
         <code>{`{
   "success": true,
-  "items": [
-    {
-      "id": "item_abc123",
-      "title": "Add pagination to user list",
-      "status": "approved",
-      "priority_score": 15,
-      "impact_score": 9,
-      "effort_score": 3,
-      "category": "api",
-      "has_prd": true
-    }
-  ]
+  "data": {
+    "items": [
+      {
+        "id": "item_abc123",
+        "title": "Add pagination to user list",
+        "status": "approved",
+        "priority_score": 15,
+        "impact_score": 9,
+        "effort_score": 3,
+        "type": "api",
+        "prd_content": "# PRD: ..."
+      }
+    ],
+    "count": 1,
+    "total_approved": 5
+  }
 }`}</code>
       </pre>
 

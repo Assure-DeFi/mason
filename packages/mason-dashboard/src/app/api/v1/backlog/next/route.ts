@@ -78,10 +78,13 @@ export const GET = withApiKeyAuth(
 
     // No approved items found
     if (!data || data.length === 0) {
-      return apiSuccess({
+      const response = apiSuccess({
         items: [],
+        count: 0,
+        total_approved: 0,
         message: 'No approved items available for execution',
       });
+      return addRateLimitHeaders(response, rateLimitResult);
     }
 
     // Transform benefits_json to benefits array for consistency
@@ -90,18 +93,24 @@ export const GET = withApiKeyAuth(
       benefits: item.benefits_json || [],
     }));
 
-    // Return single item or array based on limit
-    if (limit === 1) {
-      const response = apiSuccess({
-        item: items[0],
-        total_approved: data.length,
-      });
-      return addRateLimitHeaders(response, rateLimitResult);
+    // Get accurate total count of approved items (separate from limited results)
+    let totalQuery = supabase
+      .from(TABLES.PM_BACKLOG_ITEMS)
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'approved');
+
+    if (repositoryId) {
+      totalQuery = totalQuery.eq('repository_id', repositoryId);
     }
 
+    const { count: totalApproved } = await totalQuery;
+
+    // Always return consistent array shape
     const response = apiSuccess({
       items,
       count: items.length,
+      total_approved: totalApproved ?? items.length,
     });
     return addRateLimitHeaders(response, rateLimitResult);
   },
