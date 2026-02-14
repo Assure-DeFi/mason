@@ -121,4 +121,26 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Pattern**: At the start of any automated execution command, check for unmerged files (`git status --porcelain | grep '^UU'`). If found, abort with a clear message rather than attempting recovery mid-execution.
 **Why**: Merge conflicts mid-automation waste cycles on git surgery instead of implementation. Clean state should be a hard precondition.
 
+## Database & Schema: BacklogStatus Enum Blast Radius
+
+**Discovered**: 2026-02-13
+**Context**: Adding `failed` status required changes across 15 files - easy to miss locations
+**Pattern**: When adding a new `BacklogStatus` value, update ALL of these:
+
+1. `types/backlog.ts` - `BacklogStatus` type union AND `StatusCounts` interface
+2. `app/api/setup/migrations/route.ts` - CHECK constraint (both in CREATE TABLE and ALTER migration)
+3. `app/admin/backlog/page.tsx` - status counts initialization
+4. `hooks/useBacklogFilters.ts` - status counts initialization
+5. `components/backlog/status-tabs.tsx` - TABS array
+6. `components/backlog/stats-bar.tsx` - STAT_CONFIG array
+7. `components/backlog/item-row.tsx` - STATUS_COLORS and STATUS_LABELS
+8. `components/backlog/improvements-table.tsx` - TabStatus type and empty state
+9. `components/backlog/ItemTimeline.tsx` - STATUS_CONFIG and event inference
+10. `components/backlog/bulk-actions-bar.tsx` - action eligibility filters
+11. `components/ui/StatusBadge.tsx` - colors, labels, descriptions
+12. `lib/supabase/queries.ts` - getBacklogStats parallel queries
+13. `lib/openapi/registry.ts` - API schema if status appears in endpoints
+14. `__tests__/backlog-state.test.ts` - test fixtures
+    **Why**: Record<BacklogStatus, ...> types catch most at compile time, but runtime arrays (TABS, STAT_CONFIG) and SQL constraints don't. Missing any location causes silent UI gaps or DB constraint errors.
+
 <!-- New patterns will be added below this line -->
