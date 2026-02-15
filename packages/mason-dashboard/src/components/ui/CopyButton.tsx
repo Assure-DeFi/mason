@@ -120,7 +120,12 @@ export function CopyButton({
 
       {/* Toast notification */}
       {showToastState && showToast && (
-        <div className="fixed right-6 z-50 px-4 py-3 bg-green-600 text-white text-sm shadow-lg fixed-bottom-safe gpu-accelerated">
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="fixed right-6 z-50 px-4 py-3 bg-green-600 text-white text-sm shadow-lg fixed-bottom-safe gpu-accelerated"
+        >
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4" />
             {toastMessage}

@@ -121,6 +121,7 @@ ${item.prd_content}
         <button
           onClick={() => onApprove(itemsNeedingApproval.map((item) => item.id))}
           disabled={isAnyLoading || itemsNeedingApproval.length === 0}
+          aria-busy={isApproving}
           className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-green-500/10 border border-green-500/30 text-green-400 font-medium hover:bg-green-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           title={
             itemsNeedingApproval.length === 0
@@ -145,6 +146,7 @@ ${item.prd_content}
         <button
           onClick={() => onReject(itemsNeedingApproval.map((item) => item.id))}
           disabled={isAnyLoading || itemsNeedingApproval.length === 0}
+          aria-busy={isRejecting}
           className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 font-medium hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           title={
             itemsNeedingApproval.length === 0
@@ -193,6 +195,7 @@ ${item.prd_content}
               onRestore(itemsNeedingRestore.map((item) => item.id))
             }
             disabled={isAnyLoading || itemsNeedingRestore.length === 0}
+            aria-busy={isRestoring}
             className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-medium hover:bg-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             title={
               itemsNeedingRestore.length === 0
@@ -217,6 +220,7 @@ ${item.prd_content}
           <button
             onClick={() => onComplete(itemsCanComplete.map((item) => item.id))}
             disabled={isAnyLoading || itemsCanComplete.length === 0}
+            aria-busy={isCompleting}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium hover:bg-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             title={
               itemsCanComplete.length === 0
@@ -241,6 +245,7 @@ ${item.prd_content}
           <button
             onClick={() => onDelete(selectedItems.map((item) => item.id))}
             disabled={isAnyLoading || count === 0}
+            aria-busy={isDeleting}
             className="flex items-center gap-2 px-4 py-2 bg-red-600/20 border border-red-600/50 text-red-400 font-medium hover:bg-red-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             title={`Permanently delete ${count} item${count !== 1 ? 's' : ''}`}
           >

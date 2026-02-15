@@ -223,7 +223,12 @@ export function ErrorToast({
   }
 
   return (
-    <div className="fixed right-6 z-50 px-4 py-3 bg-red-600 text-white shadow-lg rounded flex items-center gap-3 fixed-bottom-safe gpu-accelerated">
+    <div
+      role="alert"
+      aria-live="assertive"
+      aria-atomic="true"
+      className="fixed right-6 z-50 px-4 py-3 bg-red-600 text-white shadow-lg rounded flex items-center gap-3 fixed-bottom-safe gpu-accelerated"
+    >
       <AlertCircle className="w-4 h-4" />
       <span>{message}</span>
       <button

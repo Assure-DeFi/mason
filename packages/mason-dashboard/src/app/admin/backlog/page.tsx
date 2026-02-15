@@ -1486,7 +1486,12 @@ export default function BacklogPage() {
 
       {/* Copy Success Toast */}
       {copiedToast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-right-5 duration-200">
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-right-5 duration-200"
+        >
           <div className="flex items-center gap-3 px-4 py-3 bg-green-600 text-white shadow-lg">
             <Check className="w-5 h-5 flex-shrink-0" />
             <div className="flex flex-col">
@@ -1576,7 +1581,12 @@ export default function BacklogPage() {
 
       {/* Undo Toast */}
       {undoState && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50">
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50"
+        >
           <div className="flex items-center gap-3 px-4 py-3 bg-gray-900 border border-gray-700 shadow-2xl">
             <span className="text-white">{undoState.message}</span>
             <button
