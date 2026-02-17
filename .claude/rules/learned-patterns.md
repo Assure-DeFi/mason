@@ -121,4 +121,41 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Pattern**: At the start of any automated execution command, check for unmerged files (`git status --porcelain | grep '^UU'`). If found, abort with a clear message rather than attempting recovery mid-execution.
 **Why**: Merge conflicts mid-automation waste cycles on git surgery instead of implementation. Clean state should be a hard precondition.
 
+## Database & Schema: BacklogStatus Enum Blast Radius
+
+**Discovered**: 2026-02-13
+**Context**: Adding `failed` status required changes across 15 files - easy to miss locations
+**Pattern**: When adding a new `BacklogStatus` value, update ALL of these:
+
+1. `types/backlog.ts` - `BacklogStatus` type union AND `StatusCounts` interface
+2. `app/api/setup/migrations/route.ts` - CHECK constraint (both CREATE TABLE and ALTER migration)
+3. `app/admin/backlog/page.tsx` - status counts initialization
+4. `hooks/useBacklogFilters.ts` - status counts initialization
+5. `components/backlog/status-tabs.tsx` - TABS array
+6. `components/backlog/stats-bar.tsx` - STAT_CONFIG array
+7. `components/backlog/item-row.tsx` - STATUS_COLORS and STATUS_LABELS
+8. `components/backlog/improvements-table.tsx` - TabStatus type and empty state
+9. `components/backlog/ItemTimeline.tsx` - STATUS_CONFIG and event inference
+10. `components/backlog/bulk-actions-bar.tsx` - action eligibility filters
+11. `components/ui/StatusBadge.tsx` - colors, labels, descriptions
+12. `lib/supabase/queries.ts` - getBacklogStats parallel queries
+13. `lib/openapi/registry.ts` - API schema if status appears in endpoints
+14. `__tests__/backlog-state.test.ts` - test fixtures
+
+**Why**: `Record<BacklogStatus, ...>` types catch most at compile time, but runtime arrays (TABS, STAT_CONFIG) and SQL constraints don't. Missing any location causes silent UI gaps or DB constraint errors.
+
+## API Design: Never Return Polymorphic Response Shapes
+
+**Discovered**: 2026-02-14
+**Context**: `/api/v1/backlog/next` returned `{item, total_approved}` for `limit=1` but `{items, count}` otherwise - CLI consumers had to handle both shapes
+**Pattern**: API endpoints must always return the same response shape regardless of query parameters. Use `{items: [], count: N}` always - never switch between singular `item` and plural `items` based on limit. Include metadata fields (`total_approved`, `count`) in every response, including empty results.
+**Why**: Polymorphic responses force every consumer to branch on parameter values to parse responses correctly. One shape = one parser. This also makes OpenAPI schemas accurate instead of "one of two possible shapes."
+
+## Git: Parallel Feature Branches Cause Stash/Merge Conflicts
+
+**Discovered**: 2026-02-16
+**Context**: 5+ unmerged feature branches all diverging from the same base, with stashed WIP on backlog page simplification causing conflicts
+**Pattern**: When running concurrent sessions on separate branches that touch the same files (especially `backlog/page.tsx`), merge each branch to main promptly before starting the next. Stashing WIP across branch switches on shared files leads to conflict resolution overhead. If branches must coexist, keep each branch's scope to non-overlapping files.
+**Why**: The backlog page is a convergence point - many feature branches modify it. Accumulating unmerged branches with overlapping changes creates compounding merge debt.
+
 <!-- New patterns will be added below this line -->
