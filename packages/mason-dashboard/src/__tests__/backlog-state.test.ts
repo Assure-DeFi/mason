@@ -152,18 +152,22 @@ describe('Backlog State Mutations', () => {
 
   describe('Selection State', () => {
     it('should toggle item selection', () => {
-      let selectedIds: string[] = [];
+      let selectedIds = new Set<string>();
       const toggle = (id: string) => {
-        selectedIds = selectedIds.includes(id)
-          ? selectedIds.filter((i) => i !== id)
-          : [...selectedIds, id];
+        const next = new Set(selectedIds);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        selectedIds = next;
       };
 
       toggle('item-1');
-      expect(selectedIds).toContain('item-1');
+      expect(selectedIds.has('item-1')).toBe(true);
 
       toggle('item-1');
-      expect(selectedIds).not.toContain('item-1');
+      expect(selectedIds.has('item-1')).toBe(false);
     });
 
     it('should select all items', () => {
@@ -173,20 +177,24 @@ describe('Backlog State Mutations', () => {
         createMockItem({ id: 'item-3' }),
       ];
 
-      const selectedIds = items.map((item) => item.id);
+      const selectedIds = new Set(items.map((item) => item.id));
 
-      expect(selectedIds.length).toBe(3);
-      expect(selectedIds).toEqual(['item-1', 'item-2', 'item-3']);
+      expect(selectedIds.size).toBe(3);
+      expect(selectedIds).toEqual(new Set(['item-1', 'item-2', 'item-3']));
     });
 
     it('should clear selection when items are deleted', () => {
-      let selectedIds = ['item-1', 'item-2'];
+      let selectedIds = new Set(['item-1', 'item-2']);
       const deletedIds = ['item-1'];
 
-      selectedIds = selectedIds.filter((id) => !deletedIds.includes(id));
+      const next = new Set(selectedIds);
+      for (const id of deletedIds) {
+        next.delete(id);
+      }
+      selectedIds = next;
 
-      expect(selectedIds.length).toBe(1);
-      expect(selectedIds).toContain('item-2');
+      expect(selectedIds.size).toBe(1);
+      expect(selectedIds.has('item-2')).toBe(true);
     });
   });
 

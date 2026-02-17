@@ -11,7 +11,7 @@
 import { useEffect } from 'react';
 
 interface UseBacklogKeyboardShortcutsOptions {
-  selectedIds: string[];
+  selectedIds: Set<string>;
   filteredItemIds: string[];
   isModalOpen: boolean;
   isApproving: boolean;
@@ -64,8 +64,8 @@ export function useBacklogKeyboardShortcuts({
       // Cmd/Ctrl+Shift+A - Approve selected
       if (isModKey && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
-        if (selectedIds.length > 0 && !isApproving) {
-          onApprove(selectedIds);
+        if (selectedIds.size > 0 && !isApproving) {
+          onApprove(Array.from(selectedIds));
         }
         return;
       }
@@ -73,8 +73,8 @@ export function useBacklogKeyboardShortcuts({
       // Cmd/Ctrl+Shift+X - Reject selected
       if (isModKey && e.shiftKey && e.key.toLowerCase() === 'x') {
         e.preventDefault();
-        if (selectedIds.length > 0 && !isRejecting) {
-          onReject(selectedIds);
+        if (selectedIds.size > 0 && !isRejecting) {
+          onReject(Array.from(selectedIds));
         }
         return;
       }

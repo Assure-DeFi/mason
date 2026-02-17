@@ -181,7 +181,7 @@ type TabStatus =
 
 interface ImprovementsTableProps {
   items: BacklogItem[];
-  selectedIds: string[];
+  selectedIds: Set<string>;
   onSelectItem: (id: string, event?: React.MouseEvent) => void;
   onSelectAll: () => void;
   onItemClick: (item: BacklogItem) => void;
@@ -256,9 +256,8 @@ export function ImprovementsTable({
     hasCustomWidths,
   } = useColumnResize();
 
-  const allSelected = items.length > 0 && selectedIds.length === items.length;
-  const someSelected =
-    selectedIds.length > 0 && selectedIds.length < items.length;
+  const allSelected = items.length > 0 && selectedIds.size === items.length;
+  const someSelected = selectedIds.size > 0 && selectedIds.size < items.length;
 
   return (
     <div>
@@ -394,7 +393,7 @@ export function ImprovementsTable({
               <ItemRow
                 key={item.id}
                 item={item}
-                selected={selectedIds.includes(item.id)}
+                selected={selectedIds.has(item.id)}
                 onSelect={onSelectItem}
                 onClick={onItemClick}
                 onPrdClick={onPrdClick}

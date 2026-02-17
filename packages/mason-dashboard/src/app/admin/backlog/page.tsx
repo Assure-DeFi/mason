@@ -117,7 +117,7 @@ export default function BacklogPage() {
     migrationState.status === 'error';
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeStatus, setActiveStatus] = useState<TabStatus>('new');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -575,7 +575,7 @@ export default function BacklogPage() {
   // Intersection of selected items and approved items
   const selectedApprovedIds = useMemo(() => {
     const approvedSet = new Set(approvedItemIds);
-    return selectedIds.filter((id) => approvedSet.has(id));
+    return Array.from(selectedIds).filter((id) => approvedSet.has(id));
   }, [selectedIds, approvedItemIds]);
 
   // Count stale approved items (approved > 2 days ago without execution)
@@ -688,21 +688,27 @@ export default function BacklogPage() {
 
   // Memoized to prevent ItemRow re-renders when parent state changes
   const handleSelectItem = useCallback((id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
-    );
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   }, []);
 
   const handleSelectAll = () => {
-    if (selectedIds.length === filteredItems.length) {
-      setSelectedIds([]);
+    if (selectedIds.size === filteredItems.length) {
+      setSelectedIds(new Set());
     } else {
-      setSelectedIds(filteredItems.map((item) => item.id));
+      setSelectedIds(new Set(filteredItems.map((item) => item.id)));
     }
   };
 
   const handleClearSelection = () => {
-    setSelectedIds([]);
+    setSelectedIds(new Set());
   };
 
   // Handle clicking on an item row (opens modal with details view)
@@ -748,7 +754,7 @@ export default function BacklogPage() {
 
   // Get selected items from IDs
   const selectedItems = useMemo(() => {
-    return items.filter((item) => selectedIds.includes(item.id));
+    return items.filter((item) => selectedIds.has(item.id));
   }, [items, selectedIds]);
 
   // Clear any existing undo timeout when component unmounts
@@ -785,17 +791,17 @@ export default function BacklogPage() {
       // Escape - Clear selection
       if (e.key === 'Escape') {
         e.preventDefault();
-        setSelectedIds([]);
+        setSelectedIds(new Set());
         return;
       }
 
       // Cmd/Ctrl+A - Select all / Deselect all
       if (isModKey && !e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
-        if (selectedIds.length === filteredItems.length) {
-          setSelectedIds([]);
+        if (selectedIds.size === filteredItems.length) {
+          setSelectedIds(new Set());
         } else {
-          setSelectedIds(filteredItems.map((item) => item.id));
+          setSelectedIds(new Set(filteredItems.map((item) => item.id)));
         }
         return;
       }
@@ -803,8 +809,8 @@ export default function BacklogPage() {
       // Cmd/Ctrl+Shift+A - Approve selected (with confirmation)
       if (isModKey && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
-        if (selectedIds.length > 0 && !isApproving) {
-          showConfirmation('approve', selectedIds);
+        if (selectedIds.size > 0 && !isApproving) {
+          showConfirmation('approve', Array.from(selectedIds));
         }
         return;
       }
@@ -812,8 +818,8 @@ export default function BacklogPage() {
       // Cmd/Ctrl+Shift+X - Reject selected (with confirmation)
       if (isModKey && e.shiftKey && e.key.toLowerCase() === 'x') {
         e.preventDefault();
-        if (selectedIds.length > 0 && !isRejecting) {
-          showConfirmation('reject', selectedIds);
+        if (selectedIds.size > 0 && !isRejecting) {
+          showConfirmation('reject', Array.from(selectedIds));
         }
         return;
       }
@@ -947,7 +953,7 @@ export default function BacklogPage() {
     );
 
     // Clear selection
-    setSelectedIds([]);
+    setSelectedIds(new Set());
 
     // Set undo state
     const successCount = results.filter((r) => r !== null).length;
@@ -1028,7 +1034,7 @@ export default function BacklogPage() {
 
       // Update local state
       setItems((prev) => prev.filter((i) => !ids.includes(i.id)));
-      setSelectedIds([]);
+      setSelectedIds(new Set());
 
       // Close detail modal if viewing a deleted item
       if (selectedItem && ids.includes(selectedItem.id)) {
@@ -1598,7 +1604,7 @@ export default function BacklogPage() {
 
       {/* Keyboard Shortcut Hints */}
       <KeyboardShortcutBar
-        selectedCount={selectedIds.length}
+        selectedCount={selectedIds.size}
         hasItems={filteredItems.length > 0}
       />
 
@@ -1606,18 +1612,24 @@ export default function BacklogPage() {
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
-        selectedCount={selectedIds.length}
-        onApproveSelected={() => showConfirmation('approve', selectedIds)}
-        onRejectSelected={() => showConfirmation('reject', selectedIds)}
-        onDeleteSelected={() => showConfirmation('delete', selectedIds)}
+        selectedCount={selectedIds.size}
+        onApproveSelected={() =>
+          showConfirmation('approve', Array.from(selectedIds))
+        }
+        onRejectSelected={() =>
+          showConfirmation('reject', Array.from(selectedIds))
+        }
+        onDeleteSelected={() =>
+          showConfirmation('delete', Array.from(selectedIds))
+        }
         onSelectAll={() => {
-          if (selectedIds.length === filteredItems.length) {
-            setSelectedIds([]);
+          if (selectedIds.size === filteredItems.length) {
+            setSelectedIds(new Set());
           } else {
-            setSelectedIds(filteredItems.map((item) => item.id));
+            setSelectedIds(new Set(filteredItems.map((item) => item.id)));
           }
         }}
-        onClearSelection={() => setSelectedIds([])}
+        onClearSelection={() => setSelectedIds(new Set())}
         onFilterByStatus={(status) => {
           if (status === 'all') {
             setActiveStatus('new');
