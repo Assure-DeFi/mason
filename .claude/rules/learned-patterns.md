@@ -121,4 +121,11 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Pattern**: At the start of any automated execution command, check for unmerged files (`git status --porcelain | grep '^UU'`). If found, abort with a clear message rather than attempting recovery mid-execution.
 **Why**: Merge conflicts mid-automation waste cycles on git surgery instead of implementation. Clean state should be a hard precondition.
 
+## Performance: Use Set<string> for Selection State in Lists
+
+**Discovered**: 2026-02-17
+**Context**: Converting `selectedIds` from `string[]` to `Set<string>` across the backlog page and 4 dependent files
+**Pattern**: When React state holds a collection used for membership checks (e.g., "is this item selected?"), use `Set<string>` not `string[]`. Replace `.includes(id)` with `.has(id)`, `.length` with `.size`, and `[...prev, id]` with `new Set(prev).add(id)`. At API boundaries that expect arrays, convert with `Array.from(set)`.
+**Why**: `.includes()` is O(n) per call. In a list of m items where each `ItemRow` checks `selectedIds.includes(item.id)`, every selection change triggers O(n\*m) work, defeating `React.memo()`. `.has()` is O(1), making the total O(m). The blast radius is wide (5 files for Mason's backlog), so plan the conversion as a single atomic commit.
+
 <!-- New patterns will be added below this line -->
