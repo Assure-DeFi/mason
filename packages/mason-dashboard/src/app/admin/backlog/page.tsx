@@ -10,28 +10,29 @@ import {
   X,
   Search,
 } from 'lucide-react';
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import { UserMenu } from '@/components/auth/user-menu';
-import { BangerEmptyState } from '@/components/backlog/banger-empty-state';
 import { BangerIdeaCard } from '@/components/backlog/banger-idea-card';
 import { BulkActionsBar } from '@/components/backlog/bulk-actions-bar';
-import { CommandPalette } from '@/components/backlog/command-palette';
 import { ConfirmationDialog } from '@/components/backlog/confirmation-dialog';
 import { EmptyStateOnboarding } from '@/components/backlog/EmptyStateOnboarding';
 import { FirstItemCelebration } from '@/components/backlog/FirstItemCelebration';
+import { GenerateIdeasModal } from '@/components/backlog/generate-ideas-modal';
 import { ImprovementsTable } from '@/components/backlog/improvements-table';
-import type { ViewMode } from '@/components/backlog/item-detail-modal';
-import { KeyboardShortcutBar } from '@/components/backlog/keyboard-shortcut-bar';
+import {
+  ItemDetailModal,
+  type ViewMode,
+} from '@/components/backlog/item-detail-modal';
 import { MasonRecommends } from '@/components/backlog/mason-recommends';
 import { StatsBar } from '@/components/backlog/stats-bar';
 import { StatusTabs, type TabStatus } from '@/components/backlog/status-tabs';
 import { UnifiedExecuteButton } from '@/components/backlog/UnifiedExecuteButton';
 import { MasonMark } from '@/components/brand';
 import { ErrorBoundary } from '@/components/errors';
+import { ExecutionRunModal } from '@/components/execution/ExecutionRunModal';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { AutopilotToast } from '@/components/ui/AutopilotToast';
 import { ErrorBanner, ErrorToast } from '@/components/ui/ErrorBanner';
@@ -61,41 +62,6 @@ import type {
   SortDirection,
 } from '@/types/backlog';
 
-// Dynamically import heavy modal components to reduce initial bundle size
-const ItemDetailModal = dynamic(
-  () =>
-    import('@/components/backlog/item-detail-modal').then(
-      (mod) => mod.ItemDetailModal,
-    ),
-  {
-    loading: () => (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-        <div className="animate-pulse text-gray-400">Loading...</div>
-      </div>
-    ),
-  },
-);
-
-const ExecutionRunModal = dynamic(
-  () =>
-    import('@/components/execution/ExecutionRunModal').then(
-      (mod) => mod.ExecutionRunModal,
-    ),
-  {
-    loading: () => null,
-  },
-);
-
-const GenerateIdeasWizard = dynamic(
-  () =>
-    import('@/components/backlog/generate-ideas-wizard').then(
-      (mod) => mod.GenerateIdeasWizard,
-    ),
-  {
-    loading: () => null,
-  },
-);
-
 interface UndoState {
   action: 'approve' | 'reject' | 'restore' | 'complete' | 'delete';
   itemIds: string[];
@@ -109,12 +75,8 @@ export default function BacklogPage() {
   const { client, isConfigured, isLoading: isDbLoading } = useUserDatabase();
 
   // Auto-run database migrations when user has OAuth configured
-  // Runs silently in background, once per session
-  const { state: migrationState } = useAutoMigrations();
-  const isMigrationReady =
-    migrationState.status === 'success' ||
-    migrationState.status === 'skipped' ||
-    migrationState.status === 'error';
+  // Runs silently in background, once per 24h
+  useAutoMigrations();
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<BacklogItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -134,9 +96,6 @@ export default function BacklogPage() {
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showGenerateIdeasModal, setShowGenerateIdeasModal] = useState(false);
-  const [generateModalMode, setGenerateModalMode] = useState<'full' | 'banger'>(
-    'full',
-  );
   const [sort, setSort] = useState<{
     field: SortField;
     direction: SortDirection;
@@ -159,9 +118,6 @@ export default function BacklogPage() {
   const isFetchingRef = useRef(false);
   const lastFetchErrorRef = useRef<number>(0);
   const FETCH_RETRY_DELAY = 5000; // Wait 5 seconds before retrying after an error
-
-  // Command palette state
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Confirmation dialog state
   const [confirmAction, setConfirmAction] = useState<{
@@ -221,7 +177,7 @@ export default function BacklogPage() {
   // This allows detecting new executions (which will replace the current one)
   useExecutionListener({
     client,
-    enabled: isConfigured && isMigrationReady,
+    enabled: isConfigured,
     onExecutionStart: handleExecutionDetected,
   });
 
@@ -298,85 +254,39 @@ export default function BacklogPage() {
         }
       }
 
-      // Claim orphaned items (items with null user_id or null repository_id)
-      // This handles items created before user_id/repository_id were properly set in pm-review
-
-      // Step 1: Claim items with null user_id
-      const { data: userOrphanedItems } = await client
+      // First, claim any orphaned items (items with null user_id)
+      // This handles items created before user_id was added to pm-review
+      const { data: orphanedItems } = await client
         .from(TABLES.PM_BACKLOG_ITEMS)
         .select('id')
         .is('user_id', null);
 
-      if (userOrphanedItems && userOrphanedItems.length > 0) {
+      if (orphanedItems && orphanedItems.length > 0) {
         console.log(
-          `Found ${userOrphanedItems.length} items with null user_id, claiming for user...`,
+          `Found ${orphanedItems.length} orphaned items, claiming for user...`,
         );
-        const orphanedIds = userOrphanedItems.map((item) => item.id);
+        const orphanedIds = orphanedItems.map((item) => item.id);
         await client
           .from(TABLES.PM_BACKLOG_ITEMS)
           .update({ user_id: userData.id })
           .in('id', orphanedIds);
       }
 
-      // Step 2: If user has exactly one repository, claim items with null repository_id
-      // (We can only auto-assign if there's no ambiguity about which repo)
-      const { data: repos } = await client
-        .from(TABLES.GITHUB_REPOSITORIES)
-        .select('id')
-        .eq('user_id', userData.id)
-        .eq('is_active', true);
-
-      if (repos && repos.length === 1) {
-        const { data: repoOrphanedItems } = await client
-          .from(TABLES.PM_BACKLOG_ITEMS)
-          .select('id')
-          .eq('user_id', userData.id)
-          .is('repository_id', null);
-
-        if (repoOrphanedItems && repoOrphanedItems.length > 0) {
-          console.log(
-            `Found ${repoOrphanedItems.length} items with null repository_id, assigning to only repo...`,
-          );
-          const orphanedIds = repoOrphanedItems.map((item) => item.id);
-          await client
-            .from(TABLES.PM_BACKLOG_ITEMS)
-            .update({ repository_id: repos[0].id })
-            .in('id', orphanedIds);
-        }
-      }
-
       // Fetch items with selective columns for performance
-      // Excludes prd_content (large text) which is lazy loaded on demand
-      // Benefits included - required for detail modal display
-      // CRITICAL: Filter by repository at database level for data isolation
-      let query = client
+      // Excludes large fields like benefits (JSON array) that are only needed in detail modal
+      const { data, error: fetchError } = await client
         .from(TABLES.PM_BACKLOG_ITEMS)
         .select(
           'id,title,problem,solution,type,status,area,complexity,' +
             'impact_score,effort_score,priority_score,' +
             'is_new_feature,is_banger_idea,tags,source,' +
             'updated_at,created_at,repository_id,' +
-            'prd_generated_at,branch_name,pr_url,' + // prd_content lazy loaded on demand
+            'prd_content,branch_name,pr_url,' +
             'risk_score,has_breaking_changes,files_affected_count,test_coverage_gaps,' +
-            'user_id,analysis_run_id,' +
-            'benefits', // JSON array - required for detail modal
+            'user_id,analysis_run_id',
         )
-        .eq('user_id', userData.id);
-
-      // Filter by selected repository at database level (not client-side)
-      // This ensures strict data isolation between repositories
-      if (selectedRepoId) {
-        query = query.eq('repository_id', selectedRepoId);
-      } else if (repos && repos.length > 0) {
-        // If no repo selected, only show items from user's connected repos
-        // This prevents showing items from disconnected/other repos
-        const repoIds = repos.map((r) => r.id);
-        query = query.in('repository_id', repoIds);
-      }
-
-      const { data, error: fetchError } = await query.order('priority_score', {
-        ascending: false,
-      });
+        .eq('user_id', userData.id)
+        .order('priority_score', { ascending: false });
 
       if (fetchError) {
         throw fetchError;
@@ -394,15 +304,15 @@ export default function BacklogPage() {
       setIsLoading(false);
       isFetchingRef.current = false;
     }
-  }, [client, session, selectedRepoId]);
+  }, [client, session]);
 
   useEffect(() => {
-    if (isConfigured && !isDbLoading && isMigrationReady) {
+    if (isConfigured && !isDbLoading) {
       void fetchItems();
     } else if (!isDbLoading && !isConfigured) {
       setIsLoading(false);
     }
-  }, [fetchItems, isConfigured, isDbLoading, isMigrationReady]);
+  }, [fetchItems, isConfigured, isDbLoading]);
 
   // Subscribe to real-time backlog changes
   // This enables automatic updates when CLI changes item status
@@ -766,20 +676,10 @@ export default function BacklogPage() {
     };
   }, []);
 
-  // Keyboard shortcuts for bulk actions and command palette
+  // Keyboard shortcuts for bulk actions
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-      const isModKey = isMac ? e.metaKey : e.ctrlKey;
-
-      // Cmd/Ctrl+K - Toggle command palette (works even in inputs)
-      if (isModKey && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setIsCommandPaletteOpen((open) => !open);
-        return;
-      }
-
-      // Don't trigger other shortcuts in input fields or when modal is open
+      // Don't trigger in input fields or when modal is open
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -787,6 +687,9 @@ export default function BacklogPage() {
       ) {
         return;
       }
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isModKey = isMac ? e.metaKey : e.ctrlKey;
 
       // Escape - Clear selection
       if (e.key === 'Escape') {
@@ -806,7 +709,7 @@ export default function BacklogPage() {
         return;
       }
 
-      // Cmd/Ctrl+Shift+A - Approve selected (with confirmation)
+      // Cmd/Ctrl+Shift+A - Approve selected
       if (isModKey && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         if (selectedIds.size > 0 && !isApproving) {
@@ -815,7 +718,7 @@ export default function BacklogPage() {
         return;
       }
 
-      // Cmd/Ctrl+Shift+X - Reject selected (with confirmation)
+      // Cmd/Ctrl+Shift+X - Reject selected
       if (isModKey && e.shiftKey && e.key.toLowerCase() === 'x') {
         e.preventDefault();
         if (selectedIds.size > 0 && !isRejecting) {
@@ -827,14 +730,7 @@ export default function BacklogPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    selectedItem,
-    selectedIds,
-    filteredItems,
-    isApproving,
-    isRejecting,
-    items,
-  ]);
+  }, [selectedItem, selectedIds, filteredItems, isApproving, isRejecting]);
 
   // Handle undo action
   const handleUndo = async () => {
@@ -1230,13 +1126,13 @@ export default function BacklogPage() {
     <main className="min-h-screen bg-navy">
       {/* Header */}
       <div className="border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 py-4 md:px-6 md:py-6">
-          <div className="flex flex-col gap-y-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3 md:gap-4">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
               <MasonMark size="lg" />
-              <div className="hidden md:block h-10 w-px bg-gray-700" />
+              <div className="h-10 w-px bg-gray-700" />
               <div>
-                <h1 className="text-xl md:text-2xl font-bold text-white">
+                <h1 className="text-2xl font-bold text-white">
                   Your Build Queue
                 </h1>
                 <p className="text-gray-400 text-sm mt-1">
@@ -1245,7 +1141,7 @@ export default function BacklogPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
               {session && (
                 <RepositorySelector
                   value={selectedRepoId}
@@ -1253,26 +1149,50 @@ export default function BacklogPage() {
                 />
               )}
 
+              {/* Search Input */}
+              <div className="relative flex-shrink-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search backlog..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-40 lg:w-48 pl-9 pr-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm placeholder-gray-500 focus:outline-none focus:border-gold"
+                />
+              </div>
+
+              {/* Source Filter Dropdown */}
+              <select
+                value={sourceFilter}
+                onChange={(e) =>
+                  setSourceFilter(
+                    e.target.value as 'all' | 'manual' | 'autopilot',
+                  )
+                }
+                className="flex-shrink-0 px-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm focus:outline-none focus:border-gold"
+              >
+                <option value="all">All Sources</option>
+                <option value="manual">Manual Only</option>
+                <option value="autopilot">Autopilot Only</option>
+              </select>
+
               <button
-                onClick={() => {
-                  setGenerateModalMode('full');
-                  setShowGenerateIdeasModal(true);
-                }}
+                onClick={() => setShowGenerateIdeasModal(true)}
                 className="flex-shrink-0 flex items-center gap-2 px-4 py-2 min-h-[40px] bg-gold text-navy font-medium whitespace-nowrap hover:bg-gold/90 transition-colors touch-feedback"
               >
                 <Sparkles className="w-4 h-4" />
-                <span className="hidden sm:inline">Generate New Ideas</span>
+                Generate New Ideas
               </button>
 
               <button
                 onClick={fetchItems}
                 disabled={isLoading}
                 className="flex-shrink-0 flex items-center gap-2 px-3 py-2 min-h-[40px] border border-gray-700 text-gray-300 whitespace-nowrap hover:bg-white/5 disabled:opacity-50 touch-feedback"
-                title="Refresh"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
                 />
+                Refresh
               </button>
 
               <UserMenu />
@@ -1307,10 +1227,7 @@ export default function BacklogPage() {
 
               {session && counts.approved > 0 && (
                 <div className="px-6 py-3">
-                  <UnifiedExecuteButton
-                    itemIds={approvedItemIds}
-                    selectedApprovedIds={selectedApprovedIds}
-                  />
+                  <UnifiedExecuteButton itemIds={approvedItemIds} />
                 </div>
               )}
             </div>
@@ -1343,27 +1260,14 @@ export default function BacklogPage() {
         )}
 
       {/* Banger Idea Section - only on NEW tab */}
-      {!isEmpty && !isLoading && activeStatus === 'new' && (
+      {!isEmpty && !isLoading && bangerIdea && activeStatus === 'new' && (
         <div className="max-w-7xl mx-auto px-6 pt-6">
-          {bangerIdea ? (
-            <BangerIdeaCard
-              item={bangerIdea}
-              onViewDetails={handleItemClick}
-              onApprove={handleQuickApprove}
-              onReject={handleQuickReject}
-              onGenerateNew={() => {
-                setGenerateModalMode('banger');
-                setShowGenerateIdeasModal(true);
-              }}
-            />
-          ) : (
-            <BangerEmptyState
-              onGenerateNew={() => {
-                setGenerateModalMode('banger');
-                setShowGenerateIdeasModal(true);
-              }}
-            />
-          )}
+          <BangerIdeaCard
+            item={bangerIdea}
+            onViewDetails={handleItemClick}
+            onApprove={handleQuickApprove}
+            onReject={handleQuickReject}
+          />
         </div>
       )}
 
@@ -1377,51 +1281,9 @@ export default function BacklogPage() {
             </div>
           ) : isEmpty ? (
             // Empty state onboarding
-            <EmptyStateOnboarding
-              onRefresh={fetchItems}
-              onGenerateIdeas={() => {
-                setGenerateModalMode('full');
-                setShowGenerateIdeasModal(true);
-              }}
-            />
+            <EmptyStateOnboarding onRefresh={fetchItems} />
           ) : (
             <div className="space-y-6 p-6">
-              {/* Search and Filter Controls */}
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Search Input */}
-                <div className="relative flex-1 min-w-[200px] max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <input
-                    type="text"
-                    placeholder="Search backlog..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm placeholder-gray-500 focus:outline-none focus:border-gold"
-                  />
-                </div>
-
-                {/* Source Filter Dropdown */}
-                <select
-                  value={sourceFilter}
-                  onChange={(e) =>
-                    setSourceFilter(
-                      e.target.value as 'all' | 'manual' | 'autopilot',
-                    )
-                  }
-                  className="px-3 py-2 bg-black/50 border border-gray-700 text-gray-300 text-sm focus:outline-none focus:border-gold"
-                >
-                  <option value="all">All Sources</option>
-                  <option value="manual">Manual Only</option>
-                  <option value="autopilot">Autopilot Only</option>
-                </select>
-
-                {/* Result count */}
-                <span className="text-sm text-gray-500">
-                  {filteredItems.length} item
-                  {filteredItems.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-
               {/* All items in unified table - Features and Bangers shown with badges */}
               <ImprovementsTable
                 items={filteredItems}
@@ -1480,14 +1342,10 @@ export default function BacklogPage() {
         />
       )}
 
-      {/* Generate Ideas Wizard */}
-      <GenerateIdeasWizard
+      {/* Generate Ideas Modal */}
+      <GenerateIdeasModal
         isOpen={showGenerateIdeasModal}
-        onClose={() => {
-          setShowGenerateIdeasModal(false);
-          setGenerateModalMode('full'); // Reset to default mode
-        }}
-        initialMode={generateModalMode}
+        onClose={() => setShowGenerateIdeasModal(false)}
       />
 
       {/* Copy Success Toast */}
