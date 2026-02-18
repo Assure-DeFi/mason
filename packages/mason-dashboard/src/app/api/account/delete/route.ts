@@ -1,5 +1,6 @@
 import { getServerSession } from 'next-auth';
 
+import { createApiLogger } from '@/lib/api/logger';
 import {
   apiSuccess,
   apiError,
@@ -32,12 +33,14 @@ import { createServiceClient } from '@/lib/supabase/client';
  * before calling this endpoint, as we don't store their credentials server-side.
  */
 export async function POST(request: Request) {
+  const logger = createApiLogger('account.delete');
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return unauthorized();
     }
+    logger.setUserId(session.user.id);
 
     // Require explicit confirmation to proceed
     const validation = await validateRequest(request, accountDeleteSchema);
@@ -47,10 +50,7 @@ export async function POST(request: Request) {
 
     const supabase = createServiceClient();
 
-    // Log deletion attempt for audit trail
-    console.log(
-      `Account deletion initiated for user ${session.user.id} at ${new Date().toISOString()}`,
-    );
+    logger.info('Account deletion initiated');
 
     // Increment lifetime stats BEFORE cascade delete wipes the repos
     // Best-effort: don't block deletion if stats table doesn't exist yet
@@ -75,8 +75,10 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       });
     } catch (statsError) {
-      // Stats tracking is best-effort - never block account deletion
-      console.warn('Failed to update lifetime stats:', statsError);
+      logger.warn('Failed to update lifetime stats', {
+        error:
+          statsError instanceof Error ? statsError.message : String(statsError),
+      });
     }
 
     // Delete user from central database
@@ -89,16 +91,18 @@ export async function POST(request: Request) {
       .eq('id', session.user.id);
 
     if (error) {
-      console.error('Failed to delete user from central DB:', error);
+      logger.error('Failed to delete user from central DB', {
+        error: error.message,
+      });
       return serverError('Failed to delete account from central database');
     }
 
-    console.log(
-      `Account deleted successfully for user ${session.user.id} at ${new Date().toISOString()}`,
-    );
+    logger.success('Account deleted successfully');
     return apiSuccess({ deleted: true });
   } catch (error) {
-    console.error('Account deletion error:', error);
+    logger.error('Account deletion error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return serverError();
   }
 }

@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { createApiLogger } from '@/lib/api/logger';
 import {
   apiError,
   unauthorized,
@@ -23,6 +24,7 @@ interface RouteParams {
  * Gets a specific project by reference.
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const logger = createApiLogger('supabase.projects.get');
   const { ref: projectRef } = await params;
   const authHeader = request.headers.get('Authorization');
 
@@ -62,7 +64,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Return raw data for backward compatibility
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Failed to fetch project:', error);
+    logger.error('Failed to fetch project', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return serverError('Failed to fetch project from Supabase');
   }
 }

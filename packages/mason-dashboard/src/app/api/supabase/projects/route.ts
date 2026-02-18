@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { createApiLogger } from '@/lib/api/logger';
 import {
   apiError,
   unauthorized,
@@ -36,6 +37,7 @@ async function fetchWithTimeout(
  * Lists all projects the authenticated user has access to.
  */
 export async function GET(request: NextRequest) {
+  const logger = createApiLogger('supabase.projects.list');
   const authHeader = request.headers.get('Authorization');
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -72,7 +74,9 @@ export async function GET(request: NextRequest) {
         504,
       );
     }
-    console.error('Failed to fetch projects:', error);
+    logger.error('Failed to fetch projects', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return serverError('Failed to fetch projects from Supabase');
   }
 }

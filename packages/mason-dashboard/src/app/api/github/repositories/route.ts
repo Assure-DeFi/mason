@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import { createApiLogger } from '@/lib/api/logger';
 import {
   parsePaginationParams,
   createPaginationMeta,
@@ -32,12 +33,14 @@ import type { GitHubRepository } from '@/types/auth';
 
 // GET /api/github/repositories - List connected repositories
 export async function GET(request: NextRequest) {
+  const logger = createApiLogger('repositories.list');
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return unauthorized();
     }
+    logger.setUserId(session.user.id);
 
     const supabase = createServiceClient();
     const { searchParams } = new URL(request.url);
@@ -56,7 +59,9 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (error) {
-      console.error(formatDatabaseError('fetch repositories', error));
+      logger.error('Failed to fetch repositories', {
+        error: formatDatabaseError('fetch repositories', error),
+      });
       return apiError(
         ErrorCodes.DATABASE_ERROR,
         getUserFriendlyDatabaseError('fetch repositories', error),
@@ -71,7 +76,9 @@ export async function GET(request: NextRequest) {
       pagination: meta,
     });
   } catch (error) {
-    console.error('Error fetching repositories:', error);
+    logger.error('Error fetching repositories', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return serverError();
   }
 }
@@ -79,12 +86,14 @@ export async function GET(request: NextRequest) {
 // POST /api/github/repositories - Connect a repository
 // Privacy: GitHub token is passed from client (stored in localStorage, not server)
 export async function POST(request: NextRequest) {
+  const logger = createApiLogger('repositories.connect');
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return unauthorized();
     }
+    logger.setUserId(session.user.id);
 
     const body = await request.json();
     const { owner, name, githubToken } = body;
@@ -130,7 +139,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error(formatDatabaseError('save repository', error));
+      logger.error('Failed to save repository', {
+        error: formatDatabaseError('save repository', error),
+      });
       return apiError(
         ErrorCodes.DATABASE_ERROR,
         getUserFriendlyDatabaseError('connect repository', error),
@@ -140,7 +151,9 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess({ repository: savedRepo as GitHubRepository });
   } catch (error) {
-    console.error('Error connecting repository:', error);
+    logger.error('Error connecting repository', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     if ((error as { status?: number }).status === 404) {
       return notFound('Repository not found or no access');
@@ -152,12 +165,14 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/github/repositories - Disconnect a repository
 export async function DELETE(request: NextRequest) {
+  const logger = createApiLogger('repositories.disconnect');
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return unauthorized();
     }
+    logger.setUserId(session.user.id);
 
     const { searchParams } = new URL(request.url);
 
@@ -181,7 +196,9 @@ export async function DELETE(request: NextRequest) {
       .eq('user_id', session.user.id);
 
     if (error) {
-      console.error(formatDatabaseError('disconnect repository', error));
+      logger.error('Failed to disconnect repository', {
+        error: formatDatabaseError('disconnect repository', error),
+      });
       return apiError(
         ErrorCodes.DATABASE_ERROR,
         getUserFriendlyDatabaseError('disconnect repository', error),
@@ -191,7 +208,9 @@ export async function DELETE(request: NextRequest) {
 
     return apiSuccess({ disconnected: true });
   } catch (error) {
-    console.error('Error disconnecting repository:', error);
+    logger.error('Error disconnecting repository', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return serverError();
   }
 }

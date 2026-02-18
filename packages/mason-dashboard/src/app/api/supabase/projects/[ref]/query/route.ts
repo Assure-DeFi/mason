@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { createApiLogger } from '@/lib/api/logger';
 import {
   apiError,
   unauthorized,
@@ -47,6 +48,7 @@ interface QueryRequestBody {
  * Runs a SQL query against a project's database.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  const logger = createApiLogger('supabase.projects.query');
   const { ref: projectRef } = await params;
   const authHeader = request.headers.get('Authorization');
 
@@ -109,7 +111,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         504,
       );
     }
-    console.error('Failed to run query:', error);
+    logger.error('Failed to run query', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return serverError('Failed to run query on Supabase');
   }
 }

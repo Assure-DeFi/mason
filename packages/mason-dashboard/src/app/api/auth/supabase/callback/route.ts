@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { createApiLogger } from '@/lib/api/logger';
 import { exchangeCodeForTokens, OAUTH_COOKIES } from '@/lib/supabase/oauth';
 
 /**
@@ -132,6 +133,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(errorUrl);
   }
 
+  const logger = createApiLogger('auth.supabase.callback');
   try {
     // Exchange code for tokens
     const tokens = await exchangeCodeForTokens({
@@ -179,7 +181,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(successUrl);
   } catch (err) {
-    console.error('OAuth token exchange failed:', err);
+    logger.error('OAuth token exchange failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
 
     const errorUrl = buildRedirectUrl(returnTo, {
       oauth_error: err instanceof Error ? err.message : 'Token exchange failed',

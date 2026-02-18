@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import { createApiLogger } from '@/lib/api/logger';
 import {
   apiSuccess,
   unauthorized,
@@ -941,12 +942,14 @@ async function verifyRealtimeViaManagementApi(
 }
 
 export async function POST(request: NextRequest) {
+  const logger = createApiLogger('setup.migrations');
   try {
     // Require authentication before processing any migration request
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return unauthorized();
     }
+    logger.setUserId(session.user.id);
 
     const body = await request.json();
     const {
@@ -1029,7 +1032,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Migration error:', error);
+    logger.error('Migration error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return serverError(
       error instanceof Error ? error.message : 'Migration failed',
     );

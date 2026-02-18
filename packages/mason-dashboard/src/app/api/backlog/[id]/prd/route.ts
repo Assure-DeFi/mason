@@ -1,3 +1,4 @@
+import { createApiLogger } from '@/lib/api/logger';
 import { withSessionAndSupabase, type RouteParams } from '@/lib/api/middleware';
 import { apiSuccess, badRequest, serverError } from '@/lib/api-response';
 import { TABLES } from '@/lib/constants';
@@ -10,6 +11,7 @@ import { TABLES } from '@/lib/constants';
  */
 export async function GET(request: Request, { params }: RouteParams) {
   const handler = withSessionAndSupabase(async ({ userSupabase }) => {
+    const logger = createApiLogger('backlog.prd.get');
     const { id } = await params;
 
     const { data, error: fetchError } = await userSupabase
@@ -19,7 +21,10 @@ export async function GET(request: Request, { params }: RouteParams) {
       .single();
 
     if (fetchError) {
-      console.error('Failed to fetch PRD:', fetchError);
+      logger.error('Failed to fetch PRD', {
+        error:
+          fetchError instanceof Error ? fetchError.message : String(fetchError),
+      });
       return serverError('Failed to fetch PRD content');
     }
 
@@ -36,6 +41,7 @@ export async function GET(request: Request, { params }: RouteParams) {
  */
 export async function PATCH(request: Request, { params }: RouteParams) {
   const handler = withSessionAndSupabase(async ({ userSupabase }) => {
+    const logger = createApiLogger('backlog.prd.update');
     const { id } = await params;
 
     const body = await request.json();
@@ -56,7 +62,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       .single();
 
     if (updateError) {
-      console.error('Failed to update PRD:', updateError);
+      logger.error('Failed to update PRD', {
+        error:
+          updateError instanceof Error
+            ? updateError.message
+            : String(updateError),
+      });
       return serverError('Failed to update PRD content');
     }
 

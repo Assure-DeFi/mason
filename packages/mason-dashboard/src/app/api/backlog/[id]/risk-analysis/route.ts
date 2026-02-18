@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { getServerSession } from 'next-auth';
 
+import { createApiLogger } from '@/lib/api/logger';
 import { isValidSupabaseUrl } from '@/lib/api/middleware';
 import {
   apiSuccess,
@@ -22,6 +23,7 @@ interface RouteParams {
  * Requires user's Supabase credentials via headers (privacy model).
  */
 export async function GET(request: Request, { params }: RouteParams) {
+  const logger = createApiLogger('backlog.riskAnalysis');
   try {
     const { id } = await params;
 
@@ -30,6 +32,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     if (!session?.user?.id) {
       return unauthorized('Authentication required');
     }
+    logger.setUserId(session.user.id);
 
     // Get user's database credentials from headers (client passes from localStorage)
     const supabaseUrl = request.headers.get('x-supabase-url');
@@ -60,13 +63,18 @@ export async function GET(request: Request, { params }: RouteParams) {
         // No analysis found
         return apiSuccess({ analysis: null });
       }
-      console.error('Failed to fetch analysis:', fetchError);
+      logger.error('Failed to fetch analysis', {
+        error:
+          fetchError instanceof Error ? fetchError.message : String(fetchError),
+      });
       return serverError('Failed to fetch analysis');
     }
 
     return apiSuccess({ analysis });
   } catch (err) {
-    console.error('Risk analysis fetch error:', err);
+    logger.error('Risk analysis fetch error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return serverError(err instanceof Error ? err.message : 'Fetch failed');
   }
 }

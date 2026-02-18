@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 
+import { createApiLogger } from '@/lib/api/logger';
 import {
   apiSuccess,
   unauthorized,
@@ -15,6 +16,7 @@ import { refreshAccessToken } from '@/lib/supabase/oauth';
  * Called by client when access token is about to expire.
  */
 export async function POST(request: NextRequest) {
+  const logger = createApiLogger('auth.supabase.refresh');
   try {
     const { refreshToken } = await request.json();
 
@@ -41,7 +43,9 @@ export async function POST(request: NextRequest) {
       expiresAt: tokens.expiresAt,
     });
   } catch (err) {
-    console.error('Token refresh failed:', err);
+    logger.error('Token refresh failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return unauthorized(
       err instanceof Error ? err.message : 'Token refresh failed',
     );

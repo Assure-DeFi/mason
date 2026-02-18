@@ -1,5 +1,6 @@
 import { getServerSession } from 'next-auth';
 
+import { createApiLogger } from '@/lib/api/logger';
 import { apiSuccess, unauthorized, serverError } from '@/lib/api-response';
 import { authOptions } from '@/lib/auth/auth-options';
 import { TABLES } from '@/lib/constants';
@@ -12,19 +13,19 @@ import { createServiceClient } from '@/lib/supabase/client';
  * Returns active + deleted counts so admin can see total lifetime usage.
  */
 export async function GET() {
+  const logger = createApiLogger('admin.stats');
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || !isAdmin(session.user.github_email)) {
       return unauthorized();
     }
+    logger.setUserId(session.user.id);
 
     const supabase = createServiceClient();
 
     const [usersResult, reposResult, statsResult] = await Promise.all([
-      supabase
-        .from(TABLES.USERS)
-        .select('*', { count: 'exact', head: true }),
+      supabase.from(TABLES.USERS).select('*', { count: 'exact', head: true }),
       supabase
         .from(TABLES.GITHUB_REPOSITORIES)
         .select('*', { count: 'exact', head: true }),
@@ -50,7 +51,9 @@ export async function GET() {
       last_deletion_at: statsResult.data?.last_deletion_at ?? null,
     });
   } catch (error) {
-    console.error('Admin stats error:', error);
+    logger.error('Admin stats error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return serverError();
   }
 }

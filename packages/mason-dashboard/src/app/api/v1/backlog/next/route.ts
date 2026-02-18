@@ -1,3 +1,4 @@
+import { createApiLogger } from '@/lib/api/logger';
 import { withApiKeyAuth } from '@/lib/api/middleware';
 import { apiSuccess, serverError } from '@/lib/api-response';
 import { TABLES } from '@/lib/constants';
@@ -17,6 +18,8 @@ import { createServiceClient } from '@/lib/supabase/client';
 export const GET = withApiKeyAuth(
   'backlog-next',
   async ({ user, rateLimitResult, request }) => {
+    const logger = createApiLogger('v1.backlog.next');
+    logger.setUserId(user.id);
     // Parse query parameters
     const url = new URL(request.url);
     const repositoryId = url.searchParams.get('repository_id');
@@ -72,7 +75,9 @@ export const GET = withApiKeyAuth(
     const { data, error } = await query;
 
     if (error) {
-      console.error('Failed to fetch next backlog item:', error);
+      logger.error('Failed to fetch next backlog item', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return serverError('Failed to fetch backlog items');
     }
 

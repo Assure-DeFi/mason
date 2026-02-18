@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+import { createApiLogger } from '@/lib/api/logger';
 import {
   apiSuccess,
   unauthorized,
@@ -76,12 +77,14 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ repoId: string }> },
 ) {
+  const logger = createApiLogger('repoStructure.get');
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return unauthorized();
     }
+    logger.setUserId(session.user.id);
 
     const { repoId } = await params;
 
@@ -127,14 +130,21 @@ export async function GET(
       const suggestions = analyzeRepoStructure(tree.tree);
       return apiSuccess({ suggestions });
     } catch (githubError) {
-      console.error('GitHub API error:', githubError);
+      logger.error('GitHub API error', {
+        error:
+          githubError instanceof Error
+            ? githubError.message
+            : String(githubError),
+      });
       // Return default suggestions on GitHub API error
       return apiSuccess({
         suggestions: getDefaultSuggestions(),
       });
     }
   } catch (error) {
-    console.error('Error fetching repo structure:', error);
+    logger.error('Error fetching repo structure', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return serverError();
   }
 }

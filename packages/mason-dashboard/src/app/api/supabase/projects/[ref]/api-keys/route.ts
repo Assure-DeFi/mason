@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { createApiLogger } from '@/lib/api/logger';
 import {
   apiError,
   unauthorized,
@@ -42,6 +43,7 @@ interface RouteParams {
  * Gets API keys for a specific project.
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const logger = createApiLogger('supabase.projects.apiKeys');
   const { ref: projectRef } = await params;
   const authHeader = request.headers.get('Authorization');
 
@@ -88,7 +90,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         504,
       );
     }
-    console.error('Failed to fetch API keys:', error);
+    logger.error('Failed to fetch API keys', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return serverError('Failed to fetch API keys from Supabase');
   }
 }

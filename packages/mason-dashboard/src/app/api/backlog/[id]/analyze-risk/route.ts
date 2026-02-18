@@ -5,6 +5,7 @@ import {
   analyzeDependencies,
   calculateOverallRiskScore,
 } from '@/lib/analysis/dependency-analyzer';
+import { createApiLogger } from '@/lib/api/logger';
 import { isValidSupabaseUrl } from '@/lib/api/middleware';
 import {
   apiSuccess,
@@ -35,6 +36,7 @@ interface RouteParams {
  * Requires GitHub token in request body to access repository files.
  */
 export async function POST(request: Request, { params }: RouteParams) {
+  const logger = createApiLogger('backlog.analyzeRisk');
   try {
     const { id } = await params;
 
@@ -43,6 +45,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (!session?.user?.id) {
       return unauthorized('Authentication required');
     }
+    logger.setUserId(session.user.id);
 
     // Rate limit check - AI-heavy operation
     const rateLimitId = getRateLimitIdentifier(
@@ -139,7 +142,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       .single();
 
     if (analysisError) {
-      console.error('Failed to save analysis:', analysisError);
+      logger.error('Failed to save analysis', {
+        error:
+          analysisError instanceof Error
+            ? analysisError.message
+            : String(analysisError),
+      });
       return serverError('Failed to save analysis');
     }
 
@@ -156,7 +164,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       .eq('id', id);
 
     if (updateError) {
-      console.error('Failed to update item with risk summary:', updateError);
+      logger.error('Failed to update item with risk summary', {
+        error:
+          updateError instanceof Error
+            ? updateError.message
+            : String(updateError),
+      });
       // Continue anyway - analysis is saved
     }
 
@@ -169,7 +182,9 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
     return addRateLimitHeaders(response, rateLimitResult);
   } catch (err) {
-    console.error('Risk analysis error:', err);
+    logger.error('Risk analysis error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return serverError(err instanceof Error ? err.message : 'Analysis failed');
   }
 }

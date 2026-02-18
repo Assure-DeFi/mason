@@ -1,3 +1,4 @@
+import { createApiLogger } from '@/lib/api/logger';
 import { withSessionAndSupabase, type RouteParams } from '@/lib/api/middleware';
 import { apiSuccess, badRequest, serverError } from '@/lib/api-response';
 import { TABLES } from '@/lib/constants';
@@ -28,6 +29,7 @@ interface ItemEvent {
  */
 export async function GET(request: Request, { params }: RouteParams) {
   const handler = withSessionAndSupabase(async ({ userSupabase }) => {
+    const logger = createApiLogger('backlog.events.list');
     const { id } = await params;
 
     const { data: events, error } = await userSupabase
@@ -37,7 +39,9 @@ export async function GET(request: Request, { params }: RouteParams) {
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('Failed to fetch events:', error);
+      logger.error('Failed to fetch events', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return serverError('Failed to fetch event history');
     }
 
@@ -55,6 +59,7 @@ export async function GET(request: Request, { params }: RouteParams) {
  */
 export async function POST(request: Request, { params }: RouteParams) {
   const handler = withSessionAndSupabase(async ({ userSupabase }) => {
+    const logger = createApiLogger('backlog.events.create');
     const { id } = await params;
 
     const body = await request.json();
@@ -88,7 +93,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       .single();
 
     if (error) {
-      console.error('Failed to create event:', error);
+      logger.error('Failed to create event', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return serverError('Failed to record event');
     }
 

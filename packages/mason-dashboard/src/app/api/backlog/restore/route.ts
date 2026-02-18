@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { getServerSession } from 'next-auth';
 
+import { createApiLogger } from '@/lib/api/logger';
 import { isValidSupabaseUrl } from '@/lib/api/middleware';
 import {
   apiSuccess,
@@ -24,12 +25,14 @@ import { backlogRestoreSchema, validateRequest } from '@/lib/schemas';
  * Requires user's Supabase credentials via headers (privacy model).
  */
 export async function POST(request: Request) {
+  const logger = createApiLogger('backlog.restore');
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return unauthorized();
     }
+    logger.setUserId(session.user.id);
 
     // Get user's database credentials from headers (client passes from localStorage)
     const supabaseUrl = request.headers.get('x-supabase-url');
@@ -95,7 +98,12 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
-      console.error('Failed to create backlog item:', insertError);
+      logger.error('Failed to create backlog item', {
+        error:
+          insertError instanceof Error
+            ? insertError.message
+            : String(insertError),
+      });
       return serverError('Failed to create backlog item');
     }
 
@@ -106,7 +114,12 @@ export async function POST(request: Request) {
       .eq('id', filteredItemId);
 
     if (updateError) {
-      console.error('Failed to update filtered item status:', updateError);
+      logger.error('Failed to update filtered item status', {
+        error:
+          updateError instanceof Error
+            ? updateError.message
+            : String(updateError),
+      });
       // Don't fail the request - the item was already restored
     }
 
@@ -123,7 +136,10 @@ export async function POST(request: Request) {
 
     if (trackError) {
       // Log but don't fail - feedback tracking is non-critical
-      console.warn('Failed to track restore feedback:', trackError);
+      logger.warn('Failed to track restore feedback', {
+        error:
+          trackError instanceof Error ? trackError.message : String(trackError),
+      });
     }
 
     return apiSuccess({
@@ -131,7 +147,9 @@ export async function POST(request: Request) {
       backlogItem: newItem,
     });
   } catch (error) {
-    console.error('Restore error:', error);
+    logger.error('Restore error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return serverError();
   }
 }
