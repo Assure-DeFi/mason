@@ -121,4 +121,11 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Pattern**: At the start of any automated execution command, check for unmerged files (`git status --porcelain | grep '^UU'`). If found, abort with a clear message rather than attempting recovery mid-execution.
 **Why**: Merge conflicts mid-automation waste cycles on git surgery instead of implementation. Clean state should be a hard precondition.
 
+## Logging: Use createApiLogger in All API Routes
+
+**Discovered**: 2026-02-18
+**Context**: Adopted structured logger across all 17 API routes, replacing 35 raw console calls
+**Pattern**: All API route handlers must use `createApiLogger('domain.operation')` from `@/lib/api/logger`. Create at handler top, call `setUserId()` after auth check. Never use raw `console.log/error/warn` in API routes. For catch blocks, serialize errors as `error instanceof Error ? error.message : String(error)`.
+**Why**: Structured logs include requestId, userId, operation name, and duration — critical for debugging in production. Raw console calls lose correlation context and are inconsistent.
+
 <!-- New patterns will be added below this line -->
