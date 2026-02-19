@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 
 import { ActivityLog } from '@/components/autopilot/ActivityLog';
 import { AutopilotConfig } from '@/components/autopilot/AutopilotConfig';
+import { RunTimeline } from '@/components/autopilot/RunTimeline';
 import { RepositorySelector } from '@/components/execution/repository-selector';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
 import { useUserDatabase } from '@/hooks/useUserDatabase';
@@ -18,7 +19,9 @@ export default function AutopilotSettingsPage() {
   const router = useRouter();
   const { isConfigured, isLoading: isDbLoading } = useUserDatabase();
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'config' | 'activity'>('config');
+  const [activeTab, setActiveTab] = useState<
+    'config' | 'activity' | 'schedule'
+  >('config');
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -167,17 +170,31 @@ export default function AutopilotSettingsPage() {
               >
                 Activity Log
               </button>
+              <button
+                onClick={() => setActiveTab('schedule')}
+                className={`border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
+                  activeTab === 'schedule'
+                    ? 'border-gold text-gold'
+                    : 'border-transparent text-gray-400 hover:border-gray-600 hover:text-white'
+                }`}
+              >
+                Schedule
+              </button>
             </nav>
           </div>
 
           {/* Tab Content */}
-          {activeTab === 'config' ? (
+          {activeTab === 'config' && (
             <AutopilotConfig
               repositoryId={selectedRepoId}
               userId={session.user.id}
             />
-          ) : (
+          )}
+          {activeTab === 'activity' && (
             <ActivityLog repositoryId={selectedRepoId} />
+          )}
+          {activeTab === 'schedule' && (
+            <RunTimeline repositoryId={selectedRepoId} />
           )}
         </div>
       </div>
