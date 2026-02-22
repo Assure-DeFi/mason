@@ -121,4 +121,23 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Pattern**: At the start of any automated execution command, check for unmerged files (`git status --porcelain | grep '^UU'`). If found, abort with a clear message rather than attempting recovery mid-execution.
 **Why**: Merge conflicts mid-automation waste cycles on git surgery instead of implementation. Clean state should be a hard precondition.
 
+## Execution Tracking: Valid Status Enums and FK Insert Order
+
+**Discovered**: 2026-02-17
+**Context**: `/execute-approved` hit FK errors and check constraint violations when creating execution tracking records
+**Pattern**:
+
+1. `mason_pm_execution_runs.status` accepts only: `'pending' | 'in_progress' | 'success' | 'failed' | 'cancelled'`. NOT `'running'`.
+2. `mason_execution_progress.wave_status` has a check constraint — query an existing row to see valid values before inserting.
+3. `run_id` must be UUID format. Use `python3 -c "import uuid; print(uuid.uuid4())"` — NOT `exec-YYYYMMDDHHMMSS-xxxx`.
+4. Insert order matters: create `mason_pm_execution_runs` first, then `mason_execution_progress` (FK dependency).
+   **Why**: Both sessions in Feb 17-18 rediscovered these constraints by trial and error. Encoding them prevents repeated failures.
+
+## Compound Reviews: Check Both Branch and Main
+
+**Discovered**: 2026-02-19
+**Context**: Two consecutive compound-review sessions (Feb 19 and Feb 20) independently examined the same uncompounded session and reached the same conclusion
+**Pattern**: When running a compound review, check which branch the uncompounded work is on. If it's on an unmerged feature branch, the compound commit will only be visible from that branch — not from main or other branches. The MEMORY.md is the cross-branch record of what was compounded.
+**Why**: Compounds on unmerged branches are invisible from other branches. Multiple compound sessions can redundantly analyze the same work if MEMORY.md isn't checked first.
+
 <!-- New patterns will be added below this line -->
