@@ -107,12 +107,12 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Pattern**: Values from JSON config files need the same sanitization as environment variables. Always strip whitespace AND non-printable characters: `jq -r '.field' file.json | tr -d '[:space:]' | sed 's/[^[:print:]]//g'`
 **Why**: Config files edited by multiple tools (dashboards, editors, copy-paste) accumulate invisible characters. `jq -r` does not strip them.
 
-## Bash: Write curl Output to Temp File Before Complex jq
+## Bash: Prefer Supabase `select` Over Complex jq
 
-**Discovered**: 2026-02-09
-**Context**: Piping `curl | jq` with complex expressions silently returned empty results due to shell escaping issues
-**Pattern**: For anything beyond simple `jq '.field'`, write curl output to a temp file first, then process: `curl -s "$URL" > /tmp/response.json && jq '.complex.expression' /tmp/response.json`
-**Why**: Shell escaping mangles complex jq expressions (especially with `!=`, quotes, nested paths). Two-step approach eliminates this class of bugs entirely.
+**Discovered**: 2026-02-09, **Reinforced**: 2026-02-21
+**Context**: Complex jq expressions with `!=` operators failed even when written to temp files, because shell escaping mangles them
+**Pattern**: Push filtering to Supabase's REST API using `select` and query params instead of fetching all fields and filtering with jq. For simple extractions (`jq '.field'`), temp files work. For anything with `!=`, quotes, or nested logic — use Supabase `select=field1,field2` and `eq.`/`neq.` query operators server-side. Also: when counting records by status, omit `limit` or set it high enough to cover all rows (default 1000, but explicit `limit=100` silently truncates).
+**Why**: Even the temp-file workaround doesn't fully protect against shell escaping of complex jq operators. Server-side filtering eliminates the problem class entirely and reduces data transfer.
 
 ## Automation: Verify Clean Git State Before Execution
 
