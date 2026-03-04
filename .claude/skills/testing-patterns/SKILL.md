@@ -1,6 +1,6 @@
 ---
 name: testing-patterns
-description: Testing patterns and conventions for TypeScript/React projects. Use when writing tests, setting up test infrastructure, or working with mocks. Keywords: test, jest, vitest, testing, spec, mock, stub, fixture, coverage, unit test, e2e, playwright, testing-library.
+description: 'Testing patterns and conventions for TypeScript/React projects. Use when writing tests, setting up test infrastructure, or working with mocks. Keywords: test, jest, vitest, testing, spec, mock, stub, fixture, coverage, unit test, e2e, playwright, testing-library.'
 ---
 
 # Testing Patterns
@@ -36,18 +36,18 @@ src/
 ## Test Structure Pattern (AAA)
 
 ```typescript
-describe("ComponentName", () => {
+describe('ComponentName', () => {
   // Group related tests
-  describe("when condition", () => {
-    it("should expected behavior", () => {
+  describe('when condition', () => {
+    it('should expected behavior', () => {
       // Arrange - Set up test data
-      const input = { value: "test" };
+      const input = { value: 'test' };
 
       // Act - Execute the code
       const result = processInput(input);
 
       // Assert - Verify the outcome
-      expect(result).toBe("expected");
+      expect(result).toBe('expected');
     });
   });
 });
@@ -58,29 +58,29 @@ describe("ComponentName", () => {
 ### Testing Functions
 
 ```typescript
-import { describe, it, expect } from "vitest";
-import { formatCurrency, validateEmail } from "@/lib/utils";
+import { describe, it, expect } from 'vitest';
+import { formatCurrency, validateEmail } from '@/lib/utils';
 
-describe("formatCurrency", () => {
-  it("should format positive numbers with $ symbol", () => {
-    expect(formatCurrency(1234.56)).toBe("$1,234.56");
+describe('formatCurrency', () => {
+  it('should format positive numbers with $ symbol', () => {
+    expect(formatCurrency(1234.56)).toBe('$1,234.56');
   });
 
-  it("should handle zero", () => {
-    expect(formatCurrency(0)).toBe("$0.00");
+  it('should handle zero', () => {
+    expect(formatCurrency(0)).toBe('$0.00');
   });
 
-  it("should handle negative numbers", () => {
-    expect(formatCurrency(-100)).toBe("-$100.00");
+  it('should handle negative numbers', () => {
+    expect(formatCurrency(-100)).toBe('-$100.00');
   });
 });
 
-describe("validateEmail", () => {
+describe('validateEmail', () => {
   it.each([
-    ["valid@email.com", true],
-    ["invalid", false],
-    ["missing@domain", false],
-    ["@nodomain.com", false],
+    ['valid@email.com', true],
+    ['invalid', false],
+    ['missing@domain', false],
+    ['@nodomain.com', false],
   ])('should validate "%s" as %s', (email, expected) => {
     expect(validateEmail(email)).toBe(expected);
   });
@@ -90,21 +90,21 @@ describe("validateEmail", () => {
 ### Testing Async Functions
 
 ```typescript
-import { describe, it, expect, vi } from "vitest";
-import { fetchUser } from "@/lib/api";
+import { describe, it, expect, vi } from 'vitest';
+import { fetchUser } from '@/lib/api';
 
-describe("fetchUser", () => {
-  it("should return user data on success", async () => {
-    const user = await fetchUser("123");
+describe('fetchUser', () => {
+  it('should return user data on success', async () => {
+    const user = await fetchUser('123');
 
     expect(user).toMatchObject({
-      id: "123",
+      id: '123',
       name: expect.any(String),
     });
   });
 
-  it("should throw on invalid user", async () => {
-    await expect(fetchUser("invalid")).rejects.toThrow("User not found");
+  it('should throw on invalid user', async () => {
+    await expect(fetchUser('invalid')).rejects.toThrow('User not found');
   });
 });
 ```
@@ -188,40 +188,40 @@ describe('LoginForm', () => {
 ### Testing Next.js Route Handlers
 
 ```typescript
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { GET, POST } from "@/app/api/users/route";
-import { NextRequest } from "next/server";
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { GET, POST } from '@/app/api/users/route';
+import { NextRequest } from 'next/server';
 
 // Mock auth
-vi.mock("@/lib/auth", () => ({
+vi.mock('@/lib/auth', () => ({
   getServerSession: vi.fn(),
   authOptions: {},
 }));
 
-describe("GET /api/users", () => {
+describe('GET /api/users', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("should return 401 when not authenticated", async () => {
-    const { getServerSession } = await import("@/lib/auth");
+  it('should return 401 when not authenticated', async () => {
+    const { getServerSession } = await import('@/lib/auth');
     vi.mocked(getServerSession).mockResolvedValue(null);
 
-    const request = new NextRequest("http://localhost/api/users");
+    const request = new NextRequest('http://localhost/api/users');
     const response = await GET(request);
 
     expect(response.status).toBe(401);
     const body = await response.json();
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error).toBe('Unauthorized');
   });
 
-  it("should return users when authenticated", async () => {
-    const { getServerSession } = await import("@/lib/auth");
+  it('should return users when authenticated', async () => {
+    const { getServerSession } = await import('@/lib/auth');
     vi.mocked(getServerSession).mockResolvedValue({
-      user: { email: "test@example.com" },
+      user: { email: 'test@example.com' },
     });
 
-    const request = new NextRequest("http://localhost/api/users");
+    const request = new NextRequest('http://localhost/api/users');
     const response = await GET(request);
 
     expect(response.status).toBe(200);
@@ -236,10 +236,10 @@ describe("GET /api/users", () => {
 ### Mocking Modules
 
 ```typescript
-import { vi } from "vitest";
+import { vi } from 'vitest';
 
 // Mock entire module
-vi.mock("@/lib/db", () => ({
+vi.mock('@/lib/db', () => ({
   db: {
     query: {
       users: {
@@ -250,11 +250,11 @@ vi.mock("@/lib/db", () => ({
 }));
 
 // Mock specific exports
-vi.mock("@/lib/utils", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/utils")>();
+vi.mock('@/lib/utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/utils')>();
   return {
     ...actual,
-    fetchData: vi.fn().mockResolvedValue({ data: "mocked" }),
+    fetchData: vi.fn().mockResolvedValue({ data: 'mocked' }),
   };
 });
 ```
@@ -262,7 +262,7 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 ### Mocking Fetch
 
 ```typescript
-import { vi, beforeEach, afterEach } from "vitest";
+import { vi, beforeEach, afterEach } from 'vitest';
 
 beforeEach(() => {
   global.fetch = vi.fn();
@@ -272,22 +272,22 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it("should handle fetch response", async () => {
+it('should handle fetch response', async () => {
   vi.mocked(fetch).mockResolvedValue({
     ok: true,
-    json: () => Promise.resolve({ data: "test" }),
+    json: () => Promise.resolve({ data: 'test' }),
   } as Response);
 
   const result = await fetchData();
 
-  expect(result).toEqual({ data: "test" });
+  expect(result).toEqual({ data: 'test' });
 });
 ```
 
 ### Mocking Supabase
 
 ```typescript
-vi.mock("@/lib/supabase", () => ({
+vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnThis(),
@@ -304,31 +304,31 @@ vi.mock("@/lib/supabase", () => ({
 ## E2E Test Patterns (Playwright)
 
 ```typescript
-import { test, expect } from "@playwright/test";
+import { test, expect } from '@playwright/test';
 
-test.describe("Dashboard", () => {
+test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
     // Login before each test
-    await page.goto("/login");
-    await page.fill('[name="email"]', "test@example.com");
-    await page.fill('[name="password"]', "password");
+    await page.goto('/login');
+    await page.fill('[name="email"]', 'test@example.com');
+    await page.fill('[name="password"]', 'password');
     await page.click('button[type="submit"]');
-    await page.waitForURL("/dashboard");
+    await page.waitForURL('/dashboard');
   });
 
-  test("should display user data", async ({ page }) => {
+  test('should display user data', async ({ page }) => {
     await expect(
-      page.getByRole("heading", { name: /dashboard/i }),
+      page.getByRole('heading', { name: /dashboard/i }),
     ).toBeVisible();
-    await expect(page.getByTestId("user-stats")).toBeVisible();
+    await expect(page.getByTestId('user-stats')).toBeVisible();
   });
 
-  test("should create new item", async ({ page }) => {
+  test('should create new item', async ({ page }) => {
     await page.click('button:has-text("New Item")');
-    await page.fill('[name="title"]', "Test Item");
+    await page.fill('[name="title"]', 'Test Item');
     await page.click('button:has-text("Save")');
 
-    await expect(page.getByText("Test Item")).toBeVisible();
+    await expect(page.getByText('Test Item')).toBeVisible();
   });
 });
 ```
@@ -368,24 +368,24 @@ it('should display user list', () => {
 
 ```typescript
 // vitest.config.ts
-import { defineConfig } from "vitest/config";
-import react from "@vitejs/plugin-react";
-import path from "path";
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: "jsdom",
-    setupFiles: ["./test/setup.ts"],
-    include: ["**/*.test.{ts,tsx}"],
+    environment: 'jsdom',
+    setupFiles: ['./test/setup.ts'],
+    include: ['**/*.test.{ts,tsx}'],
     coverage: {
-      reporter: ["text", "json", "html"],
-      exclude: ["node_modules/", "test/"],
+      reporter: ['text', 'json', 'html'],
+      exclude: ['node_modules/', 'test/'],
     },
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      '@': path.resolve(__dirname, './src'),
     },
   },
 });
@@ -395,18 +395,18 @@ export default defineConfig({
 
 ```typescript
 // test/setup.ts
-import "@testing-library/jest-dom";
-import { vi } from "vitest";
+import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 
 // Mock next/navigation
-vi.mock("next/navigation", () => ({
+vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),
     back: vi.fn(),
   }),
   useSearchParams: () => new URLSearchParams(),
-  usePathname: () => "/",
+  usePathname: () => '/',
 }));
 
 // Clean up after each test

@@ -140,4 +140,11 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Pattern**: When running a compound review, check which branch the uncompounded work is on. If it's on an unmerged feature branch, the compound commit will only be visible from that branch — not from main or other branches. The MEMORY.md is the cross-branch record of what was compounded.
 **Why**: Compounds on unmerged branches are invisible from other branches. Multiple compound sessions can redundantly analyze the same work if MEMORY.md isn't checked first.
 
+## SKILL.md: Quote description fields containing colons
+
+**Discovered**: 2026-03-03
+**Context**: Automated compound session detected WARN logs at startup: "Failed to parse YAML frontmatter in .claude/skills/\*/SKILL.md: YAML Parse error: Unexpected token"
+**Pattern**: Any `description:` field in a SKILL.md frontmatter that contains a colon (e.g., `Keywords: foo, bar`) MUST be wrapped in double quotes. Unquoted colons break YAML parsing and silently prevent the skill from loading — no error surfaced to the user, only a WARN in the debug log. Fixed: `description: "...Keywords: foo..."`.
+**Why**: YAML treats bare colons as key-value separators. The skills were broken on every mason session startup with zero user-visible indication.
+
 <!-- New patterns will be added below this line -->

@@ -1,6 +1,6 @@
 ---
 name: nextjs-patterns
-description: Next.js App Router patterns, API routes, server components, and project conventions. Use when creating pages, API endpoints, components, or working with Next.js. Keywords: api, route, page, component, server, client, nextjs, app router, fetch, handler.
+description: 'Next.js App Router patterns, API routes, server components, and project conventions. Use when creating pages, API endpoints, components, or working with Next.js. Keywords: api, route, page, component, server, client, nextjs, app router, fetch, handler.'
 ---
 
 # Next.js Patterns

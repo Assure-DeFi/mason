@@ -1,6 +1,6 @@
 ---
 name: supabase-patterns
-description: Supabase database patterns, migrations, RLS policies, and schema conventions. Use when creating migrations, modifying tables, adding columns, working with database, SQL, or Supabase. Keywords: database, table, column, migration, supabase, sql, schema, RLS, policy, index.
+description: 'Supabase database patterns, migrations, RLS policies, and schema conventions. Use when creating migrations, modifying tables, adding columns, working with database, SQL, or Supabase. Keywords: database, table, column, migration, supabase, sql, schema, RLS, policy, index.'
 ---
 
 # Supabase Patterns
