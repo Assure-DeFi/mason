@@ -147,4 +147,18 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Pattern**: Any `description:` field in a SKILL.md frontmatter that contains a colon (e.g., `Keywords: foo, bar`) MUST be wrapped in double quotes. Unquoted colons break YAML parsing and silently prevent the skill from loading — no error surfaced to the user, only a WARN in the debug log. Fixed: `description: "...Keywords: foo..."`.
 **Why**: YAML treats bare colons as key-value separators. The skills were broken on every mason session startup with zero user-visible indication.
 
+## Next.js: Avoid `next/dynamic` for Frequently-Used Modals
+
+**Discovered**: 2026-03-05
+**Context**: Stash WIP on autopilot-schedule-dashboard removed `next/dynamic` lazy imports for `ItemDetailModal`, `ExecutionRunModal`, and `GenerateIdeasWizard` in backlog page
+**Pattern**: Do NOT use `next/dynamic` for modal components that users open repeatedly. Import them statically. Dynamic imports add a loading flash on first open and re-bundle overhead that hurts UX more than the initial bundle savings help. Reserve `next/dynamic` for heavy components loaded only on specific pages (charts, editors), not reusable modals.
+**Why**: Modal loading flashes are jarring. The bundle size tradeoff (slightly larger initial load vs. per-open loading spinner) is almost always wrong for modals. Static imports also simplify named-export patterns (`mod.ComponentName` dance is error-prone).
+
+## Hooks: Don't Expose State You Don't Need
+
+**Discovered**: 2026-03-05
+**Context**: `useAutoMigrations()` was returning `{ state: migrationState }` which callers used to gate rendering with `isMigrationReady`. Stash WIP removes the state tracking entirely — just call `useAutoMigrations()` with no destructuring.
+**Pattern**: Hooks that run background side effects (migrations, analytics, prefetch) should return nothing unless callers genuinely need the state. If the only consumer checks `status === 'success' || 'skipped' || 'error'` to mean "done", the hook is always effectively done from the caller's perspective — remove the return value.
+**Why**: Exposing internal hook state creates unnecessary coupling. Callers add `isMigrationReady` guards that are effectively no-ops (the hook always resolves eventually). Removing the return value eliminates dead state variables.
+
 <!-- New patterns will be added below this line -->
