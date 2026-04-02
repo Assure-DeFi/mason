@@ -162,3 +162,10 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Why**: Exposing internal hook state creates unnecessary coupling. Callers add `isMigrationReady` guards that are effectively no-ops (the hook always resolves eventually). Removing the return value eliminates dead state variables.
 
 <!-- New patterns will be added below this line -->
+
+## Command Templates: Validate Select Columns Against Schema
+
+**Discovered**: 2026-04-01
+**Context**: Automated `/execute-approved` run hit Postgres error 42703 — `column mason_pm_backlog_items.file_path does not exist`. The command template (`execute-approved.md:346`) references `${item.file_path}:${item.line_number}` but neither column exists in the schema or `MIGRATION_SQL`.
+**Pattern**: When command templates reference `${item.field}` variables, every field MUST exist in the table schema. Before committing command template changes, verify each referenced field against `MIGRATION_SQL`. Dead column references cause hard Supabase REST errors (42703) on every automated run.
+**Why**: The agent's Supabase REST query included `file_path` in its `select=` parameter, causing a hard error on every autopilot run. The agent recovered by retrying without the column, but it wastes a cycle each time and clutters logs.
