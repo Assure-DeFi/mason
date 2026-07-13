@@ -169,3 +169,10 @@ Set `required_minimum` to force auto-update. This applies to ANY change affectin
 **Context**: Automated `/execute-approved` run hit Postgres error 42703 — `column mason_pm_backlog_items.file_path does not exist`. The command template (`execute-approved.md:346`) references `${item.file_path}:${item.line_number}` but neither column exists in the schema or `MIGRATION_SQL`.
 **Pattern**: When command templates reference `${item.field}` variables, every field MUST exist in the table schema. Before committing command template changes, verify each referenced field against `MIGRATION_SQL`. Dead column references cause hard Supabase REST errors (42703) on every automated run.
 **Why**: The agent's Supabase REST query included `file_path` in its `select=` parameter, causing a hard error on every autopilot run. The agent recovered by retrying without the column, but it wastes a cycle each time and clutters logs.
+
+## Git: Execute-Approved Branches Never Get Pushed — No-Upstream Branches Are Invisible to Ahead-Count Checks
+
+**Discovered**: 2026-07-12
+**Context**: Nightly compound push-state check found the ENTIRE local branch set — 65 branches, including every compound-learnings commit from Jan 31 through Apr 1 — absent from origin. Months of work existed on one machine only.
+**Pattern**: `/execute-approved` creates a local feature branch per item and never pushes it or sets an upstream. A branch with no upstream shows NO ahead-count in `git status -sb`, so the standard push-state gate reads vacuously clean forever. Verify push state by enumerating local refs against the remote: `git for-each-ref refs/heads` vs `git ls-remote origin`, and push any local-only branch with commits not on origin/main. All 65 were pushed 2026-07-12 (single multi-ref push, inline auth); `mason/autopilot-schedule-dashboard` now has upstream tracking set.
+**Why**: Ahead-count only exists relative to a configured upstream. A never-pushed branch has none, so the check is structurally incapable of catching it — the miss self-perpetuates every night. A machine loss would have destroyed all compound history and ~56 unmerged feature implementations.
