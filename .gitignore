@@ -17,6 +17,13 @@ coverage/
 # Test results
 test-results/
 
+# Battle-test / E2E derived output (regenerated every run — never commit).
+# Un-ignored these files kept `git status --porcelain` permanently dirty, which
+# the nightly compound driver reads as stranded work and stashes every night.
+.claude/battle-test/screenshots/*
+!.claude/battle-test/screenshots/.gitkeep
+.claude/e2e-test/results/
+
 # IDE
 .idea/
 .vscode/
