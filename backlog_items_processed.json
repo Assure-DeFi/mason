@@ -1,0 +1,300 @@
+{
+  "items": [
+    {
+      "title": "Add Smart Item Batching with Conflict Detection for Autopilot",
+      "prd_content": "# PRD: Add Smart Item Batching with Conflict Detection for Autopilot\n\n## Problem Statement\n\n### Current Situation\nAutopilot executes items one at a time without awareness of potential code conflicts. When multiple approved items touch the same files or components, sequential execution can cause merge conflicts, test failures, or overwrites.\n\n### Root Cause Analysis\nThe existing DependencyAnalysis system provides rich file-level data but execution engine does not leverage it for intelligent batching.\n\n### Impact Assessment\n- **Primary Users Affected**: Power users automating large improvements, automation/DevOps teams\n- **Problem Frequency**: On every multi-item execution cycle (daily-weekly)\n- **Current Workaround**: Manual sequential execution with careful file monitoring spreadsheets\n- **Business Cost**: Reduced confidence in system reliability, support escalations, process bottlenecks\n\n## Proposed Solution\n\n### Solution Overview\nImplement intelligent item batching that analyzes target_files and affected_files from the existing DependencyAnalysis data to detect potential conflicts. Group non-conflicting items for parallel execution and flag conflicting items for sequential handling.\n\n### Architecture & Integration\n\n- **ConflictDetectionService**: Analyzes DependencyAnalysis records, builds dependency graph\n- **BatchingPlanner**: Groups items into parallel-safe batches using graph coloring\n- **Modified ExecutionController**: Manages batch-level execution with coordination\n- **Monitoring Dashboard**: Shows batch composition and conflict analysis\n- **Integration Point**: ExecutionController.execute() → analyzeAndBatch() → executeBatches()\n\n\n## Success Criteria\n\n- [ ] **Functional**: Conflict detection correctly identifies file overlaps with <5% false positive rate\n- [ ] **Performance**: Execution time reduced by 40%+ for non-conflicting items\n- [ ] **User Satisfaction**: 85%+ of users report improved confidence\n\n## Technical Approach\n\n### Wave 1: Exploration (1-2 weeks)\n\n| Task | Owner | Duration | Deliverable |\n|------|-------|----------|-------------|\n| Analyze DependencyAnalysis schema and build graph models | Architecture | 3 days | Design doc + pseudocode |\n| Design conflict detection algorithm (graph theory) | Design | 3 days | Algorithm doc + visual mockups |\n| Create conflict test scenarios | QA | 2 days | 15+ test scenarios |\n| API/schema impact audit | Backend | 1 day | Breaking change assessment |\n\n### Wave 2: Implementation (2-3 weeks)\n\n| Task | Owner | Duration | Testing |\n|------|-------|----------|---------|\n| Core service implementation | Backend | 4 days | Unit tests (95%+ coverage) |\n| Integration with existing systems | Backend/Frontend | 3 days | Integration tests |\n| UI/UX implementation | Frontend | 2 days | Visual regression tests |\n| Docs, training, deployment | Docs/DevOps | 1 day | Updated guides, runbooks |\n\n## Risks & Mitigations\n\n| Risk | Probability | Impact | Mitigation |\n|------|-------------|--------|-----------|\n| Conflict detection false positives reduce parallelization benefit | Medium | High | Conservative algorithm; tunable sensitivity; monitor actual false positive rate |\n| Race conditions in parallel execution | Medium | Critical | Distributed locks per-file; atomic transactions; comprehensive logging |\n| Performance degradation at scale | Low | High | Batch size limits; caching strategy; profile against 1000+ items |\n| User confusion about new patterns | Medium | Medium | UX testing with 5+ users; inline help; documentation |\n\n## Out of Scope\n\n- Custom conflict resolution strategies, CI/CD integration beyond git, interactive conflict UI\n- Third-party integrations (defer to plugin system)\n- Extensive performance optimization (baseline acceptable)\n\n## Key Metrics & Success Tracking\n\n- **Adoption**: 60%+ of multi-item executions use batching\n- **Quality**: <5% false positive rate\n- **User Impact**: {{isAutopilot ? \"40%+ faster execution times\" : \"50%+ reduction in related support tickets\"}}\n",
+      "benefits": [
+        {
+          "category": "user_experience",
+          "icon": "user",
+          "title": "USER EXPERIENCE",
+          "description": "Execution becomes predictable and faster. Users understand which items run in parallel, building confidence in Autopilot reliability."
+        },
+        {
+          "category": "sales_team",
+          "icon": "users",
+          "title": "SALES TEAM",
+          "description": "Faster execution cycles reduce time-to-value for customers. Competitive advantage in demos vs sequential competitors."
+        },
+        {
+          "category": "operations",
+          "icon": "settings",
+          "title": "OPERATIONS",
+          "description": "Conflict detection removes manual coordination overhead. Teams can approve items with confidence, reducing approval cycle time."
+        },
+        {
+          "category": "performance",
+          "icon": "chart",
+          "title": "PERFORMANCE",
+          "description": "Parallel execution reduces total time-to-completion by 40-60% for non-conflicting items, enabling more ambitious automation."
+        },
+        {
+          "category": "reliability",
+          "icon": "wrench",
+          "title": "RELIABILITY",
+          "description": "Conflict detection prevents merge conflicts and test failures before they occur, improving success rates by 35%+."
+        }
+      ],
+      "risk_score": 10
+    },
+    {
+      "title": "Add Execution History with Diff Preview and Rollback Capability",
+      "prd_content": "# PRD: Add Execution History with Diff Preview and Rollback Capability\n\n## Problem Statement\n\n### Current Situation\nOnce items are marked completed, users have no way to see what code changes were made or revert problematic implementations.\n\n### Root Cause Analysis\nExecution progress data exists but is ephemeral - once marked complete, no audit trail remains.\n\n### Impact Assessment\n- **Primary Users Affected**: Users concerned about changeability, compliance officers, code reviewers\n- **Problem Frequency**: Post-execution review (2-3 times per week)\n- **Current Workaround**: Git log inspection + manual PR history searching\n- **Business Cost**: Reduced confidence in system reliability, support escalations, process bottlenecks\n\n## Proposed Solution\n\n### Solution Overview\nExtend the execution_progress table to capture git commit SHAs and diffs for each completed item. Add a 'Changes' tab showing actual code diff. Implement rollback action that creates revert PR.\n\n### Architecture & Integration\n\n- **ExecutionHistoryStore**: Captures git commit SHA and diffs post-execution\n- **DiffPreviewModal**: Displays file-level changes with syntax highlighting\n- **RollbackService**: Creates revert PRs with safety checks\n- **Enhanced ExecutionProgressRecord**: Adds git_commit_sha, diff_stats fields\n- **Integration Point**: completeExecution() → captureGitMetadata() → persistExecutionHistory()\n\n\n## Success Criteria\n\n- [ ] **Functional**: All completed executions preserve full git history and enable 1-click rollback\n- [ ] **Performance**: No measurable impact on dashboard performance\n- [ ] **User Satisfaction**: 85%+ of users report improved confidence\n\n## Technical Approach\n\n### Wave 1: Exploration (1-2 weeks)\n\n| Task | Owner | Duration | Deliverable |\n|------|-------|----------|-------------|\n| Design component state machine and UX flows | Architecture | 3 days | Design doc + pseudocode |\n| Create mockups in Figma | Design | 3 days | Algorithm doc + visual mockups |\n| Define edge cases and error states | QA | 2 days | 15+ test scenarios |\n| API/schema impact audit | Backend | 1 day | Breaking change assessment |\n\n### Wave 2: Implementation (2-3 weeks)\n\n| Task | Owner | Duration | Testing |\n|------|-------|----------|---------|\n| Core service implementation | Backend | 4 days | Unit tests (95%+ coverage) |\n| Integration with existing systems | Backend/Frontend | 3 days | Integration tests |\n| UI/UX implementation | Frontend | 2 days | Visual regression tests |\n| Docs, training, deployment | Docs/DevOps | 1 day | Updated guides, runbooks |\n\n## Risks & Mitigations\n\n| Risk | Probability | Impact | Mitigation |\n|------|-------------|--------|-----------|\n| Git metadata capture breaks existing execution flow | Low | High | Async git operations; fallback to no-metadata on failure |\n| Schema migration breaks backward compatibility | Medium | Critical | Backward-compatible migration; 1-week staging test |\n| Performance degradation at scale | Low | High | Pagination of execution history; archive old records |\n| User confusion about new patterns | Medium | Medium | UX testing with 5+ users; inline help; documentation |\n\n## Out of Scope\n\n- Three-way merge conflict resolution, automated recovery, historical analytics\n- Third-party integrations (defer to plugin system)\n- Extensive performance optimization (baseline acceptable)\n\n## Key Metrics & Success Tracking\n\n- **Adoption**: 70%+ positive feedback on new feature\n- **Quality**: <1% error rate\n- **User Impact**: {{isAutopilot ? \"40%+ faster execution times\" : \"50%+ reduction in related support tickets\"}}\n",
+      "benefits": [
+        {
+          "category": "user_experience",
+          "icon": "user",
+          "title": "USER EXPERIENCE",
+          "description": "Transparency into what code changed and ability to revert provides safety net for users concerned about implementation quality."
+        },
+        {
+          "category": "sales_team",
+          "icon": "users",
+          "title": "SALES TEAM",
+          "description": "Audit trail addresses enterprise compliance requirements (SOC2, change tracking). Rollback capability = risk reduction talking point."
+        },
+        {
+          "category": "operations",
+          "icon": "settings",
+          "title": "OPERATIONS",
+          "description": "Rollback capability reduces MTTR for problematic executions. Audit trail enables post-mortem analysis and continuous improvement."
+        },
+        {
+          "category": "performance",
+          "icon": "chart",
+          "title": "PERFORMANCE",
+          "description": "No impact - git metadata stored efficiently in database."
+        },
+        {
+          "category": "reliability",
+          "icon": "wrench",
+          "title": "RELIABILITY",
+          "description": "Full git history enables safe rollback for any issue. Complete audit trail for compliance and debugging."
+        }
+      ],
+      "risk_score": 8
+    },
+    {
+      "title": "Add Configurable Webhook Notifications for Execution Events",
+      "prd_content": "# PRD: Add Configurable Webhook Notifications for Execution Events\n\n## Problem Statement\n\n### Current Situation\nUsers can only see execution status through the dashboard in real-time. There is no way to receive notifications when autopilot completes runs or executions fail when away from the dashboard.\n\n### Root Cause Analysis\nDashboard-only visibility creates blind spots for users who need out-of-band notifications.\n\n### Impact Assessment\n- **Primary Users Affected**: Users who need 24/7 execution awareness, remote teams\n- **Problem Frequency**: Whenever long-running execution completes (multiple times daily)\n- **Current Workaround**: Constant dashboard polling or manual completion checks\n- **Business Cost**: Reduced confidence in system reliability, support escalations, process bottlenecks\n\n## Proposed Solution\n\n### Solution Overview\nAdd webhook configuration in Settings allowing users to specify endpoints for execution events. Implement server-side webhook dispatch. Support Slack, Discord, email via webhook templates.\n\n### Architecture & Integration\n\n- **WebhookManager**: Handles user webhook configuration and validation\n- **EventDispatcher**: Fires execution lifecycle events (started, completed, failed)\n- **RetryQueue**: Handles delivery failures with exponential backoff\n- **WebhookTemplate System**: Pre-built Slack, Discord, email formatters\n- **Integration Point**: ExecutionController state transitions → dispatch(event) → deliver via webhooks\n\n\n## Success Criteria\n\n- [ ] **Functional**: Webhooks deliver with 99.5% success rate and <30 second latency\n- [ ] **Performance**: No measurable impact on dashboard performance\n- [ ] **User Satisfaction**: 80%+ reduction in clarification questions\n\n## Technical Approach\n\n### Wave 1: Exploration (1-2 weeks)\n\n| Task | Owner | Duration | Deliverable |\n|------|-------|----------|-------------|\n| Design component state machine and UX flows | Architecture | 3 days | Design doc + pseudocode |\n| Create mockups in Figma | Design | 3 days | Algorithm doc + visual mockups |\n| Define edge cases and error states | QA | 2 days | 15+ test scenarios |\n| API/schema impact audit | Backend | 1 day | Breaking change assessment |\n\n### Wave 2: Implementation (2-3 weeks)\n\n| Task | Owner | Duration | Testing |\n|------|-------|----------|---------|\n| Core service implementation | Backend | 4 days | Unit tests (95%+ coverage) |\n| Integration with existing systems | Backend/Frontend | 3 days | Integration tests |\n| UI/UX implementation | Frontend | 2 days | Visual regression tests |\n| Docs, training, deployment | Docs/DevOps | 1 day | Updated guides, runbooks |\n\n## Risks & Mitigations\n\n| Risk | Probability | Impact | Mitigation |\n|------|-------------|--------|-----------|\n| Webhook delivery failures create silent failures | Low | High | Retry queue with DLQ; user-visible delivery status in dashboard |\n| Webhook endpoint abuse/DoS vector | Medium | Critical | Rate limiting per user; request signing; allowlist validation |\n| Performance degradation at scale | Low | High | Pagination of execution history; archive old records |\n| User confusion about new patterns | Medium | Medium | UX testing with 5+ users; inline help; documentation |\n\n## Out of Scope\n\n- Advanced auth schemes beyond basic signature, guaranteed delivery >99.5%, transformation pipelines\n- Third-party integrations (defer to plugin system)\n- Extensive performance optimization (baseline acceptable)\n\n## Key Metrics & Success Tracking\n\n- **Adoption**: 70%+ positive feedback on new feature\n- **Quality**: <1% error rate\n- **User Impact**: {{isAutopilot ? \"40%+ faster execution times\" : \"50%+ reduction in related support tickets\"}}\n",
+      "benefits": [
+        {
+          "category": "user_experience",
+          "icon": "user",
+          "title": "USER EXPERIENCE",
+          "description": "Always-on visibility into execution status. Users stay informed via preferred channels (Slack, Discord, email) instead of dashboard polling."
+        },
+        {
+          "category": "sales_team",
+          "icon": "users",
+          "title": "SALES TEAM",
+          "description": "Out-of-band notifications show sophistication and integration flexibility. Enterprise prospects value 24/7 visibility."
+        },
+        {
+          "category": "operations",
+          "icon": "settings",
+          "title": "OPERATIONS",
+          "description": "Integration with existing monitoring stacks (PagerDuty, Datadog, etc). Enables alerting on failures without custom integration."
+        },
+        {
+          "category": "performance",
+          "icon": "chart",
+          "title": "PERFORMANCE",
+          "description": "Event-driven webhooks are async with zero impact on execution performance."
+        },
+        {
+          "category": "reliability",
+          "icon": "wrench",
+          "title": "RELIABILITY",
+          "description": "Webhook retry logic with exponential backoff ensures 99.5%+ delivery rate. Decouples execution from notification delivery."
+        }
+      ],
+      "risk_score": 7
+    },
+    {
+      "title": "Add success microinteractions for inline approve/reject actions",
+      "prd_content": "# PRD: Add success microinteractions for inline approve/reject actions\n\n## Problem Statement\n\n### Current Situation\nWhen users click approve/reject buttons on table rows, the only feedback is a brief loading spinner. No satisfying visual confirmation.\n\n### Root Cause Analysis\nCurrent UI components provide minimal feedback on state changes, leading to user confusion.\n\n### Impact Assessment\n- **Primary Users Affected**: All backlog users interacting with UI controls\n- **Problem Frequency**: Multiple times per work session\n- **Current Workaround**: Undo + user memory, leading to repeated actions\n- **Business Cost**: Reduced confidence in system reliability, support escalations, process bottlenecks\n\n## Proposed Solution\n\n### Solution Overview\nAdd animated success checkmark/X microinteractions inline when approve/reject completes. Include subtle color flash on row background that fades after 300ms.\n\n### Architecture & Integration\n\n- **Enhanced state management** for tracking dirty/pending/success states\n- **Microinteraction animations** using Framer Motion (web) or native transitions\n- **Confirmation dialogs** with undo patterns\n- **Context-aware suggestions** in success toasts\n- **Integration Point**: Existing action handlers → enhanced with feedback\n\n\n## Success Criteria\n\n- [ ] **Functional**: Visual feedback appears within 100ms of action completion\n- [ ] **Performance**: No measurable impact on dashboard performance\n- [ ] **User Satisfaction**: 80%+ reduction in clarification questions\n\n## Technical Approach\n\n### Wave 1: Exploration (1-2 weeks)\n\n| Task | Owner | Duration | Deliverable |\n|------|-------|----------|-------------|\n| Design component state machine and UX flows | Architecture | 3 days | Design doc + pseudocode |\n| Create mockups in Figma | Design | 3 days | Algorithm doc + visual mockups |\n| Define edge cases and error states | QA | 2 days | 15+ test scenarios |\n| API/schema impact audit | Backend | 1 day | Breaking change assessment |\n\n### Wave 2: Implementation (2-3 weeks)\n\n| Task | Owner | Duration | Testing |\n|------|-------|----------|---------|\n| Core service implementation | Backend | 4 days | Unit tests (95%+ coverage) |\n| Integration with existing systems | Backend/Frontend | 3 days | Integration tests |\n| UI/UX implementation | Frontend | 2 days | Visual regression tests |\n| Docs, training, deployment | Docs/DevOps | 1 day | Updated guides, runbooks |\n\n## Risks & Mitigations\n\n| Risk | Probability | Impact | Mitigation |\n|------|-------------|--------|-----------|\n| Animation performance issues on slow devices | Low | High | GPU acceleration; test on lowest-spec devices; feature flag |\n| State synchronization across components | Medium | Critical | Test suite with concurrent action simulation |\n| Performance degradation at scale | Low | High | Pagination of execution history; archive old records |\n| User confusion about new patterns | Medium | Medium | UX testing with 5+ users; inline help; documentation |\n\n## Out of Scope\n\n- Animation customization, device-specific performance tuning\n- Third-party integrations (defer to plugin system)\n- Extensive performance optimization (baseline acceptable)\n\n## Key Metrics & Success Tracking\n\n- **Adoption**: 70%+ positive feedback on new feature\n- **Quality**: <1% error rate\n- **User Impact**: {{isAutopilot ? \"40%+ faster execution times\" : \"50%+ reduction in related support tickets\"}}\n",
+      "benefits": [
+        {
+          "category": "user_experience",
+          "icon": "user",
+          "title": "USER EXPERIENCE",
+          "description": "Polish and responsiveness create satisfying interaction. Users immediately know action succeeded without guessing."
+        },
+        {
+          "category": "sales_team",
+          "icon": "users",
+          "title": "SALES TEAM",
+          "description": "Microinteractions elevate perceived product quality in early demos, improving user first impressions."
+        },
+        {
+          "category": "operations",
+          "icon": "settings",
+          "title": "OPERATIONS",
+          "description": "Reduced ambiguity about action success means fewer support escalations and clarification requests."
+        },
+        {
+          "category": "performance",
+          "icon": "chart",
+          "title": "PERFORMANCE",
+          "description": "GPU-accelerated animations are imperceptible overhead, zero impact on system performance."
+        },
+        {
+          "category": "reliability",
+          "icon": "wrench",
+          "title": "RELIABILITY",
+          "description": "Atomic state transitions prevent race conditions. Clear feedback prevents accidental duplicate actions."
+        }
+      ],
+      "risk_score": 5
+    },
+    {
+      "title": "Add unsaved changes warning to item detail modal PRD editor",
+      "prd_content": "# PRD: Add unsaved changes warning to item detail modal PRD editor\n\n## Problem Statement\n\n### Current Situation\nThe ItemDetailModal allows PRD editing but has no protection against accidental data loss. Pressing Escape while editing immediately closes modal without warning.\n\n### Root Cause Analysis\nCurrent UI components provide minimal feedback on state changes, leading to user confusion.\n\n### Impact Assessment\n- **Primary Users Affected**: All backlog users interacting with UI controls\n- **Problem Frequency**: Multiple times per work session\n- **Current Workaround**: Undo + user memory, leading to repeated actions\n- **Business Cost**: Reduced confidence in system reliability, support escalations, process bottlenecks\n\n## Proposed Solution\n\n### Solution Overview\nTrack dirty state when PRD content is modified. Show confirmation dialog when user attempts to close modal with unsaved changes.\n\n### Architecture & Integration\n\n- **Enhanced state management** for tracking dirty/pending/success states\n- **Microinteraction animations** using Framer Motion (web) or native transitions\n- **Confirmation dialogs** with undo patterns\n- **Context-aware suggestions** in success toasts\n- **Integration Point**: Existing action handlers → enhanced with feedback\n\n\n## Success Criteria\n\n- [ ] **Functional**: Visual feedback appears within 100ms of action completion\n- [ ] **Performance**: No measurable impact on dashboard performance\n- [ ] **User Satisfaction**: 80%+ reduction in clarification questions\n\n## Technical Approach\n\n### Wave 1: Exploration (1-2 weeks)\n\n| Task | Owner | Duration | Deliverable |\n|------|-------|----------|-------------|\n| Design component state machine and UX flows | Architecture | 3 days | Design doc + pseudocode |\n| Create mockups in Figma | Design | 3 days | Algorithm doc + visual mockups |\n| Define edge cases and error states | QA | 2 days | 15+ test scenarios |\n| API/schema impact audit | Backend | 1 day | Breaking change assessment |\n\n### Wave 2: Implementation (2-3 weeks)\n\n| Task | Owner | Duration | Testing |\n|------|-------|----------|---------|\n| Core service implementation | Backend | 4 days | Unit tests (95%+ coverage) |\n| Integration with existing systems | Backend/Frontend | 3 days | Integration tests |\n| UI/UX implementation | Frontend | 2 days | Visual regression tests |\n| Docs, training, deployment | Docs/DevOps | 1 day | Updated guides, runbooks |\n\n## Risks & Mitigations\n\n| Risk | Probability | Impact | Mitigation |\n|------|-------------|--------|-----------|\n| Animation performance issues on slow devices | Low | High | GPU acceleration; test on lowest-spec devices; feature flag |\n| State synchronization across components | Medium | Critical | Test suite with concurrent action simulation |\n| Performance degradation at scale | Low | High | Pagination of execution history; archive old records |\n| User confusion about new patterns | Medium | Medium | UX testing with 5+ users; inline help; documentation |\n\n## Out of Scope\n\n- Animation customization, device-specific performance tuning\n- Third-party integrations (defer to plugin system)\n- Extensive performance optimization (baseline acceptable)\n\n## Key Metrics & Success Tracking\n\n- **Adoption**: 70%+ positive feedback on new feature\n- **Quality**: <1% error rate\n- **User Impact**: {{isAutopilot ? \"40%+ faster execution times\" : \"50%+ reduction in related support tickets\"}}\n",
+      "benefits": [
+        {
+          "category": "user_experience",
+          "icon": "user",
+          "title": "USER EXPERIENCE",
+          "description": "Protective confirmation prevents data loss. Work is preserved and recoverable if user accidentally hits Escape."
+        },
+        {
+          "category": "sales_team",
+          "icon": "users",
+          "title": "SALES TEAM",
+          "description": "Data protection shows attention to user needs and product maturity. Builds trust in early interactions."
+        },
+        {
+          "category": "operations",
+          "icon": "settings",
+          "title": "OPERATIONS",
+          "description": "Fewer data loss incidents = less recovery work and customer relations management."
+        },
+        {
+          "category": "performance",
+          "icon": "chart",
+          "title": "PERFORMANCE",
+          "description": "Minimal overhead - lightweight dirty state tracking."
+        },
+        {
+          "category": "reliability",
+          "icon": "wrench",
+          "title": "RELIABILITY",
+          "description": "Prevents silent data loss. Confirmation dialogs ensure user intent before destructive actions."
+        }
+      ],
+      "risk_score": 4
+    },
+    {
+      "title": "Add batch operation progress indicator with item-level status",
+      "prd_content": "# PRD: Add batch operation progress indicator with item-level status\n\n## Problem Statement\n\n### Current Situation\nWhen performing bulk actions on many items, users see a single loading spinner with no indication of progress.\n\n### Root Cause Analysis\nCurrent UI components provide minimal feedback on state changes, leading to user confusion.\n\n### Impact Assessment\n- **Primary Users Affected**: All backlog users interacting with UI controls\n- **Problem Frequency**: Multiple times per work session\n- **Current Workaround**: Undo + user memory, leading to repeated actions\n- **Business Cost**: Reduced confidence in system reliability, support escalations, process bottlenecks\n\n## Proposed Solution\n\n### Solution Overview\nReplace single loading spinner with progress indicator showing 'Processing X of Y items...' with mini-toast for each completed item.\n\n### Architecture & Integration\n\n- **Enhanced state management** for tracking dirty/pending/success states\n- **Microinteraction animations** using Framer Motion (web) or native transitions\n- **Confirmation dialogs** with undo patterns\n- **Context-aware suggestions** in success toasts\n- **Integration Point**: Existing action handlers → enhanced with feedback\n\n\n## Success Criteria\n\n- [ ] **Functional**: Visual feedback appears within 100ms of action completion\n- [ ] **Performance**: No measurable impact on dashboard performance\n- [ ] **User Satisfaction**: 80%+ reduction in clarification questions\n\n## Technical Approach\n\n### Wave 1: Exploration (1-2 weeks)\n\n| Task | Owner | Duration | Deliverable |\n|------|-------|----------|-------------|\n| Design component state machine and UX flows | Architecture | 3 days | Design doc + pseudocode |\n| Create mockups in Figma | Design | 3 days | Algorithm doc + visual mockups |\n| Define edge cases and error states | QA | 2 days | 15+ test scenarios |\n| API/schema impact audit | Backend | 1 day | Breaking change assessment |\n\n### Wave 2: Implementation (2-3 weeks)\n\n| Task | Owner | Duration | Testing |\n|------|-------|----------|---------|\n| Core service implementation | Backend | 4 days | Unit tests (95%+ coverage) |\n| Integration with existing systems | Backend/Frontend | 3 days | Integration tests |\n| UI/UX implementation | Frontend | 2 days | Visual regression tests |\n| Docs, training, deployment | Docs/DevOps | 1 day | Updated guides, runbooks |\n\n## Risks & Mitigations\n\n| Risk | Probability | Impact | Mitigation |\n|------|-------------|--------|-----------|\n| Animation performance issues on slow devices | Low | High | GPU acceleration; test on lowest-spec devices; feature flag |\n| State synchronization across components | Medium | Critical | Test suite with concurrent action simulation |\n| Performance degradation at scale | Low | High | Pagination of execution history; archive old records |\n| User confusion about new patterns | Medium | Medium | UX testing with 5+ users; inline help; documentation |\n\n## Out of Scope\n\n- Animation customization, device-specific performance tuning\n- Third-party integrations (defer to plugin system)\n- Extensive performance optimization (baseline acceptable)\n\n## Key Metrics & Success Tracking\n\n- **Adoption**: 70%+ positive feedback on new feature\n- **Quality**: <1% error rate\n- **User Impact**: {{isAutopilot ? \"40%+ faster execution times\" : \"50%+ reduction in related support tickets\"}}\n",
+      "benefits": [
+        {
+          "category": "user_experience",
+          "icon": "user",
+          "title": "USER EXPERIENCE",
+          "description": "Real-time progress updates eliminate uncertainty during bulk operations. Users know completion ETA and can multi-task."
+        },
+        {
+          "category": "sales_team",
+          "icon": "users",
+          "title": "SALES TEAM",
+          "description": "Progress visibility shows attention to detail and user experience thoughtfulness."
+        },
+        {
+          "category": "operations",
+          "icon": "settings",
+          "title": "OPERATIONS",
+          "description": "Progress tracking enables SLA monitoring and capacity planning based on actual throughput."
+        },
+        {
+          "category": "performance",
+          "icon": "chart",
+          "title": "PERFORMANCE",
+          "description": "Throttled progress updates via debounce prevent render thrashing."
+        },
+        {
+          "category": "reliability",
+          "icon": "wrench",
+          "title": "RELIABILITY",
+          "description": "Progress checkpointing enables partial recovery from failures."
+        }
+      ],
+      "risk_score": 5
+    },
+    {
+      "title": "Add Contextual Action Success Feedback with Next Step Suggestions",
+      "prd_content": "# PRD: Add Contextual Action Success Feedback with Next Step Suggestions\n\n## Problem Statement\n\n### Current Situation\nAfter bulk actions like approving items, users see a brief undo toast but receive no guidance on what to do next.\n\n### Root Cause Analysis\nCurrent UI components provide minimal feedback on state changes, leading to user confusion.\n\n### Impact Assessment\n- **Primary Users Affected**: All backlog users interacting with UI controls\n- **Problem Frequency**: Multiple times per work session\n- **Current Workaround**: Undo + user memory, leading to repeated actions\n- **Business Cost**: Reduced confidence in system reliability, support escalations, process bottlenecks\n\n## Proposed Solution\n\n### Solution Overview\nEnhance undo toast to include contextual next-step suggestions based on action taken. Include 'Show me' button that navigates to relevant area.\n\n### Architecture & Integration\n\n- **Enhanced state management** for tracking dirty/pending/success states\n- **Microinteraction animations** using Framer Motion (web) or native transitions\n- **Confirmation dialogs** with undo patterns\n- **Context-aware suggestions** in success toasts\n- **Integration Point**: Existing action handlers → enhanced with feedback\n\n\n## Success Criteria\n\n- [ ] **Functional**: Visual feedback appears within 100ms of action completion\n- [ ] **Performance**: No measurable impact on dashboard performance\n- [ ] **User Satisfaction**: 80%+ reduction in clarification questions\n\n## Technical Approach\n\n### Wave 1: Exploration (1-2 weeks)\n\n| Task | Owner | Duration | Deliverable |\n|------|-------|----------|-------------|\n| Design component state machine and UX flows | Architecture | 3 days | Design doc + pseudocode |\n| Create mockups in Figma | Design | 3 days | Algorithm doc + visual mockups |\n| Define edge cases and error states | QA | 2 days | 15+ test scenarios |\n| API/schema impact audit | Backend | 1 day | Breaking change assessment |\n\n### Wave 2: Implementation (2-3 weeks)\n\n| Task | Owner | Duration | Testing |\n|------|-------|----------|---------|\n| Core service implementation | Backend | 4 days | Unit tests (95%+ coverage) |\n| Integration with existing systems | Backend/Frontend | 3 days | Integration tests |\n| UI/UX implementation | Frontend | 2 days | Visual regression tests |\n| Docs, training, deployment | Docs/DevOps | 1 day | Updated guides, runbooks |\n\n## Risks & Mitigations\n\n| Risk | Probability | Impact | Mitigation |\n|------|-------------|--------|-----------|\n| Animation performance issues on slow devices | Low | High | GPU acceleration; test on lowest-spec devices; feature flag |\n| State synchronization across components | Medium | Critical | Test suite with concurrent action simulation |\n| Performance degradation at scale | Low | High | Pagination of execution history; archive old records |\n| User confusion about new patterns | Medium | Medium | UX testing with 5+ users; inline help; documentation |\n\n## Out of Scope\n\n- Animation customization, device-specific performance tuning\n- Third-party integrations (defer to plugin system)\n- Extensive performance optimization (baseline acceptable)\n\n## Key Metrics & Success Tracking\n\n- **Adoption**: 70%+ positive feedback on new feature\n- **Quality**: <1% error rate\n- **User Impact**: {{isAutopilot ? \"40%+ faster execution times\" : \"50%+ reduction in related support tickets\"}}\n",
+      "benefits": [
+        {
+          "category": "user_experience",
+          "icon": "user",
+          "title": "USER EXPERIENCE",
+          "description": "Contextual guidance reduces cognitive load. Users discover related features and next logical steps naturally."
+        },
+        {
+          "category": "sales_team",
+          "icon": "users",
+          "title": "SALES TEAM",
+          "description": "Contextual help shows product understands workflows, not just features. Improves feature discoverability in demos."
+        },
+        {
+          "category": "operations",
+          "icon": "settings",
+          "title": "OPERATIONS",
+          "description": "Guided workflows reduce onboarding time for new team members and support questions."
+        },
+        {
+          "category": "performance",
+          "icon": "chart",
+          "title": "PERFORMANCE",
+          "description": "Lightweight toast-based suggestions, zero layout impact."
+        },
+        {
+          "category": "reliability",
+          "icon": "wrench",
+          "title": "RELIABILITY",
+          "description": "Prevents users getting stuck or taking wrong next actions."
+        }
+      ],
+      "risk_score": 4
+    },
+    {
+      "title": "Add Empty State Guidance for Filtered Views",
+      "prd_content": "# PRD: Add Empty State Guidance for Filtered Views\n\n## Problem Statement\n\n### Current Situation\nWhen users apply filters that result in no matching items, they see confusing empty backlog state designed for onboarding new users.\n\n### Root Cause Analysis\nCurrent UI components provide minimal feedback on state changes, leading to user confusion.\n\n### Impact Assessment\n- **Primary Users Affected**: All backlog users interacting with UI controls\n- **Problem Frequency**: Multiple times per work session\n- **Current Workaround**: Undo + user memory, leading to repeated actions\n- **Business Cost**: Reduced confidence in system reliability, support escalations, process bottlenecks\n\n## Proposed Solution\n\n### Solution Overview\nCreate distinct FilteredEmptyState component that recognizes when items exist but are filtered out. Show 'No items match your filters' with clear filters button.\n\n### Architecture & Integration\n\n- **Enhanced state management** for tracking dirty/pending/success states\n- **Microinteraction animations** using Framer Motion (web) or native transitions\n- **Confirmation dialogs** with undo patterns\n- **Context-aware suggestions** in success toasts\n- **Integration Point**: Existing action handlers → enhanced with feedback\n\n\n## Success Criteria\n\n- [ ] **Functional**: Visual feedback appears within 100ms of action completion\n- [ ] **Performance**: No measurable impact on dashboard performance\n- [ ] **User Satisfaction**: 80%+ reduction in clarification questions\n\n## Technical Approach\n\n### Wave 1: Exploration (1-2 weeks)\n\n| Task | Owner | Duration | Deliverable |\n|------|-------|----------|-------------|\n| Design component state machine and UX flows | Architecture | 3 days | Design doc + pseudocode |\n| Create mockups in Figma | Design | 3 days | Algorithm doc + visual mockups |\n| Define edge cases and error states | QA | 2 days | 15+ test scenarios |\n| API/schema impact audit | Backend | 1 day | Breaking change assessment |\n\n### Wave 2: Implementation (2-3 weeks)\n\n| Task | Owner | Duration | Testing |\n|------|-------|----------|---------|\n| Core service implementation | Backend | 4 days | Unit tests (95%+ coverage) |\n| Integration with existing systems | Backend/Frontend | 3 days | Integration tests |\n| UI/UX implementation | Frontend | 2 days | Visual regression tests |\n| Docs, training, deployment | Docs/DevOps | 1 day | Updated guides, runbooks |\n\n## Risks & Mitigations\n\n| Risk | Probability | Impact | Mitigation |\n|------|-------------|--------|-----------|\n| Animation performance issues on slow devices | Low | High | GPU acceleration; test on lowest-spec devices; feature flag |\n| State synchronization across components | Medium | Critical | Test suite with concurrent action simulation |\n| Performance degradation at scale | Low | High | Pagination of execution history; archive old records |\n| User confusion about new patterns | Medium | Medium | UX testing with 5+ users; inline help; documentation |\n\n## Out of Scope\n\n- Animation customization, device-specific performance tuning\n- Third-party integrations (defer to plugin system)\n- Extensive performance optimization (baseline acceptable)\n\n## Key Metrics & Success Tracking\n\n- **Adoption**: 70%+ positive feedback on new feature\n- **Quality**: <1% error rate\n- **User Impact**: {{isAutopilot ? \"40%+ faster execution times\" : \"50%+ reduction in related support tickets\"}}\n",
+      "benefits": [
+        {
+          "category": "user_experience",
+          "icon": "user",
+          "title": "USER EXPERIENCE",
+          "description": "Clear empty states prevent confusion. Users understand system state and how to adjust filters to see items."
+        },
+        {
+          "category": "sales_team",
+          "icon": "users",
+          "title": "SALES TEAM",
+          "description": "Polish in empty states shows product maturity and attention to user experience."
+        },
+        {
+          "category": "operations",
+          "icon": "settings",
+          "title": "OPERATIONS",
+          "description": "Reduces support questions about why backlog appears empty when using filters."
+        },
+        {
+          "category": "performance",
+          "icon": "chart",
+          "title": "PERFORMANCE",
+          "description": "Simple component swap with zero performance impact."
+        },
+        {
+          "category": "reliability",
+          "icon": "wrench",
+          "title": "RELIABILITY",
+          "description": "Prevents incorrect mental models about system state (empty vs filtered)."
+        }
+      ],
+      "risk_score": 3
+    }
+  ]
+}
